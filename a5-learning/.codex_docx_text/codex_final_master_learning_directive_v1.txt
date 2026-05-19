@@ -1,0 +1,832 @@
+﻿Table of Contents
+Codex 최종 학습/작업 지시서 v1.0
+작성일: 2026-05-18
+프로젝트: 산후조리원 폐쇄몰 기반 기업 입점형 QR 결제 쇼핑몰 시스템
+본 최종본은 다음 근거를 기준으로 작성한다.
+업로드 작업지시서(2026-04-30): 폐쇄몰 기능, 태블릿 전용 노출, QR 결제/조르기, 2~3시간 링크 제한, 비회원 주문조회, 명품쇼핑몰 재고량 연동 API, 가격비교 기능, 최종 견적 13,000,000원, 작업일수 43작업일 + 테스트 4일.
+OpenAI Codex 공식 문서: Codex는 AGENTS.md를 작업 전 지침으로 읽고, sandbox/approval 범위에서 작업하며, GitHub Action 자동화는 API Key 및 권한 설정이 필요하다.
+Firebase 공식 문서: Firebase는 환경별 별도 프로젝트 사용을 권장하며, Auth/Firestore Rules/Custom Claims/Functions/Cloud Run/Secret Manager를 조합해 서버/권한/보안 구조를 구성할 수 있다.
+00_README_FIRST - Codex 최종 학습/작업 지시서
+목적
+이 문서팩은 Codex Pro가 산후조리원 폐쇄몰 기반 기업 입점형 QR 결제 쇼핑몰 시스템를 단순 쇼핑몰로 오해하지 않고, 원본 작업지시서와 현재 A 프로젝트 컴퓨터의 실제 원본파일을 교차 분석한 뒤 단계별로 안전하게 생성하도록 하는 최종 지시서다.
+중요: Codex가 문서를 읽는 것은 영구 학습이 아니다. Codex는 현재 작업 세션과 repository에 있는 문서를 컨텍스트로 읽고 작업한다. 그러므로 이 문서팩은 프로젝트 루트에 유지되어야 한다.
+Codex가 반드시 먼저 해야 할 일
+AGENTS.md를 읽는다.
+01_PROJECT_CONTEXT_MASTER.md를 읽는다.
+02_A_PROJECT_AUDIT_PROTOCOL.md를 읽는다.
+아직 코딩하지 않는다.
+현재 A 프로젝트 원본 파일을 스캔한다.
+원본 파일과 본 문서팩 요구사항의 차이를 A_PROJECT_GAP_ANALYSIS.md로 작성한다.
+Firebase 기존 프로젝트를 쓸지, 새 프로젝트를 만들지 FIREBASE_DECISION_REPORT.md로 판단한다.
+대표님 승인 전까지 실제 구현을 시작하지 않는다.
+절대 원칙
+추측 코딩 금지.
+공식 API 문서 없는 PG/알림톡/배송조회/외부 재고 API 실제 구현 금지.
+운영 배포 금지.
+실결제, 실환불, 운영 부분취소, 정산 지급 실행 금지.
+Secret Key를 코드, 프론트, GitHub에 직접 저장 금지.
+기존 A 프로젝트 파일을 먼저 삭제하거나 덮어쓰기 금지.
+원본 보존 후 비교 분석이 우선.
+최종 산출물 순서
+A_PROJECT_FILE_INVENTORY.md
+A_PROJECT_ARCHITECTURE_MAP.md
+A_PROJECT_GAP_ANALYSIS.md
+A_PROJECT_RISK_REGISTER.md
+INSTALLATION_STATUS_REPORT.md
+FIREBASE_DECISION_REPORT.md
+MIGRATION_OR_REBUILD_PLAN.md
+대표님 승인 후 기능별 생성
+사용 방식
+이 zip을 A 프로젝트 루트에 압축 해제한다. 그 다음 Codex에 다음 문장을 넣는다.
+AGENTS.md와 00_README_FIRST.md부터 읽어라. 아직 코딩하지 말고, 현재 A 프로젝트 원본 파일을 먼저 스캔해서 A_PROJECT_FILE_INVENTORY.md, A_PROJECT_GAP_ANALYSIS.md, FIREBASE_DECISION_REPORT.md를 작성하라. 기존 파일 삭제, 덮어쓰기, 운영 배포, 실결제, Secret Key 작업은 금지한다.
+AGENTS.md - Codex 작업 지침
+프로젝트명
+산후조리원 폐쇄몰 기반 기업 입점형 QR 결제 쇼핑몰 시스템
+프로젝트 정의
+이 프로젝트는 산후조리원 객실 태블릿에서만 상품을 보고 장바구니를 구성한 뒤, 고객이 QR 또는 조르기 링크를 통해 비회원 간편결제를 진행하는 폐쇄몰형 입점 커머스 시스템이다. 입점 기업은 상품, 재고, 주문, 배송, 매출, 입금 현황을 관리하고, 최고관리자는 산후조리원, 객실, 태블릿, 입점사, 상품 승인, 주문, 결제, 정산, 환불, 알림, 보안 로그를 통제한다.
+Codex 최상위 역할
+Codex는 구현 에이전트다. 그러나 처음부터 구현하면 안 된다. 먼저 현재 A 프로젝트 원본 파일과 본 문서팩 요구사항을 교차 분석해야 한다.
+작업 전 필수 읽기 순서
+AGENTS.md
+00_README_FIRST.md
+01_PROJECT_CONTEXT_MASTER.md
+02_A_PROJECT_AUDIT_PROTOCOL.md
+03_INSTALLATION_PRIORITY.md
+04_FIREBASE_DECISION_MATRIX.md
+05_WORKFLOW_PRIORITY.md
+06_AUTOMATION_POLICY.md
+08_PROGRAM_MODULE_MAP.md
+10_VALIDATION_AND_QA_GATES.md
+절대 금지
+추측 코딩 금지.
+공식 문서 없는 외부 API 실제 구현 금지.
+기존 파일 삭제 금지.
+기존 파일 대량 덮어쓰기 금지.
+운영 배포 금지.
+실결제 실행 금지.
+실환불 실행 금지.
+운영 부분취소 실행 금지.
+정산 지급 완료 처리 금지.
+Secret Key를 코드 또는 프론트에 작성 금지.
+.env, service account, private key 파일을 생성하거나 커밋 금지.
+대표님 승인 전 Firebase 운영 프로젝트에 배포 금지.
+반드시 중단해야 하는 조건
+아래 조건이 발생하면 코드 수정을 중단하고 BLOCKERS.md에 기록한다.
+PG 테스트 MID 또는 공식 문서가 없음.
+카카오 알림톡 발송사/템플릿 코드가 없음.
+배송조회 API 문서가 없음.
+외부 재고 API 공식 규격서가 없음.
+Firebase 운영 프로젝트와 개발 프로젝트가 구분되지 않음.
+Firestore Rules를 수정해야 하지만 권한 정책이 불명확함.
+결제, 환불, 정산, 보안 파일을 자동으로 고쳐야 하는 상황.
+수정 파일이 15개를 초과할 가능성이 있음.
+데이터 원칙
+고객은 회원가입하지 않는다.
+고객은 태블릿 장바구니 이후 QR 결제만 진행한다.
+산후조리원이 가입하고 객실/태블릿을 등록한다.
+QR 결제 출처는 nursery_id, room_id, tablet_id, cart_id, qr_session_id 기준으로 저장한다.
+입점사는 자기 company_id 데이터만 접근한다.
+산후조리원은 자기 nursery_id 데이터만 접근한다.
+주문 후 상품명/가격/옵션은 snapshot으로 저장한다.
+정산은 orders가 아니라 order_items 기준으로 company_id별 계산한다.
+결제 금액은 프론트 값을 믿지 않고 서버에서 재계산한다.
+모든 결제/환불/정산 변경은 audit log 또는 financial event로 남긴다.
+작업 완료 보고 형식
+모든 작업 끝에는 다음 형식으로 보고한다.
+작업명: 작업 유형: 분석 / 문서 / UI / CRUD / 서버초안 / 검증 / 오류수정 수정한 파일: 추가한 파일: 읽은 기준 문서: 실행한 테스트: 성공한 항목: 실패한 항목: 중단한 항목: 사람 확인 필요 항목: 다음 추천 작업:
+01_PROJECT_CONTEXT_MASTER - 프로젝트 전체 맥락
+본 최종본은 다음 근거를 기준으로 작성한다.
+업로드 작업지시서(2026-04-30): 폐쇄몰 기능, 태블릿 전용 노출, QR 결제/조르기, 2~3시간 링크 제한, 비회원 주문조회, 명품쇼핑몰 재고량 연동 API, 가격비교 기능, 최종 견적 13,000,000원, 작업일수 43작업일 + 테스트 4일.
+OpenAI Codex 공식 문서: Codex는 AGENTS.md를 작업 전 지침으로 읽고, sandbox/approval 범위에서 작업하며, GitHub Action 자동화는 API Key 및 권한 설정이 필요하다.
+Firebase 공식 문서: Firebase는 환경별 별도 프로젝트 사용을 권장하며, Auth/Firestore Rules/Custom Claims/Functions/Cloud Run/Secret Manager를 조합해 서버/권한/보안 구조를 구성할 수 있다.
+1. 프로젝트 한 줄 정의
+산후조리원 객실 태블릿에서만 상품을 보고, 고객이 QR 또는 조르기 링크로 비회원 간편결제만 수행하며, 입점 기업은 ERP형 Admin으로 상품/재고/주문/배송/매출/입금 현황을 관리하고, 최고관리자는 전체 결제/정산/보안/알림을 통제하는 폐쇄몰형 입점 쇼핑몰이다.
+2. 고객/운영자 구조
+주체
+회원가입
+로그인
+역할
+고객/산모/보호자
+없음
+없음
+QR 결제, 비회원 주문조회
+결제자/조르기 수신자
+없음
+없음
+공유 링크 결제
+산후조리원
+있음
+있음
+객실, 태블릿, 현장수령 관리
+입점 기업
+있음
+있음
+상품, 재고, 주문, 배송, 매출, 입금 현황 관리
+최고관리자
+있음
+있음
+전체 시스템 관리
+태블릿
+계정 아님
+device/session
+폐쇄몰 상품 조회 및 QR 생성
+3. 필수 시스템 묶음
+최고 관리자 웹
+기업 Admin 웹
+산후조리원 Admin 웹
+태블릿 폐쇄몰 웹
+고객 QR 결제 웹
+Firebase 서버/DB/파일/보안
+Cloud Functions 결제/알림/QR 서버
+Cloud Run 정산/원장/외부 API 서버
+PG 결제/취소/부분취소/환불 모듈
+카카오 알림톡/SMS fallback 모듈
+배송조회/택배 알림 모듈
+외부 재고 API/ERP 연동 모듈
+매출/정산/입금/원장 모듈
+보안/감사/로그/백업 모듈
+4. 원본 작업지시서 핵심 범위
+폐쇄몰: 태블릿 앱에서만 노출, 브라우저 도메인 직접 접속 차단 요구.
+QR/조르기 링크: 일정 시간만 접속, 2~3시간 제한, 만료 후 연결 불가.
+비회원 쇼핑몰: 회원가입/로그인 없음.
+재고량 연동 API: 외부 쇼핑몰 재고량만 연동, 상품 고유값 등록 필요.
+가격비교: 실제 AI가 아니라 등록 금액 대비 할인 비교.
+QR 결제/조르기: 장바구니 묶음 전달, 단축 URL, 본인 결제 또는 제3자 공유 결제, 현장수령/택배배송 분기.
+비회원 주문조회.
+기존 견적 범위: 43작업일 + 테스트 4일, 최종 금액 13,000,000원.
+5. 핵심 쇼핑몰 원장
+원장
+기준 컬렉션/모듈
+설명
+상품 원장
+products
+입점사가 등록하고 관리자 승인
+옵션 원장
+product_options
+옵션별 가격/재고
+재고 원장
+inventory_movements
+입출고/차감/복구 이력
+장바구니 원장
+carts, cart_items
+태블릿에서 생성
+QR 세션 원장
+qr_payment_sessions
+1회성/만료/출처 추적
+결제 원장
+payments, payment_events
+PG 승인/취소/환불
+주문 원장
+orders
+고객 결제 단위
+주문상세 원장
+order_items
+입점사별 분리/정산 기준
+배송 원장
+delivery_events
+택배 상태
+현장수령 원장
+pickup_events
+조리원 수령 상태
+환불 원장
+refunds
+취소/환불 요청 및 승인
+정산 원장
+settlements
+입점사별 기간 정산
+입금 원장
+payouts
+플랫폼 → 입점사 지급 기록
+알림 원장
+notification_logs
+알림톡/SMS 기록
+감사 원장
+audit_logs
+모든 관리자 변경 기록
+6. 데이터 꼬임 방지 원칙
+주문이 생성되면 상품명, 옵션, 판매가, 배송비는 snapshot으로 저장한다.
+결제 완료 후 상품 가격이 바뀌어도 기존 주문 금액은 바뀌지 않는다.
+QR 세션은 paid 또는 expired 이후 재사용 불가다.
+결제 승인, 주문 생성, 재고 차감은 원자적 처리 또는 보상 처리 흐름이 필요하다.
+정산은 실시간 계산값이 아니라 기간별 snapshot 확정값으로 관리한다.
+입금 완료 처리는 최고관리자만 가능하다.
+7. AI 가격 분석 기능의 정확한 정의
+AI 가격 분석은 실제 AI 모델이 아니다. 입점 기업이 등록한 원가, 플랫폼 최저가, 폐쇄몰 가격을 단순 비교하여 고객에게 할인 금액을 안내하는 형식적 기능이다.
+예시:
+항목
+금액
+원가
+10,000원
+플랫폼 최저가
+9,000원
+폐쇄몰 가격
+8,000원
+고객 안내:
+AI 가격 분석 결과 폐쇄몰에서 약 1,000원 저렴하게 구매 가능합니다.
+8. 위험 기능
+PG 결제 승인/취소/부분취소/환불.
+QR 중복 결제 방지.
+정산/입금 계산.
+Firestore Rules 권한.
+비회원 주문조회 개인정보.
+카카오 알림톡 실제 발송.
+외부 재고 API 실제 동기화.
+02_A_PROJECT_AUDIT_PROTOCOL - 현재 A 프로젝트 원본파일 교차 분석 절차
+목적
+현재 대표님 컴퓨터의 A 프로젝트 원본파일을 함부로 수정하지 않고, 본 최종본 요구사항과 비교하여 무엇을 유지하고, 무엇을 수정하고, 무엇을 새로 만들어야 하는지 판단한다.
+Codex가 가장 먼저 해야 할 작업
+아직 코딩하지 않는다. 먼저 다음 파일을 작성한다.
+A_PROJECT_FILE_INVENTORY.md
+A_PROJECT_ARCHITECTURE_MAP.md
+A_PROJECT_GAP_ANALYSIS.md
+A_PROJECT_RISK_REGISTER.md
+A_PROJECT_FIREBASE_REPORT.md
+INSTALLATION_STATUS_REPORT.md
+MIGRATION_OR_REBUILD_PLAN.md
+원본 보존 원칙
+현재 원본 파일을 삭제하지 않는다.
+현재 원본 파일을 대량 덮어쓰지 않는다.
+코딩 시작 전 파일 목록과 구조를 기록한다.
+기존 기능이 있는 경우 Keep / Modify / Replace / Remove / Unknown으로 분류한다.
+Remove는 대표님 승인 전 실행 금지.
+파일 인벤토리 분석 항목
+Codex는 현재 프로젝트에서 다음을 찾는다.
+1. 저장소/프로젝트 기본
+.git 존재 여부
+현재 브랜치
+remote origin
+package.json
+pnpm-lock.yaml / package-lock.json / yarn.lock
+README.md
+docs 폴더
+AGENTS.md 존재 여부
+CLAUDE.md 존재 여부
+2. Next.js 여부
+next.config.js / next.config.ts
+src/app 또는 app 디렉터리
+pages 디렉터리
+components 디렉터리
+middleware.ts
+tsconfig.json
+tailwind.config.*
+eslint/prettier 설정
+3. Flutter 여부
+pubspec.yaml
+lib/main.dart
+web/index.html
+android/ios 디렉터리
+flutter 관련 firebase config
+4. Firebase/GCP 여부
+firebase.json
+.firebaserc
+firestore.rules
+firestore.indexes.json
+storage.rules
+functions 디렉터리
+functions/package.json
+service account 파일 존재 여부
+.env 관련 파일 존재 여부
+Firebase app config 파일 존재 여부
+5. 필수 모듈 존재 여부
+admin_web
+company_admin_web
+nursery_admin_web
+tablet_shop_web
+qr_payment_web
+functions/payments
+functions/refunds
+functions/qr_sessions
+functions/notifications
+functions/delivery
+functions/external_stock
+cloudrun/settlement_service
+cloudrun/ledger_service
+Gap Analysis 출력 형식
+Codex는 아래 표로 작성한다.
+요구 기능
+현재 파일/모듈
+상태
+판단
+다음 조치
+최고관리자 대시보드
+없음/있음
+Missing/Partial/Complete
+생성/수정/유지
+1순위/2순위
+상태값:
+Complete: 요구사항 충족.
+Partial: 일부 존재하나 보완 필요.
+Missing: 없음.
+Risk: 존재하지만 구조가 위험함.
+Unknown: 확인 불가.
+판단값:
+Keep: 유지.
+Modify: 일부 수정.
+Replace: 재작성 권장.
+Create: 신규 생성.
+Block: 정보 부족으로 중단.
+A 프로젝트 감사용 Codex 첫 명령어
+현재 A 프로젝트 원본 파일을 먼저 분석해라. 아직 코딩하지 마라. 작업: 1. 파일 구조를 스캔한다. 2. Next.js, Flutter, Firebase, Functions, Cloud Run, GitHub 설정 존재 여부를 확인한다. 3. AGENTS.md 기준으로 요구 기능과 현재 파일을 비교한다. 4. A_PROJECT_FILE_INVENTORY.md를 작성한다. 5. A_PROJECT_ARCHITECTURE_MAP.md를 작성한다. 6. A_PROJECT_GAP_ANALYSIS.md를 작성한다. 7. A_PROJECT_FIREBASE_REPORT.md를 작성한다. 8. INSTALLATION_STATUS_REPORT.md를 작성한다. 9. 코딩, 삭제, 덮어쓰기, 배포는 하지 않는다.
+승인 전 금지
+새 프로젝트 생성.
+Firebase 연결.
+운영 DB 접근.
+파일 삭제.
+결제/환불/정산 코드 수정.
+Secret Key 입력.
+배포.
+03_INSTALLATION_PRIORITY - 최우선 설치 프로그램 및 순서
+전체 원칙
+설치 순서는 개발 속도보다 데이터 보존과 권한 분리를 우선한다. 현재 A 프로젝트 원본 파일 감사 전에는 새 기능 코딩을 시작하지 않는다.
+0순위 - 원본 보존
+순서
+항목
+목적
+Codex 자동 여부
+0-1
+A 프로젝트 폴더 백업
+원본 보존
+Codex 제안만, 실행은 사람
+0-2
+Git 상태 확인
+원본 변경 추적
+Codex 가능
+0-3
+baseline 태그/브랜치
+변경 전 기준점
+사람 승인 후
+0-4
+.env/secret 확인
+유출 방지
+Codex는 내용 읽지 않음
+1순위 - Git/GitHub
+설치/계정
+목적
+우선도
+Git
+버전관리
+필수
+GitHub 계정
+원격 저장소
+필수
+GitHub CLI
+PR/Issue/원격 작업
+권장
+GitHub Actions
+자동 테스트/리뷰
+필수
+Branch Protection
+main 보호
+필수
+결정 기준:
+기존 GitHub 저장소가 있으면 remote/branch/권한을 확인한다.
+기존 저장소에 실서비스 코드가 있으면 새 브랜치에서만 작업한다.
+저장소가 없으면 새 private repository를 만든다.
+2순위 - Node.js / Next.js
+설치
+목적
+우선도
+Node.js LTS
+Next.js/Firebase Functions 실행
+필수
+pnpm
+패키지 관리
+권장
+VS Code
+Next.js/Firebase 개발
+필수
+TypeScript
+타입 안정성
+필수
+Next.js
+관리자/기업/산후조리원 Admin
+필수
+판단:
+관리자, 기업 Admin, 산후조리원 Admin은 Next.js 우선.
+태블릿/QR 화면은 Flutter Web 또는 Next.js 중 선택 가능.
+3순위 - Firebase / Google Cloud
+설치/계정
+목적
+우선도
+Firebase CLI
+Firebase 배포/에뮬레이터
+필수
+Google Cloud CLI
+Cloud Run/Secret/IAM
+필수
+Firebase 프로젝트
+Auth/Firestore/Storage/Functions
+필수
+Secret Manager
+PG/알림/API Key 보관
+필수
+Firebase Emulator
+로컬 테스트
+권장
+4순위 - Codex Pro / AI 자동화
+도구
+목적
+우선도
+Codex Pro
+메인 생성
+필수
+Codex CLI/App
+로컬 자동화
+필수
+AGENTS.md
+작업 규칙
+필수
+Claude Code
+리뷰/보안/정산 검증
+권장
+Gemini Pro
+Firebase/GCP 검증
+필수 수준 권장
+5순위 - Figma/UI
+도구
+목적
+우선도
+Figma
+화면 설계
+필수
+FigJam
+플로우/다이어그램
+권장
+디자인 시스템
+버튼/테이블/폼 규칙
+권장
+6순위 - Flutter
+설치
+목적
+우선도
+Android Studio
+Flutter 개발
+Flutter 사용 시 필수
+Flutter SDK
+태블릿/QR Web 후보
+Flutter 사용 시 필수
+Dart SDK
+Flutter 언어
+Flutter 사용 시 필수
+7순위 - API 테스트/QA
+도구
+목적
+우선도
+Postman/Bruno
+PG/알림/배송/API 테스트
+필수
+Playwright
+E2E 테스트
+권장
+Sentry
+에러 추적
+권장
+Cloud Logging
+서버 로그
+필수
+8순위 - 외부 계약/서비스
+서비스
+목적
+우선도
+PG 테스트 MID
+결제 테스트
+필수
+카카오 알림톡 발송사
+알림톡 발송
+필수
+SMS 발송사
+알림톡 실패 대체
+권장
+배송조회 API/택배사
+배송조회
+권장
+외부 재고 API 문서
+재고 동기화
+필요 시 필수
+04_FIREBASE_DECISION_MATRIX - 기존 Firebase vs 신규 Firebase 판단
+공식 기준
+Firebase는 개발 워크플로에서 환경별 별도 Firebase 프로젝트 사용을 권장한다. 즉 개발(dev), 테스트/staging, 운영(prod)을 같은 프로젝트에 섞는 구조는 권장하지 않는다.
+결론 권장안
+이 프로젝트는 결제, 비회원 주문정보, QR 세션, 입점사 정산, 알림톡, 외부 API가 들어가므로 신규 Firebase 프로젝트를 최소 2개 이상 만드는 것을 기본 권장한다.
+권장 구조:
+환경
+Firebase 프로젝트
+목적
+DEV
+sanho-mall-dev
+Codex 개발/실험
+STAGING
+sanho-mall-staging
+PG 테스트/QA
+PROD
+sanho-mall-prod
+운영
+최소 구조:
+환경
+Firebase 프로젝트
+목적
+DEV
+sanho-mall-dev
+개발
+PROD
+sanho-mall-prod
+운영
+기존 Firebase를 써도 되는 조건
+기존 Firebase 프로젝트는 아래 조건을 모두 만족할 때만 사용한다.
+대표님이 Owner 또는 충분한 IAM 권한을 갖고 있다.
+운영 고객 데이터가 없다.
+기존 앱/서비스가 운영 중이 아니다.
+Firestore Rules를 재설계해도 영향받는 사용자가 없다.
+Billing, IAM, API Key, Functions, Hosting 상태가 명확하다.
+기존 .firebaserc와 firebase.json이 정리되어 있다.
+외부 연동 키/Secret이 코드에 노출되어 있지 않다.
+dev 용도로만 사용할 수 있다.
+신규 Firebase가 필요한 조건
+아래 중 하나라도 해당하면 신규 Firebase를 만든다.
+운영 고객 데이터가 있다.
+프로젝트 소유자/권한이 불명확하다.
+기존 앱이 이미 연결되어 있다.
+Firestore 구조가 기존 기능과 충돌한다.
+Secret Key 관리가 불명확하다.
+개발/운영 환경이 같은 프로젝트에 섞여 있다.
+PG/알림톡/외부 API 실험을 해야 한다.
+Codex 자동화가 개발 프로젝트에서 테스트를 반복해야 한다.
+Codex의 Firebase 감사 명령어
+현재 프로젝트의 Firebase 설정을 감사해라. 코딩하지 마라. 확인: 1. .firebaserc 존재 여부 2. firebase.json 존재 여부 3. firestore.rules 존재 여부 4. firestore.indexes.json 존재 여부 5. functions 디렉터리 존재 여부 6. Firebase app config 존재 여부 7. service account/private key 파일 존재 여부 8. .env 파일 존재 여부 9. dev/staging/prod 분리 여부 10. 기존 Firebase를 재사용할 수 있는지 판단 결과를 FIREBASE_DECISION_REPORT.md로 작성해라.
+FIREBASE_DECISION_REPORT 출력 형식
+항목
+확인값
+위험도
+판단
+.firebaserc
+있음/없음
+낮음/중간/높음
+유지/수정/신규
+최종 판단 중 하나를 선택한다.
+USE_EXISTING_FOR_DEV_ONLY
+CREATE_NEW_DEV_AND_PROD
+CREATE_NEW_DEV_STAGING_PROD
+BLOCKED_NEED_OWNER_PERMISSION
+BLOCKED_SECRETS_EXPOSED
+이 프로젝트 기본 추천
+기존 A 프로젝트 Firebase가 명확한 개발용 프로젝트가 아니라면 신규 Firebase dev/prod를 만든다. 운영 프로젝트에는 Codex 실험 코드를 직접 배포하지 않는다.
+05_WORKFLOW_PRIORITY - 업무 프로세스 최우선 순서
+생성 우선순위 전체
+원본 보존 및 A 프로젝트 감사
+설치 상태 점검
+Firebase 기존/신규 결정
+AGENTS.md와 문서팩 배치
+관리자/기업/조리원/태블릿/QR 프로그램 구조 생성
+최고관리자 페이지
+기업 Admin
+산후조리원 Admin
+태블릿 폐쇄몰
+QR 결제 세션
+고객 QR 결제 페이지
+PG mock/test adapter
+주문/배송/비회원 주문조회
+알림톡 mock/test adapter
+외부 재고 API mock/test adapter
+매출/정산/입금 초안
+보안/QA/검증
+운영 전환 준비
+왜 이 순서인가
+관리자/기업/조리원/태블릿 구조 없이 QR 출처를 저장할 수 없다.
+상품/옵션/재고 없이 장바구니를 만들 수 없다.
+QR 세션 없이 PG 결제를 연결하면 출처 추적이 무너진다.
+결제 완료 없이 주문/정산을 확정할 수 없다.
+order_items 없이 입점사별 정산을 계산하면 데이터가 꼬인다.
+알림톡은 주문/결제/배송 상태가 있어야 발송 가능하다.
+업무 효율 기준
+단계
+병렬 가능
+병렬 금지
+문서/구조
+가능
+없음
+UI 화면
+관리자/기업/태블릿 병렬 가능
+같은 파일 동시 수정 금지
+QR
+UI와 테스트 병렬 가능
+PG 연결과 동시 진행 금지
+PG
+mock과 테스트 시나리오 병렬 가능
+운영키 적용 금지
+정산
+UI와 mock 계산 병렬 가능
+환불/부분취소 검증 전 확정 금지
+운영 배포
+없음
+자동화 금지
+100일 기준 마일스톤
+기간
+목표
+Day 1-5
+문서팩, AGENTS, 원본 감사
+Day 6-12
+Firebase/권한/DB 구조 결정
+Day 13-25
+최고관리자 기본 완성
+Day 26-38
+기업 Admin 기본 완성
+Day 39-48
+조리원/객실/태블릿 완성
+Day 49-60
+태블릿 폐쇄몰/장바구니 완성
+Day 61-72
+QR/조르기 세션 완성
+Day 73-82
+PG 테스트 연동
+Day 83-89
+주문/배송/비회원조회/알림톡
+Day 90-95
+매출/정산/입금
+Day 96-100
+보안/QA/운영 준비
+06_AUTOMATION_POLICY - Codex 자동화 등급
+A등급 - 완전자동 가능
+Codex가 코드/문서 생성, 오류 검토, 안전한 수정, 테스트, 보고서 작성까지 수행할 수 있다. 단 운영 배포는 금지.
+문서 생성
+폴더 구조
+UI 화면
+기본 CRUD
+mock API
+단순 테스트
+UI 오류 수정
+타입/import 오류 수정
+보고서 작성
+B등급 - 부분자동 가능
+Codex가 초안을 생성하고 오류 검토와 방향성을 제시한다. 자동 수정은 제한하고 승인 후 진행한다.
+QR 세션
+QR 만료/재사용 차단
+Firestore Rules
+PG 테스트 adapter
+알림톡 adapter
+배송조회 adapter
+외부 재고 API adapter
+정산 계산 초안
+입금 현황 초안
+비회원 주문조회 보안
+C등급 - 자동 코딩 불가
+Codex는 코딩하지 않고 분석/방향성/체크리스트만 작성한다.
+PG 운영키 입력
+실결제
+실환불
+운영 부분취소
+정산 지급 완료
+운영 배포
+카카오 템플릿 승인
+Secret Key 변경
+운영 DB 삭제
+법무/개인정보 최종 판단
+퇴근용 자동화
+SAFE_NIGHT_MODE에서는 A등급만 자동 처리한다. B등급은 초안과 보고서까지만. C등급은 BLOCKERS로 중단.
+외근용 자동화
+SAFE_FIELD_MODE에서는 문서/분석/오류 원인/다음 작업 명령어 작성만 한다. 코드 수정은 제한한다.
+07_CODEX_MASTER_PROMPTS - Codex 명령어 최종본
+1. 최초 실행 명령어
+AGENTS.md와 00_README_FIRST.md부터 읽어라. 아직 코딩하지 마라. 현재 A 프로젝트 원본 파일을 먼저 스캔해서 A_PROJECT_FILE_INVENTORY.md, A_PROJECT_ARCHITECTURE_MAP.md, A_PROJECT_GAP_ANALYSIS.md, A_PROJECT_FIREBASE_REPORT.md, INSTALLATION_STATUS_REPORT.md를 작성하라. 기존 파일 삭제, 덮어쓰기, 운영 배포, 실결제, Secret Key 작업은 금지한다.
+2. 설치 상태 점검 명령어
+현재 컴퓨터/프로젝트에서 설치 및 설정 상태를 점검해라. 코딩하지 마라. 점검: Git, GitHub remote, Node.js, pnpm/npm, Next.js, TypeScript, Firebase CLI, Google Cloud CLI, Flutter SDK, Android Studio, Docker, Postman, Codex CLI, AGENTS.md, Firebase 설정, .firebaserc, firebase.json, functions, Cloud Run 구조. 결과를 INSTALLATION_STATUS_REPORT.md로 작성하고, 설치 우선순위를 1순위부터 제시해라.
+3. Firebase 결정 명령어
+현재 A 프로젝트의 Firebase 설정을 분석해서 기존 Firebase를 사용할지, 새 Firebase 프로젝트를 만들지 판단해라. 코딩하지 마라. 확인: .firebaserc, firebase.json, firestore.rules, storage.rules, functions, app config, service account 파일, .env, dev/prod 분리 여부, 운영 데이터 위험. 결과를 FIREBASE_DECISION_REPORT.md로 작성하라. 최종 판단은 USE_EXISTING_FOR_DEV_ONLY, CREATE_NEW_DEV_AND_PROD, CREATE_NEW_DEV_STAGING_PROD, BLOCKED_NEED_OWNER_PERMISSION, BLOCKED_SECRETS_EXPOSED 중 하나로 표시하라.
+4. Gap Analysis 명령어
+본 문서팩 요구사항과 현재 A 프로젝트 파일을 비교해라. 코딩하지 마라. 비교 대상: 최고관리자, 기업 Admin, 산후조리원 Admin, 객실/태블릿, 태블릿 폐쇄몰, QR 결제, PG, 알림톡, 배송조회, 외부 재고 API, 정산/입금, 보안/로그. 각 항목을 Complete, Partial, Missing, Risk, Unknown으로 분류하고, Keep, Modify, Replace, Create, Block 중 하나의 조치를 제안해라.
+5. 승인 후 1차 생성 명령어
+대표님이 A_PROJECT_GAP_ANALYSIS.md와 FIREBASE_DECISION_REPORT.md를 승인했다. 이제 1차 생성 작업을 시작한다. 범위: 문서/폴더 구조/관리자 기본 라우팅만 생성한다. 금지: PG, 환불, 정산, Firestore 운영 배포, Secret Key, 운영 DB 접근. 완료 후 AUTO_REPORT.md를 작성해라.
+6. 퇴근용 명령어
+SAFE_NIGHT_MODE로 작업한다. 위험도 낮은 A등급 작업 1개만 수행한다. 테스트 2회 실패, 수정 파일 15개 초과, 결제/환불/정산/보안 파일 수정 필요 시 즉시 중단하고 BLOCKERS.md에 기록한다.
+7. 외근용 명령어
+SAFE_FIELD_MODE로 작업한다. 코드 수정하지 말고 오류 분석, 작업 범위 제안, 다음 Codex 명령어만 작성한다. 결제/환불/정산/보안/운영 배포 관련 수정은 금지한다.
+08_PROGRAM_MODULE_MAP - 프로그램별 모듈 지도
+최고관리자 웹
+대시보드
+입점사 관리
+산후조리원 관리
+객실 관리
+태블릿 관리
+상품 승인
+주문 현황
+매출 현황
+결제 현황
+QR 세션 현황
+취소/환불 관리
+배송 현황
+정산/입금 관리
+알림톡 로그
+외부 API 로그
+보안 감사 로그
+기업 Admin 웹
+기업 대시보드
+상품 등록
+상품 수정
+이미지/GIF 업로드
+AI 가격분석 설정
+옵션/재고
+외부 재고 코드 매핑
+주문 관리
+배송 현황
+현장수령 처리
+매출 현황
+입금 현황
+정산 조회
+취소/환불 요청
+산후조리원 Admin 웹
+가입 신청
+조리원 정보
+객실 번호
+태블릿 번호
+태블릿 활성화
+QR 생성 이력
+현장수령 주문
+객실별 주문
+태블릿 폐쇄몰
+태블릿 인증
+상품 목록
+상품 상세
+장바구니
+수령방식 선택
+구매하기 QR
+조르기 QR
+QR 타이머
+QR 만료 안내
+고객 QR 결제 웹
+QR 랜딩
+상품 요약
+수령정보 입력
+결제자 정보
+간편결제
+결제 성공/실패
+비회원 주문조회
+환불 요청
+환불 규정 안내
+서버 모듈
+qr_sessions
+payments
+refunds
+orders
+inventory
+notifications
+delivery
+external_stock
+settlements
+payouts
+audit_logs
+외부 연동
+PG
+카카오 알림톡
+SMS
+배송조회
+외부 재고 API
+원장/PDF/Excel
+09_EXTERNAL_INTEGRATION_BLOCKERS - 외부 연동 차단 항목
+PG
+필요: - PG사 확정 - 테스트 MID - 운영 MID - INIAPI Key 또는 PG Secret - SignKey - 결제창 문서 - 취소/부분취소 문서 - 노티 URL 정책 - 간편결제 사용 범위
+없으면: - mock adapter만 생성 - 운영 결제 금지 - 실환불 금지
+카카오 알림톡
+필요: - 카카오 채널 - 발송대행사 - 발신 프로필 - 템플릿 코드 - 템플릿 승인 - 실패 코드 문서 - SMS fallback 계약
+없으면: - notification mock만 생성
+배송조회/택배 알림
+필요: - 택배사 계약 - 택배사 코드 - 배송조회 API 또는 URL 규격 - 송장번호 입력 정책 - 배송상태 코드
+없으면: - 택배사 URL 링크 방식 우선 - 배송조회 API는 mock
+외부 재고 API
+필요: - 공식 API 문서 - 운영 endpoint - 인증 방식 - 상품 고유값 필드 - 재고 필드 - 옵션 재고 여부 - 호출 제한 - 실패 코드
+없으면: - mock external_stock adapter만 생성
+10_VALIDATION_AND_QA_GATES - 검증 게이트
+Gate 1 - 문서
+통과 조건: - AGENTS.md 존재 - PROJECT_RULES 존재 - USER_ROLES 존재 - DB_SCHEMA 존재 - STATUS_MODEL 존재 - FIREBASE_DECISION_REPORT 존재
+통과 전 금지: - QR 개발 - PG 개발 - 정산 개발
+Gate 2 - 권한
+통과 조건: - SUPER_ADMIN 전체 접근 - COMPANY_ADMIN company_id 격리 - NURSERY_ADMIN nursery_id 격리 - TABLET_DEVICE tablet_id 격리 - CUSTOMER_GUEST QR 세션 범위 접근
+통과 전 금지: - 주문 생성 - 결제 연동
+Gate 3 - QR
+통과 조건: - 2~3시간 만료 - 만료 후 접근 차단 - 결제 후 재사용 차단 - token_hash 저장 - short_code만 노출 - 금액 서버 재계산 - nursery_id/room_id/tablet_id 저장
+통과 전 금지: - PG 실연동
+Gate 4 - PG 테스트
+통과 조건: - 테스트 결제 성공 - 테스트 결제 실패 처리 - 테스트 전체취소 - 테스트 부분취소 - 중복결제 차단 - PG TID 저장
+통과 전 금지: - 운영 MID 전환
+Gate 5 - 정산
+통과 조건: - order_items 기준 company_id별 계산 - 취소 차감 - 환불 차감 - 수수료 차감 - 정산 snapshot - 입금 증빙 - audit_logs
+통과 전 금지: - 입금 완료 자동 처리
+Gate 6 - 운영 전
+통과 조건: - 전체 주문 플로우 - 비회원 주문조회 - QR 만료/재사용 차단 - PG 테스트 - 알림톡 테스트 - 배송조회 테스트 - Firestore Rules 검증 - Secret Manager 검증 - 백업 설정
+REPORT_TEMPLATES - Codex 출력 템플릿
+AUTO_REPORT.md
+작업명: 작업일: 작업 브랜치: 작업 등급: A/B/C 완료한 항목: 수정한 파일: 추가한 파일: 실행한 테스트: 성공: 실패: 중단한 이유: 사람 확인 필요: 다음 추천 작업:
+BLOCKERS.md
+차단 항목: 차단 사유: 필요한 외부 문서/키/승인: 위험도: Codex가 할 수 있는 대체 작업: 대표님이 해야 할 결정:
+INSTALLATION_STATUS_REPORT.md
+Git: GitHub: Node.js: pnpm/npm: Next.js: Firebase CLI: Google Cloud CLI: Flutter: Android Studio: Docker: Postman: Codex CLI: AGENTS.md: Firebase config: 권장 다음 설치:
+A_PROJECT_GAP_ANALYSIS.md
+요구 기능 | 현재 상태 | 관련 파일 | 위험도 | 조치 | 우선순위
+SAFE_MODES - 퇴근용/외근용 작업 정책
+SAFE_NIGHT_MODE
+퇴근 중 자동화. A등급 작업만 완전자동. B등급은 초안과 보고서. C등급은 중단.
+허용: - 문서 생성 - UI 초안 - 기본 CRUD - mock API - build/lint/test - UI 오류 수정 - 보고서
+금지: - 실결제 - 실환불 - 운영 부분취소 - 정산 지급 - 운영 배포 - Secret Key - 운영 DB
+중단 조건: - 테스트 2회 연속 실패 - 수정 파일 15개 초과 - 결제/환불/정산/보안 파일 수정 필요 - 외부 API 문서 없음
+SAFE_FIELD_MODE
+외근 중 자동화. 코드 수정 최소화. 분석/보고 중심.
+허용: - 오류 분석 - 다음 작업 제안 - 테스트 체크리스트 - 문서 정리
+금지: - 코드 대량 수정 - 결제/환불/정산/보안 수정 - 운영 배포

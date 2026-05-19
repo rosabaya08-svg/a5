@@ -1,0 +1,493 @@
+﻿Codex × Next.js 코딩 실행 문서 v1.0
+쇼핑몰 구현·안전 자동화 보강본 / 2026-05-16 기준
+범위: Codex 코딩 실행 / Next.js 구현 기준 / 업로드 쇼핑몰·자동화 문서의 핵심 반영
+문서 원칙
+Codex와 Next.js와 직접 관련 없는 일반 AI 도구 설명, 영상 주변 설명, 지엽적 명령어 목록은 제외했습니다. 업로드 문서에서 쇼핑몰 구현과 자동화 운영에 바로 도움이 되는 내용은 별도 섹션으로 압축했습니다.
+목차
+1. 문서 목적과 제외 범위
+2. Codex 코딩 핵심만 정리
+3. Codex 작업 흐름과 필수 산출물
+4. Next.js 핵심만 정리
+5. Codex로 Next.js를 코딩하는 표준 절차
+6. 업로드 문서 반영: 쇼핑몰 구현 핵심
+7. 업로드 문서 반영: 자동화 운영 핵심
+8. 검증 체크리스트
+9. 바로 쓰는 Codex 프롬프트
+10. 근거 자료
+문서 목적과 제외 범위
+이 문서는 대표님 프로젝트에서 Codex를 코딩 실행 도구로 사용하고, Next.js 기반 화면과 서버 경계를 안정적으로 구현하기 위한 실행 문서입니다. 코딩에 직접 필요 없는 주변 설명은 제거하고, 실제로 Codex에 넣을 수 있는 규칙·절차·프롬프트·검증표만 남겼습니다.
+구분
+포함
+제외
+Codex
+CLI/App 실행, sandbox/approval, AGENTS.md, /mention, /plan, /diff, /review, 보고서 작성
+영상 요약 일반론, 다른 AI 도구 사용법, 명령어 전체 암기표
+Next.js
+App Router, Server/Client Component, Server Action, Route Handler, 캐시/검증, MCP, AI agent용 AGENTS.md
+React 입문, CSS 상세 문법, 모든 파일 convention의 지엽적 설명
+쇼핑몰
+관리자/기업 Admin/조리원/태블릿/QR 결제 웹의 구현 우선순위와 제약
+견적 세부, 모든 화면의 전체 와이어프레임 원문
+자동화
+완전자동/부분자동/절대자동불가, SAFE_NIGHT_MODE, SAFE_FIELD_MODE, 보고서 템플릿
+타 도구 협업 상세, 운영 실행 자동화
+최종 기준
+Codex는 “코드를 대신 작성하는 도구”가 아니라 “정해진 작업 범위 안에서 파일을 읽고, 수정하고, 테스트하고, 보고서를 남기는 코딩 실행자”로 사용합니다. Next.js는 “공식 문서와 프로젝트 규칙을 먼저 읽고 구현하는 대상 프레임워크”로 정리합니다.
+Codex 코딩 핵심만 정리
+2.1 Codex가 필요한 이유
+대화식 요청만으로도 코드 생성은 가능하지만, 실제 프로젝트를 안전하게 수정하려면 작업 폴더, 수정 권한, 승인 정책, 검증 방식이 필요합니다. Codex 명령어와 slash command는 코딩 문법이 아니라 “작업 환경 제어 장치”입니다.
+필요 상황
+대표 명령/기능
+이유
+프로젝트 폴더 지정
+codex -C /path/to/project
+Codex가 어느 저장소를 기준으로 파일을 읽고 수정할지 고정합니다.
+분석만 수행
+--sandbox read-only
+실수로 파일을 수정하지 못하게 합니다.
+실제 파일 수정
+--sandbox workspace-write
+프로젝트 내부 파일 수정을 허용합니다.
+위험 명령 승인
+--ask-for-approval on-request
+설치, 삭제, 빌드, 외부 호출처럼 영향이 있는 명령은 사람 확인을 받게 합니다.
+수정 대상 지정
+/mention
+특정 파일/폴더를 대화에 첨부해 수술식 수정을 유도합니다.
+수정 전 계획
+/plan
+바로 수정하지 않고 영향 범위와 수정 파일을 먼저 확인합니다.
+변경 검수
+/diff, /review
+실제 변경 파일과 문제 가능성을 확인합니다.
+2.2 Codex 실행 기본값
+# 분석 전용 codex -C /path/to/project --sandbox read-only # 실제 수정 기본값 codex -C /path/to/project --sandbox workspace-write --ask-for-approval on-request
+금지 기본값
+--dangerously-bypass-approvals-and-sandbox 또는 --yolo는 승인과 sandbox 없이 명령을 실행할 수 있으므로, 대표님 프로젝트 기본값으로 사용하지 않습니다.
+2.3 필수 slash command
+명령어
+필요한 순간
+대표 사용
+/init
+프로젝트 규칙 파일을 만들 때
+AGENTS.md scaffold 생성 후 프로젝트 규칙을 채웁니다.
+/mention
+특정 파일만 고치고 싶을 때
+/mention app/admin/orders/page.tsx
+/plan
+복잡하거나 위험한 수정 전
+수정 전 파일·영향범위·테스트 계획 확인
+/status
+현재 모델/권한/작업 위치 확인
+작업 폴더와 approval/sandbox 상태 확인
+/diff
+수정 후 변경 내역 확인
+불필요한 파일 수정 여부 확인
+/review
+커밋 전 코드 리뷰
+동작 변화와 테스트 누락 확인
+/compact
+대화가 길어진 뒤
+핵심 문맥을 압축해 이어가기
+/resume
+이전 작업 재개
+중단된 Codex 세션 이어가기
+2.4 AGENTS.md의 역할
+AGENTS.md는 Codex가 작업 전에 읽는 프로젝트 작업 규칙입니다. 대표님 프로젝트에서는 “추측 코딩 금지, 공식 문서 우선, 기능 1개씩, 결제/정산/환불/배포 금지, 수정 후 보고서 작성”을 여기에 넣어야 합니다.
+# AGENTS.md 핵심 템플릿 ## 작업 원칙 - Next.js 작업 전 node_modules/next/dist/docs/의 관련 문서를 먼저 확인한다. - 요청 범위 외 수정 금지. - 기능 1개 단위로 계획 -> 수정 -> 검증 -> 보고 순서로 진행한다. - 기존 기능 삭제, 임시 우회, 추측 외부 API 구현 금지. ## 금지 영역 - 운영 배포 금지. - 실결제, 운영 환불, 부분취소, 정산 지급 금지. - Secret Key 프론트 노출 금지. - 운영 DB 삭제/마이그레이션 자동 실행 금지. ## 완료 보고 - 수정 파일, 추가 파일, 실행 테스트, 실패 항목, 사람 확인 필요 항목, 다음 작업을 요약한다.
+3. Codex 작업 흐름과 필수 산출물
+3.1 표준 작업 흐름
+1. AGENTS.md, PROJECT_RULES.md, DB_SCHEMA.md, STATUS_MODEL.md, SECURITY_POLICY.md를 먼저 읽게 합니다.
+2. 오늘 작업을 기능 1개로 제한합니다.
+3. 수정 전 /plan으로 수정 파일, 영향 범위, 테스트 계획을 받습니다.
+4. 승인 후 관련 파일만 최소 수정합니다.
+5. lint, build, unit test, UI smoke test를 실행합니다.
+6. 안전 영역의 오류만 최대 2회 수정합니다.
+7. 위험 영역이 필요하면 중단하고 BLOCKERS.md에 기록합니다.
+8. AUTO_REPORT.md와 NEXT_TASKS.md를 남깁니다.
+3.2 프로젝트 루트에 둘 필수 문서
+파일
+목적
+Codex 사용 방식
+AGENTS.md
+항상 읽는 프로젝트 규칙
+작업 전 규칙 로드
+PROJECT_RULES.md
+사업/기능 원칙
+쇼핑몰 구조와 금지 영역 확인
+DB_SCHEMA.md
+컬렉션·테이블 기준
+추측 DB 생성 방지
+STATUS_MODEL.md
+주문/결제/QR/정산 상태 전이
+불가능한 상태 이동 방지
+SECURITY_POLICY.md
+권한·키·개인정보 기준
+보안 파일 수정 제한
+AUTO_MODE_POLICY.md
+A/B/C 자동화 등급
+자동 작업 가능 여부 판단
+BLOCKERS.md
+중단 사유 기록
+문서·키·정책 미확정 시 기록
+NEXT_TASKS.md
+다음 작업 후보
+매일 작업 선택 기준
+AUTO_REPORT.md
+작업 결과 보고
+수정 파일과 테스트 결과 기록
+3.3 자동화 등급
+등급
+자동화 가능 범위
+대표 예시
+중단 조건
+A 완전자동
+개발 브랜치에서 생성·테스트·안전 오류수정 가능
+문서, UI, 기본 CRUD, mock API, 테스트 초안, UI 깨짐 수정
+위험 로직 진입 시 중단
+B 부분자동
+초안 생성과 테스트 가능, 위험 로직은 깊게 자동수정 금지
+QR 세션, 권한 rules, PG 테스트 adapter, 외부 재고 adapter, 정산 계산 초안
+금액/권한/외부 API 문서 불확실 시 중단
+C 절대자동불가
+분석·체크리스트만 가능, 실행 금지
+운영키 등록, 실결제, 운영 환불, 정산 지급, 운영 배포, 개인정보/약관 확정
+항상 사람 승인 필요
+Next.js 핵심만 정리
+Next.js는 대표님 프로젝트의 관리자 웹, 기업 Admin, 산후조리원 Admin, 고객 QR 결제 웹을 구현하는 기준 프레임워크로 정리합니다. 새 화면은 App Router 기준으로 설계하고, Codex가 오래된 지식이 아니라 설치된 Next.js 버전의 문서를 읽고 구현하게 하는 것이 핵심입니다.
+개념
+핵심
+대표님 프로젝트 적용
+App Router
+app 디렉터리 기반 파일 라우팅
+/admin, /company, /nursery, /qr 같은 영역을 라우트 그룹으로 분리
+Server Component
+기본 렌더링 기준. DB 조회와 서버 데이터 처리에 적합
+주문 목록, 매출 요약, 상품 상세 데이터 조회
+Client Component
+상태, 클릭, 입력, 브라우저 API가 필요할 때만 사용
+필터 드롭다운, 모달, 탭, 장바구니 수량 변경 UI
+Server Action
+폼 제출·데이터 변경을 서버에서 처리
+상품 등록, 승인 요청, 송장 입력, QR 생성 요청
+Route Handler
+외부 호출/API/webhook 처리
+PG callback, 알림톡 webhook, 배송조회 adapter, 외부 재고 sync endpoint
+캐시·재검증
+저장/수정 후 필요한 경로만 갱신
+상품 수정 후 목록 revalidate, 주문 상태 변경 후 대시보드 summary 갱신
+Metadata/Image
+SEO, OG, 이미지 최적화
+QR 결제 페이지, 상품 상세, 랜딩/안내 페이지 최적화
+MCP
+개발 서버 에러·라우트·메타데이터를 AI agent가 조회
+Codex가 build/runtime/type error를 직접 확인하고 원인 파일 제시
+4.1 Server/Client Component 기준
+상황
+권장
+이유
+DB/서버 데이터 조회
+Server Component
+비밀키와 조회 로직을 브라우저로 보내지 않음
+사용자 입력 상태
+Client Component
+useState, 이벤트 핸들러 필요
+폼 제출과 저장
+Server Action
+서버에서 인증·권한·검증 후 저장
+외부 서비스 callback
+Route Handler
+외부 PG/알림/재고 API 요청을 endpoint로 처리
+관리자 대시보드
+Server Component + summary 데이터
+대량 원장 직접 합산 방지
+4.2 Next.js 프로젝트 구조 권장
+app/ (admin)/admin/... (company)/company/... (nursery)/nursery/... (tablet)/tablet/... (qr)/qr/[code]/... api/ webhooks/pg/route.ts external-stock/sync/route.ts components/ admin/ company/ nursery/ tablet/ qr/ lib/ auth/ db/ payments/ qr/ inventory/ settlements/ artifacts/ AUTO_REPORT.md BLOCKERS.md NEXT_TASKS.md
+Codex로 Next.js를 코딩하는 표준 절차
+5.1 Next.js용 AGENTS.md 규칙
+<!-- BEGIN:nextjs-agent-rules --> # Next.js: ALWAYS read docs before coding Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth. <!-- END:nextjs-agent-rules --> ## Project rules - Use App Router. - Prefer Server Components by default. - Use Client Components only for state, event handlers, effects, and browser APIs. - Use Server Actions for form mutations where appropriate. - Use Route Handlers for external APIs, webhooks, PG callbacks, and adapter endpoints. - Do not modify payment, refund, settlement, security, deployment, or secret files without approval. - After changes, run lint/build/test and summarize diff.
+5.2 Next.js MCP 설정
+Next.js 16+ 프로젝트에서는 MCP를 통해 Codex가 개발 서버의 에러, 라우트, 메타데이터, 런타임 정보를 확인하게 할 수 있습니다. 복잡한 오류 수정 전에 MCP로 build/runtime/type error를 확인하게 하면 수작업 복붙이 줄어듭니다.
+{ "mcpServers": { "next-devtools": { "command": "npx", "args": ["-y", "next-devtools-mcp@latest"] } } }
+5.3 기능 개발 표준 절차
+단계
+Codex 지시
+성공 기준
+1. 문서 확인
+Next.js bundled docs와 AGENTS.md를 읽어라.
+관련 공식 문서 기준을 요약
+2. 계획
+/plan으로 수정 파일, 영향 범위, 테스트를 제시하라.
+승인 전 파일 변경 없음
+3. 구현
+승인된 파일만 최소 수정하라.
+요청 범위 외 변경 없음
+4. 검증
+lint/build/test/UI smoke test를 실행하라.
+실패 시 원인 기록
+5. 보고
+/diff 후 AUTO_REPORT.md 작성하라.
+변경 파일, 테스트 결과, 사람 확인 필요 항목 기록
+업로드 문서 반영: 쇼핑몰 구현 핵심
+이 섹션은 업로드된 쇼핑몰 UI/UX·기능·기술 설계 문서에서 Codex와 Next.js 구현에 바로 필요한 내용만 추린 것입니다.
+6.1 프로젝트 한 줄 정의
+쇼핑몰 구현 대상
+산후조리원 객실 태블릿에서 상품을 장바구니에 담고, 고객은 QR 또는 조르기 링크로 비회원 간편결제를 진행하며, 입점 기업은 상품·재고·주문·배송·매출·입금 현황을 관리하고, 최고관리자는 전체 운영·결제·정산·알림·보안을 통제하는 폐쇄몰형 입점 커머스 시스템입니다.
+6.2 Next.js로 우선 구현할 웹 영역
+영역
+Next.js 역할
+핵심 권한/제약
+최고 관리자 웹
+전체 운영, 표/필터/대시보드/정산/로그
+SUPER_ADMIN 전용, 금액/권한 변경 audit_logs 필수
+기업 Admin 웹
+상품 등록, 재고, 주문, 배송, 매출, 입금 현황
+company_id 격리, 타사 주문/상품/매출 접근 차단
+산후조리원 Admin
+가입, 객실, 태블릿, 현장수령 확인
+nursery_id, room_id, tablet_id 추적
+태블릿 폐쇄몰
+상품 탐색, 장바구니, QR 생성
+태블릿 인증, 일반 브라우저 직접 접속 차단
+고객 QR 결제 웹
+비회원 결제, 조르기 공유, 주문조회
+short_code/token, 2~3시간 만료, CUSTOMER_GUEST/PAYER_GUEST
+6.3 쇼핑몰 도메인 제약
+항목
+코딩 반영 기준
+폐쇄몰
+상품 탐색은 태블릿 인증 세션에서만 노출. 일반 도메인 직접 접속은 차단 또는 안내 페이지 처리.
+QR/조르기
+장바구니 묶음 전달, 단축 URL, 2~3시간 만료, 제3자 공유 결제, 현장수령/택배배송 분기.
+비회원 주문조회
+주문번호+휴대폰 또는 별도 인증 절차가 필요하며 개인정보 최소 노출.
+가격비교/AI분석
+실제 AI 분석이 아니라 원가/플랫폼 최저가/폐쇄몰가 비교 레이어로 구현.
+재고 API
+외부 명품쇼핑몰과는 재고량만 연동. 내부 상품에 external_product_code 매핑 필요.
+금액 처리
+프론트 금액을 신뢰하지 않고 서버에서 재계산. 결제/환불/정산은 서버 처리.
+출처 저장
+nursery_id, room_id, tablet_id, cart_id, qr_session_id를 QR/주문 원장에 저장.
+6.4 데이터 원장 기준
+원장
+컬렉션/모델
+목적
+상품
+products, product_options
+상품명, 가격, 옵션, 재고, 가격비교값
+재고
+inventory_movements
+주문 차감, 취소 복구, 외부 API 동기화 이력
+장바구니
+carts, cart_items
+QR 생성 전 태블릿 장바구니와 상품 snapshot
+QR
+qr_payment_sessions
+출처, 만료, 결제 상태, 1회성 사용
+주문
+orders, order_items
+주문과 입점사별 주문상세 분리
+결제
+payments
+PG TID, 금액, 승인/취소 상태
+정산
+settlements, payouts
+확정 snapshot과 지급 상태
+감사
+audit_logs 또는 financial_events
+권한, 금액, 상태 변경 이력
+6.5 구현 우선순위
+순서
+작업
+자동화 등급
+0
+AGENTS.md, PROJECT_RULES, AUTO_MODE_POLICY, BLOCKERS 구성
+A
+1
+Next.js 구조, 역할, DB schema, 상태 모델 확정
+A/B
+2
+최고관리자 대시보드·입점사·조리원·태블릿·주문·매출 UI
+A/B
+3
+기업 Admin 상품등록·재고·주문·배송·매출·입금 UI
+A/B
+4
+산후조리원 객실·태블릿·현장수령 관리 UI
+A/B
+5
+태블릿 상품목록·상세·가격분석·장바구니·QR 생성
+A/B
+6
+QR/조르기 세션, 만료, 재사용 차단, 공유
+B
+7
+PG test adapter, approve/cancel/partial cancel mock
+B/C
+8
+비회원 주문조회, 배송/현장수령, 알림 mock
+A/B/C
+9
+매출 summary, 정산 초안, 지급 상태 조회
+B/C
+10
+보안/QA/운영 체크리스트
+B/C
+업로드 문서 반영: 자동화 운영 핵심
+자동화는 운영 시스템을 무인으로 완성한다는 뜻이 아닙니다. 개발 브랜치 또는 worktree 안에서 안전한 기능을 생성하고, 테스트하고, 오류를 검토하고, 보고서를 남기는 구조입니다.
+7.1 완전자동 가능
+문서 생성/정리: AGENTS.md, PROJECT_RULES, DB_SCHEMA, STATUS_MODEL, SECURITY_POLICY, AUTO_MODE_POLICY.
+Next.js UI 생성: 최고관리자/기업 Admin/조리원/태블릿/QR 화면의 mock 기반 UI.
+기본 CRUD 초안: 상품, 옵션, 재고, 주문 목록, 알림 목록 등 위험도 낮은 영역.
+mock adapter: PG mock, 알림톡 mock, 배송조회 mock, 외부 재고 mock.
+테스트 초안: unit test, UI smoke test, 라우팅/렌더링 테스트.
+오류 수정: import/type/layout/mock data 오류를 최대 2회까지 수정.
+7.2 부분자동
+영역
+Codex 가능 작업
+자동 수정 제한 이유
+QR 세션
+short_code, token_hash, expires_at, status transition 초안
+만료, 재사용, 동시 결제 위험
+권한 규칙
+role, company_id, nursery_id, tablet_id 조건 초안
+데이터 유출 위험
+PG 테스트 adapter
+prepare, approve, cancel, partial cancel mock/test adapter
+공식 문서와 테스트키 필요
+알림 adapter
+발송 함수, 로그 저장, 실패 처리 초안
+템플릿 승인과 발송사 API 필요
+외부 재고 API
+mapping, sync log, mock sync
+운영 API 규격 필요
+정산 계산
+order_items 기준 계산 초안
+금액 사고 위험
+비회원 주문조회
+주문번호+휴대폰 인증 구조 초안
+개인정보 접근 위험
+7.3 절대자동불가
+금지 작업
+Codex 허용 범위
+PG 운영 MID/Secret 등록
+Secret Manager 경로와 필요한 정보 목록만 작성
+실결제
+테스트 시나리오와 체크리스트만 작성
+운영 환불/부분취소
+환불 검토표만 작성
+입점사 정산 지급
+지급 전 검산표만 작성
+운영 배포
+배포 체크리스트만 작성
+카카오 템플릿 승인
+템플릿 문구 초안과 승인 목록만 작성
+개인정보/약관 최종 판단
+검토 요청 문서만 작성
+운영 DB 삭제/마이그레이션
+영향도 분석만 작성
+7.4 SAFE_NIGHT_MODE
+SAFE_NIGHT_MODE로 작업한다. 오늘 작업은 위험도 낮은 기능 1개만 수행한다. 허용: - 문서 생성 - Next.js 화면 생성 - 기본 CRUD 초안 - mock API - 테스트 초안 - UI 오류 수정 - 보고서 작성 금지: - PG 운영키 - 실결제 - 환불/부분취소 - 정산 지급 - 운영 배포 - Secret Key 변경 - 운영 DB 변경 진행: AGENTS.md와 PROJECT_RULES.md를 읽고 관련 파일만 수정한다. build/lint/test를 실행한다. 오류는 최대 2회까지만 자동 수정한다. 위험 영역이 필요하면 중단하고 BLOCKERS.md에 기록한다.
+7.5 SAFE_FIELD_MODE
+SAFE_FIELD_MODE로 작업한다. 나는 외근 중이므로 짧게 검토 가능한 작업만 수행한다. 허용: - 오류 분석 - 수정 방향성 제시 - 문서 정리 - 화면 메뉴 정리 - 테스트 체크리스트 작성 금지: - 결제/환불/정산/보안 파일 수정 - 운영 배포 - Secret Key 변경 - 실제 API 호출 결과는 짧은 보고서로 작성하고, 내 승인 없이는 코드 수정하지 않는다.
+검증 체크리스트
+8.1 Codex 작업 결과 검증
+요청 범위 외 파일을 수정하지 않았는가?
+AGENTS.md와 PROJECT_RULES.md를 읽었다는 근거를 남겼는가?
+Next.js 관련 작업 전 node_modules/next/dist/docs/의 관련 문서를 확인했는가?
+lint/build/test 결과를 AUTO_REPORT.md에 남겼는가?
+실패를 임시 우회하지 않고 원인과 차단 항목을 기록했는가?
+/diff로 변경 파일을 확인했는가?
+결제/환불/정산/보안/배포 관련 작업이 자동 실행되지 않았는가?
+8.2 Next.js 구현 검증
+검증 항목
+질문
+Server/Client 경계
+서버 데이터 조회는 Server Component에 남기고, client는 상호작용 컴포넌트에만 사용했는가?
+Mutation
+상품등록/승인요청/송장입력 같은 변경은 Server Action 또는 적절한 Route Handler에서 처리했는가?
+외부 callback
+PG/알림/재고 API는 Route Handler 또는 서버 adapter에서 처리했는가?
+권한
+Server Action/Route Handler 내부에서 role, company_id, nursery_id, tablet_id 검증을 다시 수행했는가?
+캐시
+저장/수정/삭제 후 필요한 경로만 revalidate 했는가?
+성능
+대시보드가 원장을 매번 직접 합산하지 않고 summary를 사용했는가?
+오류 처리
+loading/error/not-found 등 최소 상태 처리가 있는가?
+8.3 쇼핑몰 핵심 검증
+구분
+질문
+권한
+입점사 A가 입점사 B 주문/상품/매출을 볼 수 없는가?
+권한
+조리원 A가 조리원 B 객실/태블릿/주문을 볼 수 없는가?
+QR
+QR 세션은 2~3시간 만료되는가?
+QR
+만료 후 QR 링크와 상품 상세 모두 접속 불가인가?
+QR
+결제 완료 후 QR 재사용이 차단되는가?
+QR
+동일 QR 동시 결제 시 하나만 성공하는가?
+결제
+프론트 금액 위변조 시 서버 승인에서 차단되는가?
+결제
+PG TID가 결제/취소/환불 원장에 저장되는가?
+재고
+결제 승인 후 재고 차감, 취소 후 복구가 일관적인가?
+정산
+정산이 orders가 아니라 order_items 기준인가?
+보안
+Secret Key가 프론트에 노출되지 않고 Secret Manager 경로로만 관리되는가?
+병목
+목록 조회는 pagination을 사용하고, 대시보드는 summary를 사용하는가?
+바로 쓰는 Codex 프롬프트
+9.1 마스터 프로젝트 이해
+너는 산후조리원 폐쇄몰 기반 기업 입점형 QR 결제 쇼핑몰 시스템의 메인 개발 에이전트다. 이 프로젝트는 결제, 기업 Admin, 입점형 정산, 폐쇄몰, 산후조리원 객실/태블릿 출처 추적, QR 결제, 비회원 주문조회, 알림, 외부 재고/API 연동이 포함된 상용 커머스 시스템이다. 절대 원칙: - 추측 코딩 금지 - 운영 배포 금지 - 실결제/환불/정산 지급 금지 - Secret Key 프론트 노출 금지 - 결제/환불/정산 서버 처리 - company_id/nursery_id/tablet_id 격리 완료 시 수정 파일, 추가 파일, 테스트 결과, 실패 항목, 사람 확인 필요 항목, 다음 작업 명령어를 보고한다.
+9.2 오늘 작업 시작
+오늘 작업을 시작한다. 먼저 AGENTS.md, PROJECT_RULES.md, DB_SCHEMA.md, STATUS_MODEL.md, SECURITY_POLICY.md, NEXT_TASKS.md, BLOCKERS.md를 읽어라. 오늘은 위험도 낮은 기능 1개만 작업한다. 작업 전 오늘 추천 작업 3개, 각 작업 위험도, 1순위 작업, 작업하지 말아야 할 항목을 출력하라.
+9.3 Next.js 기능 개발
+목표: [기능명] 범위: - 수정 가능한 파일/폴더: [경로] - 건드리면 안 되는 파일/로직: [경로 또는 기능] Next.js 기준: - App Router 사용 - Server Component 우선 - 상호작용 필요한 부분만 Client Component - 데이터 변경은 Server Action 우선 - 외부 API/webhook은 Route Handler - 저장 후 필요한 경우 revalidatePath/revalidateTag 사용 진행: 1. node_modules/next/dist/docs/에서 관련 문서를 먼저 확인 2. 수정 계획 제시 3. 승인 후 최소 수정 4. lint/build/test 실행 5. diff 요약 및 AUTO_REPORT.md 작성
+9.4 Next.js 오류 수정
+문제: [에러 내용] 현재 URL: http://localhost:3000/[route] 진행: 1. Next.js MCP로 현재 build/runtime/type error와 route 상태를 확인한다. 2. 관련 파일 후보와 원인 가설을 정리한다. 3. 수정 계획만 먼저 제시한다. 4. 승인 후 최소 수정한다. 5. pnpm lint, pnpm build, pnpm test를 실행한다. 6. 실패하면 원인을 분석하고 최대 2회까지 재수정한다. 7. 변경 파일과 검증 결과를 요약한다.
+9.5 자동화 금지 중단
+중단한다. 이 작업은 자동화 금지 영역이다. PG 운영키, 실결제, 환불, 부분취소, 정산 지급, 운영 DB, Secret Key, 관리자 권한, 법률/약관, 개인정보 정책에 해당하면 작업하지 말고 BLOCKERS.md에 필요한 확인사항만 작성해줘.
+9.6 하루 종료 보고
+오늘 작업을 종료한다. 완료한 기능, 수정한 파일, 추가한 파일, 실패한 테스트, 남은 오류, 사람 확인 필요 항목, 다음 작업 우선순위, 내일 Codex에 넣을 명령어를 정리해줘. AUTO_REPORT.md, BLOCKERS.md, NEXT_TASKS.md를 최신 상태로 갱신해줘.
+근거 자료
+문서 작성에 사용한 확인 근거입니다. 원문 영상 대본은 사용하지 않았고, 공식 문서와 업로드된 문서의 확인 가능한 내용만 반영했습니다.
+구분
+근거
+반영 내용
+OpenAI 공식
+Codex CLI command line options
+작업 디렉터리 -C, sandbox, approval, yolo 주의
+OpenAI 공식
+Codex CLI slash commands
+/status, /diff, /mention, /init, /review 등
+OpenAI 공식
+Codex AGENTS.md guide
+Codex가 AGENTS.md를 읽고 프로젝트 지침을 계층적으로 적용한다는 기준
+OpenAI 공식
+Codex IDE/CLI 개요
+Codex가 코드를 읽고, 수정하고, 실행할 수 있는 코딩 에이전트라는 기준
+Next.js 공식
+App Router docs
+App Router, Server Components, Server Functions 기준
+Next.js 공식
+AI Coding Agents docs
+Next.js bundled docs와 AGENTS.md 기준
+Next.js 공식
+Next.js MCP Server docs
+Next.js 16+ MCP와 next-devtools-mcp 기준
+업로드 문서
+codex_coding_automation_master_v1.docx
+자동화 등급, SAFE_NIGHT_MODE, 프롬프트, 보고서 템플릿, 금지 영역
+업로드 문서
+sanho_closed_mall_uiux_master_v1.docx
+쇼핑몰 요구사항, Next.js 적용 영역, QR/조르기, 비회원 주문조회, 검증 체크리스트
+Codex × Next.js 코딩 실행 문서 v1.0
+대표님 프로젝트 문서화본 | Codex 코딩 / Next.js 구현 / 쇼핑몰 자동화 보강

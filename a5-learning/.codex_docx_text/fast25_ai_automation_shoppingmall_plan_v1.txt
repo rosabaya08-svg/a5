@@ -1,0 +1,385 @@
+﻿FAST-25
+AI 자동화 기반 기업입점형 QR 결제 쇼핑몰 최단 생성 로직 문서
+산후조리원 폐쇄몰 · 태블릿 전용 쇼핑 · QR/조르기 · 기업 Admin · mock/test 베타
+문서 결론
+PG 운영 등록, 실결제, 운영 환불, 정산 지급, 운영 배포를 제외하고 A등급 기능은 병렬 생성, B등급은 mock/test 초안, C등급은 BLOCKERS로 분리하면 25작업일 안에 테스트 가능한 베타를 만드는 것이 최단 현실 목표입니다.
+항목
+값
+작성 기준일
+2026-05-17
+시작일 가정
+2026-05-18 월요일
+주말 처리
+주말 제외
+공휴일 처리
+미반영. 한국 공휴일 반영 시 일정은 늘어날 수 있음
+목표 산출물
+테스트 가능한 기업입점형 폐쇄몰 베타
+제외 산출물
+PG 운영 등록, 실결제, 운영 환불, 정산 지급, 운영 배포
+목차
+1. 문서 목적과 판단 기준
+2. 업로드 파일 분석 요약
+3. FAST-25 최단 기간 단축 로직
+4. 포함 범위와 제외 범위
+5. A/B/C 자동화 등급과 처리 규칙
+6. 25작업일 일정표와 계산식
+7. AI 업무 분할 구조
+8. 병렬 worktree / tmux 운영 구조
+9. 일일 실행 루프와 품질 게이트
+10. 15일·25일·32일·47일 비교
+11. Codex 실행 프롬프트
+12. 산출물 체크리스트
+13. 별첨: C등급 및 외부 승인 영역
+1. 문서 목적과 판단 기준
+이 문서는 업로드된 Codex/Next.js/자동화/쇼핑몰 설계 문서를 기준으로, 기업입점형 QR 결제 쇼핑몰을 AI 자동화로 최단 기간 생성하기 위한 실행 로직을 정리한 문서입니다.
+확인됨
+업로드된 자동화 문서는 자동화를 운영 시스템 무인완성이 아니라 개발 브랜치 또는 worktree 안에서 안전 기능을 생성하고, 테스트하고, 오류를 검토하고, 보고서를 남기는 구조로 정의합니다.
+확인 불가
+AI 자동화만으로 오류 0건, 운영 무사고, 실결제/환불/정산 지급/운영 배포까지 완성된 상용 오픈을 보장하는 것은 확인 불가입니다.
+따라서 이 문서의 목표는 상용 오픈이 아니라 “테스트 가능한 베타”입니다. 운영 PG, 실결제, 실환불, 정산 지급, 운영 배포, 법무/약관 최종 판단은 범위에서 제외합니다.
+2. 업로드 파일 분석 요약
+근거 문서
+확인 내용
+이번 문서 반영
+Codex 코딩 자동화 문서화 마스터 v1.0
+Codex Pro를 메인 자동화 도구로 두고, Claude Code·Gemini Pro를 검증 도구로 사용. 실결제·운영 환불·정산 지급·운영 배포는 자동화 금지.
+A/B/C 등급, SAFE_NIGHT_MODE, 게이트, 보고서 템플릿 반영
+산후조리원 폐쇄몰 UI/UX·기술 설계 마스터
+태블릿 전용 폐쇄몰, QR/조르기, 비회원 주문조회, 기업 Admin, 최고관리자, 외부 재고 API, 가격비교 기능 확인. 기존 견적 43작업일 + 테스트 4일 확인.
+프로젝트 범위, 데이터 원장, QR 만료, 정산 기준, 견적 대비 단축률 계산 반영
+Codex × Next.js 하네스 문서 v2.0
+Codex/Next.js/쇼핑몰/자동화 관련 내용만 본문 반영하고 관계 없는 내용은 별첨 분리하는 기준 확인.
+본문 범위와 별첨 분리 기준 유지
+오류 재검토 및 자동 코딩 가드레일 v3.0
+완전자동 표현의 오해, B등급 deep fix 금지, mock/test/production adapter 구분, 가짜 성공 보고 금지 확인.
+방향 이탈·거짓 코딩 방지 규칙 반영
+2.1 프로젝트 한 줄 정의
+산후조리원 객실 태블릿에서만 상품을 장바구니에 담고, 고객은 QR 또는 조르기 링크로 비회원 결제 흐름에 진입하며, 입점 기업은 상품·재고·주문·배송·매출·입금 현황을 관리하고, 최고관리자는 운영·결제·정산·알림·보안을 통제하는 폐쇄몰형 입점 커머스 시스템입니다.
+3. FAST-25 최단 기간 단축 로직
+FAST-25 정의
+Freeze Scope → A등급 병렬 생성 → Stub/Mock 우선 → Test Gate 고정 → 25작업일 베타 패키징
+단계
+의미
+실행 방식
+F: Freeze Scope
+범위 동결
+PG 운영, 실결제, 환불, 정산 지급, 운영 배포를 즉시 제외하고 BLOCKERS로 분리
+A: A등급 병렬 생성
+안전 영역 동시 개발
+관리자 UI, 기업 Admin UI, 태블릿 UI, QR 화면, mock API를 여러 worktree에서 병렬 생성
+S: Stub/Mock 우선
+외부 연동 대기 제거
+PG, 알림톡, 배송조회, 외부 재고 API는 실제 연동 대신 interface + mock adapter부터 생성
+T: Test Gate 고정
+매일 검증
+pnpm lint/build/test, browser smoke, AUTO_REPORT/BLOCKERS/NEXT_TASKS 작성
+25: 베타 목표
+25작업일
+테스트 가능한 베타를 2026-06-19까지 생성
+3.1 핵심 로직
+if task.grade == "C": write BLOCKERS.md only do not code if task.grade == "B": create types + interface + mock/test adapter + risk report stop before production logic if task.grade == "A": generate in development branch/worktree run lint/build/test auto-fix safe errors up to 2 times write AUTO_REPORT.md
+4. 포함 범위와 제외 범위
+4.1 포함 범위 - FAST-25 베타
+포함 영역
+산출물
+문서/규칙
+AGENTS.md, PROJECT_RULES.md, DB_SCHEMA.md, STATUS_MODEL.md, SECURITY_POLICY.md, AUTO_MODE_POLICY.md
+최고관리자
+대시보드, 입점사, 조리원, 객실, 태블릿, 상품승인, 주문/QR/정산 mock 목록
+기업 Admin
+상품 등록, 재고, 주문, 배송, 매출, 입금 현황 UI
+태블릿 폐쇄몰
+상품 목록, 상세, 장바구니, QR 생성, 수령방식 선택
+QR/비회원
+QR 랜딩, mock 결제 페이지, 주문조회 기본 구조
+mock/test adapter
+PG mock, 알림톡 mock, 배송조회 mock, 외부 재고 mock
+검증/보고
+lint/build/test, browser smoke, AUTO_REPORT.md, BLOCKERS.md, NEXT_TASKS.md
+4.2 제외 범위 - 기간 단축을 위해 C등급으로 분리
+제외 영역
+처리 방식
+PG 운영 MID/Secret 등록
+Codex 실행 금지. 필요한 서류·키·계약 체크리스트만 BLOCKERS에 작성
+실결제
+mock/test adapter까지만. 운영 결제는 사람 승인 후 별도
+운영 환불/부분취소
+테스트 케이스와 검토표만 작성
+정산 지급
+정산 계산 초안·검산표까지만. 지급 완료 처리는 금지
+운영 배포
+배포 체크리스트만 작성. 실제 배포는 대표님 승인 후
+카카오 알림톡 운영 승인
+템플릿 초안만 작성. 발송 승인/운영 발송 제외
+외부 재고 API 운영 연동
+공식 API 문서/계약 없으면 mock adapter만
+개인정보/약관 최종 판단
+법무/개인정보 전문가 검토 필요. AI는 체크리스트만 작성
+5. A/B/C 자동화 등급과 처리 규칙
+등급
+자동화 가능 범위
+대표 예시
+중단 조건
+A 완전자동
+개발 브랜치/worktree 안에서 생성·테스트·안전 오류 수정 가능
+문서, UI, 기본 CRUD, mock API, 테스트 초안, UI 깨짐 수정
+결제/권한/정산/운영키/운영 DB 진입 시 즉시 중단
+B 부분자동
+초안, mock/test adapter, 리스크 보고 가능. deep fix 금지
+QR 세션, Firestore Rules, PG test adapter, 알림톡, 배송조회, 외부 재고, 정산 계산 초안
+금액/권한/외부 API 문서 불확실 또는 운영키 필요 시 중단
+C 절대자동불가
+분석·체크리스트만 가능, 실행 금지
+PG 운영키, 실결제, 운영 환불, 정산 지급, 운영 배포, 개인정보/약관 확정
+항상 사람 승인 필요
+중요 정정
+A등급의 “완전자동”은 운영 자동화가 아니라 개발 브랜치/worktree 안에서의 생성·테스트·보고 자동화입니다. 운영 반영은 별도 승인 게이트입니다.
+6. 25작업일 일정표와 계산식
+6.1 기간 계산식
+최단 기간 = 초기 고정 작업 + 병렬 트랙 중 최대 기간 + 통합 작업 + QA/수정 버퍼 초기 고정 작업 = 5작업일 병렬 트랙 최대값 = 7작업일 통합 작업 = 8작업일 QA/리뷰/수정 버퍼 = 5작업일 총 기간 = 5 + 7 + 8 + 5 = 25작업일
+6.2 일정표
+구간
+작업일
+날짜
+핵심 산출물
+1구간
+Day 1~2
+2026-05-18 ~ 2026-05-19
+금지영역 차단, AGENTS/POLICY, worktree 구조
+2구간
+Day 3~5
+2026-05-20 ~ 2026-05-22
+DB/Route/API/mock 계약, 상태 모델
+3구간
+Day 6~12
+2026-05-25 ~ 2026-06-02
+관리자/기업/태블릿/QR UI 병렬 생성
+4구간
+Day 13~17
+2026-06-03 ~ 2026-06-09
+QR, 주문, PG mock, 알림 mock, 정산 초안
+5구간
+Day 18~21
+2026-06-10 ~ 2026-06-15
+통합, lint/build/test, browser smoke
+6구간
+Day 22~25
+2026-06-16 ~ 2026-06-19
+Claude/Gemini 검증, 베타 패키징
+일정 전제
+시작일은 2026-05-18, 주말 제외, 공휴일 미반영입니다. 한국 공휴일·대표님 승인 대기·외부 API 문서 지연이 있으면 일정은 늘어날 수 있습니다.
+7. AI 업무 분할 구조
+역할
+도구
+해야 할 일
+금지
+총괄 설계
+GPT-5.5 Pro
+요구사항 정리, 작업 후보 산정, 프롬프트, 문서화, 일정 계산
+운영 실행
+메인 구현
+Codex Pro
+Next.js UI, mock API, 기본 CRUD, 테스트, AUTO_REPORT
+C등급 실행
+코드/위험 리뷰
+Claude Code
+QR/결제/정산/권한/예외 케이스 검토
+운영 수정 직접 실행
+Firebase/GCP 검증
+Gemini Pro
+Firestore Rules, Index, Cloud Functions/Cloud Run, Secret Manager 구조 검토
+운영 배포
+최종 승인
+대표님
+PG, 실결제, 환불, 정산 지급, 운영 배포, 법무/개인정보 판단
+위임 불가
+7.1 병렬 트랙
+트랙
+담당
+생성 범위
+완료 기준
+Track A
+Codex 1
+최고관리자 UI
+mock 데이터, 필터, 목록, 대시보드
+Track B
+Codex 2
+기업 Admin UI
+상품 등록, 재고, 주문, 배송, 매출, 입금
+Track C
+Codex 3
+태블릿 폐쇄몰 UI
+상품 목록, 상세, 장바구니, QR 생성
+Track D
+Codex 4
+QR/비회원 결제 UI
+QR 랜딩, mock 결제, 주문조회
+Track E
+Gemini
+Firebase Rules/Index 검토
+권한 격리, index 필요 여부 보고
+Track F
+Claude Code
+QR/결제/정산 위험 리뷰
+리스크 리포트, 수정 제안만
+8. 병렬 worktree / tmux 운영 구조
+8.1 worktree 구조
+worktree/00-guardrails worktree/01-schema-contracts worktree/02-admin-ui worktree/03-company-admin-ui worktree/04-tablet-shop-ui worktree/05-qr-checkout-ui worktree/06-order-delivery-mock worktree/07-review-security
+8.2 tmux 4-pane 구조
+Pane
+역할
+작업
+Pane 1
+Orchestrator
+오늘 작업 선정, 범위 제한, handoff 관리
+Pane 2
+Codex Builder
+Next.js 구현, mock API, lint/build/test
+Pane 3
+Claude Reviewer
+QR/결제/정산/권한 위험 리뷰
+Pane 4
+Gemini/Runner
+Rules/Index/GCP 검토, 테스트 로그 확인
+9. 일일 실행 루프와 품질 게이트
+9.1 일일 실행 루프
+AGENTS.md, PROJECT_RULES.md, DB_SCHEMA.md, STATUS_MODEL.md, SECURITY_POLICY.md, AUTO_MODE_POLICY.md를 읽는다.
+오늘 작업 후보를 A/B/C로 분류하고, C등급은 BLOCKERS로 제외한다.
+A등급 작업 1개 또는 병렬 가능한 UI 작업을 선택한다.
+수정 전 계획을 출력하고 승인된 범위만 구현한다.
+pnpm lint, pnpm build, pnpm test, 필요 시 browser smoke를 실행한다.
+실패는 최대 2회까지만 자동 수정하고, B/C 영역이면 중단한다.
+AUTO_REPORT.md, BLOCKERS.md, NEXT_TASKS.md를 갱신한다.
+9.2 게이트
+Gate
+질문
+통과 조건
+Gate 0
+이 작업이 C등급인가?
+C등급이면 코드 작성 금지, BLOCKERS만 작성
+Gate 1
+수정 가능 파일 안에 있는가?
+허용 경로만 수정
+Gate 2
+공식 문서/프로젝트 문서 근거가 있는가?
+없으면 mock adapter만
+Gate 3
+lint/build/test가 실행됐는가?
+실행 명령과 결과 기록
+Gate 4
+QR/결제/정산/권한 위험이 있는가?
+Claude/Gemini 리뷰 후 진행
+Gate 5
+운영 반영이 필요한가?
+대표님 승인 전 중단
+10. 15일·25일·32일·47일 비교
+목표
+작업일
+종료일
+포함 범위
+판단
+데모 MVP
+15작업일
+2026-06-05
+화면과 mock 흐름 중심. QR/PG/정산 깊은 검증 제외
+가장 빠른 시연용
+FAST-25 베타
+25작업일
+2026-06-19
+기업입점 쇼핑몰 테스트 가능한 베타. mock/test adapter 포함
+최단 실전 목표
+검증 강화 베타
+32작업일
+2026-06-30
+Rules emulator, QR edge case, 개인정보 노출, 정산 검산표 추가
+오류 리스크 감소
+기존 견적 기준
+47작업일
+2026-07-21
+기존 43작업일 + 테스트 4일 기준
+비교 기준
+10.1 단축률 계산
+기존 기준 = 47작업일 FAST-25 = 25작업일 단축 작업일 = 47 - 25 = 22작업일 단축률 = 22 / 47 × 100 = 46.8% 데모 MVP = 15작업일 단축 작업일 = 47 - 15 = 32작업일 단축률 = 32 / 47 × 100 = 68.1%
+Sanity Check
+15작업일은 데모 MVP입니다. 기업입점 쇼핑몰 베타라고 부르려면 최소 25작업일이 현실적이며, 오류 리스크를 낮추려면 32작업일 버전이 더 안전합니다.
+11. Codex 실행 프롬프트
+11.1 FAST-25 마스터 프롬프트
+너는 산후조리원 폐쇄몰 기반 기업입점형 QR 결제 쇼핑몰의 FAST-25 개발 에이전트다. 목표: 25작업일 안에 테스트 가능한 베타를 생성한다. 절대 제외: - PG 운영 MID/Secret 등록 - 실결제 - 운영 환불/부분취소 - 정산 지급 - 운영 배포 - Secret Key 변경 - 운영 DB 삭제/마이그레이션 - 개인정보/약관 최종 판단 우선순위: 1. AGENTS.md / PROJECT_RULES / DB_SCHEMA / STATUS_MODEL / AUTO_MODE_POLICY 2. Next.js App Router 기반 관리자/기업 Admin/태블릿/QR 화면 3. mock API와 adapter interface 4. QR 세션, 주문, 결제, 정산은 mock/test 초안까지만 5. lint/build/test/browser smoke test 6. AUTO_REPORT / BLOCKERS / NEXT_TASKS 작성 진행 규칙: - 기능 1개 단위로 작업한다. - 수정 전 계획을 먼저 출력한다. - 요청 범위 외 수정하지 않는다. - A등급은 생성/테스트/최대 2회 수정한다. - B등급은 초안/테스트/위험 보고까지만 한다. - C등급은 코딩하지 않고 BLOCKERS.md에 기록한다. - 공식 문서 없는 외부 API는 만들지 말고 mock adapter만 만든다. - 실제 테스트하지 않은 항목을 성공으로 보고하지 않는다. 먼저 오늘 작업 후보 5개를 A/B/C 등급, 예상 소요시간, 위험도, 병렬 가능 여부로 정리하고, 1순위 작업부터 시작하라. 아직 코드는 수정하지 마라.
+11.2 방향 이탈 방지 프롬프트
+아래 범위 밖의 작업은 코드로 구현하지 마라. 요청 범위: [오늘 작업 범위] 수정 가능: [허용 파일/폴더] 수정 금지: [금지 파일/기능] 범위 밖에서 더 좋은 개선안이 보이면 NEXT_TASKS.md에 제안만 남겨라. 결제/환불/정산/보안/운영 배포/Secret Key/운영 DB 관련 작업이 필요하면 즉시 중단하고 BLOCKERS.md에 기록하라.
+11.3 거짓 코딩 방지 프롬프트
+공식 문서 또는 프로젝트 문서로 확인되지 않은 API, endpoint, parameter, response format, Secret Key 이름을 만들지 마라. 확인되지 않은 연동은 mock adapter로만 작성하라. 실제 연동이 필요하면 필요한 공식 문서, 테스트키, 계약 정보, 승인 절차를 BLOCKERS.md에 작성하라. 테스트를 실행하지 않았다면 성공했다고 쓰지 마라. 실패한 테스트는 실패했다고 기록하라.
+12. 산출물 체크리스트
+산출물
+필수 내용
+완료 기준
+AGENTS.md
+작업 원칙, 금지 영역, Next.js 문서 확인, 보고서 규칙
+Codex 작업 전 자동 로드
+PROJECT_RULES.md
+폐쇄몰/태블릿/QR/기업 Admin/권한 원칙
+추측 코딩 방지
+DB_SCHEMA.md
+products, orders, order_items, qr_payment_sessions, payments, settlements, audit_logs
+원장 분리 고정
+STATUS_MODEL.md
+QR/Order/Payment/Settlement 상태 전이
+불가능한 상태 이동 차단
+AUTO_MODE_POLICY.md
+A/B/C 등급, C등급 금지, B등급 deep fix 금지
+자동화 안전장치
+AUTO_REPORT.md
+작업명, 수정 파일, 테스트, 실패, 자동 수정 횟수
+매일 갱신
+BLOCKERS.md
+필요 문서/키/승인/계약/사람 판단 항목
+C등급 또는 미확정 시 갱신
+NEXT_TASKS.md
+다음 작업 후보, 우선순위, 병렬 가능 여부
+다음날 작업 기준
+TEST_RESULT.md
+lint/build/test/browser smoke 결과
+성공/실패 모두 기록
+RELEASE_CHECKLIST.md
+베타 검수 항목, 운영 제외 항목
+운영 오픈 전 별도 검토
+13. 별첨: C등급 및 외부 승인 영역
+아래 항목은 최단 베타 생성 범위에서 제외합니다. Codex는 코드 실행 대신 체크리스트, 필요 문서, 승인 절차만 작성합니다.
+영역
+제외 이유
+AI 허용 작업
+PG 운영 MID/Secret
+계약·심사·보안키 영역
+필요 서류와 테스트키 요청 목록
+실결제
+금전 사고 가능
+mock/test 결제 시나리오
+운영 환불/부분취소
+실제 금액 변동
+환불 케이스 테스트표
+정산 지급
+입점사 돈 지급
+정산 계산식과 검산표
+운영 배포
+서비스 장애 가능
+배포 전 체크리스트
+카카오 알림톡 승인
+템플릿 승인과 발송대행사 계약 필요
+템플릿 초안과 로그 구조
+외부 재고 API 운영 연동
+공식 API 문서·계약 필요
+mock adapter와 필드 매핑 초안
+법무/개인정보/약관
+전문가 판단 필요
+검토 항목 목록
+최종 결론
+최종 운영 판단
+가장 빠른 실전 로직은 실제 운영 연동을 기다리지 않고, 계약·mock·UI·검증을 병렬화해서 25작업일 안에 테스트 가능한 베타를 만드는 것입니다. 운영 결제·환불·정산 지급·운영 배포는 절대 자동화하지 않습니다.
+최단 목표일: 2026-06-19. 더 공격적인 15작업일은 화면 데모 MVP, 더 안전한 32작업일은 검증 강화 베타로 분류합니다.
+근거 문서
+Codex 코딩 자동화 문서화 마스터 v1.0 - 자동화 등급, 금지 영역, SAFE_NIGHT_MODE, 보고서 템플릿
+산후조리원 폐쇄몰 기반 기업 입점형 QR 결제 쇼핑몰 UI/UX·기능·기술 설계 마스터 v1.0 - 프로젝트 범위, 기존 견적, QR/조르기, 데이터 원장
+Codex × Next.js 하네스 코딩 실행 문서 v2.0 - 본문/별첨 분리 기준, Codex/Next.js/쇼핑몰/자동화 범위
+Codex × Next.js 오류 재검토 및 자동 코딩 가드레일 v3.0 - 방향 이탈 방지, mock/test/production 분리, 거짓 코딩 방지
+FAST-25 AI 자동화 쇼핑몰 생성 계획 · 2026-05-17

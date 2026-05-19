@@ -18,6 +18,8 @@
 | B-010 | Gate 0 정책 문서 부족 | `PROJECT_RULES.md`, `DB_SCHEMA.md`, `STATUS_MODEL.md`, `SECURITY_POLICY.md`, `AUTO_MODE_POLICY.md` 없음 | 구현 전 정책 문서 작성/승인 |
 | B-011 | Next.js 16.2.6 변경사항 확인 필요 | `AGENTS.md`가 bundled docs 확인을 요구 | 구현 전 관련 `node_modules/next/dist/docs/` 문서 확인 |
 | B-012 | npm PowerShell 실행 정책 차단 | `npm.ps1` 직접 실행 실패, `npm.cmd`는 가능 | 명령 실행 시 `npm.cmd` 사용 또는 정책 확인 |
+| B-013 | 운영 외부 연동 정보 없음 | PG, 알림톡, 배송조회, 외부 재고 API 운영 문서/키/계약 정보 없음 | mock adapter까지만 생성하고 실제 연동 금지 |
+| B-014 | 정산 지급 정책 미확정 | 수수료율, 지급일, 차감, 세무/증빙 정책 없음 | 정산 mock UI와 검산표 수준까지만 허용 |
 
 ## 2. 현재 허용 가능한 작업
 

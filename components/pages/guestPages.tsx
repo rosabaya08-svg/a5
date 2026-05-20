@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockApi } from "@/lib/mock/mockApi";
+import { mockRepositories } from "@/lib/repositories/mock";
+import { repositoryData } from "@/lib/repositories/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import type { QrPaymentSession } from "@/types/commerce";
 
 function GuestFrame({
   title,
@@ -36,9 +38,7 @@ function GuestFrame({
   );
 }
 
-function MobileOrderSummary({ code }: { code: string }) {
-  const session = mockApi.findQr(code);
-
+function MobileOrderSummary({ session }: { session: QrPaymentSession }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -72,12 +72,14 @@ function MobileOrderSummary({ code }: { code: string }) {
   );
 }
 
-export function QrLandingPage({ code }: { code: string }) {
-  const session = mockApi.findQr(code);
+export async function QrLandingPage({ code }: { code: string }) {
+  const session = repositoryData(
+    await mockRepositories.qrSessions.getQrSessionByShortCode(code),
+  );
 
   return (
     <GuestFrame title="QR 주문 확인" subtitle="모바일 결제 진입 전 상품, 수령방식, 만료 시간을 확인합니다.">
-      <MobileOrderSummary code={code} />
+      <MobileOrderSummary session={session} />
       <section className="mt-3 rounded-md bg-emerald-50 p-4">
         <p className="text-sm font-black text-emerald-900">폐쇄몰 전용 안내</p>
         <p className="mt-2 text-sm leading-6 text-slate-700">
@@ -91,12 +93,14 @@ export function QrLandingPage({ code }: { code: string }) {
   );
 }
 
-export function QrCheckoutPage({ code }: { code: string }) {
-  const session = mockApi.findQr(code);
+export async function QrCheckoutPage({ code }: { code: string }) {
+  const session = repositoryData(
+    await mockRepositories.qrSessions.getQrSessionByShortCode(code),
+  );
 
   return (
     <GuestFrame title="결제 정보 입력" subtitle="실제 PG 호출 없이 모바일 결제 폼 UI만 제공합니다.">
-      <MobileOrderSummary code={code} />
+      <MobileOrderSummary session={session} />
       <section className="mt-4 rounded-md border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-black">비회원 정보 mock</h2>
         <div className="mt-3 grid gap-3">
@@ -138,8 +142,10 @@ export function QrCheckoutPage({ code }: { code: string }) {
   );
 }
 
-export function QrSuccessPage({ code }: { code: string }) {
-  const session = mockApi.findQr(code);
+export async function QrSuccessPage({ code }: { code: string }) {
+  const session = repositoryData(
+    await mockRepositories.qrSessions.getQrSessionByShortCode(code),
+  );
 
   return (
     <GuestFrame title="mock 결제 완료" subtitle="QR 재사용 차단과 주문 원장 기록이 필요한 상태입니다.">
@@ -157,8 +163,10 @@ export function QrSuccessPage({ code }: { code: string }) {
   );
 }
 
-export function QrFailedPage({ code }: { code: string }) {
-  const session = mockApi.findQr(code);
+export async function QrFailedPage({ code }: { code: string }) {
+  const session = repositoryData(
+    await mockRepositories.qrSessions.getQrSessionByShortCode(code),
+  );
 
   return (
     <GuestFrame title="mock 결제 실패" subtitle="실패 사유와 재시도 가능 여부를 구분하는 화면입니다.">
@@ -213,9 +221,10 @@ export function GuestOrderLookupPage() {
   );
 }
 
-export function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
-  const order = mockApi.findOrder(orderNo);
-  const items = mockApi.orderItems().filter((item) => order.itemIds.includes(item.id));
+export async function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
+  const { order, items } = repositoryData(
+    await mockRepositories.orders.getOrderByOrderNo(orderNo),
+  );
 
   return (
     <GuestFrame title="주문 상세" subtitle="비회원 고객용 주문 결과 mock 화면입니다.">

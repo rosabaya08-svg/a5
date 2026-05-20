@@ -1,8 +1,10 @@
-import { mockApi } from "@/lib/mock/mockApi";
 import { QrFailedPage } from "@/components/pages/guestPages";
+import { mockRepositories } from "@/lib/repositories/mock";
 
-export function generateStaticParams() {
-  return mockApi.qrSessions().map((session) => ({ code: session.shortCode }));
+export async function generateStaticParams() {
+  const result = await mockRepositories.qrSessions.listQrSessions();
+
+  return result.ok ? result.data.map((session) => ({ code: session.shortCode })) : [];
 }
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {

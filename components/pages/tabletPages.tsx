@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockApi } from "@/lib/mock/mockApi";
+import { mockNurseries } from "@/data/mockNurseries";
+import { mockRooms } from "@/data/mockRooms";
+import { mockRepositories } from "@/lib/repositories/mock";
+import { repositoryData } from "@/lib/repositories/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
-import type { CartItemSnapshot, Product } from "@/types/commerce";
+import type { CartItemSnapshot, Nursery, Product, QrPaymentSession, Room } from "@/types/commerce";
 
 const tabletNav = [
   { href: "/tablet/products", label: "홈" },
@@ -36,23 +39,34 @@ function fulfillmentLabel(product: Product) {
   return "현장수령/택배";
 }
 
-function getContext() {
-  const session = mockApi.findQr("SANHO701");
-  const nursery = mockApi.nurseries().find((item) => item.id === session.nurseryId);
-  const room = mockApi.rooms().find((item) => item.id === session.roomId);
+type StoreContext = {
+  session: QrPaymentSession;
+  nursery?: Nursery;
+  room?: Room;
+};
+
+async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
+  const session = repositoryData(
+    await mockRepositories.qrSessions.getQrSessionByShortCode(shortCode),
+  );
+  const nursery = mockNurseries.find((item) => item.id === session.nurseryId);
+  const room = mockRooms.find((item) => item.id === session.roomId);
+
   return { session, nursery, room };
 }
 
 function StoreShell({
   title,
   subtitle,
+  context,
   children,
 }: {
   title: string;
   subtitle: string;
+  context: StoreContext;
   children: React.ReactNode;
 }) {
-  const { session, nursery, room } = getContext();
+  const { session, nursery, room } = context;
 
   return (
     <main className="min-h-screen bg-[#f6f3ee] text-slate-950">
@@ -217,17 +231,19 @@ function CartLine({ item }: { item: CartItemSnapshot }) {
   );
 }
 
-export function TabletHomePage() {
+export async function TabletHomePage() {
   return <TabletProductsPage />;
 }
 
-export function TabletProductsPage() {
-  const products = mockApi.products().filter((product) => product.status === "approved");
+export async function TabletProductsPage() {
+  const context = await getContext();
+  const products = repositoryData(await mockRepositories.products.listApprovedProducts());
 
   return (
     <StoreShell
       title="맘 전용 폐쇄몰"
       subtitle="조리원 객실 태블릿에서만 열리는 상품 목록입니다. 모든 가격과 재고는 mock 데이터입니다."
+      context={context}
     >
       <PromoBand />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -248,12 +264,17 @@ export function TabletProductsPage() {
   );
 }
 
-export function TabletProductDetailPage({ productId }: { productId: string }) {
-  const product = mockApi.findProduct(productId);
-  const options = mockApi.productOptions().filter((option) => option.productId === product.id);
+export async function TabletProductDetailPage({ productId }: { productId: string }) {
+  const context = await getContext();
+  const product = repositoryData(await mockRepositories.products.getProductById(productId));
+  const options = repositoryData(await mockRepositories.products.listProductOptions(product.id));
 
   return (
-    <StoreShell title={product.name} subtitle="상품 상세와 가격 비교, 옵션, 수령 방식을 확인합니다.">
+    <StoreShell
+      title={product.name}
+      subtitle="상품 상세와 가격 비교, 옵션, 수령 방식을 확인합니다."
+      context={context}
+    >
       <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
         <div className={`flex min-h-96 items-center justify-center rounded-md p-8 text-center ${toneClasses[product.thumbnailTone]}`}>
           <div>
@@ -317,11 +338,16 @@ export function TabletProductDetailPage({ productId }: { productId: string }) {
   );
 }
 
-export function TabletCartPage() {
-  const session = mockApi.findQr("SANHO701");
+export async function TabletCartPage() {
+  const context = await getContext();
+  const { session } = context;
 
   return (
-    <StoreShell title="장바구니" subtitle="옵션, 수량, 수령방식, 합계금액을 확인하고 QR을 생성합니다.">
+    <StoreShell
+      title="장바구니"
+      subtitle="옵션, 수량, 수령방식, 합계금액을 확인하고 QR을 생성합니다."
+      context={context}
+    >
       <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
         <section className="grid gap-3">
           {session.items.map((item) => (
@@ -366,11 +392,16 @@ export function TabletCartPage() {
   );
 }
 
-export function TabletQrPage() {
-  const session = mockApi.findQr("SANHO701");
+export async function TabletQrPage() {
+  const context = await getContext();
+  const { session } = context;
 
   return (
-    <StoreShell title="구매 QR" subtitle="고객 또는 보호자가 모바일로 스캔하는 결제 진입 QR입니다.">
+    <StoreShell
+      title="구매 QR"
+      subtitle="고객 또는 보호자가 모바일로 스캔하는 결제 진입 QR입니다."
+      context={context}
+    >
       <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[420px_1fr]">
         <section className="rounded-md border border-slate-200 bg-white p-6 text-center">
           <div className="mx-auto flex h-72 w-72 items-center justify-center rounded-md border-8 border-slate-950 bg-slate-100">
@@ -398,11 +429,16 @@ export function TabletQrPage() {
   );
 }
 
-export function TabletAskPage() {
-  const session = mockApi.findQr("ASKMOM88");
+export async function TabletAskPage() {
+  const context = await getContext("ASKMOM88");
+  const { session } = context;
 
   return (
-    <StoreShell title="조르기 QR" subtitle="보호자에게 공유하는 제3자 결제용 mock 링크입니다.">
+    <StoreShell
+      title="조르기 QR"
+      subtitle="보호자에게 공유하는 제3자 결제용 mock 링크입니다."
+      context={context}
+    >
       <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-[360px_1fr]">
         <section className="rounded-md border border-amber-200 bg-white p-5 text-center">
           <div className="flex h-60 items-center justify-center rounded-md border-8 border-amber-400 bg-amber-50">

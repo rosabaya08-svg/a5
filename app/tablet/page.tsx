@@ -1,5 +1,5 @@
 import { TabletHomePage } from "@/components/pages/tabletPages";
 
-export default function Page() {
+export default async function Page() {
   return <TabletHomePage />;
 }

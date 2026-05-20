@@ -1,8 +1,10 @@
-import { mockApi } from "@/lib/mock/mockApi";
 import { GuestOrderDetailPage } from "@/components/pages/guestPages";
+import { mockRepositories } from "@/lib/repositories/mock";
 
-export function generateStaticParams() {
-  return mockApi.orders().map((order) => ({ orderNo: order.orderNo }));
+export async function generateStaticParams() {
+  const result = await mockRepositories.orders.listOrders();
+
+  return result.ok ? result.data.map((order) => ({ orderNo: order.orderNo })) : [];
 }
 
 export default async function Page({ params }: { params: Promise<{ orderNo: string }> }) {

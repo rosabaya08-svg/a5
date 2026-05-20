@@ -12,6 +12,7 @@
 - Storage는 Spark 요금제 제약으로 보류하며 상품 이미지/GIF는 mock placeholder 유지
 - 고객은 비회원 QR 흐름 유지, 고객 로그인은 아직 만들지 않음
 - Firebase 실제 연결 전 전환 설계 보강: mock 데이터와 Firestore/Auth/Functions 계획 매핑
+- 태블릿/QR/비회원 주문조회 화면 데이터 접근은 `mockRepositories` 기반으로 전환 및 재검증 완료
 
 ## 2. 다음 작업 후보
 
@@ -44,13 +45,14 @@
 
 | 우선순위 | 작업 | 등급 | 메모 |
 | --- | --- | --- | --- |
-| 1 | Browser smoke test 확대 | A | 주요 라우트 desktop/mobile 확인 |
-| 2 | mock adapter 테스트 파일 추가 | A | 외부 패키지 없이 순수 함수 검증 방식 검토 |
-| 3 | Firebase 연결 전 권한 설계 보강 | B | Firestore Rules, Auth Claims, Functions server logic 문서만 |
-| 4 | QR 상태 전이 테스트 초안 | B | paid/expired/cancelled 재사용 차단 케이스 |
-| 5 | 비회원 주문조회 인증 정책 확정 | C | 사람 승인 필요 |
-| 6 | Browser 런타임 경로 오류 확인 | A | 현재 HTTP smoke는 성공, in-app Browser 런타임은 내부 자산 경로 오류 |
-| 7 | 고객 폐쇄몰 UI 전문가용 고도화 | A | mock 데이터만 사용, 실제 Firebase/PG 연결 없이 상품 목록/상세/장바구니/QR 퍼널 개선 |
+| 1 | Repository contract test 초안 | A | 화면이 사용하는 product/QR/order mock repository 결과를 외부 패키지 없이 검증 |
+| 2 | service boundary 초안 | B | QR 생성, checkout, guest order lookup use case를 repository 위 계층으로 분리 |
+| 3 | 남은 관리자/기업/조리원 화면 repository 전환 후보 검토 | A | 고객/태블릿 화면과 같은 방식으로 직접 `mockApi` 의존을 줄일지 판단 |
+| 4 | Firestore Rules 권한 매트릭스 초안 작성 | B | `company_id`, `nursery_id`, `tablet_id`, guest token 범위가 컬렉션별로 정리됨 |
+| 5 | Firebase adapter 실제 구현 승인 판단 | C | config 보관 방식, SDK 설치, Rules 승인 전까지 stub 유지 |
+| 6 | Browser smoke test 확대 | A | 주요 라우트 desktop/mobile 확인 |
+| 7 | 고객 폐쇄몰 UI 전문가용 고도화 | A | mock repository만 사용, 실제 Firebase/PG 연결 없이 상품 목록/상세/장바구니/QR 퍼널 개선 |
+| 8 | PG/알림톡/배송조회/외부 재고 API 문서 확보 | C | 공식 문서, 테스트키, 템플릿, 계약 정보 확보 전 실제 연결 금지 |
 
 ## 3. 이후 사람 확인 필요
 
@@ -65,3 +67,6 @@
 - 외부 재고 API 공식 규격서
 - 정산 수수료/차감/지급 정책
 - 비회원 주문조회 인증 정책
+- Firebase Repository stub을 실제 adapter로 전환할 승인 시점
+- Repository service 계층에서 QR/결제/재고 transaction을 어디까지 mock으로 검증할지 결정
+- 관리자/기업/조리원 화면까지 repository 계층으로 옮길지 여부

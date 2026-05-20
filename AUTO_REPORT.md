@@ -212,3 +212,49 @@
 | 금지사항 준수 | Firebase config, `.env`, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, Firebase SDK 설치, 실제 Firestore/Auth/PG/알림톡/배송조회/외부 재고 연결, deploy 모두 수행하지 않음 |
 
 수정 파일 목록: `FIRESTORE_SCHEMA_PLAN.md`, `AUTH_CLAIMS_PLAN.md`, `FUNCTIONS_SERVER_LOGIC_PLAN.md`, `FIREBASE_BLOCKERS.md`, `NEXT_TASKS.md`, `AUTO_REPORT.md`.
+
+## 17. 2026-05-20 Repository interface 코드 초안
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | 실제 Firebase 연결 전 Repository interface와 mock/Firebase stub 계층 생성 |
+| 기준 문서 | `REPOSITORY_INTERFACE_PLAN.md`, `ADAPTER_SPLIT_PLAN.md`, `FIREBASE_SEED_DATA_PLAN.md`, `FIRESTORE_SCHEMA_PLAN.md`, `AUTH_CLAIMS_PLAN.md`, `FUNCTIONS_SERVER_LOGIC_PLAN.md`, `FIREBASE_BLOCKERS.md` |
+| 생성 파일 | `lib/repositories/types.ts`, `lib/repositories/mock/**`, `lib/repositories/firebase/**` |
+| Repository interface | Product, QR Session, Order, Payment, Inventory, Audit Log interface 정의 |
+| mock repository | `data/mockProducts.ts`, `data/mockOrders.ts`, `data/mockQrSessions.ts` 기반 read/mock mutation copy 구현 |
+| Firebase repository | Firebase SDK import 없는 `NOT_IMPLEMENTED` stub skeleton만 생성 |
+| 기존 화면 영향 | 기존 `mockApi` 사용 구조 유지. UI import 전환 없음 |
+| lint 결과 | `npm.cmd run lint` 성공 |
+| build 결과 | `npm.cmd run build` 성공, 59개 페이지 생성 |
+| 금지사항 준수 | `npm install firebase`, Firebase SDK import, `.env`, `firebase.json`, `.firebaserc`, rules 파일, 실제 Firestore/Auth/PG/알림톡/배송조회/외부 재고 연결, deploy 수행하지 않음 |
+
+남은 BLOCKERS: Firebase config 보관 방식, Firestore Rules, Auth claims 운영 절차, Storage Blaze, PG 공식 문서/키, 알림톡 템플릿, 배송조회 API, 외부 재고 API, 비회원 주문조회 인증 정책은 계속 사람 승인 필요.
+
+## 18. 2026-05-20 화면 데이터 접근 mock repository 전환
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | `app/tablet`, `app/q`, `app/orders/guest`, `components/pages/tabletPages.tsx`, `components/pages/guestPages.tsx` 데이터 접근 전환 |
+| 전환 내용 | `mockApi` 기반 product/QR/order 조회를 `lib/repositories/mock/**` 호출로 변경 |
+| 정적 경로 생성 | 상품 상세, QR 랜딩/checkout/success/failed, 비회원 주문상세 `generateStaticParams`를 mock repository 목록 조회로 변경 |
+| 기존 UI 영향 | 화면 구조와 표시 문구 유지. 기존 `mockApi`는 다른 영역 호환을 위해 삭제하지 않음 |
+| Firebase 상태 | `lib/repositories/firebase/**` stub은 사용하지 않음. 실제 Firebase 연결 없음 |
+| lint 결과 | `npm.cmd run lint` 성공 |
+| build 결과 | `npm.cmd run build` 성공, 59개 페이지 생성 |
+| 금지사항 준수 | Firebase SDK import, `npm install firebase`, `.env`, `firebase.json`, `.firebaserc`, rules 파일, 실제 Firestore/Auth/PG/알림톡/배송조회/외부 재고 연결, deploy 수행하지 않음 |
+
+이번 단계 후 고객/태블릿/비회원 주문조회 화면은 `mockRepositories`를 통해 mock 원장을 읽는다. 관리자/기업/조리원 화면은 아직 기존 mock API 기반 흐름이 남아 있으므로 별도 단계에서 전환 여부를 판단한다.
+
+## 19. 2026-05-20 mock repository 전환 재검증
+
+| 항목 | 결과 |
+| --- | --- |
+| 대상 범위 | `app/tablet`, `app/q`, `app/orders/guest`, `components/pages/tabletPages.tsx`, `components/pages/guestPages.tsx` |
+| 직접 참조 확인 | 대상 범위에서 `data/mockProducts.ts`, `data/mockOrders.ts`, `data/mockQrSessions.ts`, `mockApi` 참조 없음 |
+| 데이터 접근 | 대상 고객/태블릿 화면은 `mockRepositories` 기반 |
+| Firebase import 확인 | `firebase/app`, `firebase/firestore`, `firebase/auth`, `initializeApp`, `getFirestore`, `getAuth` 참조 없음 |
+| lint 결과 | `npm.cmd run lint` 성공 |
+| build 결과 | `npm.cmd run build` 성공, 59개 페이지 생성 |
+| 금지 파일 | `.env`, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules` 생성 없음 |
+
+참고: `components/pages/adminPages.tsx`, `companyPages.tsx`, `nurseryPages.tsx`에는 기존 `mockApi` 흐름이 남아 있으나, 이번 대상 후보 밖으로 분리했다.

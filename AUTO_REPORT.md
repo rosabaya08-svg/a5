@@ -40,6 +40,7 @@
 | 5. 기업 Admin UI | 완료 | `/company` 및 dashboard/products/new/orders/inventory/deliveries/sales/payouts 생성 |
 | 6. 산후조리원 Admin UI | 완료 | `/nursery` 및 dashboard/rooms/tablets/pickups/qr-history/orders 생성 |
 | 7. 태블릿/고객 QR UI | 완료 | `/tablet`, `/tablet/products/[id]`, `/q/[code]`, `/orders/guest/[orderNo]` 등 mock 흐름 생성 |
+| 8. mock adapter | 완료 | payment/notification/delivery/externalInventory mock adapter 생성. 실제 외부 호출 없음 |
 
 ## 5. 검증 로그
 
@@ -61,6 +62,8 @@
 | 2026-05-19 | `npm.cmd run build` | 성공 | 산후조리원 Admin UI 포함 31개 정적 라우트 빌드 성공 |
 | 2026-05-19 | `npm.cmd run lint` | 성공 | 태블릿/고객 QR UI 추가 후 통과 |
 | 2026-05-19 | `npm.cmd run build` | 성공 | SSG 동적 라우트 포함 57개 페이지 빌드 성공 |
+| 2026-05-19 | `npm.cmd run lint` | 성공 | mock adapter 추가 후 통과 |
+| 2026-05-19 | `npm.cmd run build` | 성공 | mock adapter 추가 후 57개 페이지 빌드 성공 |
 
 ## 6. 자동 수정 횟수
 

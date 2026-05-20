@@ -21,7 +21,17 @@
 | 7 | 산후조리원 Admin mock UI | A | 완료 |
 | 8 | 태블릿 폐쇄몰 mock UI | A | 완료 |
 | 9 | 고객 QR/비회원 주문조회 mock UI | A | 완료 |
-| 10 | PG/알림/배송/재고 mock adapter | B | 다음 |
+| 10 | PG/알림/배송/재고 mock adapter | B | 완료 |
+
+## 4. 후속 개발 후보
+
+| 우선순위 | 작업 | 등급 | 메모 |
+| --- | --- | --- | --- |
+| 1 | Browser smoke test 확대 | A | 주요 라우트 desktop/mobile 확인 |
+| 2 | mock adapter 테스트 파일 추가 | A | 외부 패키지 없이 순수 함수 검증 방식 검토 |
+| 3 | Firebase decision 보고서 작성 | B | 실제 연결 없이 기존/신규 판단 문서만 |
+| 4 | QR 상태 전이 테스트 초안 | B | paid/expired/cancelled 재사용 차단 케이스 |
+| 5 | 비회원 주문조회 인증 정책 확정 | C | 사람 승인 필요 |
 
 ## 3. 이후 사람 확인 필요
 

@@ -19,9 +19,9 @@
 | 5 | 최고관리자 mock UI | A | 완료 |
 | 6 | 기업 Admin mock UI | A | 완료 |
 | 7 | 산후조리원 Admin mock UI | A | 완료 |
-| 8 | 태블릿 폐쇄몰 mock UI | A | 다음 |
-| 9 | 고객 QR/비회원 주문조회 mock UI | A | 진행 예정 |
-| 10 | PG/알림/배송/재고 mock adapter | B | 진행 예정 |
+| 8 | 태블릿 폐쇄몰 mock UI | A | 완료 |
+| 9 | 고객 QR/비회원 주문조회 mock UI | A | 완료 |
+| 10 | PG/알림/배송/재고 mock adapter | B | 다음 |
 
 ## 3. 이후 사람 확인 필요
 

@@ -1,6 +1,6 @@
 # Next Tasks
 
-작성일: 2026-05-19
+작성일: 2026-05-20
 
 ## 1. 현재 진행 작업
 
@@ -23,7 +23,19 @@
 | 9 | 고객 QR/비회원 주문조회 mock UI | A | 완료 |
 | 10 | PG/알림/배송/재고 mock adapter | B | 완료 |
 
-## 4. 후속 개발 후보
+## 4. 내일 우선순위
+
+| 우선순위 | 작업 | 등급 | 완료 기준 |
+| --- | --- | --- | --- |
+| 1 | 주요 라우트 Browser smoke test 재시도 | A | in-app Browser 런타임 오류가 해결되면 desktop/mobile 핵심 화면 캡처 |
+| 2 | Firebase decision 보고서 작성 | B | 실제 연결 없이 기존/신규/dev-prod 분리 판단 문서화 |
+| 3 | mock adapter 순수 함수 테스트 초안 | A | 외부 패키지 설치 없이 payment/notification/delivery/inventory mock 함수 검증 |
+| 4 | QR 상태 전이 테스트 초안 | B | active/paid/expired/cancelled 재사용 차단 케이스 정리 |
+| 5 | 비회원 주문조회 인증 정책 초안 | C | 사람 승인용 정책 후보와 개인정보 리스크 정리 |
+| 6 | 정산 정책 확인표 작성 | C | 수수료, 환불 차감, 지급일, 증빙 항목 승인 대기 문서화 |
+| 7 | UI 밀도/반응형 점검 | A | admin/company/nursery/tablet/q 핵심 화면 모바일/데스크톱 겹침 확인 |
+
+## 5. 후속 개발 후보
 
 | 우선순위 | 작업 | 등급 | 메모 |
 | --- | --- | --- | --- |

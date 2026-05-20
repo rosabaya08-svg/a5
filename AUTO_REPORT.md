@@ -1,6 +1,7 @@
 # Auto Report
 
 작성일: 2026-05-19
+최종 정리일: 2026-05-20
 
 ## 1. 작업명
 
@@ -116,3 +117,30 @@
 - 개발 서버: `http://127.0.0.1:3000` 응답 확인: HTTP 200
 - 마지막 확인 시 Git 상태: local commits ahead of `origin/main`, working tree clean
 - git push는 수행하지 않음
+
+## 10. 2026-05-20 최종 요약
+
+| 항목 | 결과 |
+| --- | --- |
+| 생성된 페이지 수 | `app/**/page.tsx` 기준 40개, `next build` 생성 기준 57개 |
+| 생성된 주요 폴더 | `app/admin`, `app/company`, `app/nursery`, `app/tablet`, `app/q`, `app/orders/guest`, `components`, `types`, `data`, `lib/mock`, `lib/utils`, `lib/adapters` |
+| lint 결과 | `npm.cmd run lint` 성공 |
+| build 결과 | `npm.cmd run build` 성공, 57개 페이지 생성 |
+| HTTP smoke 확인 경로 | `/`, `/admin/dashboard`, `/company/dashboard`, `/nursery/dashboard`, `/tablet/products`, `/q/SANHO701`, `/orders/guest/A5-20260519-001` 모두 HTTP 200 |
+| Firebase 상태 | 실제 Firebase 연결 없음, `firebase.json`, `.firebaserc`, rules, `.env` 생성 없음 |
+| PG 상태 | 실제 PG 연동 없음, `paymentMock.ts`만 존재 |
+| 알림톡 상태 | 실제 알림톡 연동 없음, `notificationMock.ts`만 존재 |
+| 배송조회 상태 | 실제 배송조회 API 연동 없음, `deliveryMock.ts`만 존재 |
+| 외부 재고 API 상태 | 실제 외부 API 호출 없음, `externalInventoryMock.ts`만 존재 |
+
+## 11. 남은 BLOCKERS
+
+- 실제 프로젝트 루트 경로 표기 불일치 확인 필요
+- Firebase 기존/신규 프로젝트 판단 및 dev/staging/prod 분리 정책 필요
+- PG 계약사, 공식 문서, 테스트 MID, 운영 MID 확인 필요
+- 카카오 알림톡 발송사와 템플릿 승인 상태 확인 필요
+- 배송조회 API 또는 택배사 URL 방식 결정 필요
+- 외부 명품쇼핑몰 재고 API 공식 규격서/테스트 계정 필요
+- 정산 수수료율, 환불 차감, 지급일, 세무/증빙 정책 확정 필요
+- 비회원 주문조회 인증 정책과 개인정보 노출 범위 확정 필요
+- mock adapter의 production 전환은 공식 문서, 키, 계약, 사람 승인 전까지 계속 차단

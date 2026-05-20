@@ -1,0 +1,68 @@
+import type { MockPreviewRoute } from "@/types/mockPreviewRoute";
+
+export const mockPreviewRoutes: MockPreviewRoute[] = [
+  {
+    id: "preview-storefront",
+    href: "/mock-ui/storefront",
+    title: "Storefront",
+    description: "Closed mall banner, category rail, product cards, and price layer preview.",
+    area: "storefront",
+    riskStatuses: ["mock_only"],
+  },
+  {
+    id: "preview-detail",
+    href: "/mock-ui/detail",
+    title: "Product / QR / order detail",
+    description: "Product card, QR session card, and order timeline preview.",
+    area: "detail",
+    riskStatuses: ["mock_only"],
+  },
+  {
+    id: "preview-checkout",
+    href: "/mock-ui/checkout",
+    title: "Checkout and guest lookup",
+    description: "QR checkout summary and guest order lookup preview without PG or customer login.",
+    area: "checkout",
+    riskStatuses: ["mock_only", "integration_pending"],
+  },
+  {
+    id: "preview-session",
+    href: "/mock-ui/session",
+    title: "QR lifecycle",
+    description: "Tablet source, payer handoff, expiration, and one-time session state preview.",
+    area: "session",
+    riskStatuses: ["mock_only", "integration_pending"],
+  },
+  {
+    id: "preview-journey",
+    href: "/mock-ui/journey",
+    title: "End-to-end journey",
+    description: "Tablet browsing to QR checkout and guest lookup decision map.",
+    area: "session",
+    riskStatuses: ["mock_only", "needs_review"],
+  },
+  {
+    id: "preview-operations",
+    href: "/mock-ui/operations",
+    title: "Operations board",
+    description: "Approval queue, integration gates, and route smoke matrix preview.",
+    area: "operations",
+    riskStatuses: ["mock_only", "blocked"],
+  },
+  {
+    id: "preview-qa",
+    href: "/mock-ui/qa",
+    title: "QA readiness",
+    description: "Manual merge plan, next working day checklist, and release readiness preview.",
+    area: "qa",
+    riskStatuses: ["needs_review"],
+  },
+  {
+    id: "preview-analytics",
+    href: "/mock-ui/analytics",
+    title: "Analytics",
+    description: "Mock sales, risk distribution, and settlement visibility preview.",
+    area: "analytics",
+    riskStatuses: ["mock_only", "settlement_hold"],
+  },
+];

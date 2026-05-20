@@ -1,0 +1,96 @@
+import type { JourneyDecision, JourneyStep } from "@/types/mockJourneyView";
+
+export const journeySteps: JourneyStep[] = [
+  {
+    id: "journey-browse",
+    kind: "tablet_browse",
+    title: "Browse closed mall products",
+    routeCandidate: "/tablet/products",
+    actor: "Room tablet user",
+    description: "Show session banner, categories, product cards, closed mall price, fulfillment, and stock labels.",
+    mockState: "ready",
+    riskStatuses: ["mock_only"],
+  },
+  {
+    id: "journey-cart",
+    kind: "cart_review",
+    title: "Review cart and fulfillment",
+    routeCandidate: "/tablet/cart",
+    actor: "Room tablet user",
+    description: "Confirm item snapshots, quantity, options, delivery or pickup method, and total amount.",
+    mockState: "ready",
+    riskStatuses: ["mock_only"],
+  },
+  {
+    id: "journey-qr",
+    kind: "qr_generate",
+    title: "Generate QR handoff",
+    routeCandidate: "/tablet/qr",
+    actor: "Room tablet user",
+    description: "Display short code, expiry, room/tablet source, and mobile payer handoff.",
+    mockState: "ready",
+    riskStatuses: ["mock_only", "integration_pending"],
+  },
+  {
+    id: "journey-checkout",
+    kind: "mobile_checkout",
+    title: "Open mobile checkout",
+    routeCandidate: "/q/SANHO701/checkout",
+    actor: "Guest mobile payer",
+    description: "Preview payer confirmation and payable amount without customer login or live PG call.",
+    mockState: "ready",
+    riskStatuses: ["mock_only", "integration_pending"],
+  },
+  {
+    id: "journey-result",
+    kind: "payment_result",
+    title: "Show success, failed, or expired state",
+    routeCandidate: "/q/SANHO701/success",
+    actor: "Guest mobile payer",
+    description: "Render result state from mock data. Server-side webhook and amount verification are still blocked.",
+    mockState: "blocked",
+    riskStatuses: ["blocked", "payment_failed"],
+  },
+  {
+    id: "journey-lookup",
+    kind: "guest_lookup",
+    title: "Guest order lookup",
+    routeCandidate: "/orders/guest/A5-20260519-001",
+    actor: "Guest",
+    description: "Display order status, item snapshot, fulfillment status, and refund request mock messaging.",
+    mockState: "manual_review",
+    riskStatuses: ["mock_only", "needs_review"],
+  },
+];
+
+export const journeyDecisions: JourneyDecision[] = [
+  {
+    id: "decision-auth",
+    title: "Customer login",
+    safeMockChoice: "Do not create customer login. Keep QR guest flow.",
+    liveRequirement: "If customer accounts are required later, update Auth claims and privacy policy first.",
+    riskStatuses: ["mock_only"],
+  },
+  {
+    id: "decision-amount",
+    title: "Payable amount",
+    safeMockChoice: "Render amount from mock snapshot only.",
+    liveRequirement: "Cloud Functions must recalculate total before any PG approval.",
+    riskStatuses: ["blocked", "integration_pending"],
+  },
+  {
+    id: "decision-stock",
+    title: "Inventory",
+    safeMockChoice: "Show stock labels and low inventory warnings only.",
+    liveRequirement: "Server transaction must decrement and restore stock before live sales.",
+    riskStatuses: ["inventory_low", "integration_pending"],
+  },
+  {
+    id: "decision-refund",
+    title: "Refund and settlement",
+    safeMockChoice: "Show request/review labels only.",
+    liveRequirement: "Refund and settlement policy, PG docs, and finance approval are required.",
+    riskStatuses: ["settlement_hold", "blocked"],
+  },
+];
+

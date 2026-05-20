@@ -6,6 +6,8 @@
 
 `a5-closed-mall` Firebase 프로젝트를 산후조리원 폐쇄몰 기반 기업입점형 QR 결제 쇼핑몰의 인증, 데이터, 파일, 서버 로직, 감사 로그 기반으로 설계한다. 현재는 설계 단계이며 실제 Firebase 연결 코드는 만들지 않는다.
 
+현재 Firebase Console에서는 Web App 등록, Firestore Database 생성, Authentication 이메일/비밀번호 활성화가 완료되었다. 그러나 config 삽입, SDK 설치, `.env` 생성, rules 파일 생성, 배포는 하지 않는다.
+
 ## 2. 전체 구조
 
 ```text
@@ -24,13 +26,23 @@ Next.js App Router mock/test beta
       └─ PG, 알림톡, 배송조회, 외부 재고 API 키
 ```
 
+## 2-1. 2026-05-20 Firebase Console 상태
+
+| 항목 | 콘솔 상태 | 저장소 반영 상태 |
+| --- | --- | --- |
+| Web App | 등록 완료 | config 코드 미삽입, `.env` 미생성 |
+| Firestore Database | 생성 완료 | Rules 프로덕션 모드 잠금 유지, 실제 연결 없음 |
+| Authentication | 이메일/비밀번호 활성화 완료 | 관리자/기업/조리원 계정용 계획만 반영, 고객 로그인 없음 |
+| Storage | Spark 요금제에서 사용 불가 안내 | Blaze 업그레이드 보류, mock placeholder 유지 |
+| Hosting/Deploy | 작업 없음 | 배포 설정/실행 없음 |
+
 ## 3. Firebase 서비스별 역할
 
 | 서비스 | 역할 | 현재 상태 |
 | --- | --- | --- |
-| Firebase Auth | 관리자/기업/조리원/태블릿 권한 식별 | 설계만, 미연결 |
-| Firestore | 커머스 원장 저장 | 설계만, 미연결 |
-| Storage | 이미지/GIF/증빙/정산 파일 저장 | 설계만, 미연결 |
+| Firebase Auth | 관리자/기업/조리원/태블릿 권한 식별 | 이메일/비밀번호 활성화 완료, 코드 미연결, 고객 로그인 없음 |
+| Firestore | 커머스 원장 저장 | Database 생성 완료, Rules 잠금, 코드 미연결 |
+| Storage | 이미지/GIF/증빙/정산 파일 저장 | Spark 요금제 제약으로 보류, mock placeholder 사용 |
 | Cloud Functions | 결제/QR/알림/웹훅 등 서버 경계 | 설계만, 미배포 |
 | Cloud Run | 정산/외부 API/대량 작업 후보 | 후보만, 미배포 |
 | Secret Manager | 운영키 보관 | 목록만, Secret 생성 금지 |
@@ -42,6 +54,14 @@ Next.js App Router mock/test beta
 - Server Action 후보: 상품 등록, 승인 요청, 송장 입력, QR 생성 요청
 - Route Handler 후보: PG callback, 알림톡 callback, 배송조회 adapter, 외부 재고 sync
 - Cloud Functions 후보: QR/결제/알림처럼 신뢰 경계가 필요한 서버 로직
+
+## 4-1. 실제 연결 전 필요 설계
+
+- Firestore는 생성되었지만 Rules가 잠겨 있으므로 실제 연결 전 권한 설계와 테스트 케이스가 필요하다.
+- Auth 이메일/비밀번호는 관리자/기업/조리원 계정용으로만 사용한다.
+- 고객은 비회원 QR 흐름이므로 고객 로그인은 아직 만들지 않는다.
+- 상품 이미지/GIF는 mock placeholder를 유지하고, 실제 Storage 연동은 입점사 상품 등록 기능 구현 전 별도 승인 후 검토한다.
+- Web App config는 아직 코드나 `.env`에 넣지 않는다.
 
 ## 5. Cloud Run이 필요한 후보
 
@@ -80,4 +100,4 @@ Cloud Functions로 충분하지 않을 수 있는 후보:
 
 ## 8. 현재 금지
 
-Firebase SDK 설치, config 삽입, `.env` 생성, deploy, service account 생성은 이번 단계에서 금지한다.
+Firebase SDK 설치, config 삽입, `.env` 생성, Firebase rules 파일 생성, deploy, service account 생성, Storage Blaze 업그레이드 지시는 이번 단계에서 금지한다.

@@ -181,3 +181,18 @@
 - 실제 외부 재고 API 호출 없음
 - `.env`, Secret Key, service account, private key 생성 없음
 - 운영 배포 없음
+
+## 15. 2026-05-20 Firebase Console 상태 업데이트
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Firebase 프로젝트 | `a5-closed-mall` 사용 |
+| Web App | 등록 완료, config는 코드나 `.env`에 미삽입 |
+| Firestore Database | 생성 완료, Rules는 프로덕션 모드 잠금 상태 유지 |
+| Authentication | 이메일/비밀번호 활성화 완료, 관리자/기업/조리원 계정용으로만 계획 |
+| 고객 로그인 | 고객은 비회원 QR 흐름 유지, 고객 Auth는 아직 만들지 않음 |
+| Storage | Spark 요금제 사용 불가 안내로 보류, Blaze 업그레이드 지시 없음 |
+| 상품 이미지/GIF | 실제 Storage가 아니라 mock placeholder 유지 |
+| 실제 Storage 연동 | 입점사 상품 등록 기능 구현 전 별도 승인 필요 |
+
+업데이트한 문서는 `FIREBASE_BLOCKERS.md`, `STORAGE_RULES_PLAN.md`, `FIREBASE_ARCHITECTURE_PLAN.md`, `NEXT_TASKS.md`, `AUTO_REPORT.md`이다. 이번 정리에서 Firebase config 코드, Firebase SDK 설치, `.env`, Secret Key, service account, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, deploy 작업은 수행하지 않았다.

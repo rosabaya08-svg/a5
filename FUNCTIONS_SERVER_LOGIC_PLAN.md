@@ -33,6 +33,62 @@ Cloud Functions와 서버 Route Handler/Server Action으로 처리해야 할 신
 - 환불/부분취소/정산 지급은 자동 실행 금지. 요청/검토/체크리스트까지만 자동화 가능
 - 모든 금액/권한/상태 변경은 `audit_logs` 기록
 
+## 3-1. QR 생성 로직
+
+1. `TABLET_DEVICE` claim 또는 태블릿 등록 세션에서 `nursery_id`, `room_id`, `tablet_id`를 확인한다.
+2. 장바구니의 `cart_id`가 해당 `tablet_id`에 속하는지 검증한다.
+3. cart item별 `product_id`, `option_id`, `quantity`, 수령방식 가능 여부를 조회한다.
+4. `products.status = approved`인지, 옵션/상품 재고가 충분한지 확인한다.
+5. 상품명, 옵션명, 단가, 수량, `company_id`, 수령방식을 `items_snapshot`으로 고정한다.
+6. `short_code`와 `token_hash`를 생성하고, 원문 token은 저장하지 않는다.
+7. `expires_at`은 정책상 2~3시간 범위로 설정한다.
+8. `qr_payment_sessions.status = active`로 생성하고 `audit_logs`에 QR 생성 이벤트를 남긴다.
+
+## 3-2. QR 만료 로직
+
+1. Scheduler가 `status = active`이고 `expires_at < now`인 세션을 조회한다.
+2. 각 QR을 `expired`로 변경한다.
+3. 이미 `paid`, `cancelled`인 세션은 변경하지 않는다.
+4. 만료 처리 결과는 `audit_logs` 또는 `system_status`에 요약한다.
+5. 만료된 QR은 고객 랜딩, 결제 준비, 상품 상세 접근을 모두 차단한다.
+
+## 3-3. 주문금액 재계산 로직
+
+1. 클라이언트에서 전달된 금액은 표시 참고값으로만 취급한다.
+2. 서버는 `qr_payment_sessions.items_snapshot`을 기준으로 `unit_price * quantity`를 합산한다.
+3. 배송비, 현장수령, 할인, 정책 비용이 생기면 `policies` snapshot을 함께 적용한다.
+4. 재계산 금액과 `total_amount_snapshot`이 다르면 결제 준비를 중단하고 `payment_events`에 `amount_mismatch`를 남긴다.
+5. 결제 승인 직전에도 QR 상태, 만료, 재사용 여부, 금액을 다시 검증한다.
+
+## 3-4. 상품 snapshot과 주문 생성
+
+1. PG mock 승인 또는 추후 PG callback 승인 이후에만 주문을 확정한다.
+2. `orders`에는 주문 헤더와 고객 마스킹/해시, QR 출처, 총액을 저장한다.
+3. `order_items`에는 입점사별 상품명/옵션/단가/수량/정산 기준 금액 snapshot을 저장한다.
+4. 주문 후 상품 가격이나 옵션명이 바뀌어도 기존 `order_items` snapshot은 변경하지 않는다.
+5. 입점사 Admin 화면과 정산은 `orders.total_amount`가 아니라 `order_items.company_id` 기준으로 조회한다.
+
+## 3-5. 재고 차감/복구 로직
+
+1. 결제 준비 단계에서는 필요 시 재고 reserve 후보를 만들 수 있으나, 현재 mock 단계에서는 차감하지 않는다.
+2. 결제 승인 시 `product_options.stock` 또는 상품 대표 재고를 차감한다.
+3. 동시에 `inventory_movements`에 `deduct` 이벤트를 append한다.
+4. 승인 실패, 만료, 취소 시 reserve가 있다면 `restore` 이벤트로 복구한다.
+5. 외부 재고 API 연동 전까지 외부 재고값은 `externalProductCode`와 mock adapter 기준으로만 표시한다.
+
+## 3-6. 결제 mock에서 실연동으로 전환하는 단계
+
+| 단계 | 상태 | 처리 |
+| --- | --- | --- |
+| 1 | 현재 mock | `paymentMock.ts`와 `approved_mock`, `failed_mock` 상태만 사용 |
+| 2 | PG 문서 확보 | 테스트 MID/KEY, callback 검증, 취소/부분취소 문서 확보 후 설계 보강 |
+| 3 | dev adapter 초안 | 운영키 없이 test adapter interface 작성. Secret은 코드에 넣지 않음 |
+| 4 | prepare/approve 검증 | 서버 금액 재계산, QR 재사용 차단, TID 저장, 주문 snapshot 테스트 |
+| 5 | cancel/refund 검토 | 운영 환불 실행 전 요청/검토/금액 검산만 구현 |
+| 6 | prod 전환 승인 | 대표님 승인, dev/prod 분리, Secret Manager, 운영 PG 계약 확인 후 별도 작업 |
+
+실제 PG 연결, 환불 실행, 정산 지급은 이 문서 단계에서 금지한다.
+
 ## 4. Cloud Run 후보
 
 Cloud Functions보다 Cloud Run이 적합할 수 있는 작업:

@@ -196,3 +196,19 @@
 | 실제 Storage 연동 | 입점사 상품 등록 기능 구현 전 별도 승인 필요 |
 
 업데이트한 문서는 `FIREBASE_BLOCKERS.md`, `STORAGE_RULES_PLAN.md`, `FIREBASE_ARCHITECTURE_PLAN.md`, `NEXT_TASKS.md`, `AUTO_REPORT.md`이다. 이번 정리에서 Firebase config 코드, Firebase SDK 설치, `.env`, Secret Key, service account, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, deploy 작업은 수행하지 않았다.
+
+## 16. 2026-05-20 Firebase 전환 설계 보강
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | 실제 Firebase 연결 전 문서 설계 보강 |
+| 비교 기준 | `data/mockProducts.ts`, `data/mockOrders.ts`, `data/mockQrSessions.ts`, `types/commerce.ts` |
+| Firestore schema | mock 데이터와 Firestore 컬렉션 변환표, 문서 ID 전략, snapshot 필드, 인덱스 후보, 구현 직전 체크리스트 보강 |
+| Auth claims | 이메일/비밀번호 계정은 관리자/기업/조리원용으로 한정, `role`, `company_id`, `nursery_id`, `room_id`, `tablet_id` 권한 구조 보강 |
+| Functions server logic | QR 생성/만료, 주문금액 서버 재계산, 상품 snapshot, 재고 차감/복구, 결제 mock에서 실연동 전환 단계를 정리 |
+| Blockers | Storage Blaze 필요 여부, PG 문서/키, 알림톡 템플릿, 배송조회 API, 외부 재고 API 차단 항목 유지/보강 |
+| 코드 변경 | 없음. 문서만 수정 |
+| 검증 | 코드 파일을 수정하지 않아 `npm run lint`, `npm run build`는 이번 단계 필수 아님 |
+| 금지사항 준수 | Firebase config, `.env`, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, Firebase SDK 설치, 실제 Firestore/Auth/PG/알림톡/배송조회/외부 재고 연결, deploy 모두 수행하지 않음 |
+
+수정 파일 목록: `FIRESTORE_SCHEMA_PLAN.md`, `AUTH_CLAIMS_PLAN.md`, `FUNCTIONS_SERVER_LOGIC_PLAN.md`, `FIREBASE_BLOCKERS.md`, `NEXT_TASKS.md`, `AUTO_REPORT.md`.

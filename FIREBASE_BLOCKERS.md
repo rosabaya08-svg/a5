@@ -27,6 +27,11 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 | FB-015 | 고객 로그인 미구현 | 고객은 비회원 QR 흐름 유지, 고객 Auth는 아직 만들지 않음 |
 | FB-016 | Storage 실연동 승인 필요 | 입점사 상품 등록 기능 구현 전 별도 승인 필요 |
 | FB-017 | Firebase SDK 미설치 | `npm install firebase` 금지, 연결 단계 전까지 mock 유지 |
+| FB-018 | Storage Blaze 전환 필요 여부 미승인 | 상품 이미지/GIF 실제 업로드 전 요금제와 비용 승인 필요 |
+| FB-019 | PG 공식 문서/키 미확보 유지 | 테스트 MID/KEY, 운영 MID/KEY, callback 검증, 취소/부분취소 문서 필요 |
+| FB-020 | 알림톡 템플릿 미승인 유지 | 발송 대행사, 발신 프로필, 주문/결제/배송/환불 템플릿 코드 필요 |
+| FB-021 | 배송조회 API 미확보 유지 | 택배사 코드, 송장조회 API, rate limit, 장애 응답 문서 필요 |
+| FB-022 | 외부 재고 API 미확보 유지 | 외부 쇼핑몰 상품코드 매핑, 테스트 계정, 동기화 정책 필요 |
 
 ## 3. Firebase 연결 전 체크리스트
 
@@ -42,6 +47,8 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 10. Secret Manager 사용 정책 승인
 11. dev/prod 분리 시점 승인
 12. 고객은 비회원 QR 흐름으로 유지할지 재확인
+13. PG/알림톡/배송조회/외부 재고 API 공식 문서와 키 확보
+14. Storage Blaze 전환 필요성과 비용 승인
 
 ## 4. mock/test 베타에서 실제 Firebase로 넘어가는 로드맵
 
@@ -68,6 +75,10 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 - 실제 Firebase Auth 연결 코드 작성
 - Firebase Storage SDK 연결
 - Storage Blaze 업그레이드 지시
+- PG 운영/테스트 키 삽입
+- 알림톡 실제 발송
+- 배송조회 실제 API 호출
+- 외부 재고 실제 API 호출
 - 실제 PG 연결
 - deploy
 - 기존 mock UI 삭제

@@ -11,6 +11,7 @@
 - Firestore Rules는 프로덕션 모드 잠금 상태이며 실제 연결 전 권한 설계 필요
 - Storage는 Spark 요금제 제약으로 보류하며 상품 이미지/GIF는 mock placeholder 유지
 - 고객은 비회원 QR 흐름 유지, 고객 로그인은 아직 만들지 않음
+- Firebase 실제 연결 전 전환 설계 보강: mock 데이터와 Firestore/Auth/Functions 계획 매핑
 
 ## 2. 다음 작업 후보
 
@@ -27,17 +28,17 @@
 | 9 | 고객 QR/비회원 주문조회 mock UI | A | 완료 |
 | 10 | PG/알림/배송/재고 mock adapter | B | 완료 |
 
-## 4. 내일 우선순위
+## 4. 다음 실행 순서
 
 | 우선순위 | 작업 | 등급 | 완료 기준 |
 | --- | --- | --- | --- |
-| 1 | Firestore Rules 권한 설계 | A | 관리자/기업/조리원/태블릿/고객 QR 읽기·쓰기 범위 문서화 |
-| 2 | Auth 계정/claims 매트릭스 정리 | A | 이메일/비밀번호 계정은 관리자/기업/조리원용으로 한정하고 고객 로그인 제외 |
-| 3 | Firebase Web App config 보관 방식 결정 | A | 코드 삽입 없이 config 관리 방식과 승인 절차만 문서화 |
-| 4 | Storage 보류 정책 유지 | A | Blaze 업그레이드 전까지 mock placeholder 사용, 실제 Storage 연동 승인 기준 정리 |
-| 5 | 입점사 상품 등록 전 Storage 승인 체크포인트 | B | 이미지/GIF 업로드가 필요한 시점과 별도 승인 항목 정리 |
-| 6 | QR 상태 전이 테스트 초안 | B | active/paid/expired/cancelled 재사용 차단 케이스 정리 |
-| 7 | 비회원 주문조회 인증 정책 초안 | C | 주문번호/휴대폰번호/개인정보 노출 범위 사람 승인용 문서화 |
+| 1 | Firestore Rules 권한 매트릭스 초안 작성 | B | `company_id`, `nursery_id`, `tablet_id`, guest token 범위가 컬렉션별로 정리됨 |
+| 2 | QR 세션 서버 테스트 시나리오 작성 | B | 생성/만료/paid 재사용 차단/금액 불일치/동시 결제 케이스 정리 |
+| 3 | mock seed to Firestore migration plan 작성 | B | `data/mockProducts.ts`, `mockQrSessions.ts`, `mockOrders.ts`를 seed 문서로 변환하는 절차 정리 |
+| 4 | Auth dev 계정/claims 승인표 작성 | B | 관리자/기업/조리원 계정 목록과 claims 부여 승인 절차 정리 |
+| 5 | Firebase Web App config 보관 방식 결정 | C | 코드 삽입 없이 config 관리 방식과 승인 절차만 문서화 |
+| 6 | Storage 보류 정책 유지 | C | Blaze 업그레이드 전까지 mock placeholder 유지, 입점사 상품등록 전 별도 승인 |
+| 7 | PG/알림톡/배송조회/외부 재고 API 문서 확보 | C | 공식 문서, 테스트키, 템플릿, 계약 정보 확보 전 실제 연결 금지 |
 
 ## 5. 후속 개발 후보
 
@@ -45,10 +46,11 @@
 | --- | --- | --- | --- |
 | 1 | Browser smoke test 확대 | A | 주요 라우트 desktop/mobile 확인 |
 | 2 | mock adapter 테스트 파일 추가 | A | 외부 패키지 없이 순수 함수 검증 방식 검토 |
-| 3 | Firebase 연결 전 권한 설계 보강 | B | Firestore Rules, Auth Claims, config 보관 방식 문서만 |
+| 3 | Firebase 연결 전 권한 설계 보강 | B | Firestore Rules, Auth Claims, Functions server logic 문서만 |
 | 4 | QR 상태 전이 테스트 초안 | B | paid/expired/cancelled 재사용 차단 케이스 |
 | 5 | 비회원 주문조회 인증 정책 확정 | C | 사람 승인 필요 |
 | 6 | Browser 런타임 경로 오류 확인 | A | 현재 HTTP smoke는 성공, in-app Browser 런타임은 내부 자산 경로 오류 |
+| 7 | 고객 폐쇄몰 UI 전문가용 고도화 | A | mock 데이터만 사용, 실제 Firebase/PG 연결 없이 상품 목록/상세/장바구니/QR 퍼널 개선 |
 
 ## 3. 이후 사람 확인 필요
 

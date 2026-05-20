@@ -21,6 +21,7 @@
 | B-013 | 운영 외부 연동 정보 없음 | PG, 알림톡, 배송조회, 외부 재고 API 운영 문서/키/계약 정보 없음 | mock adapter까지만 생성하고 실제 연동 금지 |
 | B-014 | 정산 지급 정책 미확정 | 수수료율, 지급일, 차감, 세무/증빙 정책 없음 | 정산 mock UI와 검산표 수준까지만 허용 |
 | B-015 | mock adapter의 production 전환 차단 | `lib/adapters/*Mock.ts`만 생성됨. production adapter 없음 | 공식 문서, 키, 계약, 승인 전 production adapter 생성 금지 |
+| B-016 | 고객 폐쇄몰 UI는 mock 전용 | 태블릿/QR/비회원 주문조회 UI가 쇼핑몰형으로 개선됐지만 실제 결제/DB/알림/배송/재고 API와 연결되지 않음 | 운영 연동 전 Firebase/PG/알림톡/배송조회/외부 API 승인 필요 |
 
 ## 2. 현재 허용 가능한 작업
 

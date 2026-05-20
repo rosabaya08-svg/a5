@@ -13,7 +13,7 @@ export const mockQrSessions: QrPaymentSession[] = [
     createdAt: "2026-05-19T15:12:00+09:00",
     expiresAt: "2026-05-19T18:12:00+09:00",
     deliveryMethod: "pickup",
-    totalAmount: 75000,
+    totalAmount: 147000,
     items: [
       {
         productId: "product-care-kit",
@@ -22,6 +22,14 @@ export const mockQrSessions: QrPaymentSession[] = [
         unitPrice: 75000,
         quantity: 1,
         companyId: "company-sanho-care",
+      },
+      {
+        productId: "product-tea",
+        productName: "수유맘 루이보스 티 세트",
+        optionName: "20포",
+        unitPrice: 36000,
+        quantity: 2,
+        companyId: "company-momtable",
       },
     ],
   },

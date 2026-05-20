@@ -9,6 +9,10 @@ export const mockProductOptions: ProductOption[] = [
   { id: "opt-bag-charcoal", productId: "product-bag", name: "차콜", priceDelta: 8000, stock: 2 },
   { id: "opt-snack-a", productId: "product-snack", name: "7일 세트", priceDelta: 0, stock: 31 },
   { id: "opt-snack-b", productId: "product-snack", name: "14일 세트", priceDelta: 22000, stock: 15 },
+  { id: "opt-tea-basic", productId: "product-tea", name: "20포", priceDelta: 0, stock: 24 },
+  { id: "opt-tea-large", productId: "product-tea", name: "40포", priceDelta: 18000, stock: 12 },
+  { id: "opt-pillow-basic", productId: "product-pillow", name: "단품", priceDelta: 0, stock: 16 },
+  { id: "opt-pillow-cover", productId: "product-pillow", name: "커버 추가", priceDelta: 9000, stock: 8 },
 ];
 
 export const mockProducts: Product[] = [
@@ -62,6 +66,32 @@ export const mockProducts: Product[] = [
     comparison: { listPrice: 52000, platformLowestPrice: 47000, closedMallPrice: 42000 },
     optionIds: ["opt-snack-a", "opt-snack-b"],
     thumbnailTone: "sky",
+  },
+  {
+    id: "product-tea",
+    companyId: "company-momtable",
+    name: "수유맘 루이보스 티 세트",
+    category: "식품",
+    status: "approved",
+    price: 36000,
+    stock: 36,
+    externalProductCode: "MOM-TEA-17",
+    comparison: { listPrice: 52000, platformLowestPrice: 44000, closedMallPrice: 36000 },
+    optionIds: ["opt-tea-basic", "opt-tea-large"],
+    thumbnailTone: "rose",
+  },
+  {
+    id: "product-pillow",
+    companyId: "company-sanho-care",
+    name: "수유 자세 서포트 필로우",
+    category: "산모 케어",
+    status: "approved",
+    price: 58000,
+    stock: 24,
+    externalProductCode: "EXT-PILLOW-031",
+    comparison: { listPrice: 79000, platformLowestPrice: 68000, closedMallPrice: 58000 },
+    optionIds: ["opt-pillow-basic", "opt-pillow-cover"],
+    thumbnailTone: "sage",
   },
   {
     id: "product-blanket",

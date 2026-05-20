@@ -64,6 +64,10 @@
 | 2026-05-19 | `npm.cmd run build` | 성공 | SSG 동적 라우트 포함 57개 페이지 빌드 성공 |
 | 2026-05-19 | `npm.cmd run lint` | 성공 | mock adapter 추가 후 통과 |
 | 2026-05-19 | `npm.cmd run build` | 성공 | mock adapter 추가 후 57개 페이지 빌드 성공 |
+| 2026-05-19 | `npm.cmd run lint` | 성공 | 최종 검증 통과 |
+| 2026-05-19 | `npm.cmd run build` | 성공 | 최종 검증 통과, 57개 페이지 생성 |
+| 2026-05-19 | Browser smoke | 부분 실패 | Browser 런타임이 내부 자산 경로 오류로 시작 실패 |
+| 2026-05-19 | HTTP smoke | 성공 | `/`, `/admin/dashboard`, `/tablet/products`, `/q/SANHO701`, `/orders/guest/A5-20260519-001` 모두 200 |
 
 ## 6. 자동 수정 횟수
 
@@ -94,3 +98,21 @@
 - `components/ui/EmptyState.tsx`
 - `components/ui/RiskAlert.tsx`
 - `components/ui/ConfirmBox.tsx`
+
+## 8. 커밋 로그
+
+- `db3d8b7 docs: add project audit and safety policies`
+- `84098f5 feat: add commerce mock data and shared types`
+- `c94cd1f feat: add shared dashboard components`
+- `c9122d9 feat: add admin mock UI pages`
+- `1c3f67a feat: add company admin mock UI pages`
+- `62b7f1e feat: add nursery admin mock UI pages`
+- `1af65af feat: add tablet shopping mock UI pages`
+- `390eb25 chore: add automation report and blockers`
+
+## 9. 최종 상태 메모
+
+- 개발 서버: `http://127.0.0.1:3000`
+- 시작된 dev server PID: `20180`
+- 마지막 확인 시 Git 상태: `main...origin/main [ahead 8]`
+- git push는 수행하지 않음

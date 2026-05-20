@@ -32,6 +32,7 @@
 | 3 | Firebase decision 보고서 작성 | B | 실제 연결 없이 기존/신규 판단 문서만 |
 | 4 | QR 상태 전이 테스트 초안 | B | paid/expired/cancelled 재사용 차단 케이스 |
 | 5 | 비회원 주문조회 인증 정책 확정 | C | 사람 승인 필요 |
+| 6 | Browser 런타임 경로 오류 확인 | A | 현재 HTTP smoke는 성공, in-app Browser 런타임은 내부 자산 경로 오류 |
 
 ## 3. 이후 사람 확인 필요
 

@@ -36,6 +36,7 @@
 | 1. 프로젝트 안전 문서 | 완료 | 정책/상태/보안/자동화 문서 생성, Google Fonts 외부 fetch 실패를 피하기 위해 시스템 폰트로 전환 |
 | 2. 공통 타입/목업 데이터 | 완료 | commerce/roles/status 타입, mock 원장, mockApi 집계 함수 생성 |
 | 3. 공통 UI 컴포넌트 | 완료 | AppShell, Sidebar, TopBar, table, status, filter, empty, risk, confirm 컴포넌트 생성 |
+| 4. 최고관리자 UI | 완료 | `/admin` 및 dashboard/companies/nurseries/rooms/tablets/products/orders/payments/settlements/audit-logs 생성 |
 
 ## 5. 검증 로그
 
@@ -49,6 +50,8 @@
 | 2026-05-19 | `npm.cmd run build` | 성공 | 타입/목업 데이터 추가 후 빌드 성공 |
 | 2026-05-19 | `npm.cmd run lint` | 성공 | 공통 UI 컴포넌트 추가 후 통과 |
 | 2026-05-19 | `npm.cmd run build` | 성공 | 공통 UI 컴포넌트 추가 후 빌드 성공 |
+| 2026-05-19 | `npm.cmd run lint` | 성공 | 최고관리자 UI 추가 후 통과 |
+| 2026-05-19 | `npm.cmd run build` | 성공 | 최고관리자 UI 11개 라우트 포함 빌드 성공 |
 
 ## 6. 자동 수정 횟수
 

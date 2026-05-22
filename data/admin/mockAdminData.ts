@@ -1126,7 +1126,7 @@ export const adminExportPreviews: AdminExportPreview[] = [
     name: "Orders CSV",
     format: "csv",
     status: "needs_approval",
-    rows: adminScaleOrders.length,
+    rows: adminOrders.length,
     blocker: "Export requires privacy review and audit logging.",
   },
   {
@@ -1485,6 +1485,7 @@ export const adminScaleOrders = [
       "cancel_requested",
       "failed_mock",
     ];
+    const deliveryMethod: AdminOrder["deliveryMethod"] = index % 2 === 0 ? "delivery" : "pickup";
 
     return {
       id: `order-${String(sequence).padStart(3, "0")}`,
@@ -1495,7 +1496,7 @@ export const adminScaleOrders = [
       qrSessionId: `qr-scale-${String(sequence).padStart(3, "0")}`,
       orderStatus: orderStatuses[index % orderStatuses.length],
       paymentStatus: paymentStatuses[index % paymentStatuses.length],
-      deliveryMethod: index % 2 === 0 ? "delivery" : "pickup",
+      deliveryMethod,
       totalAmount: 39000 + index * 11000,
       createdAt: `2026-05-${String(18 + (index % 3)).padStart(2, "0")}T${String(9 + (index % 8)).padStart(2, "0")}:20:00+09:00`,
     };

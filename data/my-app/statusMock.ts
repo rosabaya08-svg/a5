@@ -48,6 +48,24 @@ export type WorktreePort = {
   purpose: string;
 };
 
+export type WorktreeRouteStatus = {
+  id: string;
+  track: string;
+  port: number;
+  statusRoute: string;
+  keyRoutes: string[];
+  routeState: "ready_for_manual_smoke" | "not_started_locally" | "blocked";
+  note: string;
+};
+
+export type Route404Status = {
+  id: string;
+  route: string;
+  previousState: "unknown" | "was_404" | "not_checked";
+  currentState: "expected_200" | "manual_pending" | "blocked";
+  evidence: string;
+};
+
 export type StateCoverage = {
   id: string;
   label: string;
@@ -70,7 +88,7 @@ export const statusDashboard = {
   liveWarning: "Not production, not live payment, not Firebase connected.",
   progressPercent: 88,
   generatedMajorFileCount: 78,
-  generatedRouteCount: 21,
+  generatedRouteCount: 26,
   generatedComponentCount: 36,
   generatedDataAndTypeCount: 24,
   reportCount: 14,
@@ -94,7 +112,7 @@ export const statusMetrics: StatusMetric[] = [
   {
     id: "metric-routes",
     label: "Preview routes",
-    value: "21",
+    value: "26",
     helper: "Includes status, mock UI previews, tablet/customer/guest smoke candidates, and admin/company/nursery entries.",
     tone: "mock",
   },
@@ -200,6 +218,72 @@ export const worktreePorts: WorktreePort[] = [
     port: 3006,
     folder: "my-app-qa",
     purpose: "QA checklist, route smoke plan, merge plan, and release readiness.",
+  },
+];
+
+export const worktreeRouteStatuses: WorktreeRouteStatus[] = [
+  {
+    id: "wt-my-app",
+    track: "my-app",
+    port: 3000,
+    statusRoute: "/mock-ui/status",
+    keyRoutes: ["/", "/products", "/mock-ui/status", "/mock-ui/smoke", "/mock-ui/merge"],
+    routeState: "ready_for_manual_smoke",
+    note: "Main launcher and route index are available in this worktree.",
+  },
+  {
+    id: "wt-admin",
+    track: "admin",
+    port: 3001,
+    statusRoute: "/admin/status",
+    keyRoutes: ["/admin/dashboard", "/admin/status", "/admin/companies", "/admin/orders"],
+    routeState: "ready_for_manual_smoke",
+    note: "Admin feature branch was pushed; start that worktree separately for browser review.",
+  },
+  {
+    id: "wt-company",
+    track: "company",
+    port: 3002,
+    statusRoute: "/company/status",
+    keyRoutes: ["/company/dashboard", "/company/status", "/company/products", "/company/orders"],
+    routeState: "ready_for_manual_smoke",
+    note: "Company feature branch was pushed; start that worktree separately for browser review.",
+  },
+  {
+    id: "wt-nursery",
+    track: "nursery",
+    port: 3003,
+    statusRoute: "/nursery/status",
+    keyRoutes: ["/nursery/dashboard", "/nursery/status", "/nursery/rooms", "/nursery/tablets"],
+    routeState: "ready_for_manual_smoke",
+    note: "Nursery feature branch was pushed; start that worktree separately for browser review.",
+  },
+  {
+    id: "wt-tablet-qr",
+    track: "tablet-qr",
+    port: 3004,
+    statusRoute: "/tablet/status",
+    keyRoutes: ["/tablet/products", "/tablet/cart", "/tablet/qr", "/q/SANHO701", "/orders/guest"],
+    routeState: "ready_for_manual_smoke",
+    note: "Tablet/QR feature branch was pushed; start that worktree separately for browser review.",
+  },
+  {
+    id: "wt-firebase-contract",
+    track: "firebase-contract",
+    port: 3005,
+    statusRoute: "/firebase-contract/status",
+    keyRoutes: ["/firebase-contract", "/firebase-contract/status", "/firebase-contract/schema"],
+    routeState: "ready_for_manual_smoke",
+    note: "Contract branch is docs/stub only; no Firebase SDK connection is expected.",
+  },
+  {
+    id: "wt-qa",
+    track: "qa",
+    port: 3006,
+    statusRoute: "/qa/status",
+    keyRoutes: ["/qa/status", "/qa/routes", "/qa/smoke", "/qa/handoff"],
+    routeState: "ready_for_manual_smoke",
+    note: "QA branch was pushed; start that worktree separately for browser review.",
   },
 ];
 
@@ -507,13 +591,90 @@ export const smokeRoutes: SmokeRoute[] = [
   { id: "route-analytics", route: "/mock-ui/analytics", purpose: "Analytics and settlement visibility", status: "preview_ready" },
   { id: "route-admin-dashboard", route: "/admin/dashboard", purpose: "Existing admin dashboard", status: "manual_pending" },
   { id: "route-company-dashboard", route: "/company/dashboard", purpose: "Existing company dashboard", status: "manual_pending" },
+  { id: "route-company-products", route: "/company/products", purpose: "Existing company products route", status: "manual_pending" },
   { id: "route-nursery-dashboard", route: "/nursery/dashboard", purpose: "Existing nursery dashboard", status: "manual_pending" },
+  { id: "route-nursery-rooms", route: "/nursery/rooms", purpose: "Existing nursery rooms route", status: "manual_pending" },
   { id: "route-tablet-products", route: "/tablet/products", purpose: "Existing tablet product route", status: "manual_pending" },
+  { id: "route-tablet-home", route: "/tablet", purpose: "Existing tablet home route", status: "manual_pending" },
   { id: "route-tablet-cart", route: "/tablet/cart", purpose: "Existing tablet cart route", status: "manual_pending" },
   { id: "route-tablet-qr", route: "/tablet/qr", purpose: "Existing tablet QR route", status: "manual_pending" },
   { id: "route-customer-qr", route: "/q/SANHO701", purpose: "Existing customer QR landing route", status: "manual_pending" },
+  { id: "route-guest-lookup", route: "/orders/guest", purpose: "Existing guest lookup form route", status: "manual_pending" },
   { id: "route-customer-checkout", route: "/q/SANHO701/checkout", purpose: "Existing customer checkout mock route", status: "manual_pending" },
   { id: "route-guest-order", route: "/orders/guest/A5-20260519-001", purpose: "Existing guest order route", status: "manual_pending" },
+];
+
+export const route404Statuses: Route404Status[] = [
+  {
+    id: "404-products",
+    route: "/products",
+    previousState: "was_404",
+    currentState: "expected_200",
+    evidence: "Created app/products/page.tsx and reused TabletProductsPage from /tablet/products.",
+  },
+  {
+    id: "404-tablet-products",
+    route: "/tablet/products",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing route; browser smoke still pending.",
+  },
+  {
+    id: "404-tablet-cart",
+    route: "/tablet/cart",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing route; browser smoke still pending.",
+  },
+  {
+    id: "404-tablet-qr",
+    route: "/tablet/qr",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing route; browser smoke still pending.",
+  },
+  {
+    id: "404-q-landing",
+    route: "/q/SANHO701",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing dynamic route; browser smoke still pending.",
+  },
+  {
+    id: "404-q-checkout",
+    route: "/q/SANHO701/checkout",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing dynamic checkout route; browser smoke still pending.",
+  },
+  {
+    id: "404-orders-guest",
+    route: "/orders/guest",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing guest lookup route; browser smoke still pending.",
+  },
+  {
+    id: "404-orders-detail",
+    route: "/orders/guest/A5-20260519-001",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing dynamic guest order route; browser smoke still pending.",
+  },
+  {
+    id: "404-company-dashboard",
+    route: "/company/dashboard",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing company route; browser smoke still pending.",
+  },
+  {
+    id: "404-nursery-dashboard",
+    route: "/nursery/dashboard",
+    previousState: "not_checked",
+    currentState: "manual_pending",
+    evidence: "Existing nursery route; browser smoke still pending.",
+  },
 ];
 
 export const stateCoverage: StateCoverage[] = [

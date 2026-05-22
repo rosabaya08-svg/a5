@@ -32,7 +32,10 @@ This is the route index for `localhost:3000` in the `my-app` worktree. All route
 | --- | --- | --- |
 | `/admin/dashboard` | 최고관리자 mock dashboard | manual smoke pending |
 | `/company/dashboard` | 기업 Admin mock dashboard | manual smoke pending |
+| `/company/products` | 기업 상품 관리 mock route | manual smoke pending |
 | `/nursery/dashboard` | 조리원 Admin mock dashboard | manual smoke pending |
+| `/nursery/rooms` | 조리원 객실 관리 mock route | manual smoke pending |
+| `/tablet` | 태블릿 홈 mock route | manual smoke pending |
 | `/tablet/products` | 태블릿 상품 목록 | manual smoke pending |
 | `/tablet/cart` | 태블릿 장바구니 | manual smoke pending |
 | `/tablet/qr` | 태블릿 QR 생성 | manual smoke pending |

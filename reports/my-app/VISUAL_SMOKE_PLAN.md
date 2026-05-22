@@ -73,6 +73,20 @@ This checklist is for manual browser review on `localhost:3000`. It must be run 
 13. Open `/mock-ui/qa`.
     - Check manual checklist and release readiness blockers.
 
+14. Open `/company/dashboard`.
+    - Confirm company dashboard is reachable.
+    - Open `/company/products`.
+    - Confirm company product route does not imply live payout or external inventory sync.
+
+15. Open `/nursery/dashboard`.
+    - Confirm nursery dashboard is reachable.
+    - Open `/nursery/rooms`.
+    - Confirm nursery room route does not query real customer data.
+
+16. Review `/mock-ui/status`.
+    - Confirm all worktree route status cards are visible.
+    - Confirm route-by-route 404 record is visible.
+
 ## Visual pass criteria
 
 - No blank page.

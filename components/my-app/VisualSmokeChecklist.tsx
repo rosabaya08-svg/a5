@@ -23,8 +23,14 @@ const smokeSteps = [
   {
     id: "smoke-tablet",
     title: "Open tablet flow",
-    route: "/tablet/products",
-    checks: ["/tablet/cart opens", "/tablet/qr opens", "No live payment wording appears"],
+    route: "/products",
+    checks: [
+      "/products no longer returns 404",
+      "/tablet/products opens",
+      "/tablet/cart opens",
+      "/tablet/qr opens",
+      "No live payment wording appears",
+    ],
   },
   {
     id: "smoke-customer",
@@ -37,6 +43,18 @@ const smokeSteps = [
     title: "Open guest order detail",
     route: "/orders/guest/A5-20260519-001",
     checks: ["Order status is readable", "Refund/settlement remain mock", "No personal data verification is implied"],
+  },
+  {
+    id: "smoke-company",
+    title: "Open company routes",
+    route: "/company/dashboard",
+    checks: ["/company/products opens", "Company routes remain mock/test beta", "No payout action is live"],
+  },
+  {
+    id: "smoke-nursery",
+    title: "Open nursery routes",
+    route: "/nursery/dashboard",
+    checks: ["/nursery/rooms opens", "Nursery routes remain mock/test beta", "No real customer data is queried"],
   },
 ];
 
@@ -99,4 +117,3 @@ export function VisualSmokeChecklist() {
     </main>
   );
 }
-

@@ -8,10 +8,12 @@ import {
   integrationStatuses,
   nextTasks,
   progressEvents,
+  route404Statuses,
   smokeRoutes,
   stateCoverage,
   statusDashboard,
   statusMetrics,
+  worktreeRouteStatuses,
   worktreePorts,
   type StatusListItem,
   type StatusMetric,
@@ -237,6 +239,88 @@ function WorktreePortGuide() {
   );
 }
 
+function WorktreeRouteStatusGrid() {
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-500">All worktree route status</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Manual browser targets by track</h2>
+        </div>
+        <ToneBadge tone="progress" label="manual smoke pending" />
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {worktreeRouteStatuses.map((item) => (
+          <article key={item.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+                  localhost:{item.port}
+                </p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">{item.track}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{item.note}</p>
+              </div>
+              <span className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white">
+                {item.routeState}
+              </span>
+            </div>
+            <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm font-black text-slate-950">
+              status route: {item.statusRoute}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.keyRoutes.map((route) => (
+                <span key={route} className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-700">
+                  {route}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Route404Matrix() {
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-500">404 status log</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Route-by-route 404 record</h2>
+        </div>
+        <ToneBadge tone="mock" label="static record" />
+      </div>
+      <div className="mt-4 overflow-x-auto">
+        <table className="min-w-full border-collapse text-left text-sm">
+          <thead className="bg-slate-100 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+            <tr>
+              <th className="px-3 py-3">Route</th>
+              <th className="px-3 py-3">Previous</th>
+              <th className="px-3 py-3">Current</th>
+              <th className="px-3 py-3">Evidence</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {route404Statuses.map((item) => (
+              <tr key={item.id} className="align-top">
+                <td className="px-3 py-3 font-black text-slate-950">{item.route}</td>
+                <td className="px-3 py-3 text-slate-600">{item.previousState}</td>
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                    {item.currentState}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-slate-600">{item.evidence}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function ProgressTimeline() {
   const stateTone: Record<(typeof progressEvents)[number]["state"], StatusTone> = {
     completed: "complete",
@@ -340,6 +424,10 @@ export function StatusDashboard() {
         <IntegrationStatusGrid />
 
         <WorktreePortGuide />
+
+        <WorktreeRouteStatusGrid />
+
+        <Route404Matrix />
 
         <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
           <StatusList title="Blocked live integrations" subtitle="blockers" items={blockedItems} />

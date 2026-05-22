@@ -43,29 +43,34 @@ This checklist is for manual browser review on `localhost:3000`. It must be run 
    - Check category cards.
    - Check product cards and price layer.
 
-6. Open `/tablet/products`.
+6. Open `/products`.
+   - Confirm it no longer returns 404.
+   - Confirm it shows the customer product list mock/test beta screen.
+   - Confirm the top badges are visible: mock/test beta, Firebase 연결 없음, PG 연결 없음, 운영 배포 아님.
+
+7. Open `/tablet/products`.
    - Check customer-facing product list.
    - Confirm it still shows mock/test data only.
 
-7. Open `/tablet/cart`.
+8. Open `/tablet/cart`.
    - Check quantity, option, fulfillment, total, and QR entry.
 
-8. Open `/tablet/qr`.
+9. Open `/tablet/qr`.
    - Check QR code placeholder, short code, expiry, and mobile link.
 
-9. Open `/q/SANHO701`.
+10. Open `/q/SANHO701`.
    - Check mobile customer QR landing.
    - Confirm no customer login is required.
 
-10. Open `/q/SANHO701/checkout`.
+11. Open `/q/SANHO701/checkout`.
    - Check checkout mock summary.
    - Confirm no live PG wording or real payment action appears.
 
-11. Open `/orders/guest/A5-20260519-001`.
+12. Open `/orders/guest/A5-20260519-001`.
    - Check guest order detail.
    - Confirm refund/settlement remain mock-only states.
 
-12. Open `/mock-ui/qa`.
+13. Open `/mock-ui/qa`.
     - Check manual checklist and release readiness blockers.
 
 ## Visual pass criteria

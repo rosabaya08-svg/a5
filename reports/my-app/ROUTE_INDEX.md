@@ -7,6 +7,7 @@ This is the route index for `localhost:3000` in the `my-app` worktree. All route
 | Route | Purpose | Status |
 | --- | --- | --- |
 | `/` | Home launcher with the original 6 domain cards and generated result review section | mock/test beta |
+| `/products` | Customer product list alias that reuses `/tablet/products` mock screen | mock/test beta |
 | `/mock-ui/status` | Integrated progress status dashboard | mock/test beta |
 | `/mock-ui` | Mock UI preview hub | mock/test beta |
 | `/mock-ui/smoke` | Visual smoke checklist screen | mock/test beta |

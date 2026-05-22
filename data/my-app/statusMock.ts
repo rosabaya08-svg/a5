@@ -70,7 +70,7 @@ export const statusDashboard = {
   liveWarning: "Not production, not live payment, not Firebase connected.",
   progressPercent: 88,
   generatedMajorFileCount: 78,
-  generatedRouteCount: 20,
+  generatedRouteCount: 21,
   generatedComponentCount: 36,
   generatedDataAndTypeCount: 24,
   reportCount: 14,
@@ -94,7 +94,7 @@ export const statusMetrics: StatusMetric[] = [
   {
     id: "metric-routes",
     label: "Preview routes",
-    value: "20",
+    value: "21",
     helper: "Includes status, mock UI previews, tablet/customer/guest smoke candidates, and admin/company/nursery entries.",
     tone: "mock",
   },
@@ -493,6 +493,7 @@ export const humanChecks: StatusListItem[] = [
 
 export const smokeRoutes: SmokeRoute[] = [
   { id: "route-status", route: "/mock-ui/status", purpose: "Local status dashboard", status: "preview_ready" },
+  { id: "route-products", route: "/products", purpose: "Customer product list alias for /tablet/products", status: "preview_ready" },
   { id: "route-hub", route: "/mock-ui", purpose: "Preview hub", status: "preview_ready" },
   { id: "route-smoke", route: "/mock-ui/smoke", purpose: "Visual smoke checklist", status: "preview_ready" },
   { id: "route-merge", route: "/mock-ui/merge", purpose: "Merge handoff board", status: "preview_ready" },

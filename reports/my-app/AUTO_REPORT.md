@@ -446,3 +446,28 @@
 - `process.env` 사용 없음
 - secret/config 생성 없음
 - `git`/`npm` 명령 문자열은 `COMMIT_CANDIDATE.md`, 수동 checklist, 보고서 문구에만 존재하며 실행하지 않음
+## 추가 진행: /products route smoke fix
+
+### 생성된 파일
+
+- `app/products/page.tsx`
+
+### 수정된 파일
+
+- `data/my-app/statusMock.ts`
+- `reports/my-app/ROUTE_INDEX.md`
+- `reports/my-app/VISUAL_SMOKE_PLAN.md`
+
+### 변경 내용
+
+- `/products` route를 추가해 404를 해소
+- `/products`는 기존 `/tablet/products`의 `TabletProductsPage`를 재사용
+- 상단에 `mock/test beta`, `Firebase 연결 없음`, `PG 연결 없음`, `운영 배포 아님` 배지 표시
+- `/mock-ui/status` route map에 `/products` 추가
+- Route index와 visual smoke plan에 `/products` 확인 항목 추가
+
+### 실행하지 않은 것
+
+- git add/commit/push 미실행
+- npm install 미실행
+- Firebase/PG/환불/정산/알림톡/배송조회/외부 재고 API 연결 없음

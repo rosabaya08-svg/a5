@@ -1,5 +1,78 @@
 import type { QrPaymentSession } from "@/types/commerce";
 
+const generatedStatuses: QrPaymentSession["status"][] = [
+  "active",
+  "paid",
+  "expired",
+  "cancelled",
+  "active",
+  "paid",
+  "expired",
+  "paid",
+];
+
+const generatedProducts = [
+  { productId: "product-diaper-pack", productName: "Premium Newborn Diaper Pack", optionName: "Small", unitPrice: 31000, companyId: "company-bebe-lux" },
+  { productId: "product-cookie-box", productName: "Lactation Cookie Box", optionName: "Plain", unitPrice: 29000, companyId: "company-momtable" },
+  { productId: "product-premium-bottle", productName: "Anti-Colic Premium Bottle", optionName: "160ml", unitPrice: 26000, companyId: "company-bebe-lux" },
+  { productId: "product-baby-lotion", productName: "Gentle Baby Lotion", optionName: "Basic", unitPrice: 24000, companyId: "company-sanho-care" },
+  { productId: "product-mom-vitamin", productName: "Postpartum Mom Vitamin", optionName: "30 days", unitPrice: 44000, companyId: "company-momtable" },
+  { productId: "product-nursing-pad", productName: "Soft Nursing Pad", optionName: "60 count", unitPrice: 18000, companyId: "company-sanho-care" },
+  { productId: "product-swaddle-set", productName: "Organic Swaddle Set", optionName: "Mint", unitPrice: 52000, companyId: "company-bebe-lux" },
+  { productId: "product-stroller-organizer", productName: "Stroller Organizer Pouch", optionName: "Black", unitPrice: 36000, companyId: "company-bebe-lux" },
+  { productId: "product-postpartum-belt", productName: "Postpartum Support Belt", optionName: "S/M", unitPrice: 62000, companyId: "company-sanho-care" },
+  { productId: "product-baby-sound", productName: "Baby White Noise Speaker", optionName: "Basic", unitPrice: 64000, companyId: "company-bebe-lux" },
+  { productId: "product-sanitizer", productName: "Bottle Sanitizer Spray", optionName: "Single", unitPrice: 21000, companyId: "company-sanho-care" },
+  { productId: "product-pump-parts", productName: "Breast Pump Parts Kit", optionName: "Parts kit", unitPrice: 33000, companyId: "company-sanho-care" },
+  { productId: "product-hydrogel", productName: "Cooling Hydrogel Sheet", optionName: "6 sheets", unitPrice: 17000, companyId: "company-momtable" },
+  { productId: "product-baby-towel", productName: "Newborn Hood Towel", optionName: "Hood towel", unitPrice: 28000, companyId: "company-bebe-lux" },
+  { productId: "product-meal-voucher", productName: "Mom Table Meal Voucher", optionName: "3 meals", unitPrice: 39000, companyId: "company-momtable" },
+  { productId: "product-nursing-light", productName: "Low-Glare Nursing Light", optionName: "Warm", unitPrice: 42000, companyId: "company-bebe-lux" },
+  { productId: "product-keepsake-frame", productName: "Newborn Keepsake Frame", optionName: "Basic", unitPrice: 55000, companyId: "company-bebe-lux" },
+  { productId: "product-room-aroma", productName: "Nursery Room Aroma Mist", optionName: "Lavender", unitPrice: 23000, companyId: "company-sanho-care" },
+  { productId: "product-cotton-set", productName: "Pure Cotton Care Set", optionName: "Basic", unitPrice: 25000, companyId: "company-sanho-care" },
+  { productId: "product-premium-rattle", productName: "Premium First Rattle", optionName: "Wood", unitPrice: 48000, companyId: "company-bebe-lux" },
+  { productId: "product-recovery-socks", productName: "Warm Recovery Socks", optionName: "M", unitPrice: 19000, companyId: "company-sanho-care" },
+  { productId: "product-baby-bath", productName: "Gentle Baby Bath Set", optionName: "Basic", unitPrice: 45000, companyId: "company-bebe-lux" },
+  { productId: "product-premium-carrier", productName: "Premium Newborn Carrier", optionName: "Standard", unitPrice: 149000, companyId: "company-bebe-lux" },
+  { productId: "product-mom-water", productName: "Mom Hydration Water Pack", optionName: "12 bottles", unitPrice: 22000, companyId: "company-momtable" },
+];
+
+const generatedQrSessions: QrPaymentSession[] = generatedProducts.map((product, index) => {
+  const seq = index + 1;
+  const status = generatedStatuses[index % generatedStatuses.length];
+  const deliveryMethod: QrPaymentSession["deliveryMethod"] = index % 3 === 0 ? "delivery" : "pickup";
+  const type: QrPaymentSession["type"] = index % 5 === 0 ? "ask" : "purchase";
+  const quantity = index % 4 === 0 ? 2 : 1;
+  const roomNumber = 701 + (index % 4);
+  const createdHour = 8 + (index % 10);
+
+  return {
+    id: `qr-bulk-${String(seq).padStart(3, "0")}`,
+    shortCode: `BETA${String(seq).padStart(3, "0")}`,
+    type,
+    status,
+    nurseryId: index % 2 === 0 ? "nursery-gangnam-01" : "nursery-bundang-01",
+    roomId: index % 2 === 0 ? `room-${roomNumber}` : "room-501",
+    tabletId: index % 2 === 0 ? `tablet-${roomNumber}-a` : "tablet-501-a",
+    cartId: `cart-beta-${String(seq).padStart(3, "0")}`,
+    createdAt: `2026-05-${index < 12 ? "19" : "18"}T${String(createdHour).padStart(2, "0")}:10:00+09:00`,
+    expiresAt: `2026-05-${index < 12 ? "19" : "18"}T${String(createdHour + 3).padStart(2, "0")}:10:00+09:00`,
+    deliveryMethod,
+    totalAmount: product.unitPrice * quantity,
+    items: [
+      {
+        productId: product.productId,
+        productName: product.productName,
+        optionName: product.optionName,
+        unitPrice: product.unitPrice,
+        quantity,
+        companyId: product.companyId,
+      },
+    ],
+  };
+});
+
 export const mockQrSessions: QrPaymentSession[] = [
   {
     id: "qr-001",
@@ -17,16 +90,16 @@ export const mockQrSessions: QrPaymentSession[] = [
     items: [
       {
         productId: "product-care-kit",
-        productName: "산모 회복 케어 키트",
-        optionName: "선물 포장",
+        productName: "Mother Care Recovery Kit",
+        optionName: "Family refill",
         unitPrice: 75000,
         quantity: 1,
         companyId: "company-sanho-care",
       },
       {
         productId: "product-tea",
-        productName: "수유맘 루이보스 티 세트",
-        optionName: "20포",
+        productName: "Nursing Rooibos Tea Set",
+        optionName: "20 sachets",
         unitPrice: 36000,
         quantity: 2,
         companyId: "company-momtable",
@@ -49,11 +122,35 @@ export const mockQrSessions: QrPaymentSession[] = [
     items: [
       {
         productId: "product-bag",
-        productName: "프리미엄 기저귀 백",
-        optionName: "크림",
+        productName: "Premium Diaper Tote Bag",
+        optionName: "Cream",
         unitPrice: 128000,
         quantity: 1,
         companyId: "company-bebe-lux",
+      },
+    ],
+  },
+  {
+    id: "qr-005",
+    shortCode: "ASKNOW44",
+    type: "ask",
+    status: "active",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-701",
+    tabletId: "tablet-701-a",
+    cartId: "cart-701-ask-001",
+    createdAt: "2026-05-19T16:01:00+09:00",
+    expiresAt: "2026-05-19T19:01:00+09:00",
+    deliveryMethod: "pickup",
+    totalAmount: 58000,
+    items: [
+      {
+        productId: "product-pillow",
+        productName: "Nursing Position Support Pillow",
+        optionName: "Pillow",
+        unitPrice: 58000,
+        quantity: 1,
+        companyId: "company-sanho-care",
       },
     ],
   },
@@ -73,12 +170,109 @@ export const mockQrSessions: QrPaymentSession[] = [
     items: [
       {
         productId: "product-blanket",
-        productName: "신생아 오가닉 블랭킷",
-        optionName: "기본",
+        productName: "Newborn Air Blanket",
+        optionName: "Basic",
         unitPrice: 39000,
         quantity: 1,
         companyId: "company-bebe-lux",
       },
     ],
   },
+  {
+    id: "qr-004",
+    shortCode: "USED701",
+    type: "purchase",
+    status: "paid",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-701",
+    tabletId: "tablet-701-a",
+    cartId: "cart-701-002",
+    createdAt: "2026-05-19T09:11:00+09:00",
+    expiresAt: "2026-05-19T12:11:00+09:00",
+    deliveryMethod: "delivery",
+    totalAmount: 69000,
+    items: [
+      {
+        productId: "product-care-kit",
+        productName: "Mother Care Recovery Kit",
+        optionName: "Basic set",
+        unitPrice: 69000,
+        quantity: 1,
+        companyId: "company-sanho-care",
+      },
+    ],
+  },
+  {
+    id: "qr-006",
+    shortCode: "VOID1234",
+    type: "purchase",
+    status: "cancelled",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-702",
+    tabletId: "tablet-702-a",
+    cartId: "cart-702-cancelled-001",
+    createdAt: "2026-05-19T11:40:00+09:00",
+    expiresAt: "2026-05-19T14:40:00+09:00",
+    deliveryMethod: "delivery",
+    totalAmount: 97000,
+    items: [
+      {
+        productId: "product-monitor",
+        productName: "Compact Baby Room Monitor",
+        optionName: "Single unit",
+        unitPrice: 97000,
+        quantity: 1,
+        companyId: "company-bebe-lux",
+      },
+    ],
+  },
+  {
+    id: "qr-008",
+    shortCode: "CANCEL77",
+    type: "purchase",
+    status: "cancelled",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-701",
+    tabletId: "tablet-701-a",
+    cartId: "cart-701-cancel-only",
+    createdAt: "2026-05-19T17:05:00+09:00",
+    expiresAt: "2026-05-19T20:05:00+09:00",
+    deliveryMethod: "pickup",
+    totalAmount: 39000,
+    items: [
+      {
+        productId: "product-blanket",
+        productName: "Newborn Air Blanket",
+        optionName: "Basic",
+        unitPrice: 39000,
+        quantity: 1,
+        companyId: "company-bebe-lux",
+      },
+    ],
+  },
+  {
+    id: "qr-007",
+    shortCode: "DELIV900",
+    type: "purchase",
+    status: "paid",
+    nurseryId: "nursery-bundang-01",
+    roomId: "room-501",
+    tabletId: "tablet-501-a",
+    cartId: "cart-501-delivery-001",
+    createdAt: "2026-05-18T13:20:00+09:00",
+    expiresAt: "2026-05-18T16:20:00+09:00",
+    deliveryMethod: "delivery",
+    totalAmount: 47000,
+    items: [
+      {
+        productId: "product-wrap-set",
+        productName: "Mother Baby Wrap Set",
+        optionName: "Soft set",
+        unitPrice: 47000,
+        quantity: 1,
+        companyId: "company-sanho-care",
+      },
+    ],
+  },
+  ...generatedQrSessions,
 ];

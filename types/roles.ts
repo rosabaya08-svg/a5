@@ -15,12 +15,12 @@ export type RoleScope = {
 };
 
 export const roleLabels: Record<UserRole, string> = {
-  SUPER_ADMIN: "최고관리자",
-  COMPANY_ADMIN: "기업 Admin",
-  NURSERY_ADMIN: "산후조리원 Admin",
-  TABLET_DEVICE: "태블릿",
-  CUSTOMER_GUEST: "비회원 고객",
-  PAYER_GUEST: "조르기 결제자",
+  SUPER_ADMIN: "Super admin",
+  COMPANY_ADMIN: "Company admin",
+  NURSERY_ADMIN: "Nursery admin",
+  TABLET_DEVICE: "Tablet device",
+  CUSTOMER_GUEST: "Guest customer",
+  PAYER_GUEST: "Guest payer",
 };
 
 export const roleHomePaths: Record<UserRole, string> = {

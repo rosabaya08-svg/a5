@@ -3,8 +3,8 @@ import type { Company } from "@/types/commerce";
 export const mockCompanies: Company[] = [
   {
     id: "company-sanho-care",
-    name: "산호케어",
-    managerName: "김서윤",
+    name: "Sanho Care",
+    managerName: "Kim Seoyun",
     status: "approved",
     commissionRate: 12,
     productCount: 18,
@@ -13,8 +13,8 @@ export const mockCompanies: Company[] = [
   },
   {
     id: "company-bebe-lux",
-    name: "베베럭스",
-    managerName: "박도현",
+    name: "Bebe Lux",
+    managerName: "Park Doyun",
     status: "approved",
     commissionRate: 15,
     productCount: 11,
@@ -23,8 +23,8 @@ export const mockCompanies: Company[] = [
   },
   {
     id: "company-momtable",
-    name: "맘테이블",
-    managerName: "이하린",
+    name: "Mom Table",
+    managerName: "Lee Hari",
     status: "pending",
     commissionRate: 10,
     productCount: 4,

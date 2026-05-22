@@ -46,49 +46,49 @@ export type DeliveryStatus =
 export type StatusTone = "neutral" | "blue" | "green" | "amber" | "red" | "purple";
 
 export const productStatusLabels: Record<ProductStatus, string> = {
-  draft: "임시저장",
-  pending_approval: "승인요청",
-  approved: "승인완료",
-  rejected: "반려",
-  suspended: "판매중지",
-  archived: "보관",
+  draft: "Draft",
+  pending_approval: "Approval pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  suspended: "Suspended",
+  archived: "Archived",
 };
 
 export const qrSessionStatusLabels: Record<QrSessionStatus, string> = {
-  active: "사용 가능",
-  paid: "결제 완료",
-  expired: "만료",
-  cancelled: "취소",
+  active: "Active",
+  paid: "Paid",
+  expired: "Expired",
+  cancelled: "Cancelled",
 };
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-  pending_payment: "결제 대기",
-  paid: "결제 완료",
-  preparing: "상품 준비",
-  shipping: "배송 중",
-  ready_for_pickup: "현장수령 준비",
-  delivered: "배송 완료",
-  picked_up: "현장수령 완료",
-  refund_requested: "환불 요청",
-  refund_reviewed: "환불 검토",
-  refund_approved_mock: "mock 환불 승인",
-  refund_rejected: "환불 반려",
-  cancelled: "취소",
+  pending_payment: "Payment pending",
+  paid: "Paid",
+  preparing: "Preparing",
+  shipping: "Shipping",
+  ready_for_pickup: "Pickup ready",
+  delivered: "Delivered",
+  picked_up: "Picked up",
+  refund_requested: "Refund requested",
+  refund_reviewed: "Refund reviewed",
+  refund_approved_mock: "Refund approved mock",
+  refund_rejected: "Refund rejected",
+  cancelled: "Cancelled",
 };
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {
-  ready: "결제 준비",
-  approved_mock: "mock 승인",
-  failed_mock: "mock 실패",
-  cancel_requested: "취소 요청",
-  cancelled_mock: "mock 취소",
+  ready: "Ready",
+  approved_mock: "Approved mock",
+  failed_mock: "Failed mock",
+  cancel_requested: "Cancel requested",
+  cancelled_mock: "Cancelled mock",
 };
 
 export const settlementStatusLabels: Record<SettlementStatus, string> = {
-  draft: "계산 초안",
-  review: "검산 중",
-  confirmed_mock: "mock 확정",
-  payout_blocked: "지급 보류",
+  draft: "Draft",
+  review: "In review",
+  confirmed_mock: "Confirmed mock",
+  payout_blocked: "Payout blocked",
 };
 
 export const statusToneMap: Record<

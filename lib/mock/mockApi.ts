@@ -6,8 +6,8 @@ import { mockQrSessions } from "@/data/mockQrSessions";
 import { mockRooms } from "@/data/mockRooms";
 import { mockSettlements } from "@/data/mockSettlements";
 import { mockTablets } from "@/data/mockTablets";
-import type { DashboardMetric, RiskItem } from "@/types/commerce";
 import { formatCurrency, formatNumber } from "@/lib/utils/format";
+import type { DashboardMetric, RiskItem } from "@/types/commerce";
 
 export const mockApi = {
   companies: () => mockCompanies,
@@ -36,10 +36,20 @@ export const mockApi = {
     ).length;
 
     return [
-      { label: "오늘 mock 매출", value: formatCurrency(paidAmount), helper: "실결제 아님", tone: "green" },
-      { label: "활성 QR", value: formatNumber(activeQr), helper: "2~3시간 만료 대상", tone: "blue" },
-      { label: "승인 대기 상품", value: formatNumber(pendingProducts), helper: "관리자 검수 필요", tone: "amber" },
-      { label: "정산 보류", value: formatNumber(blockedSettlements), helper: "실지급 금지", tone: "red" },
+      { label: "Mock sales", value: formatCurrency(paidAmount), helper: "Orders only, no PG", tone: "green" },
+      { label: "Active QR", value: formatNumber(activeQr), helper: "Short lived QR sessions", tone: "blue" },
+      {
+        label: "Products pending",
+        value: formatNumber(pendingProducts),
+        helper: "Approval queue mock",
+        tone: "amber",
+      },
+      {
+        label: "Payout blocks",
+        value: formatNumber(blockedSettlements),
+        helper: "Real payouts disabled",
+        tone: "red",
+      },
     ];
   },
 
@@ -50,13 +60,13 @@ export const mockApi = {
     const products = mockProducts.filter((product) => product.companyId === companyId);
 
     return [
-      { label: "입점사 mock 매출", value: formatCurrency(sales), helper: "order_items 기준", tone: "green" },
-      { label: "예상 입금", value: formatCurrency(payout), helper: "실지급 아님", tone: "blue" },
-      { label: "상품 수", value: formatNumber(products.length), helper: "승인/대기 포함", tone: "neutral" },
+      { label: "Company sales", value: formatCurrency(sales), helper: "order_items basis", tone: "green" },
+      { label: "Expected payout", value: formatCurrency(payout), helper: "No real transfer", tone: "blue" },
+      { label: "Products", value: formatNumber(products.length), helper: "Approved and pending", tone: "neutral" },
       {
-        label: "재고 부족",
+        label: "Low stock",
         value: formatNumber(products.filter((product) => product.stock < 10).length),
-        helper: "10개 미만",
+        helper: "Under 10 units",
         tone: "amber",
       },
     ];
@@ -71,10 +81,10 @@ export const mockApi = {
     );
 
     return [
-      { label: "객실", value: formatNumber(rooms.length), helper: "mock 등록 객실", tone: "neutral" },
-      { label: "태블릿", value: formatNumber(tablets.length), helper: "활성/점검 포함", tone: "blue" },
-      { label: "QR 이력", value: formatNumber(qr.length), helper: "출처 추적", tone: "purple" },
-      { label: "현장수령", value: formatNumber(pickupOrders.length), helper: "조리원 처리", tone: "green" },
+      { label: "Rooms", value: formatNumber(rooms.length), helper: "Mock registered rooms", tone: "neutral" },
+      { label: "Tablets", value: formatNumber(tablets.length), helper: "Active and maintenance", tone: "blue" },
+      { label: "QR sessions", value: formatNumber(qr.length), helper: "Source tracking", tone: "purple" },
+      { label: "Pickup orders", value: formatNumber(pickupOrders.length), helper: "Nursery handled", tone: "green" },
     ];
   },
 
@@ -82,24 +92,24 @@ export const mockApi = {
     return [
       {
         id: "risk-payment-prod",
-        title: "운영 PG 연결 금지",
+        title: "Real PG connection blocked",
         severity: "high",
-        owner: "대표님 승인",
-        detail: "계약, 테스트 MID, 공식 문서 전까지 mock adapter만 허용.",
+        owner: "Executive approval",
+        detail: "The beta uses mock payment states until contract, test MID, and official docs are ready.",
       },
       {
         id: "risk-firebase",
-        title: "Firebase 환경 미결정",
+        title: "Firebase environment not connected",
         severity: "high",
-        owner: "운영/개발",
-        detail: "기존/신규 프로젝트와 dev/prod 분리 결정 전 연결 금지.",
+        owner: "Ops and engineering",
+        detail: "No Firebase SDK, Auth, Firestore, Storage, rules, or deploy configuration is created here.",
       },
       {
         id: "risk-payout",
-        title: "정산 지급 차단",
+        title: "Real payout execution blocked",
         severity: "medium",
-        owner: "재무 검토",
-        detail: "베타는 order_items 기준 계산 초안만 표시.",
+        owner: "Finance review",
+        detail: "Settlement amounts are shown as order item snapshots only.",
       },
     ];
   },

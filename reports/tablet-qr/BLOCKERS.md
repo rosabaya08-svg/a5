@@ -7,12 +7,15 @@
 - `git status`, `git add`, `git commit`, and `git push` were not run.
 - No package install command was run.
 - No Firebase, Firestore, Auth, Storage, PG, refund, settlement, notification, delivery tracking, or external inventory API was connected.
+- `npm.cmd run build` was attempted after the latest instruction, but it failed because the local `next` executable is missing.
 
 ## Environment Blockers
 
 - `node_modules/next/dist/docs/` was not present in this worktree, so the AGENTS.md request to read local Next.js docs could not be completed.
-- Because build/lint commands were prohibited, TypeScript and Next.js validation remains pending for a human follow-up phase.
-- Visual browser verification was not performed because the no-command unattended mode prioritized file generation and avoided dev server/build steps.
+- `node_modules` is not present in this worktree.
+- `next` is not available at `node_modules/.bin/next`, so `npm.cmd run dev` and `npm.cmd run build` cannot run until dependencies are restored.
+- TypeScript and Next.js validation remains pending because the local `next` executable is unavailable.
+- Visual browser verification was not completed because the dev server could not start without `next`.
 - Search, filter, and sort controls are static UI only. Real query handling needs server/data-layer approval.
 - Summary grids and route matrices are mock QA aids. They are not permission-gated and should be reviewed before a public beta.
 - `/q/[code]/status` is a mock state route only and does not validate real QR ownership, expiry, or payment records.
@@ -41,3 +44,4 @@
 - Payer validation, checkout loading, order/phone mismatch, and QR conflict panels are UI-only. They do not persist personal information or execute payment/refund logic.
 - The local status dashboard is for internal visual inspection only and must not be treated as production readiness proof.
 - Route preview cards are manual smoke aids only. They do not prove route rendering until a browser/dev-server pass is allowed.
+- `reports/tablet-qr/BROWSER_CHECK_RESULT.md` records the blocked browser/build result.

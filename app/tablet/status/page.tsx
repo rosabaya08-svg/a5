@@ -1,4 +1,5 @@
 import { GuestRoutePreviewGrid } from "@/components/guest/GuestRoutePreviewGrid";
+import { QrStateScenarioGrid } from "@/components/guest/QrStateScenarioGrid";
 import { TabletRoutePreviewGrid } from "@/components/tablet/TabletRoutePreviewGrid";
 import { tabletQrStatusMock } from "@/data/tablet-qr/statusMock";
 
@@ -78,6 +79,10 @@ export default function Page() {
 
         <section className="mt-5">
           <GuestRoutePreviewGrid routes={guestRoutes} />
+        </section>
+
+        <section className="mt-5">
+          <QrStateScenarioGrid states={status.qrStateDetails} />
         </section>
 
         <section className="mt-5 grid gap-4 xl:grid-cols-3">

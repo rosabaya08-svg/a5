@@ -77,6 +77,14 @@
 - Added mock/test beta, Firebase none, and PG mock-only badges to tablet and guest/customer page frames.
 - Added `reports/tablet-qr/ROUTE_INDEX.md`, `VISUAL_SMOKE_PLAN.md`, and `MERGE_HANDOFF.md`.
 
+### Browser/build check attempt
+
+- Attempted local dev server check for `/tablet/status`, but the local Next executable was unavailable because `node_modules` is missing.
+- Attempted `npm.cmd run build`; it failed with `next is not recognized as an internal or external command`.
+- Added `components/guest/QrStateScenarioGrid.tsx` and connected it to `/tablet/status`.
+- Added `qrStateDetails` in `data/tablet-qr/statusMock.ts` for active, expired, used, payment_failed, and canceled QR states.
+- Added `reports/tablet-qr/BROWSER_CHECK_RESULT.md` with the blocked browser/build result and next verification steps.
+
 ### Day 1 - Tablet product catalog
 
 - Rebuilt the tablet catalog UI in `components/pages/tabletPages.tsx`.
@@ -123,6 +131,7 @@
 - `components/tablet/TabletRoutePreviewGrid.tsx`
 - `components/tablet-qr/StatusDashboard.tsx`
 - `components/guest/GuestRoutePreviewGrid.tsx`
+- `components/guest/QrStateScenarioGrid.tsx`
 - `components/guest/GuestBetaPanels.tsx`
 - `lib/repositories/mock/tabletQrRepository.ts`
 - `data/tablet-qr/statusMock.ts`
@@ -149,6 +158,7 @@
 - `reports/tablet-qr/ROUTE_INDEX.md`
 - `reports/tablet-qr/VISUAL_SMOKE_PLAN.md`
 - `reports/tablet-qr/MERGE_HANDOFF.md`
+- `reports/tablet-qr/BROWSER_CHECK_RESULT.md`
 
 ## Verification
 
@@ -160,4 +170,5 @@
 - Static generated data is intentionally implemented with mapped arrays for QR sessions, orders, order items, and payments.
 - Static route presence check confirmed the requested tablet, QR, checkout, expired, guest lookup, guest detail, and refund mock page files exist.
 - Static search found no mojibake replacement character in the new status/preview files after converting dashboard labels to ASCII.
+- Browser and build verification are blocked until dependencies are restored; `node_modules` is absent and `next` cannot be executed.
 - Static search should be repeated by a human with build/lint once command restrictions are lifted.

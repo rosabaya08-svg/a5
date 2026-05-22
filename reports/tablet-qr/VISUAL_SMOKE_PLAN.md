@@ -37,5 +37,7 @@ Use `/tablet/status` as the first browser page for visual review. Open every rou
 
 ## Blocked Verification
 
-- Browser execution, screenshots, build, lint, and runtime route verification remain pending until command restrictions are lifted.
-- No dev server was started in this unattended pass.
+- Browser execution, screenshots, and runtime route verification remain pending because `node_modules` is absent and `next` cannot run.
+- `npm.cmd run dev` failed with `next is not recognized as an internal or external command`.
+- `npm.cmd run build` failed with `next is not recognized as an internal or external command`.
+- See `reports/tablet-qr/BROWSER_CHECK_RESULT.md`.

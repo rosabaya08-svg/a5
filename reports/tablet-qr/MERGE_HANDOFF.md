@@ -35,7 +35,8 @@
 
 ## Known Blockers
 
-- Browser/dev server verification not run.
-- Build/lint not run.
+- Browser/dev server verification blocked because `node_modules` is absent and `next` cannot run.
+- `npm.cmd run build` was attempted and failed with `next is not recognized as an internal or external command`.
+- Lint not run.
 - Firebase/PG integration intentionally absent.
 - Storage remains on hold due to Spark limitation.

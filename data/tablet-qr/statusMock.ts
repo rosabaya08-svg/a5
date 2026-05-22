@@ -26,6 +26,16 @@ export type StatusItem = {
   state: StatusTone;
 };
 
+export type QrStateDetail = {
+  state: "active" | "expired" | "used" | "payment_failed" | "canceled";
+  route: string;
+  headline: string;
+  customerAction: string;
+  blockedAction: string;
+  reviewNote: string;
+  tone: StatusTone;
+};
+
 export const tabletQrStatusMock = {
   track: "tablet-qr",
   statusRoute: "/tablet/status",
@@ -137,6 +147,53 @@ export const tabletQrStatusMock = {
     { href: "/q/VOID1234/status", label: "payment_failed", state: "blocked", detail: "Mock failed payment branch." },
     { href: "/q/CANCEL77/status", label: "canceled", state: "blocked", detail: "Operator-cancelled QR branch." },
   ] as StatusRoute[],
+  qrStateDetails: [
+    {
+      state: "active",
+      route: "/q/SANHO701/status",
+      headline: "Active QR can enter checkout",
+      customerAction: "Show checkout button and payer fields.",
+      blockedAction: "No real PG request, no Firebase write, no inventory decrement.",
+      reviewNote: "Confirm active QR copy before beta room test.",
+      tone: "complete",
+    },
+    {
+      state: "expired",
+      route: "/q/OLDQR22/status",
+      headline: "Expired QR blocks checkout",
+      customerAction: "Show expiry warning and route to order lookup or tablet QR issue.",
+      blockedAction: "No server expiry validation yet; no regeneration write.",
+      reviewNote: "Decide whether expired QR gets regenerated or abandoned.",
+      tone: "blocked",
+    },
+    {
+      state: "used",
+      route: "/q/USED701/status",
+      headline: "Used QR routes to order lookup",
+      customerAction: "Show already-paid guidance and related order link.",
+      blockedAction: "No real single-use lock validation yet.",
+      reviewNote: "Confirm duplicate-scan copy for guardian payer scenarios.",
+      tone: "review",
+    },
+    {
+      state: "payment_failed",
+      route: "/q/VOID1234/status",
+      headline: "Payment failed remains retry-only UI",
+      customerAction: "Show failure reason and mock retry link.",
+      blockedAction: "No PG retry, cancellation, refund, or webhook.",
+      reviewNote: "Confirm retry policy before real PG contract.",
+      tone: "blocked",
+    },
+    {
+      state: "canceled",
+      route: "/q/CANCEL77/status",
+      headline: "Canceled QR blocks retry",
+      customerAction: "Show operator-cancelled guidance and related order path.",
+      blockedAction: "No operator audit write and no new QR generation.",
+      reviewNote: "Confirm operator cancellation ownership.",
+      tone: "blocked",
+    },
+  ] as QrStateDetail[],
   coverage: [
     { title: "Empty state", detail: "Tablet catalog no-products and guest lookup no-results placeholders exist.", state: "complete" },
     { title: "Loading state", detail: "`/q/[code]/loading` and checkout loading panels exist.", state: "complete" },

@@ -101,6 +101,7 @@ Firestore 문서 필드와 Claims는 snake_case를 기준으로 맞춘다.
 | `products` | 전체 read/write/approve | `company_id` 일치 write/read | approved read 후보 | approved read | QR 세션 snapshot 범위 read 후보 |
 | `product_options` | 전체 read/write | `company_id` 일치 write/read | approved read 후보 | approved read | QR 세션 snapshot 범위 read 후보 |
 | `carts` | 전체 read | 없음 | 없음 | 자기 `tablet_id` cart create/update | 없음 |
+| `cart_items` | 전체 read | 없음 | 없음 | 자기 `tablet_id` cart item create/update | 없음 |
 | `qr_payment_sessions` | 전체 read/write | scoped read 후보 | `nursery_id` 일치 read | 자기 `tablet_id` create/read | `token_hash` 검증 후 해당 세션 read |
 | `orders` | 전체 read/write | 직접 read 금지, `order_items` 중심 | `nursery_id` 일치 read | 없음 | 주문조회 인증 후 해당 주문 read |
 | `order_items` | 전체 read/write | `company_id` 일치 read/update 배송상태 | `nursery_id` 조인 필요 시 server mediated | 없음 | 주문조회 인증 후 해당 주문 item read |
@@ -138,3 +139,123 @@ Custom Claims 설정은 클라이언트에서 하지 않는다. Cloud Functions 
 - 운영 사용자 초대 전 dev/prod 분리 필요
 - 고객 Auth 계정 생성 금지
 - claims 변경 후 audit log 누락 금지
+
+## 7. 5일 베타 claims 계약
+
+mock/test 베타 UI는 아래 claims 계약을 가정하고 화면과 repository scope를 맞춘다. 실제 Auth 연결, 사용자 초대, claims 설정 코드는 만들지 않는다.
+
+| role | mock 화면에서 보는 범위 | 서버 전환 시 필수 검증 |
+| --- | --- | --- |
+| `SUPER_ADMIN` | 전체 KPI, 입점사, 조리원, 주문, 결제 mock, 정산 mock | 결제/환불/정산 실행은 별도 승인 gate |
+| `COMPANY_ADMIN` | 자기 회사 상품, 옵션, 재고, 주문상세, 정산 | `company_id`가 문서와 일치해야 함 |
+| `NURSERY_ADMIN` | 자기 조리원 객실, 태블릿, QR, 현장수령 | `nursery_id`가 문서와 일치해야 함 |
+| `TABLET_DEVICE` | 자기 객실 상품 read, cart/QR 생성 | `nursery_id`, `room_id`, `tablet_id` 모두 일치해야 함 |
+| `CUSTOMER_GUEST` | QR landing, 결제 전 확인, 주문조회 | Auth claims 없음. `token_hash`와 주문조회 인증으로 제한 |
+| `PAYER_GUEST` | 조르기 결제자 입력/확인 | Auth claims 없음. QR token 만료와 1회 사용 검증 |
+
+## 8. Claims 변경 lifecycle
+
+1. 최고관리자가 입점사 또는 조리원을 승인한다.
+2. 서버 action이 해당 운영자 계정에 role과 scope claims를 설정한다.
+3. claims 변경 이벤트를 `audit_logs`에 append한다.
+4. 클라이언트는 token refresh 후 새 claims를 받는다.
+5. 정지 또는 계약 종료 시 claims 제거와 계정 status 차단을 함께 수행한다.
+
+실제 구현 전까지는 이 흐름을 문서와 mock 상태 배지로만 표현한다.
+
+## 9. 거부 조건
+
+| 조건 | 처리 |
+| --- | --- |
+| role 없음 | 관리자 화면 접근 거부 |
+| `COMPANY_ADMIN`인데 `company_id` 없음 | 모든 company mutation 거부 |
+| `NURSERY_ADMIN`인데 `nursery_id` 없음 | 모든 nursery mutation 거부 |
+| `TABLET_DEVICE`인데 `tablet_id` 없음 | cart/QR 생성 거부 |
+| claims scope와 문서 scope 불일치 | `FORBIDDEN_SCOPE` |
+| guest가 list query 요청 | 거부, 단일 QR/order 조회만 허용 |
+| client가 claims 변경 요청 | 거부, server only |
+
+## 10. TABLET_DEVICE 보안 후보
+
+태블릿은 일반 이메일 로그인보다 다음 중 하나를 별도 검토한다.
+
+| 방식 | 장점 | 보류 사유 |
+| --- | --- | --- |
+| 등록 코드 기반 | 현장 설치가 쉬움 | 코드 유출 시 재발급 절차 필요 |
+| device token 기반 | 장치별 차단 가능 | 발급/보관 정책 필요 |
+| 제한된 Auth 계정 | Firebase claims 적용 쉬움 | 객실 변경/기기 교체 운영 부담 |
+
+현재 단계에서는 `TABLET_DEVICE` claims 구조만 확정하고, 발급 방식은 `reports/firebase-contract/BLOCKERS.md`에 결정 필요 항목으로 남긴다.
+
+## 11. Batch 04 최종 claims payload 계약
+
+| role | claims payload | 발급 주체 | 회수 조건 |
+| --- | --- | --- | --- |
+| `SUPER_ADMIN` | `role`, `admin_level` | server admin action | 운영자 퇴사, 권한 회수, 보안 사고 |
+| `COMPANY_ADMIN` | `role`, `company_id` | 입점사 승인 server action | 입점 정지, 계약 종료, 계정 정지 |
+| `NURSERY_ADMIN` | `role`, `nursery_id` | 조리원 승인 server action | 조리원 계약 종료, 계정 정지 |
+| `TABLET_DEVICE` | `role`, `nursery_id`, `room_id`, `tablet_id` | 태블릿 등록 server action | 객실 변경, 태블릿 분실, 재발급 |
+| `CUSTOMER_GUEST` | Auth claims 사용하지 않음 | 없음 | QR token 만료 또는 주문조회 인증 실패 |
+
+Claims에는 이름, 전화번호, 이메일 외 민감정보, 정산계좌, PG 정보, Secret을 넣지 않는다.
+
+## 12. Scope 접근 규칙 상세
+
+| scope | 일치 조건 | 실패 코드 | 감사 로그 |
+| --- | --- | --- | --- |
+| `company_id` | claims.company_id와 문서 company_id 일치 | `FORBIDDEN_SCOPE` | company scope mismatch |
+| `nursery_id` | claims.nursery_id와 문서 nursery_id 일치 | `FORBIDDEN_SCOPE` | nursery scope mismatch |
+| `room_id` | TABLET_DEVICE의 room_id와 cart/QR room_id 일치 | `FORBIDDEN_SCOPE` | room scope mismatch |
+| `tablet_id` | TABLET_DEVICE의 tablet_id와 cart/QR tablet_id 일치 | `FORBIDDEN_SCOPE` | tablet scope mismatch |
+| guest token | `token_hash` 일치, 만료 전, 1회 사용 조건 충족 | `QR_EXPIRED`, `QR_ALREADY_USED`, `FORBIDDEN_SCOPE` | guest token check result |
+
+## 13. CUSTOMER_GUEST QR 인증 흐름
+
+고객/보호자는 Firebase Auth 계정을 만들지 않는다.
+
+1. 태블릿이 QR session을 생성한다.
+2. 서버가 `short_code`와 원문 token을 발급하되, Firestore에는 `token_hash`만 저장한다.
+3. 고객 QR landing은 `short_code`와 token을 함께 제시해야 한다.
+4. 서버는 `status`, `expires_at`, `used_at`, `token_hash`를 검증한다.
+5. 결제 성공 후에는 QR을 `paid`로 바꾸고 재사용을 차단한다.
+6. 주문조회는 주문번호와 휴대폰 hash 또는 별도 lookup token 후보로 제한한다.
+
+`short_code`만으로 상품 원장, 주문 상세, 결제 상태 변경을 허용하지 않는다.
+
+## 14. Rules 문서 초안에 반영할 claim helpers
+
+실제 `firestore.rules` 파일은 만들지 않는다. 아래는 문서상 helper 후보만 정리한다.
+
+| helper 후보 | 의미 |
+| --- | --- |
+| `isSuperAdmin()` | `request.auth.token.role == "SUPER_ADMIN"` |
+| `isCompanyAdmin(companyId)` | role이 `COMPANY_ADMIN`이고 token `company_id` 일치 |
+| `isNurseryAdmin(nurseryId)` | role이 `NURSERY_ADMIN`이고 token `nursery_id` 일치 |
+| `isTabletDevice(nurseryId, roomId, tabletId)` | role이 `TABLET_DEVICE`이고 세 scope 모두 일치 |
+| `isServerMediated()` | 클라이언트 Rules로 해결하지 않고 server action으로만 허용해야 하는 작업 |
+
+guest token 검증, 금액 재계산, 재고 차감, 주문 생성, payment confirm은 Rules helper가 아니라 서버 로직으로 처리한다.
+
+## 15. Batch 28 Custom Claims 검증 매트릭스
+
+| 대상 | 허용 | 금지 | 검증 기준 |
+| --- | --- | --- | --- |
+| `SUPER_ADMIN` | 전체 운영 조회, 승인/반려/차단, 정산 검토 mock | 실제 PG 환불, 실제 지급, Secret 조회 | role, admin_level, C등급 gate |
+| `COMPANY_ADMIN` | 자기 `company_id` 상품/옵션/주문상세/배송/정산 조회 | 타 회사 상품/정산/주문, 결제 원장 직접 수정 | `company_id` 일치 |
+| `NURSERY_ADMIN` | 자기 `nursery_id` 객실/태블릿/QR/현장수령/주문 이력 | 타 조리원 QR/주문/객실, 결제 상태 변경 | `nursery_id` 일치 |
+| `TABLET_DEVICE` | 자기 `tablet_id` cart/QR 생성 요청, 승인 상품 read | 주문 확정, 결제 승인, 재고 차감, 관리자 화면 | `nursery_id`, `room_id`, `tablet_id` 모두 일치 |
+| `CUSTOMER_GUEST` | token 검증된 QR landing, 결제 전 확인, 자기 주문조회 | list query, 상품 원장 직접 조회, 결제/환불 상태 직접 변경 | `short_code`, `token_hash`, `expires_at`, one-time use |
+
+## 16. Batch 29 CUSTOMER_GUEST 비회원 QR 흐름
+
+| 항목 | 기준 |
+| --- | --- |
+| `short_code` | URL 노출용 짧은 코드. 단독 인증 수단 아님 |
+| QR token | 고객 URL에 포함되는 원문 후보. 서버는 hash만 저장 |
+| `token_hash` | Firestore 저장값. 원문 token 저장 금지 |
+| `expires_at` | QR 만료 시각. 만료 후 결제/조회 차단 |
+| `one_time_use` | `used_at` 또는 `status = used/paid` 이후 재사용 금지 |
+| payer_info | 결제자 이름/연락처 입력은 mock 단계에서 최소화, 저장 시 masked/hash 후보 |
+| 주문조회 | `order_no` + phone hash 또는 lookup token 후보. Auth 계정 생성 없음 |
+
+고객이 결제 화면에서 입력한 금액, 상품명, 옵션명은 신뢰하지 않고 QR snapshot과 서버 재계산을 따른다.

@@ -1,0 +1,412 @@
+export type StatusTone = "complete" | "active" | "blocked" | "risk" | "neutral";
+
+export type StatusItem = {
+  label: string;
+  detail: string;
+  tone: StatusTone;
+};
+
+export type RouteStatus = {
+  path: string;
+  label: string;
+  state: "ready" | "mock" | "blocked";
+};
+
+export type ContractCard = {
+  title: string;
+  route: string;
+  document: string;
+  summary: string;
+  status: "documented" | "mock" | "blocked" | "needs-review";
+  blocker: string;
+  humanCheck: string;
+};
+
+export type ContractDoc = {
+  slug: string;
+  title: string;
+  route: string;
+  source: string;
+  purpose: string;
+  status: string;
+  highlights: string[];
+  blockers: string[];
+  smokeChecks: string[];
+};
+
+export const contractCards: ContractCard[] = [
+  {
+    title: "Firestore Schema",
+    route: "/firebase-contract/schema",
+    document: "FIRESTORE_SCHEMA_PLAN.md",
+    summary: "컬렉션, lifecycle, 상태 전이, index, pseudo-rules, 개인정보 보관 원칙을 정의합니다.",
+    status: "documented",
+    blocker: "실제 Firestore 연결과 rules 파일 생성 금지",
+    humanCheck: "MVP 컬렉션과 index 후보 승인 필요",
+  },
+  {
+    title: "Auth Claims",
+    route: "/firebase-contract/auth-claims",
+    document: "AUTH_CLAIMS_PLAN.md",
+    summary: "SUPER_ADMIN, COMPANY_ADMIN, NURSERY_ADMIN, TABLET_DEVICE, CUSTOMER_GUEST 접근 경계를 정의합니다.",
+    status: "documented",
+    blocker: "실제 Auth 연결과 claims 설정 코드 생성 금지",
+    humanCheck: "태블릿 인증 방식과 guest lookup 정책 결정 필요",
+  },
+  {
+    title: "Functions Server Logic",
+    route: "/firebase-contract/functions",
+    document: "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    summary: "QR 생성, 만료, 주문 확정, mock 결제, 재고 보상, audit log 서버 경계를 정의합니다.",
+    status: "documented",
+    blocker: "Functions 코드, deploy, callback route 생성 금지",
+    humanCheck: "PG callback, idempotency, 보상 큐 정책 승인 필요",
+  },
+  {
+    title: "Seed Data",
+    route: "/firebase-contract/seed",
+    document: "FIREBASE_SEED_DATA_PLAN.md",
+    summary: "mock 원장을 Firestore 후보 문서로 변환하는 dry-run 순서와 검증 기준을 정의합니다.",
+    status: "mock",
+    blocker: "실제 seed script와 Firestore write 금지",
+    humanCheck: "mock scenario를 실제 data 파일로 옮길지 결정 필요",
+  },
+  {
+    title: "Repository Interface",
+    route: "/firebase-contract/repositories",
+    document: "REPOSITORY_INTERFACE_PLAN.md",
+    summary: "Repository와 컬렉션 대응, DTO, pagination, contract test acceptance를 정의합니다.",
+    status: "documented",
+    blocker: "실제 interface/firebase adapter 파일 생성은 별도 승인 전 금지",
+    humanCheck: "MVP repository 범위 선별 필요",
+  },
+  {
+    title: "Adapter Split",
+    route: "/firebase-contract/repositories",
+    document: "ADAPTER_SPLIT_PLAN.md",
+    summary: "mock/test/production adapter와 외부 provider port/stub 전환 gate를 정의합니다.",
+    status: "needs-review",
+    blocker: "production adapter 생성 차단",
+    humanCheck: "feature flag와 rollback 전략 승인 필요",
+  },
+  {
+    title: "Storage Blocker",
+    route: "/firebase-contract/blockers",
+    document: "FIREBASE_BLOCKERS.md",
+    summary: "Storage Spark 제한, Blaze 전환 조건, 증빙/상품 이미지 권한을 정리합니다.",
+    status: "blocked",
+    blocker: "Blaze 비용/권한/파일 타입 승인 전 업로드 금지",
+    humanCheck: "Storage Blaze 전환 여부 결정 필요",
+  },
+  {
+    title: "PG Blocker",
+    route: "/firebase-contract/blockers",
+    document: "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    summary: "PG 테스트 MID, Secret, callback, cancel/partial cancel, webhook 검증 gate를 정리합니다.",
+    status: "blocked",
+    blocker: "실제 PG/환불/부분취소 금지",
+    humanCheck: "PG 공식 문서와 test key 확보 필요",
+  },
+  {
+    title: "Kakao/Notification Blocker",
+    route: "/firebase-contract/blockers",
+    document: "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    summary: "알림톡/SMS 템플릿, provider API, retry, notification_logs 구조를 정리합니다.",
+    status: "blocked",
+    blocker: "실제 알림톡/SMS 발송 금지",
+    humanCheck: "템플릿 코드와 발송사 API 승인 필요",
+  },
+  {
+    title: "Delivery API Blocker",
+    route: "/firebase-contract/blockers",
+    document: "FIRESTORE_SCHEMA_PLAN.md",
+    summary: "delivery_events와 pickup_events를 분리하고 배송조회 API gate를 정의합니다.",
+    status: "blocked",
+    blocker: "실제 배송조회 API 호출 금지",
+    humanCheck: "택배사 코드와 송장조회 문서 확보 필요",
+  },
+  {
+    title: "External Inventory API Blocker",
+    route: "/firebase-contract/blockers",
+    document: "FIRESTORE_SCHEMA_PLAN.md",
+    summary: "external_inventory_sync_logs와 external_sku 매핑, sync 실패 정책을 정의합니다.",
+    status: "blocked",
+    blocker: "외부 명품몰 재고 API 호출 금지",
+    humanCheck: "공식 API 문서, 테스트 계정, rate limit 확보 필요",
+  },
+  {
+    title: "Emulator Plan",
+    route: "/firebase-contract/emulator",
+    document: "FIREBASE_BLOCKERS.md",
+    summary: "Auth, Firestore, Functions, Storage, provider별 Emulator 가능/불가능 범위를 정리합니다.",
+    status: "needs-review",
+    blocker: "Emulator 설정 파일 생성 금지",
+    humanCheck: "Emulator 도입 여부 결정 필요",
+  },
+  {
+    title: "Dev/Prod Split",
+    route: "/firebase-contract/blockers",
+    document: "FIREBASE_BLOCKERS.md",
+    summary: "현재 단일 프로젝트에서 고객/결제/알림/재고 전 dev/prod 분리 조건을 정리합니다.",
+    status: "needs-review",
+    blocker: "운영 전 prod 연결 금지",
+    humanCheck: "dev/prod 분리 시점 승인 필요",
+  },
+  {
+    title: "Secret Manager Plan",
+    route: "/firebase-contract/secrets",
+    document: "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    summary: "PG, 알림톡, 배송조회, 외부 재고, 내부 서명 secret 이름과 접근 주체 후보를 정리합니다.",
+    status: "blocked",
+    blocker: "Secret 값 생성/기록 금지",
+    humanCheck: "Secret Manager와 IAM 접근 정책 승인 필요",
+  },
+];
+
+export const contractDocs: ContractDoc[] = [
+  {
+    slug: "schema",
+    title: "Firestore Schema Hub",
+    route: "/firebase-contract/schema",
+    source: "FIRESTORE_SCHEMA_PLAN.md",
+    purpose: "Firestore 컬렉션과 상태 전이, index, lifecycle, pseudo-rules를 브라우저에서 빠르게 훑습니다.",
+    status: "문서화 완료 / 실제 Firestore 연결 없음",
+    highlights: ["컬렉션 구조", "상태 전이", "Index 후보", "Pseudo-rules"],
+    blockers: ["firestore.rules 생성 금지", "실제 Firestore 연결 금지", "MVP index 선별 필요"],
+    smokeChecks: ["카드 내용이 mock/test beta로 보이는지", "pseudo-rules가 실제 배포처럼 보이지 않는지"],
+  },
+  {
+    slug: "auth-claims",
+    title: "Auth Claims Hub",
+    route: "/firebase-contract/auth-claims",
+    source: "AUTH_CLAIMS_PLAN.md",
+    purpose: "역할별 claims와 CUSTOMER_GUEST 비회원 QR 흐름을 확인합니다.",
+    status: "문서화 완료 / 실제 Auth 연결 없음",
+    highlights: ["SUPER_ADMIN", "COMPANY_ADMIN", "NURSERY_ADMIN", "TABLET_DEVICE", "CUSTOMER_GUEST Auth 미사용"],
+    blockers: ["claims 설정 코드 생성 금지", "태블릿 인증 방식 미정"],
+    smokeChecks: ["CUSTOMER_GUEST가 Auth 계정처럼 보이지 않는지", "scope 필드가 명확한지"],
+  },
+  {
+    slug: "functions",
+    title: "Functions Server Logic Hub",
+    route: "/firebase-contract/functions",
+    source: "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    purpose: "서버 mutation, 결제 mock, 재고 보상, audit log와 외부 provider gate를 확인합니다.",
+    status: "문서화 완료 / Functions 코드 없음",
+    highlights: ["createQrSession", "createOrderFromQr", "confirmPaymentMock", "reserveInventory", "writeAuditLog"],
+    blockers: ["deploy 금지", "PG callback route 생성 금지", "Secret 생성 금지"],
+    smokeChecks: ["mock payment와 실제 PG가 분리되어 보이는지", "C등급 gate가 명확한지"],
+  },
+  {
+    slug: "seed",
+    title: "Seed Dry-run Hub",
+    route: "/firebase-contract/seed",
+    source: "FIREBASE_SEED_DATA_PLAN.md",
+    purpose: "mock 데이터를 Firestore 후보 문서로 변환하기 전 dry-run 순서와 검증 조건을 확인합니다.",
+    status: "문서화 완료 / seed script 없음",
+    highlights: ["참조 무결성", "금액 합계", "개인정보/Secret-like 값 검사", "상태 enum 검사"],
+    blockers: ["실제 Firestore write 금지", "seed script 생성은 별도 승인 필요"],
+    smokeChecks: ["실제 seed 실행 버튼처럼 보이는 요소가 없는지"],
+  },
+  {
+    slug: "repositories",
+    title: "Repository and Adapter Hub",
+    route: "/firebase-contract/repositories",
+    source: "REPOSITORY_INTERFACE_PLAN.md / ADAPTER_SPLIT_PLAN.md",
+    purpose: "Repository-컬렉션 대응, DTO, adapter rollout/rollback gate를 확인합니다.",
+    status: "문서화 완료 / adapter 파일 없음",
+    highlights: ["Repository 대응표", "DTO versioning", "mock/test/prod adapter", "rollback 기준"],
+    blockers: ["Firebase SDK import 금지", "production adapter 생성 금지"],
+    smokeChecks: ["mock/test/production adapter 구분이 보이는지"],
+  },
+  {
+    slug: "blockers",
+    title: "Blocker Gate Hub",
+    route: "/firebase-contract/blockers",
+    source: "FIREBASE_BLOCKERS.md",
+    purpose: "C/B/A 등급 차단 조건과 high/medium/low blocker를 확인합니다.",
+    status: "차단 항목 유지",
+    highlights: ["C등급: PG/환불/정산/Secret/deploy", "B등급: schema/rules/test adapter", "A등급: UI/mock/report"],
+    blockers: ["사람 승인 전 C등급 실행 금지"],
+    smokeChecks: ["운영 가능처럼 보이지 않는지", "blocker가 숨겨져 있지 않은지"],
+  },
+  {
+    slug: "emulator",
+    title: "Emulator Plan Hub",
+    route: "/firebase-contract/emulator",
+    source: "FIREBASE_BLOCKERS.md",
+    purpose: "Emulator로 가능한 검증과 불가능한 provider 검증을 분리합니다.",
+    status: "검토 필요 / 설정 파일 없음",
+    highlights: ["Auth claims 테스트", "Firestore Rules 테스트", "Functions 흐름 테스트", "실제 provider 불가"],
+    blockers: ["firebase.json 생성 금지", "Emulator 설정 파일 생성 금지"],
+    smokeChecks: ["Emulator가 이미 실행 중처럼 보이지 않는지"],
+  },
+  {
+    slug: "secrets",
+    title: "Secret Manager Plan Hub",
+    route: "/firebase-contract/secrets",
+    source: "FUNCTIONS_SERVER_LOGIC_PLAN.md / FIREBASE_BLOCKERS.md",
+    purpose: "Secret 이름과 용도만 확인하고 실제 값을 만들지 않도록 gate를 확인합니다.",
+    status: "차단 유지 / 값 없음",
+    highlights: ["PG_TEST_SECRET", "PG_PROD_SECRET", "ALIMTALK_API_KEY", "DELIVERY_API_KEY", "APP_INTERNAL_SIGNING_SECRET"],
+    blockers: ["Secret 값 생성 금지", "private key 생성 금지", "service account 생성 금지"],
+    smokeChecks: ["실제 key처럼 보이는 값이 없는지"],
+  },
+  {
+    slug: "smoke",
+    title: "Visual Smoke Checklist Hub",
+    route: "/firebase-contract/smoke",
+    source: "reports/firebase-contract/VISUAL_SMOKE_PLAN.md",
+    purpose: "브라우저에서 확인해야 할 route와 mock/test beta 시각 조건을 정리합니다.",
+    status: "사람 확인 필요 / 자동 실행 없음",
+    highlights: ["route별 visual smoke", "모바일/태블릿/데스크톱 확인", "실제 연결처럼 보이지 않는지 확인"],
+    blockers: ["npm run dev/build/lint 자동 실행 금지", "브라우저 육안 확인 필요"],
+    smokeChecks: ["모든 카드 텍스트가 넘치지 않는지", "C등급 blocker가 눈에 보이는지"],
+  },
+  {
+    slug: "merge-handoff",
+    title: "Merge Handoff Hub",
+    route: "/firebase-contract/merge-handoff",
+    source: "reports/firebase-contract/MERGE_HANDOFF.md",
+    purpose: "merge 전 확인할 변경 파일, 차단 조건, 검증 공백을 정리합니다.",
+    status: "문서화 완료 / merge는 사람 작업",
+    highlights: ["변경 파일 목록", "금지 파일 미생성", "브라우저 smoke 필요", "build/lint 미실행"],
+    blockers: ["git add/commit/push 금지", "사람 merge 전 visual smoke 필요"],
+    smokeChecks: ["merge handoff가 커밋 실행처럼 보이지 않는지"],
+  },
+];
+
+export const firebaseContractStatus = {
+  track: "firebase-contract",
+  route: "/firebase-contract/status",
+  betaLabel: "Mock/Test Beta - 운영 오픈 아님 - 실결제 아님",
+  summary:
+    "실제 Firebase 연결 전 schema, claims, functions, rules, seed, adapter gate를 문서로 고정하는 계약 트랙입니다.",
+  generatedFiles: [
+    "FIRESTORE_SCHEMA_PLAN.md",
+    "AUTH_CLAIMS_PLAN.md",
+    "FUNCTIONS_SERVER_LOGIC_PLAN.md",
+    "FIREBASE_SEED_DATA_PLAN.md",
+    "REPOSITORY_INTERFACE_PLAN.md",
+    "ADAPTER_SPLIT_PLAN.md",
+    "FIREBASE_BLOCKERS.md",
+    "reports/firebase-contract/AUTO_REPORT.md",
+    "reports/firebase-contract/NEXT_TASKS.md",
+    "reports/firebase-contract/BLOCKERS.md",
+    "reports/firebase-contract/STATUS_SUMMARY.md",
+    "reports/firebase-contract/ROUTE_INDEX.md",
+    "reports/firebase-contract/VISUAL_SMOKE_PLAN.md",
+    "reports/firebase-contract/MERGE_HANDOFF.md",
+    "reports/firebase-contract/UNATTENDED_PROGRESS.md",
+    "reports/firebase-contract/COMMIT_CANDIDATE.md",
+    "data/firebase-contract/statusMock.ts",
+    "components/firebase-contract/StatusDashboard.tsx",
+    "components/firebase-contract/ContractRoutePreviewGrid.tsx",
+    "components/firebase-contract/ContractDocumentHub.tsx",
+    "app/firebase-contract/page.tsx",
+    "app/firebase-contract/status/page.tsx",
+    "app/firebase-contract/smoke/page.tsx",
+    "app/firebase-contract/merge-handoff/page.tsx",
+  ],
+  majorScreens: [
+    "Firebase Contract Status Dashboard",
+    "Firestore schema contract",
+    "Auth claims contract",
+    "Functions server logic plan",
+    "Seed dry-run plan",
+    "Adapter split plan",
+    "Blocker gate board",
+  ],
+  progressCards: [
+    { label: "문서 계약", detail: "Schema/Claims/Functions/Seed/Adapter", tone: "complete" },
+    { label: "상태 대시보드", detail: "/firebase-contract/status", tone: "active" },
+    { label: "실제 Firebase", detail: "연결 없음", tone: "blocked" },
+    { label: "운영 결제", detail: "mock only", tone: "risk" },
+  ] satisfies StatusItem[],
+  completed: [
+    "Firestore lifecycle, 상태 전이, ID 전략, index 후보 문서화",
+    "Auth Custom Claims와 CUSTOMER_GUEST QR 흐름 문서화",
+    "Functions endpoint, idempotency, retry/dead-letter 문서화",
+    "PG/알림톡/배송조회/외부 재고/Storage 전환 gate 문서화",
+    "Seed dry-run, validation, invariant, source of truth 문서화",
+    "reports/firebase-contract 보고서와 커밋 후보 기록",
+  ],
+  inProgress: [
+    "pseudo-rules를 실제 Emulator 테스트 케이스로 쪼개기",
+    "UI 트랙 상태명과 계약 문서 상태명 대조",
+    "MVP index 후보 선별",
+    "mock scenario를 실제 data mock으로 옮길지 결정",
+  ],
+  blocked: [
+    "Firebase 연결: 실제 연결 없음",
+    "PG 상태: mock only",
+    "알림톡 상태: blocker",
+    "배송조회 상태: blocker",
+    "외부 재고 API 상태: blocker",
+    "Storage 상태: Spark 제한으로 보류",
+    "Secret/service account/private key 생성 금지",
+  ],
+  integrationStatus: [
+    { label: "Firebase", detail: "실제 연결 없음", tone: "blocked" },
+    { label: "PG", detail: "mock only", tone: "risk" },
+    { label: "알림톡", detail: "blocker", tone: "blocked" },
+    { label: "배송조회", detail: "blocker", tone: "blocked" },
+    { label: "외부 재고 API", detail: "blocker", tone: "blocked" },
+    { label: "Storage", detail: "Spark 제한으로 보류", tone: "risk" },
+  ] satisfies StatusItem[],
+  nextTasks: [
+    "UI 트랙 상태명과 문서 상태명 대조",
+    "MVP index 후보 1차 선별",
+    "pseudo-rules를 Emulator 테스트 케이스로 분해",
+    "Repository contract test 문서 초안 작성",
+    "seed dry-run 검증 항목을 QA 트랙과 연결",
+    "QR token/short_code/order_no unique 정책 결정",
+    "Secret Manager 이름 규칙과 IAM 접근 주체 승인",
+    "PG test key/callback/cancel/partial cancel 문서 확보",
+    "Storage Blaze 비용/권한/파일 타입 정책 승인",
+    "운영 전 약관/개인정보/비회원 주문조회 정책 승인",
+  ],
+  humanChecks: [
+    "dev/prod Firebase project 분리 시점 승인",
+    "PG/환불/정산 지급 C등급 gate 승인 여부",
+    "알림톡 템플릿과 발송사 API 확보 여부",
+    "배송조회와 외부 재고 API 공식 문서 확보 여부",
+    "개인정보 보관/마스킹/삭제 정책 검토",
+    "Storage Blaze 업그레이드 비용과 권한 검토",
+  ],
+  smokeRoutes: [
+    { path: "/", label: "홈", state: "ready" },
+    { path: "/admin/dashboard", label: "최고관리자 대시보드", state: "mock" },
+    { path: "/company/dashboard", label: "기업 Admin 대시보드", state: "mock" },
+    { path: "/nursery/dashboard", label: "조리원 Admin 대시보드", state: "mock" },
+    { path: "/tablet/products", label: "태블릿 상품", state: "mock" },
+    { path: "/q/SANHO701", label: "고객 QR", state: "mock" },
+    { path: "/orders/guest", label: "비회원 주문조회", state: "mock" },
+    { path: "/firebase-contract", label: "Firebase 계약 preview hub", state: "ready" },
+    { path: "/firebase-contract/status", label: "Firebase 계약 상태", state: "ready" },
+    { path: "/firebase-contract/schema", label: "Schema hub", state: "ready" },
+    { path: "/firebase-contract/auth-claims", label: "Auth claims hub", state: "ready" },
+    { path: "/firebase-contract/functions", label: "Functions hub", state: "ready" },
+    { path: "/firebase-contract/seed", label: "Seed hub", state: "ready" },
+    { path: "/firebase-contract/repositories", label: "Repository hub", state: "ready" },
+    { path: "/firebase-contract/blockers", label: "Blocker hub", state: "ready" },
+    { path: "/firebase-contract/emulator", label: "Emulator hub", state: "ready" },
+    { path: "/firebase-contract/secrets", label: "Secrets hub", state: "ready" },
+    { path: "/firebase-contract/smoke", label: "Visual smoke checklist", state: "ready" },
+    { path: "/firebase-contract/merge-handoff", label: "Merge handoff", state: "ready" },
+  ] satisfies RouteStatus[],
+  stateCoverage: [
+    { label: "empty", detail: "빈 목록/검색 결과 없음 계약 문서화", tone: "complete" },
+    { label: "loading", detail: "실제 fetch 없음. UI 트랙에서 skeleton 후보 필요", tone: "active" },
+    { label: "error", detail: "NOT_FOUND/FORBIDDEN_SCOPE/CONFIG_REQUIRED", tone: "complete" },
+    { label: "risk", detail: "normal/watch/risk/blocked 배지 계약", tone: "complete" },
+  ] satisfies StatusItem[],
+  blockers: [
+    "실제 Firebase SDK import 금지",
+    "firestore.rules/storage.rules 파일 생성 금지",
+    "PG MID/Secret/callback 문서 미확보",
+    "Secret Manager/IAM 정책 미승인",
+    "Storage Blaze 비용/권한 미승인",
+    "운영 배포 금지",
+  ],
+} as const;

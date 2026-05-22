@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const safetyBadges = ["mock/test beta", "Firebase 연결 없음", "PG 연결 없음", "운영 배포 아님"];
+
 const primaryCards = [
   {
     href: "/admin/dashboard",
@@ -35,9 +37,14 @@ const primaryCards = [
 
 const launcherCards = [
   {
+    href: "/products",
+    title: "고객 상품 목록 alias",
+    description: "404가 발생하던 /products를 /tablet/products와 같은 고객 상품 목록으로 연결했습니다.",
+  },
+  {
     href: "/mock-ui/status",
     title: "통합 진행 상태 대시보드",
-    description: "생성된 파일 그룹, route map, blockers, next tasks를 한 화면에서 봅니다.",
+    description: "worktree route 상태, 404 기록, 파일 그룹, blockers, next tasks를 한 화면에서 봅니다.",
   },
   {
     href: "/mock-ui",
@@ -80,13 +87,36 @@ const launcherCards = [
     description: "실제 PG 없이 결제 전 확인 흐름만 확인합니다.",
   },
   {
+    href: "/orders/guest",
+    title: "비회원 주문조회 입력",
+    description: "주문번호/휴대폰번호 mock 입력 UI를 확인합니다.",
+  },
+  {
     href: "/orders/guest/A5-20260519-001",
-    title: "비회원 주문조회",
+    title: "비회원 주문조회 상세",
     description: "비회원 주문 상세 mock 결과를 확인합니다.",
   },
+  {
+    href: "/company/dashboard",
+    title: "기업 dashboard",
+    description: "입점사 상품/주문/재고/매출 mock 운영 화면으로 이동합니다.",
+  },
+  {
+    href: "/company/products",
+    title: "기업 상품 관리",
+    description: "기업 Admin의 상품 목록과 승인 상태 mock 화면을 확인합니다.",
+  },
+  {
+    href: "/nursery/dashboard",
+    title: "조리원 dashboard",
+    description: "조리원 객실/태블릿/현장수령 mock 운영 화면으로 이동합니다.",
+  },
+  {
+    href: "/nursery/rooms",
+    title: "조리원 객실 관리",
+    description: "객실 목록과 태블릿 연결 상태 mock 화면을 확인합니다.",
+  },
 ];
-
-const safetyBadges = ["mock/test beta", "Firebase 연결 없음", "PG 연결 없음", "운영 배포 아님"];
 
 function SafetyBadges() {
   return (
@@ -103,15 +133,7 @@ function SafetyBadges() {
   );
 }
 
-function LauncherCard({
-  href,
-  title,
-  description,
-}: {
-  href: string;
-  title: string;
-  description: string;
-}) {
+function LauncherCard({ href, title, description }: { href: string; title: string; description: string }) {
   return (
     <Link
       href={href}
@@ -153,7 +175,7 @@ export default function Home() {
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">Local launcher</p>
               <h2 className="mt-2 text-3xl font-black">자동 생성 결과 확인</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                localhost:3000에서 대표님이 바로 눌러 확인할 수 있는 mock/test beta route index입니다.
+                localhost:3000에서 바로 눌러 확인할 수 있는 mock/test beta route index입니다.
               </p>
             </div>
             <Link
@@ -173,3 +195,4 @@ export default function Home() {
     </main>
   );
 }
+

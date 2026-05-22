@@ -1,5 +1,18 @@
 # Auto Report
 
+## 20. 2026-05-22 Cloudflare Pages static export 점검
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | Cloudflare Pages Static HTML Export 배포 실패 원인 점검 및 문서화 |
+| 실패 원인 | Cloudflare가 `out` output directory를 기대했지만 정적 export 산출물 확인이 필요했던 상태 |
+| `next.config.ts` | `output: "export"` 및 `images.unoptimized: true` 적용 상태 확인 |
+| `/products` route | 이미 존재하며 `/tablet/products` 고객 상품 목록 mock/test beta UI를 재사용 |
+| 추가 문서 | `reports/my-app/CLOUDFLARE_DEPLOY_PLAN.md` 작성 |
+| build 검증 | `npm run build`는 PowerShell execution policy로 차단, `npm.cmd run build` 성공 |
+| export 결과 | `out` 폴더 생성 확인, static page generation 72개 route 성공 |
+| 금지사항 준수 | Firebase/PG/Storage/Secret/.env/deploy/git 명령 미실행 |
+
 작성일: 2026-05-19
 최종 정리일: 2026-05-20
 

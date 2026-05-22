@@ -1,5 +1,13 @@
 # Next Tasks
 
+## 2026-05-22 Cloudflare Pages 배포 다음 작업
+
+1. Cloudflare Pages 설정에서 Build output directory가 `out`인지 확인한다.
+2. Cloudflare Pages build command를 `npm run build` 또는 `npx next build`로 맞춘다.
+3. Cloudflare 재배포 후 `/`, `/products`, `/tablet/products`, `/tablet/cart`, `/tablet/qr`, `/q/SANHO701`, `/orders/guest/A5-20260519-001`, `/mock-ui/status`를 smoke 확인한다.
+4. static export 제약 때문에 서버 런타임 기능, 실제 Firebase SDK, 실제 PG/API 호출이 포함되지 않았는지 유지 점검한다.
+5. Firebase 실제 연결 단계 전까지 mock/test beta UI와 repository stub 구조를 유지한다.
+
 작성일: 2026-05-20
 
 ## 1. 현재 진행 작업

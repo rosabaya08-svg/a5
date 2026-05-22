@@ -1,5 +1,14 @@
 # my-app 자동 파일 생성 준비 보고
 
+## 2026-05-22 Cloudflare Pages static export 점검
+
+- `next.config.ts`에서 `output: "export"`와 `images.unoptimized: true` 적용 상태를 확인했다.
+- `/products` route가 이미 존재하며 `/tablet/products` 기반 고객 상품 목록 mock/test beta 화면을 재사용하는 상태를 확인했다.
+- `reports/my-app/CLOUDFLARE_DEPLOY_PLAN.md`에 Cloudflare 실패 원인, 수정 상태, 배포 설정 권장값, 검증 결과를 정리했다.
+- `npm run build`는 로컬 PowerShell execution policy 때문에 `npm.ps1` 실행이 차단되었다.
+- 동일 빌드를 `npm.cmd run build`로 실행해 성공을 확인했고, `out` 폴더가 생성되었다.
+- Firebase/PG/Storage/Secret/.env/deploy/git 명령은 실행하지 않았다.
+
 ## 작업 기준
 
 - 작업 폴더: `C:\Users\djfhl\Desktop\my-app`

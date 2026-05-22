@@ -1,5 +1,13 @@
 # my-app 다음 작업
 
+## Cloudflare Pages 배포 확인 순서
+
+1. Cloudflare Pages의 build output directory를 `out`으로 설정한다.
+2. build command는 `npm run build` 또는 `npx next build`를 사용한다.
+3. 재배포 후 `/products`가 404 없이 고객 상품 목록 mock/test beta 화면을 보여주는지 확인한다.
+4. `/mock-ui/status`에서 route index와 blocker 상태가 최신인지 확인한다.
+5. Static export 제약상 Firebase/PG/알림톡/배송조회/외부 재고 API 실제 연결이 없는 상태를 유지한다.
+
 ## 우선순위
 
 1. `my-app` 트랙에서 수행할 세부 작업 범위를 확정한다.

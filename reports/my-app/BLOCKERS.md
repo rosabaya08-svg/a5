@@ -88,3 +88,41 @@
 2. route candidate는 수동 smoke 후보이며 dev server 실행이나 브라우저 확인은 수행하지 않음.
 3. 금액 재계산, 재고 차감, QR 만료 처리는 실제 Cloud Functions 구현 전까지 mock decision으로만 유지함.
 4. lint/build 금지 때문에 새 journey 파일의 타입 검증은 다음 수동 단계로 보류함.
+## status dashboard 추가 후 차단 사항
+
+1. 현재 폴더명 `my-app`은 사용자 지시의 worktree mapping 목록에 없어 `track=my-app`, `route=/mock-ui/status`로 safe fallback 처리함.
+2. 파일 수와 진행률은 무인 생성 기준의 정적 mock summary이며 실제 git status/build 결과가 아님.
+3. `/mock-ui/status`는 로컬 브라우저 육안 확인용 preview이며 live monitoring dashboard가 아님.
+4. lint/build/browser smoke 실행이 금지되어 실제 렌더링 검증은 수행하지 않음.
+5. Firebase/PG/Storage/알림톡/배송조회/외부 재고 API는 계속 blocker로 표시함.
+## status dashboard design enhancement 후 차단 사항
+
+1. live integration status grid는 정적 mock summary이며 실제 서비스 상태 모니터링이 아님.
+2. progress timeline은 무인 작업 기록을 사람이 보기 쉽게 표시한 것이며 실제 git history가 아님.
+3. 파일 수와 진행률은 manual review 전까지 추정치로 유지됨.
+4. lint/build/browser smoke 금지로 인해 대시보드 렌더링 검증은 다음 수동 단계로 보류함.
+## status dashboard read-only scan 후 메모
+
+1. Firebase SDK import, env 사용, secret/config 생성 패턴은 status dashboard 범위에서 발견되지 않음.
+2. 민감 키워드는 "생성하지 않음" 또는 "사람 확인 필요" 안내 문구로만 존재함.
+3. 실제 타입/렌더링 검증은 `npm run lint`, `npm run build`, browser smoke 금지로 인해 다음 수동 단계로 유지함.
+## localhost:3000 통합 런처 추가 후 차단 사항
+
+1. 홈 화면과 `/mock-ui/status`는 정적 mock/test beta 런처이며 실제 운영 상태를 조회하지 않음.
+2. 생성된 파일 수, route 수, component 수는 수동 검증 전까지 정적 추정치임.
+3. worktree 포트 안내는 사람이 각 dev server를 별도로 실행해야 확인 가능함.
+4. 브라우저 smoke, lint, build는 사용자 지시로 실행하지 않음.
+5. 실제 Firebase SDK import, Firebase config, Firestore/Auth 연결은 계속 금지 상태임.
+6. 실제 PG 결제, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 연결은 계속 금지 상태임.
+7. 운영 배포는 계속 금지 상태임.
+
+## smoke/merge 화면 추가 후 차단 사항
+
+1. `/mock-ui/smoke`는 수동 체크리스트 화면이며 실제 브라우저 자동화를 수행하지 않음.
+2. `/mock-ui/merge`는 merge handoff 화면이며 실제 git merge, git add, git commit, git push를 수행하지 않음.
+3. route count와 file count는 여전히 정적 mock summary이며 수동 검증 후 보정 필요.
+## 통합 런처 read-only scan 후 메모
+
+1. 통합 런처와 status/smoke/merge 화면 범위에서 Firebase SDK import 또는 env 사용은 발견되지 않음.
+2. `git`/`npm` 문자열은 수동 확인용 보고서와 커밋 후보 문서에만 존재함.
+3. 명령은 실행하지 않았으며 lint/build/browser smoke는 계속 수동 단계로 남음.

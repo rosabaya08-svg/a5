@@ -2,6 +2,14 @@ import type { MockPreviewRoute } from "@/types/mockPreviewRoute";
 
 export const mockPreviewRoutes: MockPreviewRoute[] = [
   {
+    id: "preview-status",
+    href: "/mock-ui/status",
+    title: "Local status dashboard",
+    description: "Current worktree progress, blockers, route map, and state coverage dashboard.",
+    area: "status",
+    riskStatuses: ["mock_only", "needs_review"],
+  },
+  {
     id: "preview-storefront",
     href: "/mock-ui/storefront",
     title: "Storefront",

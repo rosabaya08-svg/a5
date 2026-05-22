@@ -313,3 +313,136 @@
 - 다음 출근일 수동 확인 순서와 generated preview routes를 별도 문서로 분리
 - 금지된 live integration 항목을 다시 명시
 - 무인 모드에서 실행하지 않은 lint/build/smoke를 사람 검증 단계로 넘김
+## 추가 진행: local status dashboard
+
+### 경로 결정
+
+- 현재 작업 폴더명은 `my-app`
+- 사용자 지시의 6개 worktree 매핑에는 `my-app`이 없음
+- 질문하지 말라는 지시에 따라 safe fallback으로 `track=my-app`, `status route=/mock-ui/status`를 선택
+- 해당 결정은 `reports/my-app/STATUS_SUMMARY.md`와 `BLOCKERS.md`에 기록
+
+### 생성된 파일
+
+- `app/mock-ui/status/page.tsx`
+- `components/my-app/StatusDashboard.tsx`
+- `data/my-app/statusMock.ts`
+- `reports/my-app/STATUS_SUMMARY.md`
+
+### 수정된 파일
+
+- `types/mockPreviewRoute.ts`
+- `data/mockPreviewRoutes.ts`
+- `components/ui/MockPreviewRouteGrid.tsx`
+- `reports/my-app/COMMIT_CANDIDATE.md`
+- `reports/my-app/MOCK_UI_ROUTE_INDEX.md`
+- `reports/my-app/NEXT_WORKDAY_HANDOFF.md`
+
+### 대시보드 표시 항목
+
+- 현재 트랙명
+- 생성된 주요 파일 수
+- 생성된 주요 화면 목록
+- mock/test 완료 항목
+- 실제 연결 금지 항목
+- Firebase 상태: 실제 연결 없음
+- PG 상태: mock only
+- 알림톡/배송조회/외부 재고 API: blocker
+- Storage 상태: Spark 제한으로 보류
+- 다음 작업 10개
+- 사람이 확인해야 할 항목
+- 브라우저 smoke route 목록
+- empty/loading/error/risk 상태 커버리지
+## 추가 진행: status dashboard design enhancement
+
+### 수정된 파일
+
+- `data/my-app/statusMock.ts`
+- `components/my-app/StatusDashboard.tsx`
+
+### 생성된 문서
+
+- `reports/my-app/STATUS_DASHBOARD_DESIGN_NOTES.md`
+
+### 추가된 대시보드 항목
+
+- live integration status grid
+- worktree progress timeline
+- Firebase/PG/Storage/Alimtalk/배송조회/외부 재고 API 상태별 required-before-live 문구
+- empty/loading/error/risk coverage 설명 강화
+- 모바일/태블릿/데스크톱 반응형 구성 메모
+## 추가 확인: status dashboard read-only scan
+
+- 확인 범위: `app/mock-ui`, `components/my-app`, `data/my-app`, `reports/my-app`
+- 확인된 status route: `app/mock-ui/status/page.tsx`
+- 확인된 dashboard component: `components/my-app/StatusDashboard.tsx`
+- 확인된 dashboard mock data: `data/my-app/statusMock.ts`
+- Firebase SDK import 패턴 없음
+- `process.env` 사용 없음
+- secret/config 생성 없음
+- 검색에 잡힌 민감 키워드는 "생성하지 않음/확인 필요" 보고서 문구로만 존재
+## 추가 진행: localhost:3000 통합 런처와 route index
+
+### 수정된 화면
+
+- `app/page.tsx`
+  - 기존 6개 주요 영역 카드 구조 유지
+  - `자동 생성 결과 확인` 섹션 추가
+  - `/mock-ui/status`, `/mock-ui`, `/tablet/products`, `/tablet/cart`, `/tablet/qr`, `/q/SANHO701`, `/q/SANHO701/checkout`, `/orders/guest/A5-20260519-001` 카드 추가
+  - 각 카드에 `mock/test beta`, `Firebase 연결 없음`, `PG 연결 없음`, `운영 배포 아님` 배지 추가
+
+### 수정된 status dashboard
+
+- `data/my-app/statusMock.ts`
+  - 생성된 파일 그룹 데이터 추가
+  - worktree 포트 안내 데이터 추가
+  - route 목록 확장
+  - 진행률 및 count 갱신
+- `components/my-app/StatusDashboard.tsx`
+  - 전체 진행률 카드 유지
+  - 생성된 파일 그룹 섹션 추가
+  - 확인 가능한 route 목록 확장
+  - 차단된 실연동 목록 명확화
+  - worktree 포트 안내 추가
+
+### 생성된 브라우저 확인 화면
+
+- `app/mock-ui/smoke/page.tsx`
+- `components/my-app/VisualSmokeChecklist.tsx`
+- `app/mock-ui/merge/page.tsx`
+- `components/my-app/MergeHandoffBoard.tsx`
+
+### 생성된 보고서
+
+- `reports/my-app/ROUTE_INDEX.md`
+- `reports/my-app/VISUAL_SMOKE_PLAN.md`
+- `reports/my-app/MERGE_HANDOFF.md`
+
+### 검증 상태
+
+- 사용자 지시에 따라 `git` 명령 미실행
+- 사용자 지시에 따라 `npm run lint` 미실행
+- 사용자 지시에 따라 `npm run build` 미실행
+- 사용자 지시에 따라 deploy 미실행
+- 실제 Firebase/PG/정산/알림톡/배송조회/외부 재고 API 연결 없음
+
+## 추가 진행: browser-visible smoke and merge screens
+
+- `/mock-ui/smoke` 화면 생성
+- `/mock-ui/merge` 화면 생성
+- `app/page.tsx`의 `자동 생성 결과 확인` 섹션에 smoke/merge 카드 추가
+- `data/my-app/statusMock.ts` route count와 generated screen 목록 갱신
+- `ROUTE_INDEX.md`, `VISUAL_SMOKE_PLAN.md`, `MERGE_HANDOFF.md`에 smoke/merge route 반영
+## 추가 확인: 통합 런처 read-only scan
+
+- 확인 범위: `app/page.tsx`, `app/mock-ui`, `components/my-app`, `components/ui`, `data/my-app`, `reports/my-app`
+- 확인된 브라우저 확인 화면:
+  - `/`
+  - `/mock-ui/status`
+  - `/mock-ui/smoke`
+  - `/mock-ui/merge`
+  - `/mock-ui`
+- Firebase SDK import 패턴 없음
+- `process.env` 사용 없음
+- secret/config 생성 없음
+- `git`/`npm` 명령 문자열은 `COMMIT_CANDIDATE.md`, 수동 checklist, 보고서 문구에만 존재하며 실행하지 않음

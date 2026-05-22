@@ -16,6 +16,7 @@ Unattended mode generated mock/test beta preview screens only. No live integrati
 ## Generated preview routes
 
 - `/mock-ui`
+- `/mock-ui/status`
 - `/mock-ui/storefront`
 - `/mock-ui/detail`
 - `/mock-ui/checkout`
@@ -44,4 +45,3 @@ Unattended mode generated mock/test beta preview screens only. No live integrati
 - Delivery tracking
 - External inventory API
 - Production deployment
-

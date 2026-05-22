@@ -10,6 +10,7 @@ const areaLabels: Record<MockPreviewRoute["area"], string> = {
   qa: "QA",
   analytics: "Analytics",
   detail: "Detail",
+  status: "Status",
 };
 
 export function MockPreviewRouteGrid({ routes }: { routes: MockPreviewRoute[] }) {
@@ -48,4 +49,3 @@ export function MockPreviewRouteGrid({ routes }: { routes: MockPreviewRoute[] })
     </section>
   );
 }
-

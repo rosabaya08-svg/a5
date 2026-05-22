@@ -6,6 +6,7 @@ This index is for manual review on the next working day. These routes are static
 
 | Route | Purpose | Live integration status |
 | --- | --- | --- |
+| `/mock-ui/status` | Local worktree status dashboard | Mock only |
 | `/mock-ui` | Preview hub for common state UI and route cards | Mock only |
 | `/mock-ui/storefront` | Closed mall storefront, categories, benefits, price layer | Mock only |
 | `/mock-ui/detail` | Product card, QR session card, order timeline | Mock only |
@@ -34,4 +35,3 @@ Do not run during unattended mode. For the next working day, the operator can ma
 - No service account, private key, or secret was created.
 - No live PG, refund, settlement, delivery, Alimtalk, or external inventory API code was added.
 - Settlement and analytics values are mock visibility data only.
-

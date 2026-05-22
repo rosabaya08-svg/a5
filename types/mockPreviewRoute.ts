@@ -5,7 +5,6 @@ export type MockPreviewRoute = {
   href: string;
   title: string;
   description: string;
-  area: "storefront" | "checkout" | "session" | "operations" | "qa" | "analytics" | "detail";
+  area: "storefront" | "checkout" | "session" | "operations" | "qa" | "analytics" | "detail" | "status";
   riskStatuses: RiskStatus[];
 };
-

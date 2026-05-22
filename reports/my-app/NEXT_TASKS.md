@@ -181,3 +181,41 @@
 2. 수동으로 workspace 상태와 최신 main 반영 여부를 확인한다.
 3. lint/build를 수동 실행하기 전 금지 파일 생성 여부를 먼저 확인한다.
 4. mock preview routes를 smoke 확인한 뒤 실제 tablet/customer/admin 화면 이식 범위를 결정한다.
+## status dashboard 후속 작업
+
+1. 다음 출근일 `/mock-ui/status`를 브라우저에서 육안 확인한다.
+2. `data/my-app/statusMock.ts`의 파일 수와 route count를 실제 git status 결과와 비교해 보정한다.
+3. `/mock-ui/status`에서 route map link가 모두 정상 이동하는지 확인한다.
+4. empty/loading/error/risk coverage 표현이 실제 QA 기준과 맞는지 검토한다.
+5. `components/my-app/StatusDashboard.tsx`를 다른 worktree용 status dashboard template로 재사용할지 결정한다.
+6. 폴더명이 `my-app`인 경우의 fallback route 정책을 유지할지 결정한다.
+7. status dashboard를 실제 운영 화면으로 오해하지 않도록 mock/test beta 라벨을 유지한다.
+8. live integration blockers가 최신 Firebase console 상태와 일치하는지 검토한다.
+9. lint/build 허용 후 status dashboard 타입 검증을 수행한다.
+10. 검증 성공 후에만 `reports/my-app/COMMIT_CANDIDATE.md`의 후보 명령을 검토한다.
+## status dashboard design 후속 작업
+
+1. `/mock-ui/status`의 integration status 카드가 운영 오픈으로 오해되지 않는지 확인한다.
+2. progress timeline의 정적 배치 설명이 `UNATTENDED_PROGRESS.md`와 일치하는지 검토한다.
+3. 상태 대시보드 파일 수는 실제 git status와 비교해 수동 보정한다.
+4. 다른 worktree에서도 동일한 status dashboard 구조를 쓸 경우 track별 데이터만 분리한다.
+5. lint/build 허용 후 `StatusDashboard.tsx`의 Tailwind class와 타입 import를 확인한다.
+## localhost:3000 통합 확인 다음 작업
+
+1. 사람이 `localhost:3000` 홈 화면을 열어 기존 6개 카드와 `자동 생성 결과 확인` 섹션을 확인한다.
+2. `/mock-ui/status`에서 전체 진행률, 파일 그룹, route map, blockers, worktree port guide를 확인한다.
+3. `reports/my-app/ROUTE_INDEX.md`를 기준으로 route 누락 여부를 확인한다.
+4. `reports/my-app/VISUAL_SMOKE_PLAN.md` 순서대로 브라우저 클릭 검증을 수행한다.
+5. `reports/my-app/MERGE_HANDOFF.md` 기준으로 다른 worktree merge 전 forbidden file/import 여부를 확인한다.
+6. 각 worktree 포트 안내를 실제 dev server 실행 계획과 맞춘다.
+7. lint/build 허용 시 수동으로 실행하고 status dashboard의 정적 count를 보정한다.
+8. tablet/customer route에 preview component를 이식할 우선순위를 결정한다.
+9. Firebase/PG/Storage/API blocker가 문서와 화면에서 일관되게 보이는지 확인한다.
+10. 모든 수동 검증 후 `reports/my-app/COMMIT_CANDIDATE.md`의 후보를 검토한다.
+
+## smoke/merge 화면 후속 작업
+
+1. `/mock-ui/smoke`에서 클릭 순서가 실제 확인 순서와 맞는지 본다.
+2. `/mock-ui/merge`에서 worktree merge 순서와 금지 파일 검사가 충분한지 본다.
+3. 홈의 `자동 생성 결과 확인` 카드 수가 너무 많으면 우선순위별로 접거나 그룹화할지 결정한다.
+4. 수동 smoke가 끝난 뒤 ROUTE_INDEX와 VISUAL_SMOKE_PLAN의 누락 route를 보정한다.

@@ -134,3 +134,20 @@ Commit candidate command was moved to `reports/my-app/COMMIT_CANDIDATE.md`.
 - decision ledger component 추가
 - `/mock-ui/journey` preview route 추가
 - preview route index에 journey route 추가
+
+## 추가 완료 배치: local status dashboard
+
+- status dashboard mock 데이터 추가
+- status dashboard component 추가
+- `/mock-ui/status` preview route 추가
+- preview route index에 status route 추가
+- status summary report 추가
+- commit candidate file path list 갱신
+
+## 추가 완료 배치: status dashboard enhancement
+
+- live integration status mock 데이터 추가
+- progress timeline mock 데이터 추가
+- status dashboard integration status grid 추가
+- status dashboard progress timeline 추가
+- status dashboard design notes 추가

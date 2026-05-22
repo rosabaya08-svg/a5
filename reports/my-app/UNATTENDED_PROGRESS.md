@@ -96,6 +96,42 @@
 - Created `reports/my-app/NEXT_WORKDAY_HANDOFF.md`
 - Separated manual review order and blocked live integration items
 
+### Batch 15: Local status dashboard
+
+- Current folder did not match the six named worktree mappings, so safe fallback was `track=my-app`
+- Created `data/my-app/statusMock.ts`
+- Created `components/my-app/StatusDashboard.tsx`
+- Created `/mock-ui/status`
+- Created `reports/my-app/STATUS_SUMMARY.md`
+- Added `/mock-ui/status` to the preview route index
+- Updated commit candidate file path list without running git commands
+
+### Batch 16: Status dashboard enhancement
+
+- Added live integration status cards to `data/my-app/statusMock.ts`
+- Added progress timeline mock data to `data/my-app/statusMock.ts`
+- Enhanced `components/my-app/StatusDashboard.tsx` with integration status grid and progress timeline
+- Created `reports/my-app/STATUS_DASHBOARD_DESIGN_NOTES.md`
+
+### Batch 17: localhost:3000 integration launcher
+
+- Updated `app/page.tsx` with a generated result review section while keeping the 6 primary domain cards
+- Added safety badges to launcher cards
+- Expanded `data/my-app/statusMock.ts` with generated file groups, route candidates, and worktree port guide
+- Enhanced `components/my-app/StatusDashboard.tsx` with file group and worktree port sections
+- Created `reports/my-app/ROUTE_INDEX.md`
+- Created `reports/my-app/VISUAL_SMOKE_PLAN.md`
+- Created `reports/my-app/MERGE_HANDOFF.md`
+
+### Batch 18: Browser-visible smoke and merge screens
+
+- Created `components/my-app/VisualSmokeChecklist.tsx`
+- Created `app/mock-ui/smoke/page.tsx`
+- Created `components/my-app/MergeHandoffBoard.tsx`
+- Created `app/mock-ui/merge/page.tsx`
+- Added smoke and merge cards to the home launcher
+- Updated route index, smoke plan, merge handoff, and status mock data
+
 ## Validation deferred
 
 - `npm run lint` is explicitly forbidden in this unattended mode.
@@ -110,3 +146,7 @@
 - Command-like strings remain only as manual checklist/report text and were not executed.
 - Commit candidate commands are recorded in `reports/my-app/COMMIT_CANDIDATE.md`.
 - Current generated preview routes found under `app/mock-ui`: hub, storefront, detail, checkout, session, journey, operations, QA, and analytics.
+- Status dashboard scan found `/mock-ui/status`, `components/my-app/StatusDashboard.tsx`, and `data/my-app/statusMock.ts`.
+- Safety keyword matches remain report/checklist text only; no Firebase SDK import or secret/config file creation was found.
+- Launcher scan found `/`, `/mock-ui/status`, `/mock-ui/smoke`, `/mock-ui/merge`, and existing mock UI preview routes.
+- Command strings remain report/checklist text only and were not executed.

@@ -89,10 +89,17 @@ export const mockApi = {
       },
       {
         id: "risk-firebase",
-        title: "Firebase 환경 미결정",
+        title: "Firebase write 권한 미확정",
         severity: "high",
         owner: "운영/개발",
-        detail: "기존/신규 프로젝트와 dev/prod 분리 결정 전 연결 금지.",
+        detail: "products read 외 orders/payments/qr_sessions write는 보안 규칙 확정 전 연결 금지.",
+      },
+      {
+        id: "risk-pg-server",
+        title: "PG 서버 confirm 계층 필요",
+        severity: "high",
+        owner: "개발/PG사",
+        detail: "Static export 화면에서는 secret key를 사용할 수 없어 Functions, Cloud Run, Workers 중 하나가 필요.",
       },
       {
         id: "risk-payout",

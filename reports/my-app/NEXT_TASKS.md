@@ -264,3 +264,40 @@
 2. `/mock-ui/merge`에서 worktree merge 순서와 금지 파일 검사가 충분한지 본다.
 3. 홈의 `자동 생성 결과 확인` 카드 수가 너무 많으면 우선순위별로 접거나 그룹화할지 결정한다.
 4. 수동 smoke가 끝난 뒤 ROUTE_INDEX와 VISUAL_SMOKE_PLAN의 누락 route를 보정한다.
+# my-app Next Tasks
+
+## 2026-05-25 Firebase products read next tasks
+
+1. After GitHub push and Cloudflare auto deploy, visually verify `/products`, `/tablet/products`, `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-bag`, and `/tablet/products/product-tea`.
+2. Confirm production pages show `Firebase products`; if they show `mock fallback`, check Cloudflare env variables, Firestore rules, and browser console.
+3. Keep `.env.local` local-only and continue using `.env.local.example` for key names.
+4. Keep Firestore write scope blocked for orders, payments, QR sessions, inventory, refunds, and settlements.
+5. Defer App Check enforcement until Cloudflare custom domain and reCAPTCHA domain coverage are verified.
+6. Resolve storefront `<img>` lint warnings only after final Storage/image policy is approved.
+
+## 2026-05-25 QA release gate next tasks
+
+1. Cloudflare 재배포 전 `npm.cmd run check:release` 실행.
+2. CI/Cloudflare build step에 QA 스크립트를 어느 수준까지 포함할지 결정.
+3. 실제 PG 키 입력 전 `npm.cmd run check:no-secrets` 재실행.
+4. 신규 route 추가 시 `scripts/check-routes.mjs` required route 목록 갱신.
+5. Functions dependency 설치 승인 후 functions build 검증.
+
+## 2026-05-25 Functions skeleton next tasks
+
+1. functions dependency 설치 승인 후 `npm.cmd --prefix functions install` 실행.
+2. `npm.cmd --prefix functions run build`로 Functions TS skeleton 검증.
+3. PG사 키/문서 수령 후 provider 요청/응답 필드 매핑.
+4. Firestore transaction 실제 구현 전 Rules/IAM/audit log 설계 승인.
+5. cancel/refund는 정산 정책 승인 전까지 계속 blocked response 유지.
+
+## 2026-05-25 PG and enterprise demo next tasks
+
+1. PG provider 확정 후 `PG_ENV_KEYS.md`의 키 이름을 실제 PG 문서와 맞춘다.
+2. 서버 runtime을 확정한다: Firebase Functions, Cloud Run, Cloudflare Workers/Pages Functions 중 하나.
+3. server confirm endpoint에서 QR 만료, 중복 사용, 금액 재계산, 재고 차감, 상품 snapshot 저장을 구현한다.
+4. `/q/SANHO701/checkout`, `/admin/payments`, `/company/products/new`, `/nursery/dashboard`를 미팅 전 육안 확인한다.
+5. 기업 입점 서류 양식과 상품 등록 법정 고지 문구를 실제 운영 정책으로 확정한다.
+6. Storage Blaze/Rules 승인 전까지 업로드 기능은 placeholder로 유지한다.
+7. A4 연동용 external id 규칙을 실제 A4 데이터와 맞춘다.
+8. `<img>` warning은 배포 이미지 전략 확정 후 처리한다.

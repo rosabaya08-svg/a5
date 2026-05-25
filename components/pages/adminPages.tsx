@@ -7,6 +7,7 @@ import { FilterBar } from "@/components/ui/FilterBar";
 import { RiskAlert } from "@/components/ui/RiskAlert";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 
@@ -17,6 +18,10 @@ const adminNav: NavItem[] = [
   { href: "/admin/rooms", label: "객실" },
   { href: "/admin/tablets", label: "태블릿" },
   { href: "/admin/products", label: "상품 승인" },
+  { href: "/admin/marketing/banners", label: "배너/광고", badge: "CMS" },
+  { href: "/admin/marketing/videos", label: "영상/GIF" },
+  { href: "/admin/home-editor", label: "홈 편집" },
+  { href: "/admin/brands", label: "브랜드관" },
   { href: "/admin/orders", label: "주문" },
   { href: "/admin/payments", label: "결제 mock" },
   { href: "/admin/settlements", label: "정산 검산" },
@@ -43,6 +48,85 @@ function AdminShell({
     >
       {children}
     </AppShell>
+  );
+}
+
+function AdminOperationMap() {
+  const items = [
+    { title: "폐쇄몰 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 mock CMS로 편성", href: "/admin/home-editor" },
+    { title: "광고 소재 승인", body: "이미지, 영상, GIF 등록 위치와 승인/반려 상태를 운영자가 검토", href: "/admin/marketing/banners" },
+    { title: "기업 Admin 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/Custom Claims로 설계", href: "/admin/companies" },
+    { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 confirm endpoint 없이는 실결제 차단", href: "/admin/payments" },
+  ];
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <Link key={item.title} href={item.href} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <p className="text-xs font-black uppercase text-blue-600">operation control</p>
+          <h3 className="mt-2 text-lg font-black text-slate-950">{item.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+function AccountProvisioningPanel() {
+  const rows = [
+    ["초대 방식", "Firebase Auth 이메일 초대 또는 password reset link"],
+    ["권한 claim", "role, company_id, nursery_id, room_id, tablet_id"],
+    ["금지", "관리자가 임시 비밀번호를 평문 저장하거나 전달하는 방식"],
+    ["운영 전 확인", "대표 승인, 계정 회수 정책, 2단계 인증 권고"],
+  ];
+
+  return (
+    <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
+      <h2 className="text-lg font-black">기업 Admin 아이디/비밀번호 부여 설계</h2>
+      <p className="mt-2 text-sm leading-6">
+        운영자는 계정 생성 권한만 갖고, 비밀번호 자체는 Firebase Auth 초대/재설정 흐름으로 사용자가 설정해야 합니다.
+      </p>
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-md bg-white p-3">
+            <p className="text-xs font-black text-blue-600">{label}</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PgReadinessPanel() {
+  const readiness = getPaymentReadiness();
+
+  return (
+    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-black">PG 연동 준비 상태</h2>
+          <p className="mt-2 text-sm leading-6">
+            PG 키를 받아도 이 화면에서 바로 실결제를 실행하지 않습니다. 서버 confirm, webhook 검증, 주문 snapshot, 재고 차감, audit log가 먼저 필요합니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-900">{readiness.label}</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="rounded-md bg-white p-3">
+          <p className="text-xs font-black text-slate-500">Provider</p>
+          <p className="mt-1 font-black text-slate-950">{readiness.provider}</p>
+        </div>
+        <div className="rounded-md bg-white p-3">
+          <p className="text-xs font-black text-slate-500">누락 키</p>
+          <p className="mt-1 break-words text-sm font-bold text-slate-950">{readiness.missingKeys.join(", ") || "없음"}</p>
+        </div>
+        <div className="rounded-md bg-white p-3">
+          <p className="text-xs font-black text-slate-500">필수 서버</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">Functions / Cloud Run / Workers 중 확정 필요</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -81,6 +165,9 @@ export function AdminDashboardPage() {
           <StatCard key={metric.label} metric={metric} />
         ))}
       </div>
+      <div className="mt-6">
+        <AdminOperationMap />
+      </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
         <section>
           <FilterBar title="최근 주문" filters={["오늘", "mock 결제", "QR 출처 포함"]} />
@@ -109,6 +196,8 @@ export function AdminDashboardPage() {
 export function AdminCompaniesPage() {
   return (
     <AdminShell title="입점사 관리" subtitle="기업 승인, 수수료율, 정산 차단 상태를 확인합니다.">
+      <AccountProvisioningPanel />
+      <div className="mt-4" />
       <FilterBar title="입점사 필터" filters={["전체", "승인", "대기", "정산 보류"]} />
       <DataTable
         columns={["기업", "담당자", "상태", "수수료", "상품", "승인대기", "정산"]}
@@ -245,6 +334,8 @@ export function AdminOrdersPage() {
 export function AdminPaymentsPage() {
   return (
     <AdminShell title="결제 mock" subtitle="실제 PG가 아닌 mock 결제 상태와 TID 형식만 확인합니다.">
+      <PgReadinessPanel />
+      <div className="mt-4" />
       <ConfirmBox
         title="실제 PG 연동 금지"
         description="운영 MID/KEY, 테스트 MID, 공식 문서, 사람 승인 전까지 실제 결제 모듈은 만들지 않습니다."

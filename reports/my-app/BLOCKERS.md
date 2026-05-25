@@ -135,3 +135,27 @@
 1. 통합 런처와 status/smoke/merge 화면 범위에서 Firebase SDK import 또는 env 사용은 발견되지 않음.
 2. `git`/`npm` 문자열은 수동 확인용 보고서와 커밋 후보 문서에만 존재함.
 3. 명령은 실행하지 않았으며 lint/build/browser smoke는 계속 수동 단계로 남음.
+# my-app Blockers
+
+## 2026-05-25 Firebase products read blockers
+
+- Firestore products read is now verified for active products, but all Firestore writes outside product read remain blocked.
+- App Check enforcement remains OFF; do not enforce until Cloudflare custom domain and local dev behavior are verified.
+- Cloudflare deployment must be visually checked after push to ensure production pages show `Firebase products` instead of `mock fallback`.
+- PG approval/cancel/refund/settlement remain blocked until official PG keys, docs, webhook signature policy, and server runtime are confirmed.
+- Storage upload remains blocked until image/GIF/video policy, rules, and product registration workflow are approved.
+
+## 2026-05-25 active blockers
+
+- QA scripts are local only and not yet connected to CI or Cloudflare build step.
+- Functions dependencies are declared but not installed in this task; `functions/node_modules` is absent.
+- `firebase.json` and `.firebaserc` are not created.
+- Functions deploy is prohibited.
+- Firestore write transaction is skeleton only.
+- PG 테스트/운영 키와 공식 문서 미수령.
+- Static export 화면만으로는 PG secret confirm 불가. 서버 runtime 필요.
+- 실제 PG 승인/취소/환불/정산 실행 금지.
+- Firestore products read 외 write 금지.
+- Storage Blaze/Rules 승인 전 상품 이미지, 영상, GIF, 사업자등록증, 통장 사본 업로드 금지.
+- 알림톡 템플릿, 배송조회 API, 외부 재고 API 미확보.
+- 조리원 A4 API와 external id 매핑 규칙 미확정.

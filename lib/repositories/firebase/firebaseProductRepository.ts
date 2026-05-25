@@ -27,6 +27,29 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function asIsoDate(value: unknown) {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+
+  if (typeof value === "object") {
+    const maybeTimestamp = value as {
+      seconds?: number;
+      toDate?: () => Date;
+    };
+
+    if (typeof maybeTimestamp.toDate === "function") {
+      return maybeTimestamp.toDate().toISOString();
+    }
+
+    if (typeof maybeTimestamp.seconds === "number") {
+      return new Date(maybeTimestamp.seconds * 1000).toISOString();
+    }
+  }
+
+  return undefined;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -74,6 +97,9 @@ function mapProduct(documentId: string, data: DocumentData): Product {
       delivery: Boolean(data.delivery_available ?? data.deliveryAvailable ?? true),
       pickup: Boolean(data.pickup_available ?? data.pickupAvailable ?? true),
     },
+    firebaseStatus: asString(data.status, "active"),
+    source: asString(data.source, "firestore"),
+    seededAt: asIsoDate(data.seeded_at ?? data.seededAt),
   };
 }
 

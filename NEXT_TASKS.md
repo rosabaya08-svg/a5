@@ -1,5 +1,44 @@
 # Next Tasks
 
+## 2026-05-25 Firebase products read next tasks
+
+1. Cloudflare Pages deployment after push: verify `/products`, `/tablet/products`, and `/tablet/products/product-care-kit` show `Firebase products`.
+2. Keep App Check enforcement OFF until Cloudflare domain and local dev read behavior are both confirmed.
+3. If Firestore read fails on production, inspect browser console and Firestore rules before changing UI code.
+4. Replace `<img>` storefront warnings with the final image strategy after Firebase Storage/product image policy is approved.
+5. Do not enable orders/payments Firestore writes until PG server confirmation and amount recalculation are implemented.
+
+## 2026-05-25 QA release gate next tasks
+
+1. Cloudflare Pages 재배포 전 `npm.cmd run check:release`를 한 번 실행한다.
+2. Functions dependency 설치 승인 후 functions build를 별도 검증한다.
+3. GitHub Actions 또는 Cloudflare build step에 `npm run check:env`, `npm run check:no-secrets`, `node scripts/check-routes.mjs` 중 어디까지 넣을지 결정한다.
+4. 실제 PG 키 입력 전 `check:no-secrets`를 반드시 재실행한다.
+5. route smoke 목록이 늘어나면 `scripts/check-routes.mjs`의 `requiredRoutes`를 갱신한다.
+
+## 2026-05-25 Functions server skeleton next tasks
+
+1. `functions` dependency 설치 여부를 승인한 뒤 `npm.cmd --prefix functions install`과 `npm.cmd --prefix functions run build`를 실행한다.
+2. PG사 문서 수령 후 `functions/src/payments/types.ts` 요청/응답을 provider 공식 필드와 대조한다.
+3. Firestore write rules와 Functions IAM을 확정한 뒤 transaction 구현을 시작한다.
+4. `paymentsReady`가 실제 `qr_payment_sessions`와 product snapshot을 읽도록 전환한다.
+5. `paymentsConfirm`에서 real PG confirm 전 서버 금액 재계산, QR 재사용 차단, 재고 차감 테스트를 작성한다.
+6. webhook idempotency collection 설계를 확정한다.
+7. cancel/refund는 정산 보류와 운영 승인 flow 확정 전까지 계속 차단한다.
+
+## 2026-05-25 PG/기업 미팅 직전 우선순위
+
+1. PG사에서 받은 provider명, 테스트 MID, client key, secret key, webhook 검증 방식을 `PG_ENV_KEYS.md`와 대조한다.
+2. Cloudflare Pages static export만으로는 PG secret confirm이 불가하므로 Firebase Functions, Cloud Run, Cloudflare Workers/Pages Functions 중 하나를 확정한다.
+3. `POST /payments/ready`, `POST /payments/confirm`, `POST /payments/webhook`, `POST /payments/cancel` 서버 endpoint 설계를 확정한다.
+4. `/q/SANHO701/checkout`에서 PG 준비 상태, mock 결제 상태, 서버 금액 재계산 안내가 보이는지 미팅 전 브라우저로 확인한다.
+5. `/admin/payments`, `/admin/companies`, `/admin/marketing/banners`, `/company/products/new`, `/company/products/preview`, `/nursery/dashboard`를 기업 미팅 시연 후보로 확인한다.
+6. 기업 입점 서류: 사업자등록증, 통장 사본, CS 연락처, 주소, 반품/파손/AS 책임 문구를 실제 양식으로 확정한다.
+7. 조리원 A4 연동 전 `external_nursery_id`, `external_room_id`, `external_tablet_id` 실제 매핑 규칙을 확정한다.
+8. Firebase products 외 Firestore write는 계속 차단하고, 서버 권한/Rules/Functions 승인 후에만 열어야 한다.
+9. `<img>` lint warning 12건은 static export 이미지 전략 결정 후 `next/image` 또는 로컬 asset 전략으로 정리한다.
+10. 실제 PG 연동 전 결제 실패/만료/중복결제/금액불일치/재고부족 테스트 케이스를 작성한다.
+
 ## 2026-05-25 Firebase products read 다음 작업
 
 1. 실제 `.env.local`은 로컬에서만 생성하고 Git에 포함하지 않는다.

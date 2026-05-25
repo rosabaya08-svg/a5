@@ -13,6 +13,27 @@ export type PaymentMockResult = {
   message: string;
 };
 
+export type PaymentMockReadiness = {
+  mode: "mock_only";
+  pgReady: false;
+  serverConfirmRequired: true;
+  blockers: string[];
+};
+
+export function getPaymentMockReadiness(): PaymentMockReadiness {
+  return {
+    mode: "mock_only",
+    pgReady: false,
+    serverConfirmRequired: true,
+    blockers: [
+      "PG provider and test keys required",
+      "Server amount recalculation endpoint required",
+      "Webhook signature verification required",
+      "Refund and settlement approval policy required",
+    ],
+  };
+}
+
 export function approvePaymentMock(request: PaymentMockRequest): PaymentMockResult {
   return {
     status: "approved_mock",

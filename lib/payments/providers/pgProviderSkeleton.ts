@@ -38,15 +38,18 @@ export const pgProviderSkeleton: PaymentProvider = {
     return blocked("Real PG confirm must run on a server with secret keys after amount recalculation.");
   },
 
-  async handleWebhook(_event: PaymentWebhookEvent): Promise<PaymentRequestResult> {
+  async handleWebhook(event: PaymentWebhookEvent): Promise<PaymentRequestResult> {
+    void event;
     return blocked("PG webhook handler requires server runtime and webhook secret validation.");
   },
 
-  async cancelPayment(_input: PaymentCancellationInput): Promise<PaymentRequestResult> {
+  async cancelPayment(input: PaymentCancellationInput): Promise<PaymentRequestResult> {
+    void input;
     return blocked("Real PG cancellation is blocked until refund policy and settlement hold rules are approved.");
   },
 
-  async refundPayment(_input: PaymentCancellationInput): Promise<PaymentRequestResult> {
+  async refundPayment(input: PaymentCancellationInput): Promise<PaymentRequestResult> {
+    void input;
     return {
       ok: false,
       provider: "pg_skeleton",

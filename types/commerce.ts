@@ -80,8 +80,11 @@ export type ProductOption = {
 export type Product = {
   id: string;
   companyId: string;
+  nurseryId?: string;
   name: string;
   category: string;
+  brand?: string;
+  subtitle?: string;
   status: ProductStatus;
   price: number;
   stock: number;
@@ -89,6 +92,26 @@ export type Product = {
   comparison: PriceComparison;
   optionIds: string[];
   thumbnailTone: "sage" | "rose" | "sky" | "gold" | "ink";
+  imageUrl?: string;
+  gallery?: string[];
+  tags?: string[];
+  badges?: string[];
+  fulfillment?: {
+    delivery: boolean;
+    pickup: boolean;
+  };
+  detailSections?: {
+    title: string;
+    body: string;
+  }[];
+  reviewSummary?: {
+    rating: number;
+    count: number;
+    highlight: string;
+  };
+  firebaseStatus?: string;
+  source?: string;
+  seededAt?: string;
 };
 
 export type CartItemSnapshot = {

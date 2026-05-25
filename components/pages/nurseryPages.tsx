@@ -42,6 +42,59 @@ function NurseryShell({
   );
 }
 
+function NurseryIdentityPanel() {
+  const fields = [
+    ["사업자등록번호", "BUS-123-45-67890"],
+    ["사업자등록증 주소", "서울 강남구 테헤란로 701"],
+    ["A4 external_nursery_id", "A4-NURSERY-GANGNAM-01"],
+    ["객실 수", "24개"],
+  ];
+
+  return (
+    <section className="rounded-md border border-rose-200 bg-rose-50 p-4 text-rose-950">
+      <h2 className="text-lg font-black">조리원 계정/사업자 기준 mock</h2>
+      <p className="mt-2 text-sm leading-6">
+        조리원 계정은 사업자등록증 기준으로 묶고, 로그인 후 객실 선택과 태블릿 연결을 통해 QR 출처를 고정해야 합니다.
+      </p>
+      <div className="mt-4 grid gap-2 md:grid-cols-4">
+        {fields.map(([label, value]) => (
+          <div key={label} className="rounded-md bg-white p-3">
+            <p className="text-xs font-black text-rose-600">{label}</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RoomSelectionMock() {
+  const rooms = mockApi.rooms().filter((room) => room.nurseryId === nurseryId);
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-black text-slate-950">로그인 후 객실 선택 mock</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            운영에서는 조리원 계정 로그인 후 객실을 선택해야 태블릿/QR/주문 출처가 고정됩니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">A4 연동 대비</span>
+      </div>
+      <div className="mt-4 grid gap-2 md:grid-cols-3">
+        {rooms.map((room) => (
+          <div key={room.id} className="rounded-md bg-slate-50 p-3 text-sm">
+            <p className="font-black text-slate-950">{room.name}</p>
+            <p className="mt-1 text-slate-600">external_room_id: A4-{room.id.toUpperCase()}</p>
+            <p className="mt-1 text-slate-600">tablet: {room.activeTabletId ?? "미연결"}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function NurseryIndexPage() {
   return <NurseryDashboardPage />;
 }
@@ -49,10 +102,15 @@ export function NurseryIndexPage() {
 export function NurseryDashboardPage() {
   return (
     <NurseryShell title="조리원 대시보드" subtitle="객실, 태블릿, QR, 현장수령 주문을 조리원 기준으로 확인합니다.">
+      <NurseryIdentityPanel />
+      <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.nurseryMetrics(nurseryId).map((metric) => (
           <StatCard key={metric.label} metric={metric} />
         ))}
+      </div>
+      <div className="mt-4">
+        <RoomSelectionMock />
       </div>
       <div className="mt-4">
         <ConfirmBox
@@ -68,6 +126,8 @@ export function NurseryDashboardPage() {
 export function NurseryRoomsPage() {
   return (
     <NurseryShell title="객실 관리" subtitle="객실과 태블릿 연결, 현장수령 가능 여부를 확인합니다.">
+      <RoomSelectionMock />
+      <div className="mt-4" />
       <DataTable
         columns={["객실", "층", "현장수령", "연결 태블릿", "QR 출처"]}
         rows={mockApi

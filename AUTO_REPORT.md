@@ -1,5 +1,63 @@
 # Auto Report
 
+## 26. 2026-05-25 Firebase products storefront read push batch
+
+| Item | Result |
+| --- | --- |
+| Scope | `/products`, `/tablet/products`, `/tablet/products/[id]` Firebase products read verification and display hardening |
+| Firestore read | Network-enabled build confirmed the 4 active seeded products from Firestore by generating `/tablet/products/product-bag`, `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-tea` |
+| Fallback | Sandbox build still falls back safely on Firestore `EACCES/UNAVAILABLE` |
+| UI | Storefront shell, product cards, and product detail show `Firebase products` or `mock fallback` plus product id, status, source, and seeded_at/dev seed fields |
+| Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed; network-enabled run generated 93 static routes |
+| Security | `.env.local` was not printed or staged; no service account/private key/reCAPTCHA secret/PG secret was created |
+
+## 25. 2026-05-25 QA release gate scripts
+
+| 항목 | 결과 |
+| --- | --- |
+| 신규 스크립트 | `scripts/check-env.mjs`, `scripts/check-no-secrets.mjs`, `scripts/check-routes.mjs` |
+| 신규 문서 | `QA_RELEASE_GATE.md`, `CLOUD_DEPLOY_CHECKLIST.md` |
+| package scripts | `check:env`, `check:no-secrets`, `check:release` 추가 |
+| env check | `npm.cmd run check:env` 성공. `NEXT_PUBLIC_FIREBASE_*` 키 존재 확인, secret 값 출력 없음 |
+| no-secret check | `npm.cmd run check:no-secrets` 성공. `.env.local`은 로컬 존재, git index 미추적, `serviceAccountKey.json` 없음 |
+| route check | `node scripts/check-routes.mjs` 성공. 69개 page route 발견, 필수 smoke route 모두 존재 |
+| build | `npm.cmd run build` 성공, static routes 96개 생성 |
+| build 메모 | 실행 환경의 Firestore backend 접근은 `EACCES`/`UNAVAILABLE`, 기존 mock fallback 유지 |
+| 금지 준수 | git 명령, secret 출력, deploy, 실제 PG/Firebase write 실행 없음 |
+
+## 24. 2026-05-25 Firebase Functions v2 payment server skeleton
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | Functions v2 기반 payments ready/confirm/webhook/cancel mock-only 서버 계층 초안 생성 |
+| 신규 파일 | `functions/package.json`, `functions/tsconfig.json`, `functions/.env.example`, `functions/src/**`, `FIREBASE_FUNCTIONS_PLAN.md` |
+| export 함수 | `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, `paymentsCancel` |
+| PG 상태 | 실제 PG API 호출 없음, secret 읽기 없음, mock provider만 반환 |
+| Firestore 상태 | 실제 write 없음. transaction plan, order snapshot, inventory reserve/release, audit log skeleton만 작성 |
+| 안전 설정 | `firebase.json`, `.firebaserc`, rules 파일, service account, private key 생성 없음 |
+| 루트 빌드 | `npm.cmd run build` 성공, static pages 96개 |
+| build 메모 | 실행 환경 네트워크 제한으로 Firestore products read는 `EACCES`/`UNAVAILABLE` 후 mock fallback |
+| functions 빌드 | `functions/node_modules` 없음. dependency 설치 승인 전이므로 미실행 및 blocker 기록 |
+
+## 23. 2026-05-25 PG readiness and enterprise beta uplift
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | PG 연동 준비 계약 계층, 고객 checkout PG readiness UI, 관리자/기업/조리원 운영 UI 보강, Firebase write 차단 정리 |
+| 신규 문서 | `SYSTEM_CAPABILITY_MAP.md`, `PAYMENT_CONNECT_PLAN.md`, `PG_ENV_KEYS.md`, `PAYMENT_FLOW_CHECKLIST.md`, `FIREBASE_CONNECT_PLAN.md` |
+| 신규 코드 | `types/payment.ts`, `lib/payments/**`, `types/admin.ts`, `types/company.ts`, `types/nursery.ts`, `data/admin/**`, `data/company/**`, `data/nursery/**` |
+| PG 상태 | 실제 SDK/API 호출 없음. provider interface, mock provider, PG skeleton, env key template, checkout 연결 지점 준비 |
+| 고객 UI | `/products`, `/tablet/products`, `/q/SANHO701/checkout`에 쇼핑몰 섹션/영상 placeholder/PG 준비 상태 표시 보강 |
+| 관리자 UI | 최고관리자에 배너/광고/홈 편집/기업 계정 초대/PG 준비 게이트 노출 |
+| 기업 UI | 입점 서류, 통장 사본, CS/주소, 상품 법정 고지, 상세 미리보기 승인 흐름 보강 |
+| 조리원 UI | 사업자등록증 기준 계정, 객실 선택, A4 external mapping mock 구조 보강 |
+| Firebase write | `lib/firebase/liveShopRepository.ts`에서 carts/qr/orders/order_items write를 차단하고 local/mock 메시지만 반환 |
+| lint | `npm.cmd run lint` 성공, 오류 0개, `<img>` 최적화 경고 12건 |
+| build | `npm.cmd run build` 성공, static pages 96개 |
+| build 메모 | 현재 실행 환경에서 Firestore backend 네트워크 접근이 `EACCES`/`UNAVAILABLE`로 실패했으나 products fallback으로 정적 생성 성공 |
+| 금지 준수 | git add/commit/push, deploy, service account/private key, 실제 PG/환불/정산/알림톡/배송조회/외부 재고 API 실행 없음 |
+
 ## 22. 2026-05-25 Firebase products read verification
 
 | 항목 | 결과 |
@@ -299,3 +357,17 @@
 | 금지 파일 | `.env`, `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules` 생성 없음 |
 
 참고: `components/pages/adminPages.tsx`, `companyPages.tsx`, `nurseryPages.tsx`에는 기존 `mockApi` 흐름이 남아 있으나, 이번 대상 후보 밖으로 분리했다.
+
+## 20. 2026-05-25 Firebase products read verification
+
+| Item | Result |
+| --- | --- |
+| Scope | `/products`, `/tablet/products`, `/tablet/products/[id]` Firebase products read display hardening |
+| Repository | `firebaseProductRepository` still reads `products` where `status == "active"` first and uses mock fallback on error/empty/not-found |
+| Developer display | Product cards/detail now show product id, raw status, source, and seeded_at/dev seed state |
+| Screen source badges | `Firebase products` or `mock fallback` is visible in storefront shell and read diagnostic area |
+| Local sandbox build | Passed, but sandbox network produced Firestore `EACCES/UNAVAILABLE`; fallback behavior remained safe |
+| Network-enabled build | Passed and generated `/tablet/products/product-bag`, `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-tea`, confirming active Firestore product read |
+| Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed; network-enabled run generated 93 static routes |
+| Secrets | `.env.local` values were not printed or committed; service account/private key/PG secret were not created |

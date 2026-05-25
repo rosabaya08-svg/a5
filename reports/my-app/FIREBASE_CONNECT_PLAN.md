@@ -1,5 +1,23 @@
 # Firebase Connect Plan
 
+## 2026-05-25 products read verification
+
+- `/products`, `/tablet/products`, and `/tablet/products/[id]` continue to prefer Firestore `products` where `status == "active"`.
+- Product cards/detail now show developer read fields: `product id`, raw `status`, `source`, and `seeded_at` or mock seed state.
+- Source badges and read diagnostics show `Firebase products` on Firestore success and `mock fallback` on fallback.
+- Sandbox build passed with Firestore `EACCES/UNAVAILABLE`, confirming fallback behavior remains safe when the backend cannot be reached.
+- Network-enabled build passed and generated the 4 active Firestore product detail routes: `product-bag`, `product-care-kit`, `product-robe`, `product-tea`.
+- Firestore write scopes remain blocked for orders, payments, QR sessions, inventory, settlements, refunds, and audit writes until server confirmation is implemented.
+- `.env.local` remains local-only; do not commit real Firebase values, service accounts, private keys, reCAPTCHA secrets, or PG secrets.
+
+## 2026-05-25 PG/server boundary update
+
+- `products` read remains the only enabled Firebase data access scope.
+- `carts`, `qr_payment_sessions`, `orders`, and `order_items` browser write helper has been changed to blocked/local mode.
+- Real payment confirm must run in a server runtime before any payment/order Firestore write is enabled.
+- Candidate server runtimes: Firebase Functions, Cloud Run, Cloudflare Workers/Pages Functions.
+- PG secret values must not be exposed to static export pages or browser bundles.
+
 ## 2026-05-25 verification update
 
 - `npm.cmd install firebase`: up to date.

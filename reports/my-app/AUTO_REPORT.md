@@ -1,5 +1,85 @@
 # my-app 자동 파일 생성 준비 보고
 
+## 2026-05-25 Firebase products storefront read push batch
+
+### Summary
+
+- Hardened `/products`, `/tablet/products`, and `/tablet/products/[id]` so Firestore `products` remains the first source and mockProducts remains the fallback.
+- Added visible source/read diagnostics for `Firebase products` and `mock fallback`.
+- Added developer-facing product metadata display: `product id`, raw `status`, `source`, and `seeded_at`/mock seed state.
+- Sandbox build passed but Firestore network access was blocked with `EACCES/UNAVAILABLE`, proving fallback remains safe.
+- Network-enabled build passed and confirmed the 4 active Firestore products through generated SSG routes.
+
+### Verification
+
+- `npm.cmd run lint`: passed, 0 errors, 12 existing `<img>` warnings.
+- `npm.cmd run build`: passed, 93 static routes in the network-enabled verification run.
+- Firestore active products confirmed in generated routes: `product-bag`, `product-care-kit`, `product-robe`, `product-tea`.
+- No `.env.local`, service account, private key, reCAPTCHA secret, or PG secret value was printed.
+
+## 2026-05-25 QA release gate scripts
+
+### 작업 요약
+
+- `scripts/check-env.mjs` 생성: `NEXT_PUBLIC_FIREBASE_*` 키 존재만 확인하고 실제 값은 출력하지 않는다.
+- `scripts/check-no-secrets.mjs` 생성: `.env.local` git index 추적 여부, `serviceAccountKey.json`, private key 후보 파일 존재 여부를 확인한다. git 명령은 실행하지 않는다.
+- `scripts/check-routes.mjs` 생성: App Router `page.*` 파일을 route 목록으로 변환하고 필수 smoke route 존재를 확인한다.
+- `QA_RELEASE_GATE.md`, `CLOUD_DEPLOY_CHECKLIST.md` 작성.
+- `package.json`에 `check:env`, `check:no-secrets`, `check:release` 추가.
+
+### 검증
+
+- `npm.cmd run check:env`: 성공.
+- `npm.cmd run check:no-secrets`: 성공. `.env.local`은 로컬 존재, git index 미추적, `serviceAccountKey.json` 없음.
+- `node scripts/check-routes.mjs`: 성공. 69개 page route 발견, 필수 route 모두 존재.
+- `npm.cmd run build`: 성공. static routes 96개 생성.
+- build 중 Firestore backend 접근은 현재 실행 환경 네트워크 제한으로 `EACCES`/`UNAVAILABLE` 로그가 발생했고, mock fallback 유지.
+
+
+## 2026-05-25 Firebase Functions v2 payment server skeleton
+
+### 작업 요약
+
+- `functions` 폴더에 Firebase Functions v2 mock-only 결제 서버 skeleton을 생성했다.
+- `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, `paymentsCancel` HTTPS functions export 구조를 만들었다.
+- 실제 PG API 호출, PG secret 사용, 실제 Firestore write는 하지 않는다.
+- order snapshot, inventory reserve/release, QR validation, amount assertion, audit log skeleton을 분리했다.
+- `FIREBASE_FUNCTIONS_PLAN.md`, `PAYMENT_CONNECT_PLAN.md`, `PAYMENT_FLOW_CHECKLIST.md`를 갱신했다.
+
+### 검증
+
+- `npm.cmd run build`: 성공, static pages 96개.
+- build 중 Firestore backend 접근은 현재 실행 환경 네트워크 제한으로 `EACCES`/`UNAVAILABLE` 로그가 발생했고, products는 mock fallback으로 생성됨.
+- `functions/node_modules` 없음. dependency 설치 승인 전이므로 `npm.cmd --prefix functions run build`는 실행하지 않고 blocker로 기록.
+
+
+## 2026-05-25 PG readiness and enterprise beta uplift
+
+### 작업 요약
+
+- PG 키 수령 후 연결 지점을 분리하기 위해 `types/payment.ts`, `lib/payments/**`, `PAYMENT_CONNECT_PLAN.md`, `PG_ENV_KEYS.md`, `PAYMENT_FLOW_CHECKLIST.md`를 생성했다.
+- 실제 PG SDK/API 호출 없이 mock provider와 PG provider skeleton만 추가했다.
+- `/q/[code]/checkout`에 PG 준비 상태, 누락 키, 서버 confirm 필요 안내를 표시했다.
+- 고객 폐쇄몰 홈에 영상/GIF 광고 placeholder, 섹션형 상품 편성, 장바구니 QR 전환 안내를 추가했다.
+- 최고관리자에는 배너/광고/홈 편집/기업 계정 초대/PG 전환 게이트를 노출했다.
+- 기업 어드민에는 입점 서류, 통장 사본, CS/주소, 상품 법정 고지, 상세 미리보기 구조를 보강했다.
+- 조리원 어드민에는 사업자등록증 기준 계정, 객실 선택, A4 external mapping mock 구조를 보강했다.
+- products read 외 Firestore write를 막기 위해 `lib/firebase/liveShopRepository.ts`를 blocked/local 메시지로 제한했다.
+
+### 검증
+
+- `npm.cmd run lint`: 성공, 오류 0개, `<img>` 최적화 경고 12건.
+- `npm.cmd run build`: 성공, static pages 96개.
+- build 중 Firestore backend 접근은 실행 환경 네트워크 제한으로 실패했으나 mock fallback으로 정적 생성 성공.
+
+### 금지 준수
+
+- git add/commit/push 실행 없음.
+- deploy 실행 없음.
+- service account/private key/Secret 생성 없음.
+- 실제 PG 승인/취소/환불/정산 실행 없음.
+- 알림톡/배송조회/외부 재고 API 호출 없음.
+
 ## 2026-05-25 Firebase products read verification
 
 ### 확인 요약

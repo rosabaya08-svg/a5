@@ -180,7 +180,7 @@ function ProductDevPanel({
   compact?: boolean;
 }) {
   return (
-    <div className={`rounded-md border border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 ${compact ? "p-2" : "p-3"}`}>
+    <div className={`rounded-md border border-white/35 bg-white/70 text-[11px] font-bold text-slate-500 shadow-sm backdrop-blur-md ${compact ? "p-2" : "p-3"}`}>
       <div className="grid gap-1">
         {productDevRows(product, source).map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3">
@@ -196,7 +196,7 @@ function ProductDevPanel({
 
 function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource; reason?: string }) {
   return (
-    <section className="rounded-md border border-white/10 bg-white p-4 text-slate-950">
+    <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">developer read diagnostic</p>
@@ -207,7 +207,7 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
         </div>
         <DataSourceBadge source={source} reason={reason} />
       </div>
-      <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs font-bold text-slate-600">
+      <div className="mt-4 rounded-md bg-white/55 p-3 text-xs font-bold text-slate-600 ring-1 ring-white/40">
         {reason ? <p>Last fallback reason: {reason}</p> : <p>No Firestore read failure captured in this render.</p>}
       </div>
     </section>
@@ -223,9 +223,9 @@ function ContextStrip({ context }: { context: StoreContext }) {
   ];
 
   return (
-    <section className="grid gap-3 bg-white p-4 md:grid-cols-3">
+    <section className="grid gap-3 bg-white/55 p-4 backdrop-blur-md md:grid-cols-3">
       {items.map((item) => (
-        <article key={item.label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+        <article key={item.label} className="rounded-md border border-white/45 bg-white/65 p-3 shadow-sm backdrop-blur-md">
           <p className="text-xs font-bold uppercase text-slate-500">{item.label}</p>
           <p className="mt-1 text-base font-black text-slate-950">{item.value}</p>
           <p className="mt-1 text-sm text-slate-600">{item.helper}</p>
@@ -251,8 +251,8 @@ function StoreShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-white text-slate-950">
+    <main className="min-h-screen bg-transparent text-white">
+      <header className="sticky top-0 z-20 border-b border-white/20 bg-white/65 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/55">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <Link href="/tablet/products" className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
@@ -273,8 +273,8 @@ function StoreShell({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
-        <section className="mb-5 overflow-hidden rounded-md border border-white/10 bg-white text-slate-950">
-          <div className="bg-slate-950 px-4 py-4 text-white md:px-6">
+        <section className="mb-5 overflow-hidden rounded-md border border-white/25 bg-white/70 text-slate-950 shadow-[0_18px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <div className="bg-slate-950/85 px-4 py-4 text-white backdrop-blur-md md:px-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-300">closed mall tablet</p>
@@ -321,7 +321,7 @@ function PromoBannerGrid() {
   return (
     <section className="grid gap-4 md:grid-cols-2">
       {mallPromoBanners.map((banner) => (
-        <Link key={banner.id} href={banner.href} className="group overflow-hidden rounded-md border border-white/10 bg-white">
+        <Link key={banner.id} href={banner.href} className="group overflow-hidden rounded-md border border-white/15 bg-white/20 backdrop-blur-md">
           <div className="relative min-h-40">
             <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]" />
             <div className="absolute inset-0 bg-black/15" />
@@ -340,7 +340,7 @@ function PromoBannerGrid() {
 function VideoAdStrip() {
   return (
     <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-      <article className="overflow-hidden rounded-md border border-white/10 bg-white text-slate-950">
+      <article className="overflow-hidden rounded-md border border-white/25 bg-white/80 text-slate-950 shadow-sm backdrop-blur-xl">
         <div className="grid gap-0 md:grid-cols-[1fr_280px]">
           <div className="grid aspect-video place-items-center bg-slate-950 text-center text-white">
             <div>
@@ -380,13 +380,13 @@ function BrandGrid() {
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Official brand partners</p>
           <h2 className="mt-2 text-2xl font-black">브랜드관</h2>
         </div>
-        <Link href="/admin/brands" className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-950">
+        <Link href="/admin/brands" className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-950 shadow-sm backdrop-blur-md">
           브랜드 관리 mock
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {mallBrands.map((brand) => (
-          <article key={brand.id} className="rounded-md bg-white p-3 text-center text-slate-950">
+          <article key={brand.id} className="rounded-md bg-white/80 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md">
             <div className="flex h-16 items-center justify-center">
               <img src={brand.logoUrl} alt={brand.name} className="max-h-12 max-w-full object-contain" />
             </div>
@@ -400,7 +400,7 @@ function BrandGrid() {
 
 function CatalogControls() {
   return (
-    <section className="rounded-md border border-white/10 bg-white p-4 text-slate-950">
+    <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_150px_150px]">
         <label className="grid gap-1 text-sm font-bold">
           상품 검색
@@ -440,7 +440,7 @@ function ProductCard({ product, source }: { product: Product; source?: ProductRe
   const readSource = source ?? (product.source ? "Firebase products" : "mock fallback");
 
   return (
-    <Link href={`/tablet/products/${product.id}`} className="group overflow-hidden rounded-md bg-white text-slate-950 shadow-sm ring-1 ring-white/10 transition hover:-translate-y-1 hover:shadow-2xl">
+    <Link href={`/tablet/products/${product.id}`} className="group overflow-hidden rounded-md bg-white/88 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/95 hover:shadow-2xl">
       <div className="relative aspect-[4/5] bg-slate-100">
         <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
         <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
@@ -494,12 +494,12 @@ function ProductGallery({ product }: { product: Product }) {
 
   return (
     <section className="grid gap-3">
-      <div className="overflow-hidden rounded-md bg-white">
+      <div className="overflow-hidden rounded-md bg-white/80 shadow-sm backdrop-blur-md">
         <img src={images[0]} alt={profile.displayName} className="aspect-square w-full object-cover" />
       </div>
       <div className="grid grid-cols-3 gap-3">
         {images.slice(0, 3).map((image, index) => (
-          <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white">
+          <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white/80 shadow-sm backdrop-blur-md">
             <img src={image} alt={`${profile.displayName} ${index + 1}`} className="aspect-square w-full object-cover" />
           </div>
         ))}
@@ -516,7 +516,7 @@ function PriceComparePanel({ product }: { product: Product }) {
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">price comparison layer</p>
           <h3 className="mt-1 text-xl font-black">실제 AI가 아닌 가격 비교 mock</h3>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-emerald-900">{discountRate(product)}% 절감</span>
+        <span className="rounded-full bg-white/85 px-3 py-1 text-sm font-black text-emerald-900 shadow-sm backdrop-blur-md">{discountRate(product)}% 절감</span>
       </div>
       <div className="mt-4 grid gap-2 text-sm">
         {[
@@ -524,7 +524,7 @@ function PriceComparePanel({ product }: { product: Product }) {
           ["플랫폼 최저가", product.comparison.platformLowestPrice],
           ["폐쇄몰가", product.comparison.closedMallPrice],
         ].map(([label, value]) => (
-          <div key={label} className={`flex justify-between rounded-md px-3 py-2 ${label === "폐쇄몰가" ? "bg-slate-950 text-white" : "bg-white"}`}>
+          <div key={label} className={`flex justify-between rounded-md px-3 py-2 ${label === "폐쇄몰가" ? "bg-slate-950 text-white" : "bg-white/75 text-slate-950 backdrop-blur-md"}`}>
             <span>{label}</span>
             <strong>{formatCurrency(Number(value))}</strong>
           </div>
@@ -538,7 +538,7 @@ function DetailTabs({ product }: { product: Product }) {
   const profile = profileFor(product);
 
   return (
-    <section className="rounded-md bg-white p-4 text-slate-950">
+    <section className="rounded-md bg-white/80 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-3 md:grid-cols-3">
         {profile.detailTabs.map((tab) => (
           <article key={tab.title} className="rounded-md border border-slate-200 bg-slate-50 p-4">
@@ -556,7 +556,7 @@ function CartLine({ item }: { item: CartItemSnapshot }) {
   const displayName = profile?.displayName ?? item.productName;
 
   return (
-    <article className="rounded-md bg-white p-4 text-slate-950">
+    <article className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-4 sm:grid-cols-[96px_1fr_auto]">
         <div className="overflow-hidden rounded-md bg-slate-100">
           {profile ? <img src={profile.imageUrl} alt={displayName} className="aspect-square w-full object-cover" /> : null}
@@ -582,7 +582,7 @@ function CartLine({ item }: { item: CartItemSnapshot }) {
 
 function SummaryPanel({ session, ask = false }: { session: QrPaymentSession; ask?: boolean }) {
   return (
-    <aside className="rounded-md bg-white p-5 text-slate-950">
+    <aside className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
       <h2 className="text-xl font-black">주문 요약</h2>
       <div className="mt-4 grid gap-3 text-sm">
         <div className="flex justify-between"><span>상품 수량</span><strong>{session.items.reduce((total, item) => total + item.quantity, 0)}개</strong></div>
@@ -625,7 +625,7 @@ export async function TabletProductsPage() {
         <ProductRail title="베이비 베스트 핫딜" eyebrow="Baby best hot deal" products={products.slice(0, 4)} />
         <ProductRail title="산모 회복 케어" eyebrow="Sanmo care special" products={products.filter((product) => profileFor(product).category.includes("산모")).slice(0, 4)} />
         <ProductRail title="신상품/기획전" eyebrow="New arrivals and exhibition" products={products.slice(-4)} />
-        <div className="rounded-md border border-white/10 bg-white p-4 text-slate-950">
+        <div className="rounded-md border border-white/30 bg-white/78 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase text-slate-500">cart shortcut</p>
@@ -650,7 +650,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <ProductGallery product={product} />
         <section className="grid gap-4">
-          <div className="rounded-md bg-white p-5 text-slate-950">
+          <div className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 {profile.badges.map((badge) => (
@@ -681,7 +681,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
       <div className="mt-6">
         <DetailTabs product={product} />
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white p-3 text-slate-950 shadow-2xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/40 bg-white/85 p-3 text-slate-950 shadow-2xl backdrop-blur-xl md:hidden">
         <Link href="/tablet/cart" className="block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">장바구니 담고 QR 생성</Link>
       </div>
     </StoreShell>
@@ -707,7 +707,7 @@ export async function TabletQrPage() {
     <StoreShell title="구매 QR 생성" subtitle="고객 또는 보호자가 모바일에서 결제 진입 화면으로 넘어가는 QR mock입니다." context={context}>
       <LiveQrSessionPanel fallbackSession={session} />
       <div className="hidden">
-        <section className="rounded-md bg-white p-6 text-center text-slate-950">
+        <section className="rounded-md bg-white/82 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-slate-100">
             <div>
               <p className="text-xs font-black uppercase text-slate-500">short code</p>
@@ -721,7 +721,7 @@ export async function TabletQrPage() {
           {session.items.map((item) => (
             <CartLine key={`${item.productId}-${item.optionName}`} item={item} />
           ))}
-          <div className="rounded-md bg-white p-4 text-slate-950">
+          <div className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex justify-between text-lg">
               <span className="font-black">결제 예정 mock</span>
               <strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong>

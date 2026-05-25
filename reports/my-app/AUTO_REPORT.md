@@ -761,3 +761,12 @@
 - Set Artifact Registry cleanup policy to 7 days.
 - Smoke tested `paymentsReady` and `paymentsConfirm` HTTPS endpoints successfully in mock mode.
 - Re-seeded commerce demo data after smoke so the fixed demo QR/session routes remain usable.
+
+## 2026-05-25 Tablet transparent background for A3
+
+- Removed the hard white browser canvas from `app/globals.css` by making `html` and `body` transparent.
+- Removed the hard black full-screen tablet storefront background from `components/storefront/TabletMallPages.tsx`.
+- Converted the tablet header, context band, product cards, detail panels, cart panels, QR panels, and developer diagnostic panels to translucent glass surfaces.
+- Preserved Firebase products, PG handoff, cart, QR, and guest flow behavior; this change is visual only.
+- Intended A3 behavior: when the shopping tab is opened inside the A3 glassmorphism shell, A3 background graphics remain visible behind the A5 tablet webview.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.

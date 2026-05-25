@@ -188,3 +188,10 @@
 5. Run sandbox success/fail/expired QR/amount mismatch/duplicate webhook tests.
 6. Convert admin/company/nursery aggregate summaries from mixed mock views to Firestore read-model views.
 7. Keep production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory blocked until policy and keys are approved.
+
+## 2026-05-25 A3 tablet transparent canvas next tasks
+
+1. In A3, open the A5 tablet shopping tab and verify `/tablet/products`, `/tablet/cart`, and `/tablet/qr` show the A3 glassmorphism background behind the webview.
+2. Check that translucent A5 panels still keep product names, prices, QR codes, and cart totals readable over bright and dark A3 backgrounds.
+3. If A3 uses a very busy background, add a configurable tablet panel opacity token instead of restoring a hard page background.
+4. Keep customer mobile QR pages separate from this tablet transparency rule unless A3 also embeds those routes.

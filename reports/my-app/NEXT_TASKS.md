@@ -340,3 +340,10 @@
 4. Convert admin/company/nursery dashboards to Firestore aggregate read models.
 5. Decide when to enable App Check enforcement after Cloudflare domain and reCAPTCHA coverage are confirmed.
 6. Review `firebase-functions` package update warning and 9 moderate npm audit findings before production payment launch.
+
+## 2026-05-25 A3 tablet transparent canvas next tasks
+
+1. Smoke check `/tablet/products`, `/tablet/cart`, `/tablet/qr`, and one `/tablet/products/[id]` route inside the A3 shopping tab container.
+2. Confirm A3 glassmorphism background graphics remain visible because A5 no longer paints a hard white or black screen background.
+3. Confirm text contrast on translucent panels over A3 light/dark backgrounds.
+4. If needed, create a single tablet opacity token for panel strength instead of adding per-page hard backgrounds.

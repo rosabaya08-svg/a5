@@ -446,3 +446,17 @@
 | Endpoint smoke | `paymentsReady` and `paymentsConfirm` HTTPS smoke calls returned success in mock mode |
 | Demo reset | Re-seeded commerce data after smoke so `SANHO701` returns to demo state |
 | Remaining PG gate | Real provider SDK/API call, PG secrets, webhook signature validation, cancel/refund/settlement policy remain pending |
+
+## 24. 2026-05-25 Tablet transparent background for A3
+
+| Item | Result |
+| --- | --- |
+| Scope | Tablet storefront visual shell for A3 embedded shopping tab |
+| Global canvas | `html` and `body` now use transparent background instead of a hard white theme background |
+| Tablet shell | `/tablet/**` storefront shell no longer paints a black or white full-screen background |
+| Glass panels | Header, context strip, product cards, cart panels, QR panels, and diagnostic cards were changed to translucent glass-style surfaces |
+| Reason | A3 can show its glassmorphism graphics behind the tablet webview without the A5 page blocking it |
+| Integration | Firebase/PG/Storage behavior unchanged; this is a visual/background adjustment only |
+| Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 93 static routes |
+| Secret check | `npm.cmd run check:no-secrets` passed; `.env.local` remains local-only and untracked |

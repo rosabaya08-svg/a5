@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: transparent;
   --foreground: #171717;
   color-scheme: light;
 }
 
 :root[data-theme="light"] {
-  --background: #ffffff;
+  --background: transparent;
   --foreground: #171717;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --background: #0a0f1a;
+  --background: transparent;
   --foreground: #f8fafc;
   color-scheme: dark;
 }
@@ -27,13 +27,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --background: #0a0a0a;
+    --background: transparent;
     --foreground: #ededed;
   }
 }
 
+html {
+  background: transparent;
+}
+
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

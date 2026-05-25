@@ -253,7 +253,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
   }
 
   return (
-    <section className="rounded-md bg-white p-4 text-slate-950">
+    <section className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase text-slate-500">실제 장바구니 동작</p>
@@ -387,7 +387,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     <section className="grid gap-5 lg:grid-cols-[1fr_380px]">
       <div className="grid gap-3">
         {items.length === 0 ? (
-          <div className="rounded-md bg-white p-6 text-slate-950">
+          <div className="rounded-md bg-white/82 p-6 text-slate-950 shadow-sm backdrop-blur-xl">
             <h2 className="text-xl font-black">장바구니가 비었습니다</h2>
             <Link href="/tablet/products" className="mt-4 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
               상품 보러가기
@@ -395,7 +395,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
           </div>
         ) : (
           items.map((item, index) => (
-            <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white p-4 text-slate-950">
+            <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
               <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
                 <div>
                   <p className="text-xs font-black text-rose-600">{item.companyId}</p>
@@ -427,7 +427,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
           ))
         )}
       </div>
-      <aside className="rounded-md bg-white p-5 text-slate-950">
+      <aside className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
         <h2 className="text-xl font-black">주문 요약</h2>
         <div className="mt-4 grid gap-3 text-sm">
           <div className="flex justify-between">
@@ -472,7 +472,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
 
   return (
     <section className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[420px_1fr]">
-      <div className="rounded-md bg-white p-6 text-center text-slate-950">
+      <div className="rounded-md bg-white/82 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
         <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-slate-100">
           <div>
             <p className="text-xs font-black uppercase text-slate-500">short code</p>
@@ -486,7 +486,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
       </div>
       <div className="grid gap-3">
         {session.items.map((item) => (
-          <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white p-4 text-slate-950">
+          <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex justify-between gap-4">
               <div>
                 <p className="font-black">{item.productName}</p>
@@ -496,7 +496,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
             </div>
           </article>
         ))}
-        <div className="rounded-md bg-white p-4 text-slate-950">
+        <div className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="flex justify-between text-lg">
             <span className="font-black">결제 예정</span>
             <strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong>

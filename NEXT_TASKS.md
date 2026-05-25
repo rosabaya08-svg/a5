@@ -202,3 +202,9 @@
 2. Browser smoke check `/company/dashboard` to `/company/ads/banners` and verify the same 기업 Admin menu remains visible.
 3. Keep all future admin/company/nursery sidebar additions inside `components/layout/navigation.ts` only.
 4. Add route-link validation to CI after the route list stabilizes.
+
+## 2026-05-25 Korean menu label next tasks
+
+1. After deployment, visually confirm `/admin/dashboard`, `/admin/marketing/banners`, `/company/dashboard`, and `/nursery/dashboard` show Korean-only sidebar menu labels.
+2. Keep future sidebar badges Korean-only unless the term is a fixed product or technical identifier.
+3. If page body copy is also required to be fully Korean, handle that as a separate content cleanup pass.

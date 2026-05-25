@@ -19,15 +19,16 @@ export function TopBar({ title, subtitle, scopeLabel, surface = "light" }: TopBa
       </div>
       <div className="flex flex-wrap gap-2">
         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-900">
-          mock/test beta
+          모의/테스트 베타
         </span>
         <span className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700">
           실결제 아님
         </span>
         <span className={`rounded-full border px-3 py-2 text-xs font-black ${isDark ? "border-white/20 bg-white/10 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
-          {isDark ? "Dark mode ready" : "White mode"}
+          {isDark ? "다크 모드" : "화이트 모드"}
         </span>
       </div>
     </header>
   );
 }
+

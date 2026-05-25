@@ -28,9 +28,9 @@ export function AppShell({
     accent === "admin"
       ? "최고관리자"
       : accent === "company"
-        ? "기업 Admin"
+        ? "기업 관리자"
         : accent === "nursery"
-          ? "산후조리원 Admin"
+          ? "산후조리원 관리자"
           : sectionTitle;
 
   return (
@@ -45,3 +45,4 @@ export function AppShell({
     </div>
   );
 }
+

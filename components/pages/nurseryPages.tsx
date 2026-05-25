@@ -31,10 +31,10 @@ function NurseryShell({
 }) {
   return (
     <AppShell
-      sectionTitle="산후조리원 Admin"
+      sectionTitle="산후조리원 관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="NURSERY_ADMIN / nursery_id scoped"
+      scopeLabel="산후조리원 관리자 / 조리원 범위"
       navItems={nurseryNavItems}
       accent="nursery"
     >

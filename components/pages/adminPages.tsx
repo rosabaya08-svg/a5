@@ -11,22 +11,7 @@ import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 
-export const legacyAdminNavItems = [
-  { href: "/admin/dashboard", label: "대시보드" },
-  { href: "/admin/companies", label: "입점사" },
-  { href: "/admin/nurseries", label: "조리원" },
-  { href: "/admin/rooms", label: "객실" },
-  { href: "/admin/tablets", label: "태블릿" },
-  { href: "/admin/products", label: "상품 승인" },
-  { href: "/admin/marketing/banners", label: "배너/광고", badge: "CMS" },
-  { href: "/admin/marketing/videos", label: "영상/GIF" },
-  { href: "/admin/home-editor", label: "홈 편집" },
-  { href: "/admin/brands", label: "브랜드관" },
-  { href: "/admin/orders", label: "주문" },
-  { href: "/admin/payments", label: "결제 mock" },
-  { href: "/admin/settlements", label: "정산 검산" },
-  { href: "/admin/audit-logs", label: "감사 로그" },
-];
+export const legacyAdminNavItems = adminNavItems;
 
 function AdminShell({
   title,
@@ -42,7 +27,7 @@ function AdminShell({
       sectionTitle="최고관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="SUPER_ADMIN / mock"
+      scopeLabel="최고관리자 / 모의"
       navItems={adminNavItems}
       accent="admin"
     >
@@ -53,9 +38,9 @@ function AdminShell({
 
 function AdminOperationMap() {
   const items = [
-    { title: "폐쇄몰 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 mock CMS로 편성", href: "/admin/home-editor" },
+    { title: "폐쇄몰 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 모의 콘텐츠 관리로 편성", href: "/admin/home-editor" },
     { title: "광고 소재 승인", body: "이미지, 영상, GIF 등록 위치와 승인/반려 상태를 운영자가 검토", href: "/admin/marketing/banners" },
-    { title: "기업 Admin 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/Custom Claims로 설계", href: "/admin/companies" },
+    { title: "기업 관리자 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/Custom Claims로 설계", href: "/admin/companies" },
     { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 confirm endpoint 없이는 실결제 차단", href: "/admin/payments" },
   ];
 
@@ -82,7 +67,7 @@ function AccountProvisioningPanel() {
 
   return (
     <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
-      <h2 className="text-lg font-black">기업 Admin 아이디/비밀번호 부여 설계</h2>
+      <h2 className="text-lg font-black">기업 관리자 아이디/비밀번호 부여 설계</h2>
       <p className="mt-2 text-sm leading-6">
         운영자는 계정 생성 권한만 갖고, 비밀번호 자체는 Firebase Auth 초대/재설정 흐름으로 사용자가 설정해야 합니다.
       </p>
@@ -145,7 +130,7 @@ export function AdminIndexPage() {
         <RiskAlert risks={mockApi.risks()} />
         <ConfirmBox
           title="운영 전환 차단"
-          description="이 콘솔은 Firebase, PG, 알림톡, 배송조회, 외부 재고 API에 연결하지 않는 개발용 mock/test 화면입니다."
+          description="이 콘솔은 Firebase, PG, 알림톡, 배송조회, 외부 재고 API에 연결하지 않는 개발용 모의/테스트 화면입니다."
         />
       </div>
     </AdminShell>
@@ -333,7 +318,7 @@ export function AdminOrdersPage() {
 
 export function AdminPaymentsPage() {
   return (
-    <AdminShell title="결제 mock" subtitle="실제 PG가 아닌 mock 결제 상태와 TID 형식만 확인합니다.">
+    <AdminShell title="결제" subtitle="실제 PG가 아닌 모의 결제 상태와 TID 형식만 확인합니다.">
       <PgReadinessPanel />
       <div className="mt-4" />
       <ConfirmBox

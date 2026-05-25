@@ -475,3 +475,16 @@
 | Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
 | Build | `npm.cmd run build` passed and generated 93 static routes |
 | Secret check | `npm.cmd run check:no-secrets` passed |
+
+## 26. 2026-05-25 Korean menu label restoration
+
+| Item | Result |
+| --- | --- |
+| Scope | Admin/company/nursery sidebar menus and shared top badges |
+| Sidebar labels | Central menu labels are Korean only: 대시보드, 입점사, 조리원, 객실, 태블릿, 상품 승인, 배너/광고, 영상/GIF, 홈 편집, 브랜드관, 기획전, 주문, 결제, 정산 검산, 감사 로그 |
+| Badges | `CMS`, `new`, `Mock/Test Beta`, `White mode`, `Dark mode ready` visible labels were restored to Korean |
+| Role titles | `기업 Admin`, `산후조리원 Admin` visible shell labels were restored to `기업 관리자`, `산후조리원 관리자` |
+| Boundary | This is a UI label restoration only; Firebase/PG logic was not changed |
+| Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 93 static routes |
+| Secret check | `npm.cmd run check:no-secrets` passed |

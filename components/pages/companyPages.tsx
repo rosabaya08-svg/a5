@@ -16,7 +16,7 @@ export const legacyCompanyNavItems: NavItem[] = [
   { href: "/company/dashboard", label: "대시보드" },
   { href: "/company/products", label: "상품" },
   { href: "/company/products/new", label: "상품 등록" },
-  { href: "/company/products/preview", label: "상세 미리보기", badge: "new" },
+  { href: "/company/products/preview", label: "상세 미리보기", badge: "신규" },
   { href: "/company/ads/banners", label: "배너 광고" },
   { href: "/company/ads/videos", label: "영상 광고" },
   { href: "/company/brand", label: "브랜드관" },
@@ -39,10 +39,10 @@ function CompanyShell({
 }) {
   return (
     <AppShell
-      sectionTitle="기업 Admin"
+      sectionTitle="기업 관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="COMPANY_ADMIN / company_id scoped"
+      scopeLabel="기업 관리자 / 입점사 범위"
       navItems={companyNavItems}
       accent="company"
     >
@@ -195,7 +195,7 @@ export function CompanyProductNewPage() {
       <div className="mt-4" />
       <ConfirmBox
         title="저장 동작 없음"
-        description="이 화면은 mock/test 베타용 UI입니다. 이미지 업로드, Firebase Storage, 상품 저장 Server Action은 아직 만들지 않습니다."
+        description="이 화면은 모의/테스트 베타용 UI입니다. 이미지 업로드, Firebase Storage, 상품 저장 서버 동작은 아직 만들지 않습니다."
         confirmLabel="mock form"
       />
       <div className="mt-4 grid gap-4 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-2">

@@ -354,3 +354,9 @@
 2. Visually compare `/company/dashboard`, `/company/ads/banners`, `/company/products/preview`, and `/company/exhibitions` for identical sidebar behavior.
 3. Add every new sidebar route only through `components/layout/navigation.ts`.
 4. Promote the route-link check from manual PowerShell verification to a reusable CI script.
+
+## 2026-05-25 Korean menu label next tasks
+
+1. Confirm the deployed sidebar no longer shows `Dashboard`, `CMS`, `new`, `Mock/Test Beta`, or English mode labels.
+2. Keep `components/layout/navigation.ts` as the only place for admin/company/nursery menu label changes.
+3. Run a separate Korean copy cleanup for non-menu body text when the UI structure is approved.

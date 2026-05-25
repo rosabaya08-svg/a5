@@ -780,3 +780,16 @@
 - Verified 34 central sidebar links map to existing `app/**/page.tsx` files with 0 missing pages.
 - Added `reports/my-app/NAVIGATION_INTEGRITY.md`.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.
+
+## 2026-05-25 Korean menu label restoration
+
+- Restored visible sidebar menu labels to Korean in `components/layout/navigation.ts`.
+- Replaced visible English sidebar/top-bar labels:
+  - `Mock/Test Beta` -> `모의/테스트 베타`
+  - `CMS` -> `콘텐츠`
+  - `new` -> `신규`
+  - `White mode` / `Dark mode ready` -> `화이트 모드` / `다크 모드`
+  - `기업 Admin` / `산후조리원 Admin` -> `기업 관리자` / `산후조리원 관리자`
+- Replaced legacy menu arrays with the central Korean navigation source so old English menu labels do not reappear.
+- Firebase/PG behavior unchanged.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.

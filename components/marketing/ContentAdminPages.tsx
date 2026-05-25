@@ -10,45 +10,26 @@ import { mallBrands, mallHeroBanner, mallPromoBanners, marketingSlots, productPr
 import { mockProducts } from "@/data/mockProducts";
 import { formatCurrency } from "@/lib/utils/format";
 
-export const legacyAdminMarketingNav: NavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/marketing/banners", label: "배너 관리", badge: "new" },
-  { href: "/admin/marketing/videos", label: "영상 광고" },
-  { href: "/admin/brands", label: "브랜드관" },
-  { href: "/admin/home-editor", label: "홈 편집" },
-  { href: "/admin/exhibitions", label: "기획전" },
-  { href: "/admin/products", label: "상품 승인" },
-  { href: "/admin/audit-logs", label: "감사 로그" },
-];
-
-export const legacyCompanyContentNav: NavItem[] = [
-  { href: "/company/dashboard", label: "Dashboard" },
-  { href: "/company/products", label: "상품" },
-  { href: "/company/products/new", label: "상품 등록" },
-  { href: "/company/products/preview", label: "상세 미리보기", badge: "new" },
-  { href: "/company/ads/banners", label: "배너 광고" },
-  { href: "/company/ads/videos", label: "영상 광고" },
-  { href: "/company/brand", label: "브랜드관" },
-  { href: "/company/exhibitions", label: "기획전 참여" },
-];
+export const legacyAdminMarketingNav: NavItem[] = adminNavItems;
+export const legacyCompanyContentNav: NavItem[] = companyNavItems;
 
 function LiveFirebaseNotice({ owner }: { owner: "admin" | "company" }) {
   return (
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-black">Firebase live beta connected</h2>
+          <h2 className="font-black">파이어베이스 라이브 베타 연결됨</h2>
           <p className="mt-2 text-sm leading-6">
-            Firestore CMS and Firebase Storage uploads are connected for A5 closed mall beta.
+            파이어스토어 콘텐츠 관리와 파이어베이스 스토리지 업로드가 A5 폐쇄몰 베타에 연결되어 있습니다.
             {owner === "company"
-              ? " Company screens save with company_id scope and still require approval rules for exposure."
-              : " Admin screens manage banners, videos, home sections, detail pages, and media assets as live beta records."}
-            PG, orders, settlement, refunds, Alimtalk, delivery tracking, and external inventory remain blocked.
+              ? " 기업 화면은 입점사 범위로 저장되며, 실제 노출 전에는 관리자 승인 규칙이 필요합니다."
+              : " 최고관리자 화면은 배너, 영상, 홈 섹션, 상세페이지, 미디어 자산을 베타 기록으로 관리합니다."}
+            PG, 주문, 정산, 환불, 알림톡, 배송조회, 외부 재고는 계속 차단되어 있습니다.
           </p>
           <div className="hidden">
-          <h2 className="font-black">mock/test beta 전용 화면</h2>
+          <h2 className="font-black">모의/테스트 베타 전용 화면</h2>
           <p className="mt-2 text-sm leading-6">
-            Firestore CMS 저장과 Firebase Storage 업로드가 연결되었습니다.
+            파이어스토어 콘텐츠 관리 저장과 파이어베이스 스토리지 업로드가 연결되었습니다.
             {owner === "company"
               ? " 입점사 화면은 company_id scope로 저장되며, 실제 승인/노출은 관리자 권한과 rules를 따릅니다."
               : " 최고관리자 화면은 배너, 영상, 홈 섹션, 상세페이지, 미디어 자산을 live beta로 관리합니다."}
@@ -59,7 +40,7 @@ function LiveFirebaseNotice({ owner }: { owner: "admin" | "company" }) {
           </p>
           </div>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-900">Firestore + Storage connected</span>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-900">파이어스토어 + 스토리지 연결됨</span>
       </div>
     </section>
   );
@@ -71,7 +52,7 @@ function AdminContentShell({ title, subtitle, children }: { title: string; subti
       sectionTitle="콘텐츠 운영"
       title={title}
       subtitle={subtitle}
-      scopeLabel="SUPER_ADMIN / Firebase live beta"
+      scopeLabel="최고관리자 / 파이어베이스 베타"
       navItems={adminNavItems}
       accent="admin"
     >
@@ -90,7 +71,7 @@ function CompanyContentShell({ title, subtitle, children }: { title: string; sub
       sectionTitle="상품 콘텐츠"
       title={title}
       subtitle={subtitle}
-      scopeLabel="COMPANY_ADMIN / Firebase live beta"
+      scopeLabel="기업 관리자 / 파이어베이스 베타"
       navItems={companyNavItems}
       accent="company"
     >

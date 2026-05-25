@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
+import { companyNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -11,7 +12,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 const companyId = "company-sanho-care";
 
-const companyNav: NavItem[] = [
+export const legacyCompanyNavItems: NavItem[] = [
   { href: "/company/dashboard", label: "대시보드" },
   { href: "/company/products", label: "상품" },
   { href: "/company/products/new", label: "상품 등록" },
@@ -42,7 +43,7 @@ function CompanyShell({
       title={title}
       subtitle={subtitle}
       scopeLabel="COMPANY_ADMIN / company_id scoped"
-      navItems={companyNav}
+      navItems={companyNavItems}
       accent="company"
     >
       {children}

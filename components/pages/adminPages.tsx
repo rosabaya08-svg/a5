@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import type { NavItem } from "@/components/layout/AdminSidebar";
+import { adminNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -11,7 +11,7 @@ import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 
-const adminNav: NavItem[] = [
+export const legacyAdminNavItems = [
   { href: "/admin/dashboard", label: "대시보드" },
   { href: "/admin/companies", label: "입점사" },
   { href: "/admin/nurseries", label: "조리원" },
@@ -43,7 +43,7 @@ function AdminShell({
       title={title}
       subtitle={subtitle}
       scopeLabel="SUPER_ADMIN / mock"
-      navItems={adminNav}
+      navItems={adminNavItems}
       accent="admin"
     >
       {children}

@@ -770,3 +770,13 @@
 - Preserved Firebase products, PG handoff, cart, QR, and guest flow behavior; this change is visual only.
 - Intended A3 behavior: when the shopping tab is opened inside the A3 glassmorphism shell, A3 background graphics remain visible behind the A5 tablet webview.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.
+
+## 2026-05-25 Sidebar navigation integrity fix
+
+- Added `components/layout/navigation.ts` as the central source for admin, company, and nursery sidebar links.
+- Updated admin, admin CMS, company, company content, and nursery pages to use the same role-level menu definition.
+- Updated `AppShell` so sidebar title remains stable by role instead of changing to page-specific groups such as content operation.
+- Updated `AdminSidebar` with fixed desktop width, fixed height, internal scroll, stable item height, and active-route highlighting via `usePathname()`.
+- Verified 34 central sidebar links map to existing `app/**/page.tsx` files with 0 missing pages.
+- Added `reports/my-app/NAVIGATION_INTEGRITY.md`.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.

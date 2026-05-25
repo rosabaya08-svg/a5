@@ -347,3 +347,10 @@
 2. Confirm A3 glassmorphism background graphics remain visible because A5 no longer paints a hard white or black screen background.
 3. Confirm text contrast on translucent panels over A3 light/dark backgrounds.
 4. If needed, create a single tablet opacity token for panel strength instead of adding per-page hard backgrounds.
+
+## 2026-05-25 Sidebar navigation next tasks
+
+1. Visually compare `/admin/dashboard`, `/admin/marketing/banners`, `/admin/home-editor`, and `/admin/exhibitions` for identical sidebar title, order, width, and active state.
+2. Visually compare `/company/dashboard`, `/company/ads/banners`, `/company/products/preview`, and `/company/exhibitions` for identical sidebar behavior.
+3. Add every new sidebar route only through `components/layout/navigation.ts`.
+4. Promote the route-link check from manual PowerShell verification to a reusable CI script.

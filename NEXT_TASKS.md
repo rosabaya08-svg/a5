@@ -195,3 +195,10 @@
 2. Check that translucent A5 panels still keep product names, prices, QR codes, and cart totals readable over bright and dark A3 backgrounds.
 3. If A3 uses a very busy background, add a configurable tablet panel opacity token instead of restoring a hard page background.
 4. Keep customer mobile QR pages separate from this tablet transparency rule unless A3 also embeds those routes.
+
+## 2026-05-25 Sidebar navigation next tasks
+
+1. Browser smoke check `/admin/dashboard` to `/admin/marketing/banners` and verify the left menu title, width, item order, and active state do not shift.
+2. Browser smoke check `/company/dashboard` to `/company/ads/banners` and verify the same 기업 Admin menu remains visible.
+3. Keep all future admin/company/nursery sidebar additions inside `components/layout/navigation.ts` only.
+4. Add route-link validation to CI after the route list stabilizes.

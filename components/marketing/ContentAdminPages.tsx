@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FirebaseCmsManager } from "@/components/firebase/FirebaseCmsManager";
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
+import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -9,7 +10,7 @@ import { mallBrands, mallHeroBanner, mallPromoBanners, marketingSlots, productPr
 import { mockProducts } from "@/data/mockProducts";
 import { formatCurrency } from "@/lib/utils/format";
 
-const adminMarketingNav: NavItem[] = [
+export const legacyAdminMarketingNav: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/marketing/banners", label: "배너 관리", badge: "new" },
   { href: "/admin/marketing/videos", label: "영상 광고" },
@@ -20,7 +21,7 @@ const adminMarketingNav: NavItem[] = [
   { href: "/admin/audit-logs", label: "감사 로그" },
 ];
 
-const companyContentNav: NavItem[] = [
+export const legacyCompanyContentNav: NavItem[] = [
   { href: "/company/dashboard", label: "Dashboard" },
   { href: "/company/products", label: "상품" },
   { href: "/company/products/new", label: "상품 등록" },
@@ -71,7 +72,7 @@ function AdminContentShell({ title, subtitle, children }: { title: string; subti
       title={title}
       subtitle={subtitle}
       scopeLabel="SUPER_ADMIN / Firebase live beta"
-      navItems={adminMarketingNav}
+      navItems={adminNavItems}
       accent="admin"
     >
       <div className="grid gap-4">
@@ -90,7 +91,7 @@ function CompanyContentShell({ title, subtitle, children }: { title: string; sub
       title={title}
       subtitle={subtitle}
       scopeLabel="COMPANY_ADMIN / Firebase live beta"
-      navItems={companyContentNav}
+      navItems={companyNavItems}
       accent="company"
     >
       <div className="grid gap-4">

@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
+import { nurseryNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -10,7 +11,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 const nurseryId = "nursery-gangnam-01";
 
-const nurseryNav: NavItem[] = [
+export const legacyNurseryNavItems: NavItem[] = [
   { href: "/nursery/dashboard", label: "대시보드" },
   { href: "/nursery/rooms", label: "객실" },
   { href: "/nursery/tablets", label: "태블릿" },
@@ -34,7 +35,7 @@ function NurseryShell({
       title={title}
       subtitle={subtitle}
       scopeLabel="NURSERY_ADMIN / nursery_id scoped"
-      navItems={nurseryNav}
+      navItems={nurseryNavItems}
       accent="nursery"
     >
       {children}

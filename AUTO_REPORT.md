@@ -460,3 +460,18 @@
 | Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
 | Build | `npm.cmd run build` passed and generated 93 static routes |
 | Secret check | `npm.cmd run check:no-secrets` passed; `.env.local` remains local-only and untracked |
+
+## 25. 2026-05-25 Sidebar navigation integrity fix
+
+| Item | Result |
+| --- | --- |
+| Scope | Admin/company/nursery left sidebar consistency and route linkage |
+| Central nav | Added `components/layout/navigation.ts` as the single source for admin, company, and nursery sidebar links |
+| Admin CMS | `/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/home-editor`, `/admin/brands`, and `/admin/exhibitions` now use the same 최고관리자 menu as `/admin/dashboard` |
+| Company content | Company ad/brand/exhibition/product preview pages now use the same 기업 Admin menu as `/company/dashboard` |
+| Active state | Sidebar highlights the current route with `usePathname()` and keeps a fixed width/height/scroll layout |
+| Link check | 34 central sidebar routes checked against `app/**/page.tsx`; missing pages: 0 |
+| Report | Added `reports/my-app/NAVIGATION_INTEGRITY.md` |
+| Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 93 static routes |
+| Secret check | `npm.cmd run check:no-secrets` passed |

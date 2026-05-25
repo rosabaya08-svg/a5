@@ -24,11 +24,19 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const isDark = surface === "dark";
+  const sidebarTitle =
+    accent === "admin"
+      ? "최고관리자"
+      : accent === "company"
+        ? "기업 Admin"
+        : accent === "nursery"
+          ? "산후조리원 Admin"
+          : sectionTitle;
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-[#f6f7f9] text-slate-950"}`}>
       <div className="flex min-h-screen">
-        <AdminSidebar title={sectionTitle} navItems={navItems} accent={accent} surface={surface} />
+        <AdminSidebar title={sidebarTitle} navItems={navItems} accent={accent} surface={surface} />
         <div className="min-w-0 flex-1">
           <TopBar title={title} subtitle={subtitle} scopeLabel={scopeLabel} surface={surface} />
           <main className="px-4 py-5 md:px-6 md:py-6">{children}</main>

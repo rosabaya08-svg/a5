@@ -6,16 +6,16 @@ Last updated: 2026-05-25
 
 Firebase Functions v2 is the preferred first server runtime for A5 closed mall payment confirm, QR one-time-use control, order snapshot creation, inventory reservation, and webhook verification.
 
-The current code is still mock-only. It is now structured so PG keys and provider adapter code can be inserted without changing the checkout UI.
+The current server runtime is deployed and mock-provider-only. It writes beta Firestore payment/order snapshots and is structured so PG keys and provider adapter code can be inserted without changing the checkout UI.
 
 ## Exported HTTPS Functions
 
 | Function | Runtime intent | Current behavior |
 | --- | --- | --- |
-| `paymentsReady` | Prepare payment | Recalculates amount, validates QR skeleton, returns mock payment intent and PG readiness snapshot |
-| `paymentsConfirm` | Confirm payment | Recalculates amount, returns mock approval, order snapshot plan, inventory plan, audit plan |
-| `paymentsWebhook` | Receive PG event | Accepts payload, checks signature header presence, returns signature/idempotency plan |
-| `paymentsCancel` | Cancel/refund gate | Blocks real cancel/refund and returns manual review/settlement hold plan |
+| `paymentsReady` | Prepare payment | Recalculates amount, validates QR skeleton, writes `payment_intents/{id}`, returns PG readiness snapshot |
+| `paymentsConfirm` | Confirm payment | Recalculates amount, writes mock payment/order/order_items/payment_event/inventory/audit snapshots in a Firestore transaction |
+| `paymentsWebhook` | Receive PG event | Accepts payload, checks signature header presence, writes a `payment_events/{eventId}` skeleton |
+| `paymentsCancel` | Cancel/refund gate | Blocks real cancel/refund and writes a `cancel_requests/{id}` manual review record |
 
 ## Server PG Readiness
 
@@ -31,7 +31,7 @@ It never prints secret values. It only returns missing key names and readiness b
 
 ## Firestore Transaction Design
 
-Real write implementation must be added only after PG test keys and rules are approved.
+Mock-provider write implementation is active. Real PG provider calls must be added only after PG test keys, docs, and webhook signature rules are approved.
 
 Confirm transaction must:
 
@@ -63,12 +63,17 @@ Confirm transaction must:
 
 - `npm.cmd --prefix functions install`: completed. `functions/package-lock.json` was generated.
 - `npm.cmd --prefix functions run build`: passed.
-- Local Node is `v24.15.0`, while Functions package declares Node `20`; npm emitted an `EBADENGINE` warning. Firebase deploy should use the declared Node 20 runtime.
+- Functions package now declares Node `22`; local Node is `v24.15.0`, so npm still emits a local `EBADENGINE` warning only.
 - npm audit reported 9 moderate vulnerabilities in the Functions dependency tree. Review before production deploy.
+- `firebase.cmd deploy --only functions`: passed after setting the Artifact Registry cleanup policy.
+- Deployed URLs:
+  - `https://asia-northeast3-a5-closed-mall.cloudfunctions.net/paymentsReady`
+  - `https://asia-northeast3-a5-closed-mall.cloudfunctions.net/paymentsConfirm`
+  - `https://asia-northeast3-a5-closed-mall.cloudfunctions.net/paymentsWebhook`
+  - `https://asia-northeast3-a5-closed-mall.cloudfunctions.net/paymentsCancel`
 
 ## Deploy Blockers
 
-- Firebase Functions deploy approval is required.
 - PG official docs and test keys are required.
-- Firestore write rules/IAM plan must be confirmed.
 - Webhook callback URL must be registered with the PG company.
+- `firebase-functions` package is deployable but Firebase CLI warns it is not the newest available version.

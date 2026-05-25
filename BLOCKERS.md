@@ -68,16 +68,26 @@
 
 - PG provider official documentation is still required: browser module/script, ready/confirm/cancel API, webhook signature algorithm, sandbox console settings.
 - Real `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, service credentials, and provider keys are not stored in this repository and must only be entered into approved runtime secret stores.
-- Firebase Functions deploy is still not executed. Real PG confirm cannot run on the Cloudflare static export storefront.
+- Firebase Functions are deployed in mock-provider mode. Real PG provider calls still require official keys/docs and Secret Manager values.
 - Functions dependencies installed successfully, but npm reported 9 moderate audit findings that must be reviewed before production deploy.
-- Local Node is v24.15.0 while Functions declares Node 20; deploy/runtime validation must use Node 20.
+- Local Node is v24.15.0 while Functions declares Node 22; local npm emits an engine warning, but deployed runtime is Node 22.
 - Real cancel/refund/settlement payout remains blocked until refund policy, settlement hold, and admin approval flow are signed off.
 
 ## 2026-05-25 remaining blockers after Firebase live commerce
 
 - Real PG provider keys and official API documents are still required before replacing mock approval.
-- Firebase Functions are built locally but not deployed; real payment confirm/webhook/cancel must run in trusted server runtime.
+- Firebase Functions are deployed; real payment confirm/webhook/cancel still require the selected PG provider adapter and Secret Manager values.
 - Server secrets must be entered in Firebase Secret Manager, not in repository files or Cloudflare public variables.
-- Admin/company/nursery dashboards still contain mock aggregate views and should be converted after the storefront payment path is stable.
+- Admin/company/nursery dashboards still contain some mock aggregate summaries, but beta CMS/foundation records are now seeded and writable in Firestore.
 - App Check enforcement remains OFF until Cloudflare custom domain, localhost behavior, and reCAPTCHA domain coverage are verified.
 - Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-25 remaining blockers after Functions deployment
+
+- Firebase Functions are deployed in mock-provider mode. Real PG provider calls still require official PG docs, sandbox keys, and Secret Manager values.
+- `paymentsReady` and `paymentsConfirm` smoke tests passed, but they intentionally use mock approval only.
+- Webhook signature verification is still skeleton-only until the PG provider supplies the official algorithm and secret.
+- Real cancel/refund/settlement/payout remains blocked until finance policy, settlement hold, and admin approval workflow are signed off.
+- Alimtalk, delivery tracking, and external inventory integrations remain blocked until official accounts/API keys are issued.
+- Firebase App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA coverage are verified.
+- `firebase-functions` deploys, but Firebase CLI warns the package is not the newest available version; review before production payment launch.

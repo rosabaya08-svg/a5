@@ -15,6 +15,7 @@ import {
 import { assertAmount } from "../utils/assertAmount";
 import { validateQrSession } from "../qr/validateQrSession";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { getAdminDb } from "../firebaseAdmin";
 
 export async function paymentsReadyHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
@@ -86,6 +87,44 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
       ? "Mock payment intent is ready and server keys are present. Wire the approved PG adapter next."
       : "Mock payment intent is ready. Real PG module is still blocked until keys and adapter are approved.",
   };
+
+  try {
+    await getAdminDb()
+      .collection("payment_intents")
+      .doc(paymentIntent.id)
+      .set(
+        {
+          ...paymentIntent,
+          items,
+          client_amount: body.clientAmount ?? null,
+          recalculated_amount: recalculatedAmount,
+          short_code: body.shortCode ?? null,
+          cart_id: body.cartId ?? null,
+          nursery_id: body.nurseryId ?? null,
+          room_id: body.roomId ?? null,
+          tablet_id: body.tabletId ?? null,
+          provider: "mock",
+          pg_ready: pgReadiness.readyForAdapter,
+          source: "firebase_functions_mock_ready",
+          demo_read_enabled: true,
+          guest_lookup_enabled: true,
+          created_at: now.toISOString(),
+          expires_at: paymentIntent.expiresAt,
+        },
+        { merge: true },
+      );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Firestore write error.";
+    sendJson(response, 503, {
+      ok: false,
+      error: {
+        code: "PAYMENT_READY_FIRESTORE_WRITE_FAILED",
+        message,
+        httpStatus: 503,
+      },
+    });
+    return;
+  }
 
   sendJson(response, 200, result);
 }

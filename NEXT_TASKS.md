@@ -178,3 +178,13 @@
 5. Implement webhook signature verification and duplicate event protection before any real payment capture.
 6. Connect admin/company/nursery dashboards to Firestore aggregate reads after the customer payment path is stable.
 7. Keep refunds, settlements, payouts, Alimtalk, delivery tracking, and external inventory APIs blocked until official documents and keys are approved.
+
+## 2026-05-25 after Functions deployment next tasks
+
+1. Enter PG public browser keys into Cloudflare Pages only after the PG company issues the sandbox keys.
+2. Enter `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, merchant id, channel key, and API base URL into Firebase Secret Manager only.
+3. Replace the mock approval branch in `functions/src/payments/confirm.ts` with the selected PG provider confirm call.
+4. Replace webhook skeleton verification in `functions/src/payments/webhook.ts` with the official signature algorithm.
+5. Run sandbox success/fail/expired QR/amount mismatch/duplicate webhook tests.
+6. Convert admin/company/nursery aggregate summaries from mixed mock views to Firestore read-model views.
+7. Keep production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory blocked until policy and keys are approved.

@@ -29,8 +29,6 @@ const requiredEnv = [
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
   "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
   "NEXT_PUBLIC_FIREBASE_APP_ID",
-  "FIREBASE_SEED_EMAIL",
-  "FIREBASE_SEED_PASSWORD",
 ];
 
 const missing = requiredEnv.filter((key) => !process.env[key]);
@@ -259,17 +257,24 @@ const records = [
   },
 ];
 
-await signInWithEmailAndPassword(
-  auth,
-  process.env.FIREBASE_SEED_EMAIL,
-  process.env.FIREBASE_SEED_PASSWORD,
-);
+if (process.env.FIREBASE_SEED_EMAIL && process.env.FIREBASE_SEED_PASSWORD) {
+  await signInWithEmailAndPassword(
+    auth,
+    process.env.FIREBASE_SEED_EMAIL,
+    process.env.FIREBASE_SEED_PASSWORD,
+  );
+  console.log("Signed in with local seed account.");
+} else {
+  console.log("No seed account supplied. Using beta demo foundation rules only.");
+}
 
 for (const record of records) {
   await setDoc(
     doc(db, record.collection, record.id),
     {
       ...record.data,
+      demo_read_enabled: true,
+      guest_write_enabled: true,
       seeded_at: now(),
       updated_at: now(),
     },

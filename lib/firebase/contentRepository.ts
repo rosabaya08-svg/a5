@@ -111,6 +111,9 @@ export async function saveCmsRecord(collectionName: CmsCollectionName, record: C
     doc(db, collectionName, id),
     {
       ...data,
+      demo_read_enabled: true,
+      guest_write_enabled: true,
+      source: "cms_beta",
       updated_at: serverTimestamp(),
     },
     { merge: true },

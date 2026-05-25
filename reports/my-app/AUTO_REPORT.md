@@ -628,7 +628,7 @@
   - 기존 6개 주요 영역 카드 구조 유지
   - `자동 생성 결과 확인` 섹션 추가
   - `/mock-ui/status`, `/mock-ui`, `/tablet/products`, `/tablet/cart`, `/tablet/qr`, `/q/SANHO701`, `/q/SANHO701/checkout`, `/orders/guest/A5-20260519-001` 카드 추가
-  - 각 카드에 `mock/test beta`, `Firebase 연결 없음`, `PG 연결 없음`, `운영 배포 아님` 배지 추가
+  - 각 카드에 `Firebase beta live`, `Firestore commerce ready`, `PG module pending`, `No production payment` 배지 추가
 
 ### 수정된 status dashboard
 
@@ -707,7 +707,7 @@
 
 - `/products` route를 추가해 404를 해소
 - `/products`는 기존 `/tablet/products`의 `TabletProductsPage`를 재사용
-- 상단에 `mock/test beta`, `Firebase 연결 없음`, `PG 연결 없음`, `운영 배포 아님` 배지 표시
+- 상단에 `Firebase beta live`, `Firestore commerce ready`, `PG module pending`, `No production payment` 배지 표시
 - `/mock-ui/status` route map에 `/products` 추가
 - `/mock-ui/status`에 전체 worktree route status matrix 추가
 - `/mock-ui/status`에 route별 404 status matrix 추가
@@ -746,3 +746,18 @@
 - Seeded Firestore product options, QR sessions, guest orders, and order items without a service account key.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `npm.cmd run check:no-secrets`.
 - Remaining real-payment boundary: PG provider SDK/keys, Functions secrets, confirm/webhook/cancel implementation, and production refund/settlement policy.
+
+## 2026-05-25 Firebase CMS, Storage, and Functions deployment
+
+- Deployed Firestore and Storage rules for beta CMS/foundation data and A5 media upload paths.
+- Seeded Firestore foundation data: companies, nursery, room, tablet, brands, home section, marketing banner/video, exhibition, tablet home config, and product detail page.
+- Upgraded Functions runtime declaration to Node 22 and rebuilt successfully.
+- Implemented Firestore writes inside Functions:
+  - `paymentsReady` writes payment intent documents.
+  - `paymentsConfirm` writes mock payment, order, order_items, payment_events, inventory_movements, QR paid marker, and audit log documents in a transaction.
+  - `paymentsWebhook` writes webhook event skeletons.
+  - `paymentsCancel` writes cancel request manual review documents.
+- Deployed `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, and `paymentsCancel` to `asia-northeast3`.
+- Set Artifact Registry cleanup policy to 7 days.
+- Smoke tested `paymentsReady` and `paymentsConfirm` HTTPS endpoints successfully in mock mode.
+- Re-seeded commerce demo data after smoke so the fixed demo QR/session routes remain usable.

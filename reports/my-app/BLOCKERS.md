@@ -158,8 +158,8 @@
 - QA scripts are local only and not yet connected to CI or Cloudflare build step.
 - Functions dependencies are declared but not installed in this task; `functions/node_modules` is absent.
 - `firebase.json` and `.firebaserc` are not created.
-- Functions deploy is prohibited.
-- Firestore write transaction is skeleton only.
+- Functions are deployed in mock-provider mode.
+- Firestore write transaction is implemented for mock payment confirm snapshots.
 - PG 테스트/운영 키와 공식 문서 미수령.
 - Static export 화면만으로는 PG secret confirm 불가. 서버 runtime 필요.
 - 실제 PG 승인/취소/환불/정산 실행 금지.
@@ -173,7 +173,7 @@
 - Real PG provider documents and sandbox keys are not received yet.
 - Real provider SDK/script is not imported yet.
 - Real PG confirm/cancel/refund/webhook calls are intentionally blocked.
-- Firebase Functions are built locally but not deployed.
+- Firebase Functions are deployed in mock-provider mode.
 - Secret Manager values are not created from this workspace.
 - Functions install reported 9 moderate audit findings.
 - Local Node v24 differs from Functions Node 20 engine.
@@ -181,8 +181,19 @@
 ## 2026-05-25 remaining blockers after Firebase live commerce
 
 - Real PG provider documents and keys are still missing.
-- Firebase Functions deploy is still pending; real PG confirm/webhook/cancel cannot be trusted from static export pages.
+- Firebase Functions are deployed; real PG confirm/webhook/cancel still require PG provider adapter and Secret Manager values.
 - PG server secrets, webhook secrets, and provider credentials must go to Firebase Secret Manager only.
 - Admin/company/nursery dashboards still need Firestore aggregate read conversion.
+- App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA domain coverage are verified.
+- Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory integrations remain blocked.
+
+## 2026-05-25 remaining blockers after Functions deployment
+
+- Firebase Functions are deployed in mock-provider mode at `asia-northeast3`.
+- Real PG provider documents and keys are still missing, so no real PG capture/cancel/refund/webhook verification is active.
+- PG server secrets, webhook secrets, and provider credentials must go to Firebase Secret Manager only.
+- `firebase-functions` package is deployable but Firebase CLI warns it is not the newest available package.
+- Local Node v24 differs from Functions runtime Node 22; build passes, but local engine warning remains.
+- Admin/company/nursery dashboards still need final aggregate read-model conversion, but CMS/foundation records are seeded and beta writable in Firestore.
 - App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA domain coverage are verified.
 - Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory integrations remain blocked.

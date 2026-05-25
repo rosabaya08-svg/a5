@@ -75,9 +75,10 @@ This is the route index for `localhost:3000` in the `my-app` worktree. Customer 
 ## Safety badges used on the home launcher
 
 - `mock/test beta`
-- `Firebase 연결 없음`
-- `PG 연결 없음`
-- `운영 배포 아님`
+- `Firebase beta live`
+- `Firestore commerce ready`
+- `PG module pending`
+- `No production payment`
 
 ## Live integration status
 

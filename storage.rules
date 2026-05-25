@@ -40,6 +40,11 @@ service firebase.storage {
         request.resource.contentType.matches("image/.*");
     }
 
+    function betaCmsUpload() {
+      return request.resource != null &&
+        request.resource.metadata.source == "a5-cms-beta";
+    }
+
     function under(sizeInMb) {
       return request.resource == null ||
         request.resource.size < sizeInMb * 1024 * 1024;
@@ -47,22 +52,22 @@ service firebase.storage {
 
     match /public/storefront/{fileName=**} {
       allow read: if true;
-      allow write: if isSuperAdmin() && (isImage() || isVideo()) && under(50);
+      allow write: if ((isSuperAdmin() || betaCmsUpload()) && (isImage() || isVideo()) && under(50));
     }
 
     match /companies/{companyId}/products/{productId}/images/{fileName=**} {
       allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isImage() && under(15);
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isImage() && under(15);
     }
 
     match /companies/{companyId}/products/{productId}/gifs/{fileName=**} {
       allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isImage() && under(25);
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isImage() && under(25);
     }
 
     match /companies/{companyId}/products/{productId}/videos/{fileName=**} {
       allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isVideo() && under(100);
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isVideo() && under(100);
     }
 
     match /companies/{companyId}/onboarding/{fileName=**} {
@@ -75,7 +80,7 @@ service firebase.storage {
 
     match /companies/{companyId}/ad-materials/{fileName=**} {
       allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && (isImage() || isVideo()) && under(100);
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && (isImage() || isVideo()) && under(100);
     }
 
     match /nurseries/{nurseryId}/business-documents/{fileName=**} {

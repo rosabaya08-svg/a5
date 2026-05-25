@@ -7,6 +7,8 @@ import {
   type PaymentWebhookRequest,
 } from "./types";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { getAdminDb } from "../firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export async function paymentsWebhookHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
@@ -14,6 +16,28 @@ export async function paymentsWebhookHandler(request: HttpRequestLike, response:
   const body = readObjectBody<PaymentWebhookRequest>(request);
   const signature = request.get?.("x-pg-signature") ?? request.get?.("x-webhook-signature") ?? "";
   const pgReadiness = getPgServerReadiness();
+  const eventId = String(body.eventId ?? `missing-event-${Date.now()}`);
+
+  await getAdminDb()
+    .collection("payment_events")
+    .doc(eventId)
+    .set(
+      {
+        event_id: eventId,
+        event_type: body.eventType ?? "unknown",
+        order_no: body.orderNo ?? null,
+        payment_key: body.paymentKey ?? null,
+        transaction_id: body.transactionId ?? null,
+        amount: body.amount ?? null,
+        signature_present: Boolean(signature),
+        signature_verified: false,
+        mode: "signature_skeleton_only",
+        source: "firebase_functions_webhook_skeleton",
+        demo_read_enabled: true,
+        updated_at: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
   sendJson(response, 200, {
     ok: true,
@@ -22,7 +46,7 @@ export async function paymentsWebhookHandler(request: HttpRequestLike, response:
     pgReadiness,
     verified: false,
     mode: "signature_skeleton_only",
-    receivedEventId: body.eventId ?? "missing-event-id",
+    receivedEventId: eventId,
     receivedEventType: body.eventType ?? "unknown",
     signaturePresent: Boolean(signature),
     firestoreTransactionPlan: [

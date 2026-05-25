@@ -151,9 +151,9 @@ function IntegrationStatusGrid() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-500">Live integration status</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">All production connections remain closed</h2>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Firebase beta connected / production gates controlled</h2>
         </div>
-        <ToneBadge tone="blocked" label="no live integration" />
+        <ToneBadge tone="progress" label="PG keys pending" />
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {integrationStatuses.map((item) => (
@@ -372,7 +372,7 @@ export function StatusDashboard() {
                 <ToneBadge tone="mock" label={statusDashboard.mode} />
                 <ToneBadge tone="blocked" label="not production" />
                 <ToneBadge tone="blocked" label="no real payment" />
-                <ToneBadge tone="blocked" label="no Firebase connection" />
+                <ToneBadge tone="complete" label="Firebase beta connected" />
               </div>
             </div>
             <aside className="rounded-md bg-white p-4 text-slate-950">

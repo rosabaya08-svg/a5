@@ -431,3 +431,18 @@
 | PG boundary | Checkout remains PG-module-ready but still uses mock approval until official PG keys/docs are received |
 | Validation | `npm.cmd run lint`, root `npm.cmd run build`, functions build, and `npm.cmd run check:no-secrets` passed |
 | Secrets | `.env.local` remains local-only and untracked; no service account, private key, PG secret, or reCAPTCHA secret was committed |
+
+## 23. 2026-05-25 Firebase CMS, Storage, and Functions deployment
+
+| Item | Result |
+| --- | --- |
+| Firestore rules | Deployed updated beta CMS/foundation rules to `a5-closed-mall` |
+| Storage rules | Deployed beta CMS upload rules for storefront/product/ad media paths |
+| Foundation seed | Seeded companies, nurseries, rooms, tablets, brands, home sections, marketing banners/videos, exhibitions, tablet home config, and product detail page records |
+| Functions runtime | Upgraded Functions engine declaration to Node 22 |
+| Functions writes | `paymentsReady` writes payment intents; `paymentsConfirm` writes payment/order/order_items/payment_event/inventory/audit snapshots; `paymentsWebhook` writes event skeletons; `paymentsCancel` writes manual review cancel requests |
+| Functions deploy | `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, and `paymentsCancel` deployed to `asia-northeast3` |
+| Artifact cleanup | Set Cloud Functions Artifact Registry cleanup policy to delete images older than 7 days |
+| Endpoint smoke | `paymentsReady` and `paymentsConfirm` HTTPS smoke calls returned success in mock mode |
+| Demo reset | Re-seeded commerce data after smoke so `SANHO701` returns to demo state |
+| Remaining PG gate | Real provider SDK/API call, PG secrets, webhook signature validation, cancel/refund/settlement policy remain pending |

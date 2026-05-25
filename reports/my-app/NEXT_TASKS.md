@@ -331,3 +331,12 @@
 5. Deploy Firebase Functions only after Node 20 and npm audit findings are resolved.
 6. Convert admin/company/nursery aggregate dashboards from mockApi to Firestore read models after customer payment flow is stable.
 7. Keep real refunds, settlements, payouts, Alimtalk, delivery tracking, and external inventory blocked.
+
+## 2026-05-25 after Functions deployment next tasks
+
+1. Add PG sandbox public keys to Cloudflare Pages and server keys to Firebase Secret Manager.
+2. Swap the mock provider branch in deployed Functions for the official PG confirm/cancel/webhook adapter.
+3. Run sandbox PG success, failure, expired QR, duplicate webhook, and amount mismatch tests.
+4. Convert admin/company/nursery dashboards to Firestore aggregate read models.
+5. Decide when to enable App Check enforcement after Cloudflare domain and reCAPTCHA coverage are confirmed.
+6. Review `firebase-functions` package update warning and 9 moderate npm audit findings before production payment launch.

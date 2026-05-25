@@ -1,6 +1,8 @@
 import { releaseInventorySkeleton } from "../inventory/releaseInventory";
 import { appendAuditLogSkeleton, createAuditLogDraft } from "../utils/auditLog";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { getAdminDb } from "../firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   normalizeCartItems,
   readObjectBody,
@@ -39,6 +41,23 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
       message: "Real PG cancel/refund is blocked until PG and settlement policy approval.",
     }),
   );
+
+  await getAdminDb()
+    .collection("cancel_requests")
+    .doc(`${orderNo}-${Date.now()}`)
+    .set({
+      order_no: orderNo,
+      payment_key: body.paymentKey ?? null,
+      amount: body.amount ?? null,
+      reason: body.reason ?? "No reason supplied",
+      requested_by: body.requestedBy ?? "CUSTOMER_GUEST",
+      status: "manual_review_required",
+      pg_cancel_called: false,
+      source: "firebase_functions_cancel_blocked",
+      demo_read_enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
 
   sendJson(response, 200, {
     ok: false,

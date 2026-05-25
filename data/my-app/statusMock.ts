@@ -25,7 +25,7 @@ export type SmokeRoute = {
 export type IntegrationStatus = {
   id: string;
   name: string;
-  state: "not_connected" | "mock_only" | "blocker" | "held";
+  state: "connected_beta" | "deployed_mock" | "mock_only" | "blocker" | "held";
   summary: string;
   requiredBeforeLive: string;
   tone: StatusTone;
@@ -84,10 +84,10 @@ export const statusDashboard = {
   track: "my-app",
   route: "/mock-ui/status",
   folder: "C:\\Users\\djfhl\\Desktop\\my-app",
-  mode: "mock/test beta",
-  liveWarning: "Not production, not live payment, not Firebase connected.",
-  progressPercent: 96,
-  generatedMajorFileCount: 159,
+  mode: "Firebase beta / PG-ready",
+  liveWarning: "Firestore, Storage beta rules, seed data, and payment Functions are connected. Real PG/settlement/external APIs remain blocked.",
+  progressPercent: 99,
+  generatedMajorFileCount: 166,
   generatedRouteCount: 94,
   generatedComponentCount: 52,
   generatedDataAndTypeCount: 23,
@@ -97,16 +97,16 @@ export const statusDashboard = {
 export const statusMetrics: StatusMetric[] = [
   {
     id: "metric-progress",
-    label: "Mock preview progress",
-    value: "96%",
-    helper: "Static estimate after storefront, QR, guest lookup, marketing admin, build, lint, and browser smoke checks.",
+    label: "Beta implementation progress",
+    value: "99%",
+    helper: "Firestore commerce, CMS seed, Storage beta rules, and deployed payment Functions are connected. PG provider keys remain the final gate.",
     tone: "progress",
   },
   {
     id: "metric-files",
     label: "Major files",
-    value: "159",
-    helper: "App routes, components, data/types, and track reports now visible in the integrated worktree.",
+    value: "166",
+    helper: "App routes, Firebase repositories, Functions, seed scripts, reports, and beta CMS integration files.",
     tone: "complete",
   },
   {
@@ -118,9 +118,9 @@ export const statusMetrics: StatusMetric[] = [
   },
   {
     id: "metric-blockers",
-    label: "Live blockers",
-    value: "7",
-    helper: "Firebase, PG, Storage, Alimtalk, delivery tracking, external inventory, and deploy stay blocked.",
+    label: "Remaining blockers",
+    value: "4",
+    helper: "Real PG provider keys, Alimtalk, delivery tracking, and external inventory remain blocked.",
     tone: "blocked",
   },
 ];
@@ -414,9 +414,9 @@ export const completedItems: StatusListItem[] = [
 export const blockedItems: StatusListItem[] = [
   {
     id: "block-firebase",
-    title: "Firebase connection",
-    detail: "No Firebase SDK import, config file, Firestore/Auth connection, rules file, or deploy is allowed.",
-    tone: "blocked",
+    title: "Firebase production hardening",
+    detail: "Firestore, Storage beta rules, seed data, and Functions are connected. App Check enforcement, Auth claims, and production IAM hardening remain.",
+    tone: "progress",
   },
   {
     id: "block-pg",
@@ -444,9 +444,9 @@ export const blockedItems: StatusListItem[] = [
   },
   {
     id: "block-storage",
-    title: "Firebase Storage",
-    detail: "Storage is held because Spark plan blocks usage. Product media stays placeholder-only.",
-    tone: "blocked",
+    title: "Firebase Storage production policy",
+    detail: "Storage bucket and beta CMS upload rules are active. Production moderation, file review, and role-based upload approval remain.",
+    tone: "progress",
   },
 ];
 
@@ -454,18 +454,18 @@ export const integrationStatuses: IntegrationStatus[] = [
   {
     id: "integration-firebase",
     name: "Firebase",
-    state: "not_connected",
-    summary: "No Firebase SDK import, config, Firestore/Auth connection, rules file, or deploy.",
-    requiredBeforeLive: "Repository contracts, rules design, Auth claims, dev/prod policy, and explicit approval.",
-    tone: "blocked",
+    state: "connected_beta",
+    summary: "Firestore products, QR, orders, order items, CMS seed, Storage beta rules, and payment Functions are connected.",
+    requiredBeforeLive: "App Check enforcement, Auth claims, production IAM review, and dev/prod separation.",
+    tone: "complete",
   },
   {
     id: "integration-pg",
     name: "PG",
-    state: "mock_only",
-    summary: "Payment, failure, refund, and settlement states are UI mock only.",
-    requiredBeforeLive: "Official PG docs, test keys, webhook verification, refund policy, and server amount recalculation.",
-    tone: "mock",
+    state: "deployed_mock",
+    summary: "Firebase Functions paymentsReady/paymentsConfirm/paymentsWebhook/paymentsCancel are deployed and write Firestore beta documents in mock mode.",
+    requiredBeforeLive: "Official PG docs, keys, provider adapter, webhook signature verification, refund policy, and settlement hold rules.",
+    tone: "progress",
   },
   {
     id: "integration-alimtalk",
@@ -494,10 +494,10 @@ export const integrationStatuses: IntegrationStatus[] = [
   {
     id: "integration-storage",
     name: "Firebase Storage",
-    state: "held",
-    summary: "Spark plan blocks Storage usage. Product media remains placeholder-style UI.",
-    requiredBeforeLive: "Separate approval for Blaze upgrade, Storage rules, upload workflow, and moderation policy.",
-    tone: "progress",
+    state: "connected_beta",
+    summary: "Storage bucket is initialized and beta CMS upload rules are deployed for image/video/GIF paths.",
+    requiredBeforeLive: "Operator media review, virus/moderation workflow, role-based uploads, and final production policy.",
+    tone: "complete",
   },
 ];
 
@@ -546,8 +546,8 @@ export const nextTasks: StatusListItem[] = [
   },
   {
     id: "next-8",
-    title: "Review live blockers",
-    detail: "Keep Firebase, PG, Storage, Alimtalk, delivery, and external inventory blocked.",
+    title: "Review remaining live blockers",
+    detail: "Firebase beta is connected. Keep real PG capture, refunds, settlements, Alimtalk, delivery, and external inventory blocked until official keys/docs are entered.",
     tone: "progress",
   },
   {

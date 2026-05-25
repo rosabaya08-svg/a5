@@ -10,6 +10,7 @@ import {
   uploadCmsFile,
   type CmsCollectionName,
   type CmsRecord,
+  type CmsUploadScope,
 } from "@/lib/firebase/contentRepository";
 
 type CmsMode = "admin" | "company" | "nursery" | "tablet";
@@ -40,14 +41,14 @@ const tabs: Array<{
   {
     id: "banners",
     label: "Banner",
-    collection: "banner_campaigns",
+    collection: "marketing_banners",
     prefix: "banner",
     helper: "Main hero, popup, tablet banner, brand strip exposure.",
   },
   {
     id: "videos",
     label: "Video",
-    collection: "ad_video_campaigns",
+    collection: "marketing_videos",
     prefix: "video",
     helper: "Video ad slot, poster, schedule, target and approval status.",
   },
@@ -61,14 +62,14 @@ const tabs: Array<{
   {
     id: "theme",
     label: "Theme",
-    collection: "theme_configs",
+    collection: "home_sections",
     prefix: "theme",
     helper: "Dark, white and system mode token selection.",
   },
   {
     id: "exposure",
     label: "Exposure",
-    collection: "content_targets",
+    collection: "tablet_home_configs",
     prefix: "target",
     helper: "Nursery, room, tablet and QR audience targeting rules.",
   },
@@ -89,9 +90,52 @@ const emptyForm: FormState = {
   themeMode: "light",
 };
 
+const defaultScope = {
+  companyId: "company-sanho-care",
+  nurseryId: "nursery-gangnam-01",
+  roomId: "room-701",
+  tabletId: "tablet-701-a",
+};
+
 function valueOf(record: CmsRecord, key: string) {
   const value = record[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function scopeForMode(mode: CmsMode, productId?: string): CmsUploadScope {
+  if (mode === "company") {
+    return { companyId: defaultScope.companyId, productId };
+  }
+
+  if (mode === "nursery") {
+    return { nurseryId: defaultScope.nurseryId, roomId: defaultScope.roomId, tabletId: defaultScope.tabletId, productId };
+  }
+
+  if (mode === "tablet") {
+    return { nurseryId: defaultScope.nurseryId, roomId: defaultScope.roomId, tabletId: defaultScope.tabletId, productId };
+  }
+
+  return { companyId: defaultScope.companyId, productId };
+}
+
+function firestoreScopeForMode(mode: CmsMode) {
+  if (mode === "company") {
+    return { company_id: defaultScope.companyId };
+  }
+
+  if (mode === "nursery") {
+    return { nursery_id: defaultScope.nurseryId };
+  }
+
+  if (mode === "tablet") {
+    return {
+      nursery_id: defaultScope.nurseryId,
+      room_id: defaultScope.roomId,
+      tablet_id: defaultScope.tabletId,
+    };
+  }
+
+  return {};
 }
 
 export function FirebaseCmsManager({
@@ -108,11 +152,11 @@ export function FirebaseCmsManager({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [file, setFile] = useState<File | null>(null);
   const [records, setRecords] = useState<Record<CmsCollectionName, CmsRecord[]>>({
-    banner_campaigns: [],
-    ad_video_campaigns: [],
+    marketing_banners: [],
+    marketing_videos: [],
     product_detail_pages: [],
-    theme_configs: [],
-    content_targets: [],
+    home_sections: [],
+    tablet_home_configs: [],
     media_assets: [],
   });
   const [message, setMessage] = useState("");
@@ -176,6 +220,7 @@ export function FirebaseCmsManager({
       const id = form.id || createCmsId(active.prefix);
       const payload: CmsRecord = {
         id,
+        ...firestoreScopeForMode(mode),
         title: form.title || `${active.label} draft`,
         placement: form.placement,
         target: form.target,
@@ -196,15 +241,18 @@ export function FirebaseCmsManager({
       await saveCmsRecord(active.collection, payload);
 
       if (file) {
-        const uploaded = await uploadCmsFile(active.collection, id, file);
+        const uploadScope = scopeForMode(mode, form.productId || id);
+        const uploaded = await uploadCmsFile(active.collection, id, file, uploadScope);
         await saveCmsRecord(active.collection, {
           id,
+          ...firestoreScopeForMode(mode),
           asset_url: uploaded.url,
           asset_path: uploaded.path,
           asset_type: uploaded.assetType,
         });
         await saveCmsRecord("media_assets", {
           id: `asset-${id}`,
+          ...firestoreScopeForMode(mode),
           title: file.name,
           asset_type: uploaded.assetType,
           asset_url: uploaded.url,
@@ -246,8 +294,8 @@ export function FirebaseCmsManager({
           <p className="text-xs font-black uppercase text-slate-500">Firebase live CMS</p>
           <h2 className="mt-1 text-2xl font-black">a5-closed-mall content control</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-            Firestore CMS records can be reviewed in beta, but Firebase Storage upload is blocked in this phase.
-            Use mock placeholders until a separate Storage approval is recorded.
+            Firestore CMS records and Firebase Storage uploads are connected for beta. PG, orders, settlement, and
+            external APIs remain blocked until server-side approval logic is complete.
           </p>
         </div>
         <ThemeModeToggle />

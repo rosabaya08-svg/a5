@@ -266,6 +266,15 @@
 4. 수동 smoke가 끝난 뒤 ROUTE_INDEX와 VISUAL_SMOKE_PLAN의 누락 route를 보정한다.
 # my-app Next Tasks
 
+## 2026-05-25 Firebase automatic integration next tasks
+
+1. Deploy updated Firestore/Storage rules after local validation.
+2. Run `npm.cmd run seed:firestore:foundation` after confirming the seed account has `seed_admin` or `SUPER_ADMIN`.
+3. Confirm the account and claims matrix for owner/admin/company/nursery/tablet actors.
+4. Verify Firebase CMS pages with live Firestore and Storage upload.
+5. Keep order/payment writes blocked until Functions PG server flow is deployed.
+6. Add a no-secret Custom Claims assignment procedure using trusted runtime only.
+
 ## 2026-05-25 Firebase products read next tasks
 
 1. After GitHub push and Cloudflare auto deploy, visually verify `/products`, `/tablet/products`, `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-bag`, and `/tablet/products/product-tea`.
@@ -301,3 +310,24 @@
 6. Storage Blaze/Rules 승인 전까지 업로드 기능은 placeholder로 유지한다.
 7. A4 연동용 external id 규칙을 실제 A4 데이터와 맞춘다.
 8. `<img>` warning은 배포 이미지 전략 확정 후 처리한다.
+
+## 2026-05-25 PG module handoff next tasks
+
+1. Collect PG official sandbox documents, client key, MID, channel key, secret key, webhook secret, success/fail/webhook URL rules.
+2. Put only `NEXT_PUBLIC_PG_*` values into Cloudflare Pages.
+3. Put `PG_SECRET_KEY` and `PG_WEBHOOK_SECRET` into Firebase Functions Secret Manager.
+4. Implement provider-specific wrapper for `window.A5PgProvider.requestPayment(payload)`.
+5. Replace mock approval inside `functions/src/payments/confirm.ts` with provider confirm after server amount recalculation.
+6. Implement webhook signature verification and duplicate event guard.
+7. Run PG sandbox success/fail/expired QR/duplicate payment/amount mismatch tests.
+8. Resolve Functions Node 20 local/runtime mismatch and npm audit findings before production deploy.
+
+## 2026-05-25 Firebase live commerce next tasks
+
+1. Verify Cloudflare production storefront pages show Firestore live data, not mock fallback.
+2. Keep beta/demo Firestore writes limited to cart, QR session, order snapshot, payment event, inventory movement, and audit log paths.
+3. Collect the official PG browser module, server confirm API, cancel API, webhook signature algorithm, sandbox MID/channel key, and secret key.
+4. Put browser-safe `NEXT_PUBLIC_PG_*` values in Cloudflare only; put PG secrets in Firebase Secret Manager only.
+5. Deploy Firebase Functions only after Node 20 and npm audit findings are resolved.
+6. Convert admin/company/nursery aggregate dashboards from mockApi to Firestore read models after customer payment flow is stable.
+7. Keep real refunds, settlements, payouts, Alimtalk, delivery tracking, and external inventory blocked.

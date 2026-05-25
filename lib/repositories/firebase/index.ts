@@ -6,7 +6,7 @@ import { firebasePaymentRepository } from "@/lib/repositories/firebase/firebaseP
 import { firebaseProductRepository } from "@/lib/repositories/firebase/firebaseProductRepository";
 import { firebaseQrSessionRepository } from "@/lib/repositories/firebase/firebaseQrSessionRepository";
 
-export const firebaseRepositoryStubs: CommerceRepositories = {
+export const firebaseRepositories: CommerceRepositories = {
   products: firebaseProductRepository,
   qrSessions: firebaseQrSessionRepository,
   orders: firebaseOrderRepository,
@@ -14,6 +14,8 @@ export const firebaseRepositoryStubs: CommerceRepositories = {
   inventory: firebaseInventoryRepository,
   auditLogs: firebaseAuditLogRepository,
 };
+
+export const firebaseRepositoryStubs = firebaseRepositories;
 
 export {
   firebaseAuditLogRepository,

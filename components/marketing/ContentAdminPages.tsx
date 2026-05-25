@@ -31,18 +31,34 @@ const companyContentNav: NavItem[] = [
   { href: "/company/exhibitions", label: "기획전 참여" },
 ];
 
-function MockNotice({ owner }: { owner: "admin" | "company" }) {
+function LiveFirebaseNotice({ owner }: { owner: "admin" | "company" }) {
   return (
-    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+    <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <h2 className="font-black">Firebase live beta connected</h2>
+          <p className="mt-2 text-sm leading-6">
+            Firestore CMS and Firebase Storage uploads are connected for A5 closed mall beta.
+            {owner === "company"
+              ? " Company screens save with company_id scope and still require approval rules for exposure."
+              : " Admin screens manage banners, videos, home sections, detail pages, and media assets as live beta records."}
+            PG, orders, settlement, refunds, Alimtalk, delivery tracking, and external inventory remain blocked.
+          </p>
+          <div className="hidden">
           <h2 className="font-black">mock/test beta 전용 화면</h2>
           <p className="mt-2 text-sm leading-6">
+            Firestore CMS 저장과 Firebase Storage 업로드가 연결되었습니다.
+            {owner === "company"
+              ? " 입점사 화면은 company_id scope로 저장되며, 실제 승인/노출은 관리자 권한과 rules를 따릅니다."
+              : " 최고관리자 화면은 배너, 영상, 홈 섹션, 상세페이지, 미디어 자산을 live beta로 관리합니다."}
+            PG, 주문, 정산, 환불, 알림톡, 배송조회, 외부 재고 API는 아직 차단 상태입니다.
+            <br />
             이미지 업로드, 영상 업로드, Firebase Storage, 광고 승인 write, 실제 노출 스케줄러는 연결하지 않습니다.
             {owner === "company" ? " 입점사는 승인 요청 전 미리보기와 제출 상태만 확인합니다." : " 최고관리자는 편성/승인/성과 상태만 mock으로 검토합니다."}
           </p>
+          </div>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-900">Storage Blaze blocker</span>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-900">Firestore + Storage connected</span>
       </div>
     </section>
   );
@@ -54,12 +70,12 @@ function AdminContentShell({ title, subtitle, children }: { title: string; subti
       sectionTitle="콘텐츠 운영"
       title={title}
       subtitle={subtitle}
-      scopeLabel="SUPER_ADMIN / marketing mock"
+      scopeLabel="SUPER_ADMIN / Firebase live beta"
       navItems={adminMarketingNav}
       accent="admin"
     >
       <div className="grid gap-4">
-        <MockNotice owner="admin" />
+        <LiveFirebaseNotice owner="admin" />
         <FirebaseCmsManager mode="admin" compact />
         {children}
       </div>
@@ -73,12 +89,12 @@ function CompanyContentShell({ title, subtitle, children }: { title: string; sub
       sectionTitle="상품 콘텐츠"
       title={title}
       subtitle={subtitle}
-      scopeLabel="COMPANY_ADMIN / content mock"
+      scopeLabel="COMPANY_ADMIN / Firebase live beta"
       navItems={companyContentNav}
       accent="company"
     >
       <div className="grid gap-4">
-        <MockNotice owner="company" />
+        <LiveFirebaseNotice owner="company" />
         <FirebaseCmsManager mode="company" defaultTab="detail" compact />
         {children}
       </div>

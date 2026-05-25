@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A5 기술 실현 수준 보고서</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d6678;
+      --line: #d8dee9;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --soft: #eef7f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+      line-height: 1.62;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 48px 28px 72px;
+    }
+    h1 {
+      margin: 0 0 18px;
+      padding-bottom: 18px;
+      border-bottom: 3px solid var(--accent);
+      font-size: 34px;
+      line-height: 1.22;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 42px 0 14px;
+      font-size: 24px;
+      border-left: 5px solid var(--accent);
+      padding-left: 12px;
+    }
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 19px;
+      color: #1f3d4d;
+    }
+    p { margin: 10px 0; }
+    strong { color: #0b5f59; }
+    code {
+      padding: 2px 5px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--panel);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      table-layout: fixed;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 11px;
+      vertical-align: top;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+    th {
+      background: var(--soft);
+      color: #153b39;
+      text-align: left;
+      font-weight: 700;
+    }
+    tr:nth-child(even) td { background: #fbfcfe; }
+    ul, ol { margin: 8px 0 8px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    .link { color: var(--accent); }
+    @media print {
+      body { background: #fff; }
+      main { max-width: none; padding: 24mm 18mm; }
+      h1, h2, h3 { page-break-after: avoid; }
+      table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>A5 기술 실현 수준 보고서</h1>
+    <p>작성 기준: 2026-05-25 14:16 KST 대상 경로: <code>C:\Users\djfhl\Desktop\my-app</code> 판단 기준: 현재 로컬 코드, 기존 상태 문서, 방금 실행한 검증 명령 결과</p>
+    <h2>1. 종합 판정</h2>
+    <p>A5는 현재 <strong>상용 운영 직전 단계가 아니라, 폐쇄몰 서비스의 화면/데이터 구조/통합 경계가 상당 부분 구현된 베타 기술 검증 단계</strong>입니다.</p>
+    <p>정리하면 다음 수준까지 실현되어 있습니다.</p>
+    <table>
+    <thead><tr><th>영역</th><th>현재 수준</th><th>판정</th></tr></thead>
+    <tbody>
+    <tr><td>고객/태블릿/관리자 화면</td><td>주요 업무 화면 대부분 구현</td><td>데모 가능</td></tr>
+    <tr><td>상품 조회</td><td>Firestore products 읽기 + mock fallback 구현</td><td>제한적 실연 가능</td></tr>
+    <tr><td>CMS/콘텐츠 관리</td><td>Firestore/Storage 연동 코드 구현</td><td>권한/계정 준비 후 검증 필요</td></tr>
+    <tr><td>Firebase 기반</td><td>Web SDK, rules, seed script, repository 구현 진행</td><td>베타 연결 단계</td></tr>
+    <tr><td>PG 결제</td><td>브라우저/Functions 계약, mock confirm skeleton 구현</td><td>실제 결제 불가</td></tr>
+    <tr><td>주문/결제/재고 트랜잭션</td><td>설계와 skeleton 중심</td><td>운영 불가</td></tr>
+    <tr><td>배포/QA</td><td>route/env/secret gate 일부 통과</td><td>현재 build/lint 실패로 릴리즈 불가</td></tr>
+    <tr><td>외부 연동</td><td>Alimtalk, 배송, 외부 재고, A4는 mock/계약 대기</td><td>미실현</td></tr>
+    </tbody></table>
+    <p>전체 체감 완성도는 <strong>데모/MVP 기준 60~70%</strong>, <strong>실제 결제와 정산이 들어가는 운영 기준 35~45%</strong>로 보는 것이 적정합니다. 화면과 흐름은 꽤 넓게 열려 있지만, 돈과 권한과 외부 API가 걸리는 구간은 아직 차단되어 있습니다.</p>
+    <h2>2. 구현 완료 또는 실연 가능한 부분</h2>
+    <h3>2.1 화면/라우트</h3>
+    <p><code>node scripts\check-routes.mjs</code> 기준 <strong>App Router page route 69개</strong>가 존재하고 필수 smoke route는 모두 존재합니다.</p>
+    <p>구현된 주요 화면 범위는 다음과 같습니다.</p>
+    <ul><li>고객/태블릿: <code>/products</code>, <code>/tablet/products</code>, <code>/tablet/products/[id]</code>, <code>/tablet/cart</code>, <code>/tablet/qr</code>, <code>/q/[code]</code>, <code>/q/[code]/checkout</code></li></ul>
+    <ul><li>비회원 주문: <code>/orders/guest</code>, <code>/orders/guest/[orderNo]</code>, <code>/orders/guest/[orderNo]/refund</code></li></ul>
+    <ul><li>최고관리자: dashboard, companies, nurseries, rooms, tablets, products, orders, payments, settlements, audit logs</li></ul>
+    <ul><li>기업 관리자: products, orders, inventory, deliveries, sales, payouts, ads, brand, exhibitions</li></ul>
+    <ul><li>조리원 관리자: dashboard, rooms, tablets, pickups, qr-history, orders</li></ul>
+    <ul><li>mock 검증 화면: <code>/mock-ui/status</code>, <code>/mock-ui/smoke</code>, <code>/mock-ui/storefront</code> 등</li></ul>
+    <p>따라서 <strong>서비스 설명용 화면 데모와 업무 흐름 시연은 가능</strong>합니다.</p>
+    <h3>2.2 상품 데이터</h3>
+    <p><code>lib/repositories/firebase/firebaseProductRepository.ts</code>에서 Firestore <code>products</code> 컬렉션의 <code>status == &quot;active&quot;</code> 상품을 우선 읽고, 실패/빈 결과/미설정 시 mock fallback으로 전환합니다.</p>
+    <p>현재 실현 수준:</p>
+    <ul><li><code>/products</code>, <code>/tablet/products</code>, <code>/tablet/products/[id]</code>가 Firebase 상품 읽기 경로를 가짐</li></ul>
+    <ul><li>상품 id/status/source/seeded_at 표시 가능</li></ul>
+    <ul><li>Firestore 연결 실패 시 화면이 깨지지 않도록 mock fallback 유지</li></ul>
+    <ul><li>product seed script 존재</li></ul>
+    <p>즉, <strong>상품 조회는 Firebase 베타 수준까지 구현</strong>되어 있습니다.</p>
+    <h3>2.3 Firebase CMS/Storage</h3>
+    <p><code>lib/firebase/contentRepository.ts</code> 기준으로 CMS 레코드 구독/저장 및 파일 업로드 helper가 구현되어 있습니다.</p>
+    <p>구현된 컬렉션:</p>
+    <ul><li><code>marketing_banners</code></li></ul>
+    <ul><li><code>marketing_videos</code></li></ul>
+    <ul><li><code>product_detail_pages</code></li></ul>
+    <ul><li><code>home_sections</code></li></ul>
+    <ul><li><code>tablet_home_configs</code></li></ul>
+    <ul><li><code>media_assets</code></li></ul>
+    <p>Storage 업로드 경로도 회사/상품/스토어프론트 맥락에 맞게 분기됩니다.</p>
+    <p>다만 이 기능은 <strong>Firebase Web config, 로그인 사용자, Custom Claims, rules 권한이 맞아야 실제 검증 가능</strong>합니다. 코드 연결은 되어 있으나 운영 권한 체계가 아직 완성되지 않았습니다.</p>
+    <h3>2.4 Firebase Functions/PG skeleton</h3>
+    <p><code>functions/src/index.ts</code>에 다음 HTTPS Functions export가 준비되어 있습니다.</p>
+    <ul><li><code>paymentsReady</code></li></ul>
+    <ul><li><code>paymentsConfirm</code></li></ul>
+    <ul><li><code>paymentsWebhook</code></li></ul>
+    <ul><li><code>paymentsCancel</code></li></ul>
+    <p><code>npm.cmd --prefix functions run build</code> 결과 Functions TypeScript 빌드는 통과했습니다.</p>
+    <p><code>paymentsConfirm</code>은 현재 다음을 수행하는 skeleton입니다.</p>
+    <ul><li>POST 요청 검증</li></ul>
+    <ul><li>QR session 활성 상태 검증 skeleton</li></ul>
+    <ul><li>클라이언트 금액과 서버 재계산 금액 비교</li></ul>
+    <ul><li>주문번호 생성</li></ul>
+    <ul><li>재고 차감 계획 생성</li></ul>
+    <ul><li>주문 snapshot write plan 생성</li></ul>
+    <ul><li>audit log write plan 생성</li></ul>
+    <ul><li>mock PG 승인 응답 반환</li></ul>
+    <p>중요: <strong>실제 PG API 호출, 실제 Firestore transaction write, 실제 재고 차감은 아직 수행하지 않습니다.</strong></p>
+    <h2>3. 현재 검증 결과</h2>
+    <p>2026-05-25 14:16 KST 기준으로 직접 실행한 결과입니다.</p>
+    <table>
+    <thead><tr><th>명령</th><th>결과</th><th>의미</th></tr></thead>
+    <tbody>
+    <tr><td>npm.cmd run check:env</td><td>통과</td><td>필수 NEXT_PUBLIC_FIREBASE_* 키 존재 확인, 값 출력 없음</td></tr>
+    <tr><td>npm.cmd run check:no-secrets</td><td>통과</td><td>.env.local은 로컬에만 있고 git index 미추적, serviceAccountKey.json 없음</td></tr>
+    <tr><td>node scripts\check-routes.mjs</td><td>통과</td><td>69개 page route, 필수 smoke route 모두 존재</td></tr>
+    <tr><td>npm.cmd --prefix functions run build</td><td>통과</td><td>Functions TypeScript 컴파일 가능</td></tr>
+    <tr><td>npm.cmd run lint</td><td>실패</td><td>functions/lib 생성 JS가 ESLint 대상에 포함되어 CommonJS require 오류 22건 발생, &lt;img&gt; 경고 12건</td></tr>
+    <tr><td>npm.cmd run build</td><td>실패</td><td>firebaseOrderRepository.ts의 &quot;refunded&quot; 상태가 OrderStatus 타입에 없어 type check 실패</td></tr>
+    </tbody></table>
+    <p>이 때문에 <strong>현재 커밋 상태 그대로는 릴리즈/배포 가능 상태가 아닙니다.</strong></p>
+    <h2>4. 현재 막힌 핵심 기술 경계</h2>
+    <h3>4.1 빌드 차단</h3>
+    <p><code>lib/repositories/firebase/firebaseOrderRepository.ts</code>의 <code>asOrderStatus()</code> 허용 목록에 <code>&quot;refunded&quot;</code>가 있으나, <code>types/status.ts</code>의 <code>OrderStatus</code>에는 <code>&quot;refunded&quot;</code>가 없습니다.</p>
+    <p>즉시 조치 방향:</p>
+    <ul><li>실제 상태 모델에서 <code>refunded</code>가 필요하면 <code>OrderStatus</code>와 라벨/tone에 추가</li></ul>
+    <ul><li>아니면 repository의 허용 목록에서 <code>refunded</code>를 제거하고 기존 <code>refund_approved_mock</code> 등으로 매핑</li></ul>
+    <p>이 문제를 해결하기 전까지 <code>next build</code>는 통과하지 않습니다.</p>
+    <h3>4.2 lint 차단</h3>
+    <p><code>functions/lib/**</code>는 Functions TypeScript 빌드 산출물입니다. 현재 루트 ESLint가 이 생성 JS를 검사하면서 <code>require()</code> import 금지 규칙에 걸립니다.</p>
+    <p>즉시 조치 방향:</p>
+    <ul><li><code>eslint.config.mjs</code>의 ignore에 <code>functions/lib/**</code> 추가</li></ul>
+    <ul><li>또는 Functions 산출물 디렉터리를 루트 lint 범위 밖으로 분리</li></ul>
+    <p>별도로 <code>&lt;img&gt;</code> 사용 경고 12건도 남아 있습니다. 이는 실패 원인은 아니지만 이미지 전략 결정 후 정리하는 것이 좋습니다.</p>
+    <h3>4.3 실제 결제/주문 운영 차단</h3>
+    <p>PG 연동은 현재 계약과 skeleton 수준입니다.</p>
+    <p>아직 없는 것:</p>
+    <ul><li>PG 공식 provider 확정</li></ul>
+    <ul><li>sandbox MID/client key/channel key/secret key</li></ul>
+    <ul><li>webhook signature 검증 규격</li></ul>
+    <ul><li>실제 <code>confirm/cancel/refund</code> API 호출</li></ul>
+    <ul><li>PG 성공 후 Firestore transaction write</li></ul>
+    <ul><li>결제 중복/만료/금액 불일치/재고 부족 케이스의 운영 테스트</li></ul>
+    <p>따라서 <strong>결제는 mock 데모만 가능</strong>합니다.</p>
+    <h3>4.4 Firebase 권한/계정 차단</h3>
+    <p>Custom Claims와 운영 계정이 아직 준비되지 않았습니다.</p>
+    <p>필요 claims:</p>
+    <ul><li><code>SUPER_ADMIN</code></li></ul>
+    <ul><li><code>COMPANY_ADMIN</code></li></ul>
+    <ul><li><code>NURSERY_ADMIN</code></li></ul>
+    <ul><li><code>TABLET_DEVICE</code></li></ul>
+    <ul><li><code>seed_admin</code></li></ul>
+    <ul><li><code>company_id</code>, <code>nursery_id</code>, <code>room_id</code>, <code>tablet_id</code></li></ul>
+    <p>이 권한 체계가 준비되어야 CMS write, seed 실행, 운영자 화면의 실제 write를 안전하게 열 수 있습니다.</p>
+    <h3>4.5 외부 시스템 차단</h3>
+    <p>다음은 아직 mock 또는 문서 대기 상태입니다.</p>
+    <ul><li>Alimtalk/SMS</li></ul>
+    <ul><li>배송 조회/송장 API</li></ul>
+    <ul><li>외부 재고 API</li></ul>
+    <ul><li>A4 조리원 시스템 mapping/API</li></ul>
+    <ul><li>정산/지급/환불 운영 정책</li></ul>
+    <h2>5. 기술 실현 단계별 평가</h2>
+    <table>
+    <thead><tr><th>단계</th><th>설명</th><th>현재 상태</th></tr></thead>
+    <tbody>
+    <tr><td>1단계: 화면 prototype</td><td>주요 사용자별 화면과 mock 데이터 구성</td><td>완료에 가까움</td></tr>
+    <tr><td>2단계: mock 업무 흐름</td><td>QR, 장바구니, 주문조회, 관리자 콘솔 mock flow</td><td>완료에 가까움</td></tr>
+    <tr><td>3단계: Firebase read beta</td><td>상품 조회를 Firestore 우선으로 연결</td><td>구현됨</td></tr>
+    <tr><td>4단계: Firebase write beta</td><td>CMS/Storage write 코드 연결</td><td>구현됐지만 claims 검증 필요</td></tr>
+    <tr><td>5단계: 서버 결제 skeleton</td><td>Functions PG ready/confirm/webhook/cancel 구조</td><td>구현됨, mock only</td></tr>
+    <tr><td>6단계: 실제 주문 transaction</td><td>PG confirm 후 주문/결제/재고 원자 처리</td><td>미완료</td></tr>
+    <tr><td>7단계: 운영 배포</td><td>lint/build/release gate/Cloudflare/Firebase deploy</td><td>현재 실패/미완료</td></tr>
+    <tr><td>8단계: 상용 운영</td><td>PG, 환불, 정산, 알림, 배송, 외부 재고</td><td>미실현</td></tr>
+    </tbody></table>
+    <p>현재 A5는 <strong>4~5단계에 걸쳐 있는 상태</strong>입니다. 화면과 Firebase 일부 연결은 이미 구현되었지만, 상용 운영의 핵심인 결제 확정, 주문 기록, 재고 차감, 환불/정산은 아직 진입 전입니다.</p>
+    <h2>6. 다음 우선순위</h2>
+    <ol start="1"><li><code>OrderStatus</code>와 Firebase order repository 상태값 불일치를 수정해 <code>npm.cmd run build</code>를 복구합니다.</li></ol>
+    <ol start="2"><li><code>functions/lib/**</code>를 루트 ESLint ignore에 추가해 생성 산출물 때문에 lint가 실패하지 않게 합니다.</li></ol>
+    <ol start="3"><li><code>npm.cmd run lint</code>, <code>npm.cmd run build</code>, <code>npm.cmd --prefix functions run build</code>, <code>node scripts\check-routes.mjs</code>를 다시 통과시킵니다.</li></ol>
+    <ol start="4"><li>seed/admin 계정에 <code>seed_admin</code> 또는 <code>SUPER_ADMIN</code> claim을 부여한 뒤 foundation seed를 실행합니다.</li></ol>
+    <ol start="5"><li><code>/admin/marketing/banners</code>, <code>/company/products/preview</code>에서 실제 Firestore/Storage write를 1건씩 검증합니다.</li></ol>
+    <ol start="6"><li>PG provider 문서와 sandbox 키를 받은 뒤 Functions의 mock confirm을 실제 provider confirm adapter로 교체합니다.</li></ol>
+    <ol start="7"><li>PG 성공 후 Firestore transaction으로 <code>orders</code>, <code>order_items</code>, <code>payments</code>, <code>payment_events</code>, <code>inventory</code>를 원자 처리합니다.</li></ol>
+    <ol start="8"><li>환불/취소/정산/알림/배송/A4 연동은 운영 정책과 API 계약 확정 후 별도 단계로 엽니다.</li></ol>
+    <h2>7. 결론</h2>
+    <p>A5는 현재 <strong>“볼 수 있는 폐쇄몰”과 “일부 Firebase가 연결된 베타” 수준까지는 도달</strong>했습니다. 특히 고객/태블릿/관리자/기업/조리원 화면 범위가 넓고, 상품 조회와 CMS 저장 경로, PG Functions skeleton까지 마련되어 있어 기술 방향은 잡혀 있습니다.</p>
+    <p>하지만 현재 시점의 냉정한 결론은 <strong>상용 결제 운영 가능 상태는 아닙니다.</strong> 먼저 build/lint를 복구하고, Firebase claims와 PG sandbox를 확보한 뒤, 주문/결제/재고 transaction을 Functions에서 실제로 처리하는 단계까지 가야 운영 베타라고 부를 수 있습니다.</p>
+  </main>
+</body>
+</html>

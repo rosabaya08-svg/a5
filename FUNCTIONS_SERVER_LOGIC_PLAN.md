@@ -129,3 +129,28 @@ Cloud Functions보다 Cloud Run이 적합할 수 있는 작업:
 ## 7. 현재 금지
 
 Functions 코드 생성, deploy, Secret 생성, PG callback route 운영 연결, 실제 외부 API 호출은 금지한다.
+
+## 8. 2026-05-25 PG 실전 전환 서버 계약
+
+PG 키를 받은 뒤에도 클라이언트 화면만으로는 실결제를 열 수 없다. 다음 서버 로직이 먼저 필요하다.
+
+| 서버 액션 | 역할 | 실제 구현 전 상태 |
+| --- | --- | --- |
+| `createPaymentIntent` | QR/session/order 후보와 금액 snapshot 준비 | interface 준비 |
+| `requestPayment` | PG 모듈 진입 정보 생성 | mock/provider skeleton |
+| `confirmPayment` | secret key로 PG 승인 확인 | 서버 runtime 필요 |
+| `handleWebhook` | PG webhook 서명 검증과 중복 이벤트 차단 | server only |
+| `cancelPayment` | 취소 요청 검산, 정산 보류, PG 취소 | blocker |
+| `refundPayment` | 환불 승인, 부분취소, 정산 보정 | blocker |
+
+결제 승인 순서:
+
+1. QR 상태가 `active`인지 확인한다.
+2. QR 만료와 1회 사용 여부를 확인한다.
+3. 상품/옵션/가격 snapshot으로 금액을 서버 재계산한다.
+4. 재고 차감 또는 reserve를 처리한다.
+5. PG confirm API를 secret key로 호출한다.
+6. `payments`, `orders`, `order_items`, `inventory_movements`, `audit_logs`를 기록한다.
+7. QR 상태를 `paid`로 변경한다.
+
+Cloudflare Pages static export는 secret key를 안전하게 보관할 수 없으므로 Firebase Functions, Cloud Run, Cloudflare Workers/Pages Functions 중 하나를 확정해야 한다.

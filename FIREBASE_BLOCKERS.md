@@ -26,7 +26,7 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 | FB-014 | Web App config 미반영 | config를 코드나 `.env`에 복사하지 않음 |
 | FB-015 | 고객 로그인 미구현 | 고객은 비회원 QR 흐름 유지, 고객 Auth는 아직 만들지 않음 |
 | FB-016 | Storage 실연동 승인 필요 | 입점사 상품 등록 기능 구현 전 별도 승인 필요 |
-| FB-017 | Firebase SDK 미설치 | `npm install firebase` 금지, 연결 단계 전까지 mock 유지 |
+| FB-017 | Firebase SDK 설치 완료 | Web SDK는 products read 용도로 설치됨. orders/payments/qr_sessions write는 금지 |
 | FB-018 | Storage Blaze 전환 필요 여부 미승인 | 상품 이미지/GIF 실제 업로드 전 요금제와 비용 승인 필요 |
 | FB-019 | PG 공식 문서/키 미확보 유지 | 테스트 MID/KEY, 운영 MID/KEY, callback 검증, 취소/부분취소 문서 필요 |
 | FB-020 | 알림톡 템플릿 미승인 유지 | 발송 대행사, 발신 프로필, 주문/결제/배송/환불 템플릿 코드 필요 |
@@ -67,11 +67,11 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 
 ## 5. 계속 금지
 
-- Firebase config 코드 삽입
-- `.env` 생성
+- 실제 secret 값 삽입
+- `.env.local` 실제 값 생성/커밋
 - Secret Key 생성
 - service account 생성
-- 실제 Firestore 연결
+- products 외 실제 Firestore write 연결
 - 실제 Firebase Auth 연결 코드 작성
 - Firebase Storage SDK 연결
 - Storage Blaze 업그레이드 지시
@@ -79,6 +79,14 @@ Firebase 프로젝트 `a5-closed-mall`은 생성되었고, Web App 등록, Fires
 - 알림톡 실제 발송
 - 배송조회 실제 API 호출
 - 외부 재고 실제 API 호출
-- 실제 PG 연결
+- 실제 PG 승인/취소/환불/정산 연결
 - deploy
 - 기존 mock UI 삭제
+
+## 6. 2026-05-25 추가 Blockers
+
+- PG사 테스트/운영 키, callback 검증 방식, 취소/부분취소 문서 미확보
+- PG secret을 실행할 서버 runtime 미확정
+- 관리자 계정 초대/Custom Claims 서버 로직 미구현
+- 기업 서류/상품 이미지/영상 업로드는 Storage Blaze와 보안 규칙 승인 전까지 보류
+- 조리원 A4 연동 API/외부 ID 매핑 승인 전까지 실제 sync 금지

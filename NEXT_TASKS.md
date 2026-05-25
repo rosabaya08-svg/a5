@@ -1,5 +1,23 @@
 # Next Tasks
 
+## 2026-05-25 A5 Firebase feature alignment next tasks
+
+1. Confirm a seed/admin account has the correct claim, then run `npm.cmd run seed:firestore:foundation`.
+2. In `/admin/marketing/banners`, create one Firebase banner record and upload one image.
+3. In `/company/products/preview`, create one product detail page record with `company_id` scope.
+4. Check Firebase Console for `marketing_banners`, `product_detail_pages`, and `media_assets` documents.
+5. Check Storage paths under `companies/company-sanho-care/**` and `public/storefront/**`.
+6. Keep PG/order/payment/refund/settlement writes blocked until Functions confirm flow is complete.
+
+## 2026-05-25 Firebase automatic integration next tasks
+
+1. Deploy the updated `firestore.rules` and `storage.rules` after lint/build passes.
+2. Run `npm.cmd run seed:firestore:foundation` only after the seed account has `seed_admin` or `SUPER_ADMIN` claim.
+3. Create/confirm operator account list for `SUPER_ADMIN`, `COMPANY_ADMIN`, `NURSERY_ADMIN`, and `TABLET_DEVICE`.
+4. Implement a safe Custom Claims assignment process without committing service account private keys.
+5. Verify `/admin/marketing/banners`, `/admin/marketing/videos`, `/company/products/preview`, and `/admin/home-editor` against live Firestore/Storage.
+6. Keep `orders`, `payments`, `refunds`, `settlements`, and `payouts` writes blocked until PG Functions are deployed.
+
 ## 2026-05-25 Firebase products read next tasks
 
 1. Cloudflare Pages deployment after push: verify `/products`, `/tablet/products`, and `/tablet/products/product-care-kit` show `Firebase products`.
@@ -137,3 +155,26 @@
 - Firebase Repository stub을 실제 adapter로 전환할 승인 시점
 - Repository service 계층에서 QR/결제/재고 transaction을 어디까지 mock으로 검증할지 결정
 - 관리자/기업/조리원 화면까지 repository 계층으로 옮길지 여부
+
+## 2026-05-25 PG module handoff next tasks
+
+1. PG사에서 provider name, sandbox MID, client key, channel key, secret key, webhook secret, official browser SDK/script URL, confirm/cancel/webhook docs를 수령한다.
+2. Cloudflare Pages에는 `NEXT_PUBLIC_PG_*`와 `NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL`만 입력한다.
+3. Firebase Functions Secret Manager에는 `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, `PG_MERCHANT_ID`, `PG_CHANNEL_KEY`, `PG_API_BASE_URL`을 입력한다.
+4. PG SDK가 script 방식이면 `window.A5PgProvider.requestPayment(payload)` wrapper를 추가하고, npm SDK 방식이면 provider-specific adapter 파일을 별도로 만든다.
+5. `functions/src/payments/confirm.ts`에서 mock approval을 provider confirm call로 교체하되, 서버 금액 재계산과 QR 재사용 차단은 그대로 유지한다.
+6. `functions/src/payments/webhook.ts`에 공식 서명 검증 알고리즘과 idempotency collection을 연결한다.
+7. Firebase Functions는 Node 20 runtime 기준으로 빌드/배포하고, 로컬 Node v24 `EBADENGINE` 경고는 운영 배포 전 정리한다.
+8. `npm audit`의 Functions dependency 9 moderate findings를 production deploy 전에 검토한다.
+9. PG sandbox에서 success/fail/cancel/duplicate webhook/amount mismatch/expired QR 테스트를 실행한다.
+10. 환불/정산/입금 자동화는 PG 결제 성공 후에도 별도 승인 전까지 계속 차단한다.
+
+## 2026-05-25 Firebase live commerce next tasks
+
+1. In Cloudflare production, verify `/products`, `/tablet/products`, `/q/SANHO701`, `/q/SANHO701/checkout`, and `/orders/guest/A5-20260519-001` show Firestore live data.
+2. Keep using Firestore live commerce only for beta/demo paths until PG confirm and webhook are deployed behind Firebase Functions.
+3. When PG keys arrive, enter public keys in Cloudflare Pages and server secrets in Firebase Secret Manager only.
+4. Replace the mock provider in `functions/src/payments/confirm.ts` with the selected PG confirm call after server amount recalculation is preserved.
+5. Implement webhook signature verification and duplicate event protection before any real payment capture.
+6. Connect admin/company/nursery dashboards to Firestore aggregate reads after the customer payment path is stable.
+7. Keep refunds, settlements, payouts, Alimtalk, delivery tracking, and external inventory APIs blocked until official documents and keys are approved.

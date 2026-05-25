@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const safetyBadges = ["mock/test beta", "Firebase 연결 없음", "PG 연결 없음", "운영 배포 아님"];
+const safetyBadges = ["Firebase beta live", "Firestore commerce ready", "PG module pending", "No production payment"];
 
 const primaryCards = [
   {
@@ -195,4 +195,3 @@ export default function Home() {
     </main>
   );
 }
-

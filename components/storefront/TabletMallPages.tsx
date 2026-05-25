@@ -13,6 +13,7 @@ import {
 } from "@/data/mockShopContent";
 import { mockRepositories } from "@/lib/repositories/mock";
 import { firebaseProductRepository } from "@/lib/repositories/firebase/firebaseProductRepository";
+import { getLiveQrSessionByShortCode } from "@/lib/repositories/liveCommerceRepository";
 import { repositoryData } from "@/lib/repositories/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import type { CartItemSnapshot, Nursery, Product, QrPaymentSession, Room } from "@/types/commerce";
@@ -47,7 +48,7 @@ const tabletNav = [
 const safetyBadges = ["장바구니 작동", "QR 세션 생성", "Firebase env 연동", "PG 결제 전 단계"];
 
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
-  const session = repositoryData(await mockRepositories.qrSessions.getQrSessionByShortCode(shortCode));
+  const { data: session } = await getLiveQrSessionByShortCode(shortCode);
   const nursery = mockNurseries.find((item) => item.id === session.nurseryId);
   const room = mockRooms.find((item) => item.id === session.roomId);
 

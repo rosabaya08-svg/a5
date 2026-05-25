@@ -137,6 +137,14 @@
 3. 명령은 실행하지 않았으며 lint/build/browser smoke는 계속 수동 단계로 남음.
 # my-app Blockers
 
+## 2026-05-25 Firebase automatic integration blockers
+
+- Custom Claims cannot be assigned safely from this browser/static app without a trusted Admin SDK runtime.
+- Service account private keys must not be generated or committed.
+- Seed script execution requires local `FIREBASE_SEED_EMAIL` and `FIREBASE_SEED_PASSWORD` values plus `seed_admin` or `SUPER_ADMIN` claim.
+- Real PG, refund, settlement, payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+- Orders/payments Firestore writes remain blocked until Functions server payment confirmation is deployed.
+
 ## 2026-05-25 Firebase products read blockers
 
 - Firestore products read is now verified for active products, but all Firestore writes outside product read remain blocked.
@@ -159,3 +167,22 @@
 - Storage Blaze/Rules 승인 전 상품 이미지, 영상, GIF, 사업자등록증, 통장 사본 업로드 금지.
 - 알림톡 템플릿, 배송조회 API, 외부 재고 API 미확보.
 - 조리원 A4 API와 external id 매핑 규칙 미확정.
+
+## 2026-05-25 PG integration blockers
+
+- Real PG provider documents and sandbox keys are not received yet.
+- Real provider SDK/script is not imported yet.
+- Real PG confirm/cancel/refund/webhook calls are intentionally blocked.
+- Firebase Functions are built locally but not deployed.
+- Secret Manager values are not created from this workspace.
+- Functions install reported 9 moderate audit findings.
+- Local Node v24 differs from Functions Node 20 engine.
+
+## 2026-05-25 remaining blockers after Firebase live commerce
+
+- Real PG provider documents and keys are still missing.
+- Firebase Functions deploy is still pending; real PG confirm/webhook/cancel cannot be trusted from static export pages.
+- PG server secrets, webhook secrets, and provider credentials must go to Firebase Secret Manager only.
+- Admin/company/nursery dashboards still need Firestore aggregate read conversion.
+- App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA domain coverage are verified.
+- Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory integrations remain blocked.

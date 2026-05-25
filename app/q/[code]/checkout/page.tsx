@@ -1,10 +1,8 @@
-import { QrCheckoutPage } from "@/components/pages/guestPages";
-import { mockRepositories } from "@/lib/repositories/mock";
+import { QrCheckoutPage } from "@/components/storefront/GuestQrExperience";
+import { staticQrCodes } from "@/data/staticSmokeRoutes";
 
 export async function generateStaticParams() {
-  const result = await mockRepositories.qrSessions.listQrSessions();
-
-  return result.ok ? result.data.map((session) => ({ code: session.shortCode })) : [];
+  return staticQrCodes.map((code) => ({ code }));
 }
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {

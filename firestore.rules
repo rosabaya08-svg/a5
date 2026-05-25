@@ -18,6 +18,10 @@ service cloud.firestore {
       return signedIn() && request.auth.token.seed_admin == true;
     }
 
+    function isSuperOrSeedAdmin() {
+      return isSuperAdmin() || isSeedAdmin();
+    }
+
     function isCompanyAdmin(companyId) {
       return role() == "COMPANY_ADMIN" &&
         request.auth.token.company_id == companyId;
@@ -79,6 +83,27 @@ service cloud.firestore {
         isTabletDevice(data.nursery_id, data.room_id, data.tablet_id);
     }
 
+    function guestDemoWrite(data) {
+      return ("guest_write_enabled" in data) &&
+        data.guest_write_enabled == true &&
+        ("source" in data) &&
+        data.source in ["live_storefront", "firebase_storefront", "firestore_commerce_seed", "local_mock_seed", "tablet"];
+    }
+
+    function guestQrReadable(data) {
+      return ("guest_read_enabled" in data) &&
+        data.guest_read_enabled == true &&
+        ("short_code" in data) &&
+        ("status" in data) &&
+        data.status in ["active", "paid", "expired", "cancelled"];
+    }
+
+    function guestOrderReadable(data) {
+      return ("guest_lookup_enabled" in data) &&
+        data.guest_lookup_enabled == true &&
+        ("order_no" in data);
+    }
+
     function linkedProductPublic(productId) {
       return exists(/databases/$(database)/documents/products/$(productId)) &&
         publicActiveContent(get(/databases/$(database)/documents/products/$(productId)).data);
@@ -86,7 +111,7 @@ service cloud.firestore {
 
     match /companies/{companyId} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow create, update: if isSuperAdmin();
+      allow create, update: if isSuperOrSeedAdmin();
       allow delete: if false;
     }
 
@@ -120,7 +145,10 @@ service cloud.firestore {
     match /product_options/{optionId} {
       allow read: if companyScopedRead(resource.data) ||
         (("product_id" in resource.data) && linkedProductPublic(resource.data.product_id));
-      allow create: if companyScopedWrite(request.resource.data);
+      allow create: if companyScopedWrite(request.resource.data) ||
+        (guestDemoWrite(request.resource.data) &&
+          ("product_id" in request.resource.data) &&
+          linkedProductPublic(request.resource.data.product_id));
       allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
       allow delete: if isSuperAdmin();
     }
@@ -151,8 +179,8 @@ service cloud.firestore {
     }
 
     match /home_sections/{sectionId} {
-      allow read: if publicActiveContent(resource.data) || isSuperAdmin();
-      allow create, update, delete: if isSuperAdmin();
+      allow read: if publicActiveContent(resource.data) || isSuperOrSeedAdmin();
+      allow create, update, delete: if isSuperOrSeedAdmin();
     }
 
     match /marketing_banners/{bannerId} {
@@ -171,7 +199,7 @@ service cloud.firestore {
 
     match /exhibitions/{exhibitionId} {
       allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperOrSeedAdmin();
     }
 
     match /exhibition_products/{entryId} {
@@ -182,13 +210,13 @@ service cloud.firestore {
     }
 
     match /popups/{popupId} {
-      allow read: if publicActiveContent(resource.data) || isSuperAdmin();
-      allow create, update, delete: if isSuperAdmin();
+      allow read: if publicActiveContent(resource.data) || isSuperOrSeedAdmin();
+      allow create, update, delete: if isSuperOrSeedAdmin();
     }
 
     match /nurseries/{nurseryId} {
       allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
-      allow create, update: if isSuperAdmin();
+      allow create, update: if isSuperOrSeedAdmin();
       allow delete: if false;
     }
 
@@ -217,48 +245,64 @@ service cloud.firestore {
     }
 
     match /carts/{cartId} {
-      allow read: if isSuperAdmin() || tabletScoped(resource.data);
-      allow create: if tabletScoped(request.resource.data);
-      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+      allow read: if isSuperAdmin() || tabletScoped(resource.data) ||
+        (("guest_write_enabled" in resource.data) && resource.data.guest_write_enabled == true);
+      allow create: if tabletScoped(request.resource.data) || guestDemoWrite(request.resource.data);
+      allow update: if (tabletScoped(resource.data) && tabletScoped(request.resource.data)) ||
+        ((("guest_write_enabled" in resource.data) && resource.data.guest_write_enabled == true) && guestDemoWrite(request.resource.data));
       allow delete: if tabletScoped(resource.data) || isSuperAdmin();
     }
 
     match /cart_items/{cartItemId} {
-      allow read: if isSuperAdmin() || tabletScoped(resource.data);
-      allow create: if tabletScoped(request.resource.data);
-      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+      allow read: if isSuperAdmin() || tabletScoped(resource.data) ||
+        (("guest_write_enabled" in resource.data) && resource.data.guest_write_enabled == true);
+      allow create: if tabletScoped(request.resource.data) || guestDemoWrite(request.resource.data);
+      allow update: if (tabletScoped(resource.data) && tabletScoped(request.resource.data)) ||
+        ((("guest_write_enabled" in resource.data) && resource.data.guest_write_enabled == true) && guestDemoWrite(request.resource.data));
       allow delete: if tabletScoped(resource.data) || isSuperAdmin();
     }
 
     match /qr_payment_sessions/{sessionId} {
       allow read: if isSuperAdmin() ||
         nurseryScopedRead(resource.data) ||
-        tabletScoped(resource.data);
-      allow create: if tabletScoped(request.resource.data);
-      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+        tabletScoped(resource.data) ||
+        guestQrReadable(resource.data);
+      allow create: if tabletScoped(request.resource.data) ||
+        (guestDemoWrite(request.resource.data) && guestQrReadable(request.resource.data));
+      allow update: if (tabletScoped(resource.data) && tabletScoped(request.resource.data)) ||
+        (guestQrReadable(resource.data) && guestDemoWrite(request.resource.data) && guestQrReadable(request.resource.data));
       allow delete: if isSuperAdmin();
     }
 
     match /orders/{orderId} {
-      allow read: if isSuperAdmin() || nurseryScopedRead(resource.data);
-      allow create, update, delete: if false;
+      allow read: if isSuperAdmin() || nurseryScopedRead(resource.data) || guestOrderReadable(resource.data);
+      allow create: if guestDemoWrite(request.resource.data) && guestOrderReadable(request.resource.data);
+      allow update: if guestOrderReadable(resource.data) && guestDemoWrite(request.resource.data) && guestOrderReadable(request.resource.data);
+      allow delete: if false;
     }
 
     match /order_items/{orderItemId} {
       allow read: if isSuperAdmin() ||
         companyScopedRead(resource.data) ||
-        nurseryScopedRead(resource.data);
-      allow create, update, delete: if false;
+        nurseryScopedRead(resource.data) ||
+        guestOrderReadable(resource.data);
+      allow create: if guestDemoWrite(request.resource.data) && guestOrderReadable(request.resource.data);
+      allow update: if guestOrderReadable(resource.data) && guestDemoWrite(request.resource.data) && guestOrderReadable(request.resource.data);
+      allow delete: if false;
     }
 
     match /payments/{paymentId} {
       allow read: if isSuperAdmin();
-      allow create, update, delete: if false;
+      allow create: if guestDemoWrite(request.resource.data);
+      allow update: if (("guest_write_enabled" in resource.data) && resource.data.guest_write_enabled == true) &&
+        guestDemoWrite(request.resource.data);
+      allow delete: if false;
     }
 
     match /payment_events/{eventId} {
       allow read: if isSuperAdmin();
-      allow create, update, delete: if false;
+      allow create: if guestDemoWrite(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /refunds/{refundId} {
@@ -285,7 +329,8 @@ service cloud.firestore {
 
     match /inventory_movements/{movementId} {
       allow read: if isSuperAdmin() || companyScopedRead(resource.data);
-      allow create, update, delete: if false;
+      allow create: if guestDemoWrite(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /settlements/{settlementId} {
@@ -305,17 +350,27 @@ service cloud.firestore {
 
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
-      allow create, update, delete: if false;
+      allow create: if guestDemoWrite(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /system_status/{statusId} {
       allow read: if signedIn();
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperOrSeedAdmin();
     }
 
     match /policies/{policyId} {
       allow read: if signedIn();
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperOrSeedAdmin();
+    }
+
+    match /media_assets/{assetId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data) || nurseryScopedRead(resource.data);
+      allow create: if isSuperOrSeedAdmin() || companyScopedWrite(request.resource.data) || nurseryScopedWrite(request.resource.data);
+      allow update: if isSuperOrSeedAdmin() ||
+        (companyScopedRead(resource.data) && companyScopedWrite(request.resource.data)) ||
+        (nurseryScopedRead(resource.data) && nurseryScopedWrite(request.resource.data));
+      allow delete: if isSuperOrSeedAdmin();
     }
 
     match /{document=**} {

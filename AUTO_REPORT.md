@@ -1,5 +1,32 @@
 # Auto Report
 
+## 28. 2026-05-25 A5 Firebase feature alignment
+
+| Item | Result |
+| --- | --- |
+| Scope | Converted connected A5 CMS/file features from mock-only wording/paths to Firebase live beta wiring |
+| Storage scope | CMS uploads now write to A5 Storage paths with company/product or storefront context |
+| Firestore scope | CMS payloads include `company_id`, `nursery_id`, `room_id`, and `tablet_id` defaults where applicable so rules can authorize scoped writes |
+| Feature map | Added `A5_FIREBASE_IMPLEMENTED_FEATURES.md` mapping previous mock areas to implemented Firebase beta areas |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 image warnings; `npm.cmd run build` passed with 93 static routes |
+| Still blocked | Custom Claims, seed credentials, PG/settlement/refund/Alimtalk/delivery/external inventory, trusted Admin SDK flows |
+
+## 27. 2026-05-25 Firebase automatic integration boundary batch
+
+| Item | Result |
+| --- | --- |
+| Scope | Clarified auto-connectable Firebase scope and implemented all safe code-side integration in this batch |
+| Client SDK | Added Firebase Storage client export next to app/auth/firestore |
+| CMS Firestore | CMS collection names now align with A5 rules: `marketing_banners`, `marketing_videos`, `product_detail_pages`, `home_sections`, `tablet_home_configs`, `media_assets` |
+| Storage upload | `uploadCmsFile` now uploads image/video files to Firebase Storage and returns download URL/path |
+| Rules | `firestore.rules` expanded with `media_assets` and seed-admin write support for foundation collections |
+| Seed | Added `scripts/seed-firestore-foundation.mjs` and `seed:firestore:foundation` package script |
+| Docs | Added `FIREBASE_AUTOMATION_SCOPE.md` and `FIREBASE_INTEGRATION_BLOCKERS.md` |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing image warnings; `npm.cmd run build` passed with 93 static routes |
+| Deploy | Updated Firestore rules deployed; Storage rules compile/deploy confirmed |
+| Seed run | `npm.cmd run seed:firestore:foundation` blocked because local seed email/password env values are missing |
+| Still blocked | Custom claims, seed credentials/claim, real secrets, PG production approval, Functions production deploy, A4 credentials, real order/payment writes |
+
 ## 26. 2026-05-25 Firebase products storefront read push batch
 
 | Item | Result |
@@ -371,3 +398,36 @@
 | Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
 | Build | `npm.cmd run build` passed; network-enabled run generated 93 static routes |
 | Secrets | `.env.local` values were not printed or committed; service account/private key/PG secret were not created |
+
+## 21. 2026-05-25 PG module handoff readiness
+
+| Item | Result |
+| --- | --- |
+| Scope | PG provider module/key insertion readiness for A5 closed mall checkout |
+| Static export constraint | `next.config.ts` uses `output: "export"`, so real secret confirm is kept out of App Router route handlers |
+| Storefront | `/q/[code]/checkout` now renders a PG module handoff panel with public key, Functions endpoint, browser module, and mock/real boundary status |
+| Browser bridge | `lib/payments/pgCheckoutBridge.ts` defines `window.A5PgProvider.requestPayment(payload)` contract without importing a real PG SDK |
+| Endpoint config | `lib/payments/paymentEndpoints.ts` maps `NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL` to `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, `paymentsCancel` |
+| Functions server | `functions/src/payments/providerRuntime.ts` detects PG server key readiness without printing secrets |
+| Docs | `PAYMENT_CONNECT_PLAN.md`, `PAYMENT_FLOW_CHECKLIST.md`, `PG_ENV_KEYS.md`, `PG_READY_HANDOFF.md`, `FIREBASE_FUNCTIONS_PLAN.md` updated |
+| Env examples | `.env.local.example` and `functions/.env.example` now include public/server PG placeholders only |
+| Root lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Root build | `npm.cmd run build` passed and generated 93 static routes |
+| Functions install | `npm.cmd --prefix functions install` completed; npm warned local Node v24 differs from declared Functions Node 20 and reported 9 moderate audit findings |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Secret check | `npm.cmd run check:no-secrets` passed; `.env.local` exists locally but is not tracked, and no secret values were printed |
+| Real PG | Still blocked. No approval/cancel/refund/settlement API call was added |
+
+## 22. 2026-05-25 Firebase live commerce integration
+
+| Item | Result |
+| --- | --- |
+| Scope | Converted the customer commerce path from mock-first to Firestore-first wherever it is safe before PG approval |
+| Firestore read | Products, product options, QR payment sessions, guest orders, and order items now have Firebase repository implementations |
+| Firestore write | Storefront cart, QR draft, order snapshot, payment event, inventory movement, and audit log repositories now have guarded Firebase implementations |
+| UI data source | Customer QR and guest order screens show Firestore live data when Firebase read succeeds and mock fallback only when Firebase is unavailable |
+| Rules | Firestore rules were updated and deployed for A5 closed mall guest/demo commerce paths without opening real PG/refund/settlement writes |
+| Seed | Product options, QR sessions, guest orders, and order items were seeded to Firestore with no service account key |
+| PG boundary | Checkout remains PG-module-ready but still uses mock approval until official PG keys/docs are received |
+| Validation | `npm.cmd run lint`, root `npm.cmd run build`, functions build, and `npm.cmd run check:no-secrets` passed |
+| Secrets | `.env.local` remains local-only and untracked; no service account, private key, PG secret, or reCAPTCHA secret was committed |

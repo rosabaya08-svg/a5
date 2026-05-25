@@ -1,12 +1,12 @@
 # my-app visual smoke plan
 
-This checklist is for manual browser review on `localhost:3000`. It must be run by a person after the local dev server is started manually. No `npm run lint`, `npm run build`, deploy, Firebase, PG, or external API command was executed during unattended work.
+This checklist is for manual browser review on `localhost:3000`. It must be run by a person after the local dev server is started manually. Current storefront/customer routes can read Firebase/Firestore beta data, but real PG, refund, settlement, Alimtalk, delivery tracking, and external inventory integrations are still blocked.
 
 ## 2026-05-22 storefront/admin UX smoke additions
 
 1. Open `/products`.
    - Confirm it renders the same customer-facing shopping mall catalog as `/tablet/products`.
-   - Confirm mock/test beta, Firebase connection 없음, PG connection 없음, production 아님 badges are visible.
+   - Confirm Firebase beta/live data, PG module pending, and no-production-payment badges are visible.
 
 2. Open `/tablet/products`.
    - Confirm HANSANYEON-style closed mall hero banner is visible.
@@ -41,14 +41,14 @@ This checklist is for manual browser review on `localhost:3000`. It must be run 
 ## Start point
 
 1. Open `http://localhost:3000`.
-2. Confirm the top page says mock/test beta and does not imply production launch.
+2. Confirm the top page says Firebase beta/live data and does not imply production launch.
 3. Confirm the original 6 domain cards are still visible.
 4. Confirm the section `자동 생성 결과 확인` is visible.
 5. Confirm every generated result card has badges:
-   - `mock/test beta`
-   - `Firebase 연결 없음`
-   - `PG 연결 없음`
-   - `운영 배포 아님`
+   - `Firebase beta live`
+   - `Firestore commerce ready`
+   - `PG module pending`
+   - `No production payment`
 
 ## Click sequence
 
@@ -82,7 +82,7 @@ This checklist is for manual browser review on `localhost:3000`. It must be run 
 6. Open `/products`.
    - Confirm it no longer returns 404.
    - Confirm it shows the customer product list mock/test beta screen.
-   - Confirm the top badges are visible: mock/test beta, Firebase 연결 없음, PG 연결 없음, 운영 배포 아님.
+   - Confirm the top badges are visible: Firebase beta live, Firestore commerce ready, PG module pending, no production payment.
 
 7. Open `/tablet/products`.
    - Check customer-facing product list.

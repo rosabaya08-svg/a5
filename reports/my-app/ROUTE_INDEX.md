@@ -1,6 +1,6 @@
 # my-app route index
 
-This is the route index for `localhost:3000` in the `my-app` worktree. All routes listed here are mock/test beta review targets. No route should be interpreted as production launch, real payment, real Firebase connection, settlement execution, Alimtalk sending, delivery tracking, or external inventory integration.
+This is the route index for `localhost:3000` in the `my-app` worktree. Customer commerce routes now use Firebase/Firestore beta data where available and fall back to mock data when reads fail. No route should be interpreted as production launch, real payment, settlement execution, Alimtalk sending, delivery tracking, or external inventory integration.
 
 ## 2026-05-22 storefront/admin UX route additions
 
@@ -35,7 +35,7 @@ This is the route index for `localhost:3000` in the `my-app` worktree. All route
 | Route | Purpose | Status |
 | --- | --- | --- |
 | `/` | Home launcher with the original 6 domain cards and generated result review section | mock/test beta |
-| `/products` | Customer product list alias that reuses `/tablet/products` mock screen | mock/test beta |
+| `/products` | Customer product list alias that reuses `/tablet/products` with Firestore products first and mock fallback | Firebase beta |
 | `/mock-ui/status` | Integrated progress status dashboard | mock/test beta |
 | `/mock-ui` | Mock UI preview hub | mock/test beta |
 | `/mock-ui/smoke` | Visual smoke checklist screen | mock/test beta |

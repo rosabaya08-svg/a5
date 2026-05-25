@@ -103,6 +103,16 @@ function mapProduct(documentId: string, data: DocumentData): Product {
   };
 }
 
+function mapProductOption(documentId: string, data: DocumentData): ProductOption {
+  return {
+    id: asString(data.option_id ?? data.optionId, documentId),
+    productId: asString(data.product_id ?? data.productId),
+    name: asString(data.name ?? data.option_name ?? data.optionName, "default"),
+    priceDelta: asNumber(data.price_delta ?? data.priceDelta, 0),
+    stock: asNumber(data.stock ?? data.inventory, 0),
+  };
+}
+
 function matchesFilters(product: Product, filters?: ProductListFilters) {
   if (filters?.status && filters.status !== "approved") return false;
   if (filters?.category && product.category !== filters.category) return false;
@@ -167,8 +177,19 @@ export const firebaseProductRepository: ProductRepository = {
   },
 
   async listProductOptions(productId) {
-    void productId;
-    return repositoryOk<ProductOption[]>([]);
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing. Using mock fallback.", productId);
+    }
+
+    try {
+      const snapshot = await getDocs(query(collection(db, "product_options"), where("product_id", "==", productId)));
+      return repositoryOk<ProductOption[]>(snapshot.docs.map((item) => mapProductOption(item.id, item.data())));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore product options read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore product options read failed. Using mock fallback. ${message}`, productId);
+    }
   },
 
   async listCompanyProducts(companyId, filters) {

@@ -138,3 +138,26 @@ Custom Claims 설정은 클라이언트에서 하지 않는다. Cloud Functions 
 - 운영 사용자 초대 전 dev/prod 분리 필요
 - 고객 Auth 계정 생성 금지
 - claims 변경 후 audit log 누락 금지
+
+## 7. 2026-05-25 계정 발급 보강
+
+최고관리자가 기업 Admin 아이디/비밀번호를 “직접 발급”하는 UI를 만들더라도 비밀번호 평문을 저장하거나 전달하지 않는다.
+
+권장 흐름:
+
+1. 최고관리자가 기업 이메일과 `company_id`를 등록한다.
+2. 서버가 Firebase Auth 사용자를 초대하거나 password reset link를 발급한다.
+3. 서버가 Custom Claims를 설정한다.
+4. 사용자가 직접 비밀번호를 설정한다.
+5. claims 변경과 초대 발송을 `audit_logs`에 남긴다.
+
+필수 claims:
+
+| 역할 | 필수 claims |
+| --- | --- |
+| `SUPER_ADMIN` | `role` |
+| `COMPANY_ADMIN` | `role`, `company_id` |
+| `NURSERY_ADMIN` | `role`, `nursery_id` |
+| `TABLET_DEVICE` | `role`, `nursery_id`, `room_id`, `tablet_id` |
+
+고객/보호자는 Auth 계정을 만들지 않고 QR token, 주문번호, 휴대폰 hash 기반 비회원 흐름을 유지한다.

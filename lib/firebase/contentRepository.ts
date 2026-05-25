@@ -6,14 +6,15 @@ import {
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
 
 export type CmsCollectionName =
-  | "banner_campaigns"
-  | "ad_video_campaigns"
+  | "marketing_banners"
+  | "marketing_videos"
   | "product_detail_pages"
-  | "theme_configs"
-  | "content_targets"
+  | "home_sections"
+  | "tablet_home_configs"
   | "media_assets";
 
 export type CmsRecord = {
@@ -30,8 +31,50 @@ export type CmsRecord = {
   [key: string]: unknown;
 };
 
+export type CmsUploadScope = {
+  companyId?: string;
+  nurseryId?: string;
+  roomId?: string;
+  tabletId?: string;
+  productId?: string;
+};
+
 export function createCmsId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function safeFileName(name: string) {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized || "upload";
+}
+
+function assetTypeFor(file: File) {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type === "image/gif") return "gif";
+  if (file.type.startsWith("image/")) return "image";
+  return "document";
+}
+
+function cmsStoragePath(collectionName: CmsCollectionName, recordId: string, file: File, scope?: CmsUploadScope) {
+  const assetType = assetTypeFor(file);
+  const fileName = `${Date.now()}-${safeFileName(file.name)}`;
+  const companyId = scope?.companyId ?? "company-sanho-care";
+  const productId = scope?.productId || recordId;
+
+  if (collectionName === "product_detail_pages") {
+    const folder = assetType === "video" ? "videos" : assetType === "gif" ? "gifs" : "images";
+    return `companies/${companyId}/products/${productId}/${folder}/${fileName}`;
+  }
+
+  if (collectionName === "marketing_banners" || collectionName === "marketing_videos") {
+    return `companies/${companyId}/ad-materials/${collectionName}/${recordId}/${fileName}`;
+  }
+
+  if (collectionName === "home_sections" || collectionName === "tablet_home_configs") {
+    return `public/storefront/${collectionName}/${recordId}/${fileName}`;
+  }
+
+  return `public/storefront/media_assets/${recordId}/${fileName}`;
 }
 
 export function subscribeCmsRecords(
@@ -80,10 +123,29 @@ export async function uploadCmsFile(
   collectionName: CmsCollectionName,
   recordId: string,
   file: File,
+  scope?: CmsUploadScope,
 ): Promise<{ url: string; path: string; assetType: string }> {
-  void collectionName;
-  void recordId;
-  void file;
+  const storage = getFirebaseStorageClient();
 
-  throw new Error("Firebase Storage upload is blocked for this phase. Use mock placeholders until separate approval.");
+  if (!storage) {
+    throw new Error("Firebase Storage is not configured.");
+  }
+
+  const assetType = assetTypeFor(file);
+  const path = cmsStoragePath(collectionName, recordId, file, scope);
+  const uploadRef = ref(storage, path);
+
+  await uploadBytes(uploadRef, file, {
+    contentType: file.type || "application/octet-stream",
+    customMetadata: {
+      collectionName,
+      recordId,
+      assetType,
+      source: "a5-cms-beta",
+    },
+  });
+
+  const url = await getDownloadURL(uploadRef);
+
+  return { url, path, assetType };
 }

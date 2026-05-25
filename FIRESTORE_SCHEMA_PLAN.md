@@ -241,3 +241,21 @@ Firestore에서는 문서 간 일관성을 위해 snake_case를 기본으로 둔
 ## 7. 현재 금지
 
 이 계획을 바탕으로 실제 Firestore 연결 코드, `firebase.json`, rules 파일, `.env`를 만들지 않는다.
+
+## 8. 2026-05-25 실전 전환 보강
+
+현재 코드 기준으로 `products` 컬렉션 read repository는 생성되어 있고, 실패 시 `mockProducts` fallback을 사용한다. 다음 write 컬렉션은 아직 운영 연결하지 않는다.
+
+| 컬렉션 | 전환 준비 | 현재 상태 |
+| --- | --- | --- |
+| `products` | `status == active` read, mock fallback | 1차 read 연결 |
+| `qr_payment_sessions` | QR 생성/만료/1회 사용 서버 처리 필요 | write 금지 |
+| `orders` | PG 승인 후 서버에서 snapshot 생성 | write 금지 |
+| `order_items` | 입점사 정산/배송 기준 원장 | write 금지 |
+| `payments` | PG confirm/webhook 결과 저장 | write 금지 |
+| `inventory_movements` | 결제 승인/취소 시 재고 차감/복구 | write 금지 |
+| `content_slots` | 배너/광고/영상/브랜드 편성 | Storage/Rules 승인 전 write 금지 |
+| `company_documents` | 사업자등록증/통장 사본/CS 정책 | Storage Blaze 전까지 파일 업로드 금지 |
+| `nursery_external_mappings` | A4 연동용 외부 ID 매핑 | 설계만 |
+
+실결제 전에는 서버가 `qr_payment_sessions.items` snapshot을 기준으로 주문금액을 재계산하고, 클라이언트가 보낸 금액은 참고값으로만 사용한다.

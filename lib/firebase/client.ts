@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, signInAnonymously, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const defaultProjectId = "a5-closed-mall";
 
@@ -59,6 +60,11 @@ export function getFirebaseDb(): Firestore | null {
 export function getFirebaseAuthClient(): Auth | null {
   const app = getFirebaseApp();
   return app ? getAuth(app) : null;
+}
+
+export function getFirebaseStorageClient(): FirebaseStorage | null {
+  const app = getFirebaseApp();
+  return app ? getStorage(app, `gs://${firebaseConfig.storageBucket}`) : null;
 }
 
 export async function ensureAnonymousFirebaseUser() {

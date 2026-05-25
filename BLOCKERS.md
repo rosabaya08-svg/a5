@@ -6,6 +6,15 @@
 
 | ID | Blocker | 현재 상태 | 필요 조치 |
 | --- | --- | --- | --- |
+| B-025 | CI release gate 미연결 | QA 스크립트는 생성됐지만 GitHub Actions/Cloudflare build step에 아직 연결하지 않음 | CI 적용 범위 승인 후 workflow/build command 반영 |
+| B-022 | Functions dependency 미설치 | `functions/package.json`은 생성됐고 `functions/node_modules`는 없음. 설치/빌드는 별도 승인 필요 | `npm.cmd --prefix functions install` 승인 후 `npm.cmd --prefix functions run build` |
+| B-023 | Firebase deploy 설정 없음 | `firebase.json`, `.firebaserc`를 의도적으로 생성하지 않음 | 배포 승인 전까지 유지 |
+| B-024 | Functions Firestore write 미구현 | transaction plan과 skeleton만 존재 | Rules/IAM/Secret 승인 후 구현 |
+| B-017 | PG 서버 confirm 런타임 미확정 | 결제 interface/skeleton은 준비됐지만 static export 화면에서는 secret key 사용 불가 | Functions, Cloud Run, Workers 중 하나 선택 후 서버 endpoint 구현 |
+| B-018 | PG 키/공식 문서 미수령 | env key 이름과 skeleton만 준비됨 | PG사 테스트/운영 키, callback 검증, 취소/부분취소 문서 확보 |
+| B-019 | Firebase write 차단 유지 | products read 외 carts/orders/payments/qr_sessions write는 차단 | Rules/Functions/audit log 승인 전 write 금지 |
+| B-020 | 기업 서류/이미지/영상 업로드 보류 | Storage Spark 제한 및 보안 규칙 미확정 | Blaze/Storage Rules/파일 정책 승인 후 별도 구현 |
+| B-021 | 조리원 A4 연동 미확정 | external mapping mock 필드만 준비 | A4 API/ID 규칙/동기화 정책 확보 |
 | B-001 | 프로젝트 루트 경로 불일치 | 사용자 요청 경로 `C:\Users\djfh\Desktop\my-app`는 존재하지 않고, 실제 workspace는 `C:\Users\djfhl\Desktop\my-app` | 이후 작업 기준 경로를 명확히 확정 |
 | B-002 | Firebase 기존/신규 프로젝트 판단 불가 | `firebase.json`, `.firebaserc`, rules, env, Firebase dependency 없음 | Firebase decision 보고서 작성 및 사람 승인 |
 | B-003 | 운영 Firebase 연결 금지 상태 | owner/IAM/환경 분리/운영 데이터 여부 확인 불가 | 개발/스테이징/운영 분리 정책 확정 전 연결 금지 |
@@ -54,3 +63,21 @@
 3. `a5-learning` 문서 중 어떤 파일명을 최종 기준으로 삼을지 확정
 4. Gate 0 정책 문서 작성 승인
 5. 구현 시작 전 A/B/C 자동화 등급 적용 방식 승인
+
+## 2026-05-25 PG integration blockers
+
+- PG provider official documentation is still required: browser module/script, ready/confirm/cancel API, webhook signature algorithm, sandbox console settings.
+- Real `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, service credentials, and provider keys are not stored in this repository and must only be entered into approved runtime secret stores.
+- Firebase Functions deploy is still not executed. Real PG confirm cannot run on the Cloudflare static export storefront.
+- Functions dependencies installed successfully, but npm reported 9 moderate audit findings that must be reviewed before production deploy.
+- Local Node is v24.15.0 while Functions declares Node 20; deploy/runtime validation must use Node 20.
+- Real cancel/refund/settlement payout remains blocked until refund policy, settlement hold, and admin approval flow are signed off.
+
+## 2026-05-25 remaining blockers after Firebase live commerce
+
+- Real PG provider keys and official API documents are still required before replacing mock approval.
+- Firebase Functions are built locally but not deployed; real payment confirm/webhook/cancel must run in trusted server runtime.
+- Server secrets must be entered in Firebase Secret Manager, not in repository files or Cloudflare public variables.
+- Admin/company/nursery dashboards still contain mock aggregate views and should be converted after the storefront payment path is stable.
+- App Check enforcement remains OFF until Cloudflare custom domain, localhost behavior, and reCAPTCHA domain coverage are verified.
+- Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

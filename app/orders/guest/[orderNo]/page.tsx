@@ -1,10 +1,8 @@
-import { GuestOrderDetailPage } from "@/components/pages/guestPages";
-import { mockRepositories } from "@/lib/repositories/mock";
+import { GuestOrderDetailPage } from "@/components/storefront/GuestQrExperience";
+import { staticGuestOrderNos } from "@/data/staticSmokeRoutes";
 
 export async function generateStaticParams() {
-  const result = await mockRepositories.orders.listOrders();
-
-  return result.ok ? result.data.map((order) => ({ orderNo: order.orderNo })) : [];
+  return staticGuestOrderNos.map((orderNo) => ({ orderNo }));
 }
 
 export default async function Page({ params }: { params: Promise<{ orderNo: string }> }) {

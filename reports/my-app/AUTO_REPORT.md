@@ -1,5 +1,45 @@
 # my-app 자동 파일 생성 준비 보고
 
+## 2026-05-25 A5 Firebase feature alignment
+
+### Summary
+
+- Converted connected CMS/file areas from mock-only implementation language to Firebase live beta wiring.
+- CMS upload paths now use A5 company/product or storefront Storage folders.
+- CMS Firestore payloads now include default scoped fields for company/nursery/tablet modes so deployed rules can authorize writes.
+- Added `A5_FIREBASE_IMPLEMENTED_FEATURES.md` to list mock-to-implemented Firebase work and remaining blockers.
+
+### Verification
+
+- `npm.cmd run lint`: passed, 0 errors, 12 image warnings.
+- `npm.cmd run build`: passed, 93 static routes.
+
+## 2026-05-25 Firebase automatic integration boundary batch
+
+### Summary
+
+- Clarified what Codex can automatically connect and what needs owner/provider action.
+- Added Firebase Storage client export.
+- Converted CMS Storage upload from blocked placeholder to real Firebase Storage upload helper.
+- Aligned live CMS collection names with A5 Firestore rules.
+- Added Firestore foundation seed script for companies, nursery, room, tablet, brands, home section, banners, videos, exhibition, tablet home config, and product detail seed documents.
+- Expanded Firestore rules source with `media_assets` and seed-admin write support.
+- `npm.cmd run lint` passed with 0 errors and 12 existing image warnings.
+- `npm.cmd run build` passed with 93 static routes.
+- Updated Firestore rules deployed successfully.
+- Storage rules compile/deploy confirmed.
+- `npm.cmd run seed:firestore:foundation` was blocked because local seed credentials are not present in env.
+
+### Still blocked
+
+- Custom Claims assignment.
+- Seed account email/password and `seed_admin` or `SUPER_ADMIN` claim.
+- Service account/private key generation.
+- PG real approval/cancel/refund/settlement.
+- Secret Manager values.
+- Alimtalk, delivery tracking, external inventory APIs.
+- Order/payment Firestore writes until server payment flow is deployed.
+
 ## 2026-05-25 Firebase products storefront read push batch
 
 ### Summary
@@ -679,3 +719,30 @@
 - git add/commit/push 미실행
 - npm install 미실행
 - Firebase/PG/환불/정산/알림톡/배송조회/외부 재고 API 연결 없음
+
+## 2026-05-25 PG module handoff readiness
+
+- Added PG browser bridge contract: `lib/payments/pgCheckoutBridge.ts`.
+- Added Firebase Functions endpoint mapper: `lib/payments/paymentEndpoints.ts`.
+- Added checkout PG handoff UI: `components/storefront/PgIntegrationPanel.tsx`.
+- Updated `/q/[code]/checkout` to show PG public config, Functions endpoint, browser module, and mock boundary status.
+- Updated Functions payment handlers with server PG readiness snapshots.
+- Updated `.env.local.example` and `functions/.env.example` with key names only.
+- Updated PG/Firebase payment docs: `PAYMENT_CONNECT_PLAN.md`, `PAYMENT_FLOW_CHECKLIST.md`, `PG_ENV_KEYS.md`, `PG_READY_HANDOFF.md`, `FIREBASE_FUNCTIONS_PLAN.md`.
+- Validation:
+  - `npm.cmd run lint`: passed, 0 errors, 12 existing `<img>` warnings.
+  - `npm.cmd run build`: passed, 93 static routes.
+  - `npm.cmd --prefix functions install`: completed with Node engine warning and 9 moderate audit findings.
+  - `npm.cmd --prefix functions run build`: passed.
+  - `npm.cmd run check:no-secrets`: passed.
+- Real PG approval/cancel/refund/settlement calls remain blocked.
+
+## 2026-05-25 Firebase live commerce integration
+
+- Converted products, product options, QR sessions, guest orders, order items, payment events, inventory movements, and audit logs to Firebase repository implementations where safe.
+- Updated customer QR and guest order screens to prefer Firestore live data and fall back to mock data only on read failure or empty result.
+- Updated storefront badges so the QR/customer frame no longer says Firebase is disconnected when Firestore data is live.
+- Deployed updated Firestore rules for A5 closed mall guest/demo commerce documents.
+- Seeded Firestore product options, QR sessions, guest orders, and order items without a service account key.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `npm.cmd run check:no-secrets`.
+- Remaining real-payment boundary: PG provider SDK/keys, Functions secrets, confirm/webhook/cancel implementation, and production refund/settlement policy.

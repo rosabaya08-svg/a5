@@ -1,0 +1,325 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn() ? request.auth.token.role : "";
+    }
+
+    function isSuperAdmin() {
+      return role() == "SUPER_ADMIN";
+    }
+
+    function isSeedAdmin() {
+      return signedIn() && request.auth.token.seed_admin == true;
+    }
+
+    function isCompanyAdmin(companyId) {
+      return role() == "COMPANY_ADMIN" &&
+        request.auth.token.company_id == companyId;
+    }
+
+    function isNurseryAdmin(nurseryId) {
+      return role() == "NURSERY_ADMIN" &&
+        request.auth.token.nursery_id == nurseryId;
+    }
+
+    function isTabletDevice(nurseryId, roomId, tabletId) {
+      return role() == "TABLET_DEVICE" &&
+        request.auth.token.nursery_id == nurseryId &&
+        request.auth.token.room_id == roomId &&
+        request.auth.token.tablet_id == tabletId;
+    }
+
+    function activeStatus(status) {
+      return status in ["active", "approved", "published"];
+    }
+
+    function visibleNow(data) {
+      return !("visible_from" in data) || data.visible_from <= request.time;
+    }
+
+    function notExpired(data) {
+      return !("visible_until" in data) || data.visible_until >= request.time;
+    }
+
+    function publicActiveContent(data) {
+      return activeStatus(data.status) && visibleNow(data) && notExpired(data);
+    }
+
+    function companyScopedRead(data) {
+      return isSuperAdmin() ||
+        (("company_id" in data) && isCompanyAdmin(data.company_id));
+    }
+
+    function nurseryScopedRead(data) {
+      return isSuperAdmin() ||
+        (("nursery_id" in data) && isNurseryAdmin(data.nursery_id));
+    }
+
+    function companyScopedWrite(data) {
+      return isSuperAdmin() ||
+        isSeedAdmin() ||
+        (("company_id" in data) && isCompanyAdmin(data.company_id));
+    }
+
+    function nurseryScopedWrite(data) {
+      return isSuperAdmin() ||
+        (("nursery_id" in data) && isNurseryAdmin(data.nursery_id));
+    }
+
+    function tabletScoped(data) {
+      return ("nursery_id" in data) &&
+        ("room_id" in data) &&
+        ("tablet_id" in data) &&
+        isTabletDevice(data.nursery_id, data.room_id, data.tablet_id);
+    }
+
+    function linkedProductPublic(productId) {
+      return exists(/databases/$(database)/documents/products/$(productId)) &&
+        publicActiveContent(get(/databases/$(database)/documents/products/$(productId)).data);
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    match /company_onboarding/{onboardingId} {
+      allow read: if companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /company_documents/{documentId} {
+      allow read: if companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /company_contacts/{contactId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create, update: if companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /products/{productId} {
+      allow get, list: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /product_options/{optionId} {
+      allow read: if companyScopedRead(resource.data) ||
+        (("product_id" in resource.data) && linkedProductPublic(resource.data.product_id));
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /product_detail_pages/{pageId} {
+      allow read: if companyScopedRead(resource.data) ||
+        (("product_id" in resource.data) && linkedProductPublic(resource.data.product_id));
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /product_reviews/{reviewId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /product_questions/{questionId} {
+      allow read: if isSuperAdmin() || companyScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /brands/{brandId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /home_sections/{sectionId} {
+      allow read: if publicActiveContent(resource.data) || isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /marketing_banners/{bannerId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /marketing_videos/{videoId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data);
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /exhibitions/{exhibitionId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /exhibition_products/{entryId} {
+      allow read: if publicActiveContent(resource.data) || companyScopedRead(resource.data);
+      allow create: if companyScopedWrite(request.resource.data) || isSuperAdmin();
+      allow update: if companyScopedRead(resource.data) && companyScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /popups/{popupId} {
+      allow read: if publicActiveContent(resource.data) || isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /nurseries/{nurseryId} {
+      allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isSuperAdmin() || nurseryScopedRead(resource.data);
+      allow create: if nurseryScopedWrite(request.resource.data);
+      allow update: if nurseryScopedRead(resource.data) && nurseryScopedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /tablets/{tabletId} {
+      allow read: if isSuperAdmin() ||
+        nurseryScopedRead(resource.data) ||
+        tabletScoped(resource.data);
+      allow create: if nurseryScopedWrite(request.resource.data);
+      allow update: if nurseryScopedRead(resource.data) ||
+        tabletScoped(resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /tablet_home_configs/{configId} {
+      allow read: if publicActiveContent(resource.data) ||
+        nurseryScopedRead(resource.data);
+      allow create, update: if nurseryScopedWrite(request.resource.data) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /carts/{cartId} {
+      allow read: if isSuperAdmin() || tabletScoped(resource.data);
+      allow create: if tabletScoped(request.resource.data);
+      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+      allow delete: if tabletScoped(resource.data) || isSuperAdmin();
+    }
+
+    match /cart_items/{cartItemId} {
+      allow read: if isSuperAdmin() || tabletScoped(resource.data);
+      allow create: if tabletScoped(request.resource.data);
+      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+      allow delete: if tabletScoped(resource.data) || isSuperAdmin();
+    }
+
+    match /qr_payment_sessions/{sessionId} {
+      allow read: if isSuperAdmin() ||
+        nurseryScopedRead(resource.data) ||
+        tabletScoped(resource.data);
+      allow create: if tabletScoped(request.resource.data);
+      allow update: if tabletScoped(resource.data) && tabletScoped(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSuperAdmin() || nurseryScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /order_items/{orderItemId} {
+      allow read: if isSuperAdmin() ||
+        companyScopedRead(resource.data) ||
+        nurseryScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /payment_events/{eventId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /refunds/{refundId} {
+      allow read: if isSuperAdmin() ||
+        companyScopedRead(resource.data) ||
+        nurseryScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /delivery_events/{eventId} {
+      allow read: if isSuperAdmin() ||
+        companyScopedRead(resource.data) ||
+        nurseryScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /pickup_events/{eventId} {
+      allow read: if isSuperAdmin() ||
+        companyScopedRead(resource.data) ||
+        nurseryScopedRead(resource.data);
+      allow create, update: if nurseryScopedRead(resource.data);
+      allow delete: if false;
+    }
+
+    match /inventory_movements/{movementId} {
+      allow read: if isSuperAdmin() || companyScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /settlements/{settlementId} {
+      allow read: if isSuperAdmin() || companyScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /payouts/{payoutId} {
+      allow read: if isSuperAdmin() || companyScopedRead(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /notification_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /system_status/{statusId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /policies/{policyId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

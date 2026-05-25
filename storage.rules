@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn() ? request.auth.token.role : "";
+    }
+
+    function isSuperAdmin() {
+      return role() == "SUPER_ADMIN";
+    }
+
+    function isCompanyAdmin(companyId) {
+      return role() == "COMPANY_ADMIN" &&
+        request.auth.token.company_id == companyId;
+    }
+
+    function isNurseryAdmin(nurseryId) {
+      return role() == "NURSERY_ADMIN" &&
+        request.auth.token.nursery_id == nurseryId;
+    }
+
+    function isImage() {
+      return request.resource == null ||
+        request.resource.contentType.matches("image/.*");
+    }
+
+    function isVideo() {
+      return request.resource == null ||
+        request.resource.contentType.matches("video/.*");
+    }
+
+    function isDocument() {
+      return request.resource == null ||
+        request.resource.contentType.matches("application/pdf") ||
+        request.resource.contentType.matches("image/.*");
+    }
+
+    function under(sizeInMb) {
+      return request.resource == null ||
+        request.resource.size < sizeInMb * 1024 * 1024;
+    }
+
+    match /public/storefront/{fileName=**} {
+      allow read: if true;
+      allow write: if isSuperAdmin() && (isImage() || isVideo()) && under(50);
+    }
+
+    match /companies/{companyId}/products/{productId}/images/{fileName=**} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isImage() && under(15);
+    }
+
+    match /companies/{companyId}/products/{productId}/gifs/{fileName=**} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isImage() && under(25);
+    }
+
+    match /companies/{companyId}/products/{productId}/videos/{fileName=**} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isVideo() && under(100);
+    }
+
+    match /companies/{companyId}/onboarding/{fileName=**} {
+      allow read, write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isDocument() && under(20);
+    }
+
+    match /companies/{companyId}/bank-documents/{fileName=**} {
+      allow read, write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isDocument() && under(20);
+    }
+
+    match /companies/{companyId}/ad-materials/{fileName=**} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && (isImage() || isVideo()) && under(100);
+    }
+
+    match /nurseries/{nurseryId}/business-documents/{fileName=**} {
+      allow read, write: if (isSuperAdmin() || isNurseryAdmin(nurseryId)) && isDocument() && under(20);
+    }
+
+    match /nurseries/{nurseryId}/rooms/{roomId}/tablet-proofs/{fileName=**} {
+      allow read, write: if (isSuperAdmin() || isNurseryAdmin(nurseryId)) && isImage() && under(10);
+    }
+
+    match /settlements/{period}/{companyId}/{fileName=**} {
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if isSuperAdmin() && under(20);
+    }
+
+    match /payouts/{period}/{companyId}/{fileName=**} {
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if isSuperAdmin() && under(20);
+    }
+
+    match /policies/{policyId}/{fileName=**} {
+      allow read: if signedIn();
+      allow write: if isSuperAdmin() && isDocument() && under(20);
+    }
+
+    match /audit-exports/{yyyy}/{mm}/{fileName=**} {
+      allow read, write: if isSuperAdmin() && under(50);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

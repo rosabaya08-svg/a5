@@ -1,7 +1,14 @@
-import { TabletProductDetailPage } from "@/components/pages/tabletPages";
+import { TabletProductDetailPage } from "@/components/storefront/TabletMallPages";
+import { firebaseProductRepository } from "@/lib/repositories/firebase/firebaseProductRepository";
 import { mockRepositories } from "@/lib/repositories/mock";
 
 export async function generateStaticParams() {
+  const firebaseResult = await firebaseProductRepository.listApprovedProducts();
+
+  if (firebaseResult.ok && firebaseResult.data.length > 0) {
+    return firebaseResult.data.map((product) => ({ id: product.id }));
+  }
+
   const result = await mockRepositories.products.listProducts();
 
   return result.ok ? result.data.map((product) => ({ id: product.id })) : [];

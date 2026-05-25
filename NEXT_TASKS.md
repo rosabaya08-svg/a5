@@ -1,5 +1,25 @@
 # Next Tasks
 
+## 2026-05-25 Firebase products read 다음 작업
+
+1. 실제 `.env.local`은 로컬에서만 생성하고 Git에 포함하지 않는다.
+2. Firestore beta rules 적용 후 `products` read와 seed admin write를 검증한다.
+3. 네트워크가 허용된 로컬/배포 환경에서 `/products`와 `/tablet/products`가 `Firebase products` badge를 표시하는지 확인한다.
+4. `npm run seed:firestore:products`는 seed 계정과 rules 준비 후에만 실행한다.
+5. Cloudflare Pages 환경 변수 입력은 별도 승인 후 진행한다.
+6. Storage/PG/환불/정산/알림톡/배송조회/외부 재고 API는 계속 차단한다.
+
+## 2026-05-22 storefront/admin UX 다음 작업
+
+1. `@next/next/no-img-element` lint 경고 11건을 정리할지 결정한다. 정리한다면 static export 정책에 맞춰 `next/image` 또는 로컬/원격 이미지 정책을 먼저 확정한다.
+2. 고객 폐쇄몰 홈에 실사 이미지 자산을 계속 쓸지, `public` 로컬 mock 이미지로 복제할지 결정한다.
+3. `/tablet/products`, `/products`, `/tablet/products/product-care-kit`, `/tablet/cart`, `/q/SANHO701`, `/q/SANHO701/status`, `/orders/guest/A5-20260519-001/refund`를 모바일/태블릿 폭에서 다시 육안 확인한다.
+4. 관리자 콘텐츠 운영 신규 route(`/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/home-editor`, `/admin/exhibitions`)를 기존 최고관리자 메뉴 정보구조와 병합한다.
+5. 기업 콘텐츠 신규 route(`/company/products/preview`, `/company/ads/banners`, `/company/ads/videos`, `/company/brand`, `/company/exhibitions`)를 기존 기업 Admin 상품/주문/정산 흐름과 연결한다.
+6. Firebase Storage가 보류된 상태이므로 배너/상품/영상 업로드는 계속 placeholder와 mock 상태로 유지한다.
+7. QR 결제 성공/실패/만료/상태 route를 실제 PG 연결 전 서버 재계산/상품 snapshot/재고 차감 설계와 대조한다.
+8. 병렬 worktree 결과를 main에 합칠 때 신규 `components/storefront`, `components/marketing`, `data/mockShopContent.ts` 충돌 여부를 먼저 확인한다.
+
 ## 2026-05-22 Cloudflare Pages 배포 다음 작업
 
 1. Cloudflare Pages 설정에서 Build output directory가 `out`인지 확인한다.

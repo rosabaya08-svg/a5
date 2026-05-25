@@ -1,4 +1,4 @@
-import { TabletQrPage } from "@/components/pages/tabletPages";
+import { TabletQrPage } from "@/components/storefront/TabletMallPages";
 
 export default async function Page() {
   return <TabletQrPage />;

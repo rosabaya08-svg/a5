@@ -1,4 +1,4 @@
-import { TabletHomePage } from "@/components/pages/tabletPages";
+import { TabletHomePage } from "@/components/storefront/TabletMallPages";
 
 export default async function Page() {
   return <TabletHomePage />;

@@ -1,5 +1,42 @@
 # my-app 다음 작업
 
+## 2026-05-25 Firebase products read 다음 작업
+
+1. 로컬 VS Code 터미널에서 실제 `.env.local`을 만들되 Git에 포함하지 않는다.
+2. Firebase Console에서 beta rules 적용 후 `products` read와 seed admin write가 의도대로 열렸는지 확인한다.
+3. 네트워크가 허용된 로컬 환경에서 `/products`와 `/tablet/products`가 `Firebase products` badge로 전환되는지 확인한다.
+4. Firestore backend 접근 실패 또는 products 빈 결과일 때 `mock fallback` badge가 유지되는지 확인한다.
+5. seed 계정 준비 후에만 `npm run seed:firestore:products`를 실행한다.
+6. Cloudflare Pages 환경 변수에 `NEXT_PUBLIC_FIREBASE_*`와 `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY`를 입력할지 별도 승인한다.
+7. App Check enforcement는 현재 OFF 유지. ON 전환은 route smoke와 Firestore rules 검증 후 진행한다.
+8. Storage, PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API는 계속 차단 상태로 둔다.
+
+## 2026-05-23 Firebase products read 다음 작업
+
+1. Firebase Console에서 beta Firestore Rules를 적용하기 전, `products` public read와 seed admin write 조건을 문서와 대조한다.
+2. 로컬에 실제 `.env.local`을 만들 경우 Git에 포함되지 않는지 `git status --ignored`로 확인한다.
+3. seed admin 계정에 `FIREBASE_SEED_EMAIL` / `FIREBASE_SEED_PASSWORD`로 로그인 가능한지 확인한다.
+4. `npm run seed:firestore:products`는 rules와 seed 계정 준비 후 로컬 터미널에서만 실행한다.
+5. seed 후 `/products`와 `/tablet/products` 상단 badge가 `Firebase products`로 바뀌는지 확인한다.
+6. Firestore query가 빈 결과 또는 rules 거부일 때 `mock fallback`으로 유지되는지 확인한다.
+7. `products/{id}` 상세 route는 static export 특성상 seed product id가 `generateStaticParams`에 포함되는지 확인한다.
+8. `@next/next/no-img-element` warning을 `next/image` 전환 또는 이미지 정책 확정 후 정리한다.
+9. Firebase Storage 업로드는 계속 차단한다. Blaze/Storage policy 승인 전까지 상품 이미지 업로드 UI는 placeholder만 사용한다.
+10. 다음 Firebase 연결 범위는 products options 또는 read-only CMS 중 하나로 좁혀서 승인받는다.
+
+## 2026-05-22 storefront/admin UX 후속 작업
+
+1. `@next/next/no-img-element` lint 경고 11건을 `next/image` 전환 또는 이미지 정책 확정으로 정리한다.
+2. `mommy-a5.pages.dev` 원격 이미지를 계속 mock reference로 둘지, `public` 아래 로컬 placeholder 자산으로 옮길지 결정한다.
+3. 고객 폐쇄몰 route(`/products`, `/tablet/products`, `/tablet/products/product-care-kit`, `/tablet/cart`, `/tablet/qr`)를 실제 태블릿 해상도에서 육안 점검한다.
+4. QR 고객 route(`/q/SANHO701`, `/q/SANHO701/checkout`, `/q/SANHO701/status`, `/q/SANHO701/expired`)를 모바일 폭에서 점검한다.
+5. 비회원 주문조회 route(`/orders/guest`, `/orders/guest/A5-20260519-001`, `/orders/guest/A5-20260519-001/refund`)를 모바일 폭에서 점검한다.
+6. 관리자 콘텐츠 route(`/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/brands`, `/admin/home-editor`, `/admin/exhibitions`)를 기존 최고관리자 메뉴와 연결한다.
+7. 기업 콘텐츠 route(`/company/products/preview`, `/company/ads/banners`, `/company/ads/videos`, `/company/brand`, `/company/exhibitions`)를 기존 기업 상품 등록/승인 흐름과 연결한다.
+8. Firebase Storage가 Spark 제한으로 보류된 상태이므로 이미지/GIF/영상 업로드는 placeholder와 mock submission으로 유지한다.
+9. 실제 Firebase/PG 전환 전 QR 금액 재계산, 상품 snapshot, 재고 차감, 결제 상태 전이를 Functions 설계와 다시 대조한다.
+10. 병렬 worktree merge 전 `components/storefront`, `components/marketing`, `data/mockShopContent.ts`, layout/ui 공통 컴포넌트 충돌을 우선 확인한다.
+
 ## Cloudflare Pages 배포 확인 순서
 
 1. Cloudflare Pages의 build output directory를 `out`으로 설정한다.

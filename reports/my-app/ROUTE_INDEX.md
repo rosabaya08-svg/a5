@@ -2,6 +2,34 @@
 
 This is the route index for `localhost:3000` in the `my-app` worktree. All routes listed here are mock/test beta review targets. No route should be interpreted as production launch, real payment, real Firebase connection, settlement execution, Alimtalk sending, delivery tracking, or external inventory integration.
 
+## 2026-05-22 storefront/admin UX route additions
+
+| Route | Purpose | Smoke status |
+| --- | --- | --- |
+| `/products` | Customer product list alias using the shopping mall style tablet catalog | build passed, smoke ready |
+| `/tablet/products` | Closed mall storefront with hero banner, promo banners, brand grid, product cards, filters, and mock AI price layer | browser smoke passed |
+| `/tablet/products/product-care-kit` | Product detail with gallery, detail tabs, review summary, price comparison, and mobile CTA | browser smoke passed |
+| `/tablet/cart` | Cart with quantity/options/fulfillment summary and QR generation CTA | browser smoke passed |
+| `/tablet/qr` | Tablet QR generation mock with session expiry and safety notices | build passed, smoke ready |
+| `/q/SANHO701` | Mobile customer QR landing page | browser smoke passed |
+| `/q/SANHO701/checkout` | Mobile checkout mock, no PG call | build passed, smoke ready |
+| `/q/SANHO701/loading` | Checkout loading mock state | build passed, smoke ready |
+| `/q/SANHO701/status` | QR lifecycle status mock | browser smoke passed |
+| `/q/SANHO701/expired` | Expired QR mock state | build passed, smoke ready |
+| `/orders/guest` | Guest order lookup mock form | build passed, smoke ready |
+| `/orders/guest/A5-20260519-001` | Guest order detail mock | build passed, smoke ready |
+| `/orders/guest/A5-20260519-001/refund` | Guest refund request mock, no real refund | browser smoke passed |
+| `/admin/marketing/banners` | Admin banner management mock | browser smoke passed |
+| `/admin/marketing/videos` | Admin video management mock | build passed, smoke ready |
+| `/admin/brands` | Admin brand logo grid mock | build passed, smoke ready |
+| `/admin/home-editor` | Admin shopping home section editor mock | build passed, smoke ready |
+| `/admin/exhibitions` | Admin exhibition management mock | build passed, smoke ready |
+| `/company/products/preview` | Company product detail preview mock | browser smoke passed |
+| `/company/ads/banners` | Company banner ad submission mock | build passed, smoke ready |
+| `/company/ads/videos` | Company video ad submission mock | build passed, smoke ready |
+| `/company/brand` | Company brand room mock | build passed, smoke ready |
+| `/company/exhibitions` | Company exhibition application mock | build passed, smoke ready |
+
 ## Primary launcher
 
 | Route | Purpose | Status |

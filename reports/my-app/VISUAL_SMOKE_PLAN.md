@@ -2,6 +2,42 @@
 
 This checklist is for manual browser review on `localhost:3000`. It must be run by a person after the local dev server is started manually. No `npm run lint`, `npm run build`, deploy, Firebase, PG, or external API command was executed during unattended work.
 
+## 2026-05-22 storefront/admin UX smoke additions
+
+1. Open `/products`.
+   - Confirm it renders the same customer-facing shopping mall catalog as `/tablet/products`.
+   - Confirm mock/test beta, Firebase connection 없음, PG connection 없음, production 아님 badges are visible.
+
+2. Open `/tablet/products`.
+   - Confirm HANSANYEON-style closed mall hero banner is visible.
+   - Confirm nursery/room/tablet/QR expiry context strip is visible.
+   - Confirm promo banner grid, brand logo grid, category tabs, search/filter/sort controls, and product image cards are visible.
+
+3. Open `/tablet/products/product-care-kit`.
+   - Confirm product image gallery, normal price, closed mall price, discount rate, mock AI price comparison layer, option chips, detail/review/shipping tabs, and mobile sticky CTA are visible.
+
+4. Open `/tablet/cart` and `/tablet/qr`.
+   - Confirm cart quantities, option labels, fulfillment method, total amount, QR generation CTA, session expiry notice, and no real payment language are visible.
+
+5. Open `/q/SANHO701`, `/q/SANHO701/checkout`, `/q/SANHO701/status`, and `/q/SANHO701/expired`.
+   - Confirm the pages look like mobile customer payment entry screens.
+   - Confirm PG is mock only and there is no live payment request.
+
+6. Open `/orders/guest`, `/orders/guest/A5-20260519-001`, and `/orders/guest/A5-20260519-001/refund`.
+   - Confirm guest order lookup, order timeline, fulfillment status, and refund request mock are visible.
+   - Confirm no real refund/settlement behavior exists.
+
+7. Open `/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/brands`, `/admin/home-editor`, and `/admin/exhibitions`.
+   - Confirm banner/video/brand/exhibition/home editing are mock management screens.
+   - Confirm upload/approval/scheduling controls are placeholders only.
+
+8. Open `/company/products/preview`, `/company/ads/banners`, `/company/ads/videos`, `/company/brand`, and `/company/exhibitions`.
+   - Confirm company-facing product preview, ad submission, brand room, and exhibition application mock screens are visible.
+   - Confirm Firebase Storage upload and real external API submission are not present.
+
+9. Re-open `/mock-ui/status`.
+   - Confirm progress, generated file groups, route list, blockers, worktree ports, and 404 record mention the latest storefront/admin UX batch.
+
 ## Start point
 
 1. Open `http://localhost:3000`.

@@ -1,5 +1,115 @@
 # my-app 자동 파일 생성 준비 보고
 
+## 2026-05-25 Firebase products read verification
+
+### 확인 요약
+
+- Firebase Web SDK dependency 확인: `firebase`는 `package.json`에 존재하며 `npm.cmd install firebase` 결과 최신 상태.
+- Firebase products read 1차 구조는 이미 반영되어 있음.
+- `.env.local.example`, `lib/firebase/client.ts`, `lib/firebase/appCheck.ts`, `lib/repositories/firebase/firebaseProductRepository.ts`, `scripts/seed-firestore-products.mjs`, `reports/my-app/FIREBASE_CONNECT_PLAN.md` 존재 확인.
+- `.env.local` 파일은 현재 workspace에 존재하지만 내용은 읽지 않았고 Git status에는 표시되지 않음.
+- `/products`, `/tablet/products`, `/tablet/products/[id]`는 `Firebase products` 우선, 실패/빈 결과 시 `mock fallback` 구조 확인.
+
+### 검증
+
+- `npm.cmd run build`: 성공, static pages 96개 생성.
+- build 중 Firestore backend 접근은 현재 실행 환경 네트워크 제한으로 `EACCES`/`UNAVAILABLE` 로그가 발생함.
+- 해당 실패는 `firebaseProductRepository`의 fallback 대상이며, 화면은 mock fallback으로 유지됨.
+
+### 금지 준수
+
+- git add/commit/push 실행 없음.
+- service account/private key 생성 없음.
+- firebase deploy 실행 없음.
+- PG/환불/정산/알림톡/배송조회/외부 재고 API 실제 연결 없음.
+
+## 2026-05-23 Firebase products read phase 1
+
+### 작업 요약
+
+- `npm.cmd install firebase` 실행 결과: 이미 최신 상태, 439 packages audit 완료, moderate 취약점 2건 보고.
+- `.env.local.example` 생성: 실제 값 없이 key 이름만 작성.
+- `.gitignore`에 `!.env.local.example` 추가: 실제 `.env*`는 계속 ignore, example만 추적 가능.
+- `lib/firebase/client.ts` 정리: Web SDK app/auth/firestore 초기화 유지, Storage client export 제거.
+- `lib/firebase/appCheck.ts` 생성: 브라우저 환경에서만 reCAPTCHA v3 App Check 초기화.
+- `lib/repositories/firebase/firebaseProductRepository.ts` 구현: `products` 컬렉션에서 `status == "active"` read.
+- `/products`, `/tablet/products`, `/tablet/products/[id]`는 Firebase products를 우선 시도하고 실패/빈 결과면 mock fallback 사용.
+- 화면 상단에 `Firebase products` 또는 `mock fallback` 데이터 소스 배지 표시.
+- `scripts/seed-firestore-products.mjs` 생성: Firebase Web SDK + Email/Password seed admin 로그인으로 `products` 컬렉션 seed.
+- `package.json`에 `seed:firestore:products` 추가.
+- Firebase Storage upload는 `lib/firebase/contentRepository.ts`에서 명시적으로 차단.
+
+### 검증
+
+- `npm.cmd run build`: 성공, static pages 96개 생성.
+- `npm.cmd run lint`: 성공, 오류 0개.
+- lint warning: `<img>` 최적화 경고와 사용하지 않는 `OptionPanel` 경고 포함 13건.
+
+### 금지 준수
+
+- 실제 `.env.local` 생성 없음.
+- service account/private key 생성 없음.
+- `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules` 생성 없음.
+- `firebase deploy`, git add/commit/push 실행 없음.
+- PG/환불/정산/알림톡/배송조회/외부 재고 API 실제 연결 없음.
+- Firebase Storage 실제 업로드 연결 없음.
+
+## 2026-05-22 storefront/admin UX coding batch
+
+### 생성/수정 요약
+
+- 고객 폐쇄몰 화면을 단순 허브에서 실제 쇼핑몰형 화면으로 고도화했다.
+- `mommy-a5.pages.dev` 스타일을 참고해 hero banner, promo banner, brand logo grid, 실사 상품 카드, 할인 배지, AI 분석 mock layer, 상세 이미지 갤러리, 상세 탭, 모바일 고정 CTA를 추가했다.
+- QR 고객 흐름을 모바일 결제 진입 화면처럼 재구성하고 loading/status/expired/refund mock route를 보강했다.
+- 관리자/기업 영역에 광고 배너, 영상 광고, 브랜드 로고, 쇼핑몰 홈 편집, 기획전, 상품 상세 미리보기 mock route를 추가했다.
+- 공통 `DataTable`, `FilterBar`, `AppShell`, `TopBar`, `AdminSidebar`를 전문가용 SaaS 콘솔에 더 가깝게 확장했다.
+
+### 주요 신규 파일
+
+- `data/mockShopContent.ts`
+- `components/storefront/TabletMallPages.tsx`
+- `components/storefront/GuestQrExperience.tsx`
+- `components/marketing/ContentAdminPages.tsx`
+- `app/admin/marketing/banners/page.tsx`
+- `app/admin/marketing/videos/page.tsx`
+- `app/admin/brands/page.tsx`
+- `app/admin/home-editor/page.tsx`
+- `app/admin/exhibitions/page.tsx`
+- `app/company/products/preview/page.tsx`
+- `app/company/ads/banners/page.tsx`
+- `app/company/ads/videos/page.tsx`
+- `app/company/brand/page.tsx`
+- `app/company/exhibitions/page.tsx`
+- `app/q/[code]/loading/page.tsx`
+- `app/q/[code]/expired/page.tsx`
+- `app/q/[code]/status/page.tsx`
+- `app/orders/guest/[orderNo]/refund/page.tsx`
+
+### 검증 결과
+
+- `npm.cmd run build`: 성공, static generation 94 routes.
+- `npm.cmd run lint`: 성공, 오류 없음.
+- lint warning: `@next/next/no-img-element` 11건. 현재는 mock/static export와 외부 mock 이미지 사용 때문에 남겨둔 비차단 경고다.
+
+### Browser smoke 결과
+
+- `/tablet/products`: 404 없음, 쇼핑몰형 hero와 HANSANYEON closed mall UI 표시.
+- `/tablet/products/product-care-kit`: 404 없음, 상품 상세 mock 표시.
+- `/tablet/cart`: 404 없음, 장바구니 mock 표시.
+- `/q/SANHO701`: 404 없음, 고객 QR 랜딩 mock 표시.
+- `/q/SANHO701/status`: 404 없음, QR 상태 mock 표시.
+- `/orders/guest/A5-20260519-001/refund`: 404 없음, 환불 요청 mock 표시.
+- `/admin/marketing/banners`: 404 없음, 콘텐츠 운영 mock 표시.
+- `/company/products/preview`: 404 없음, 상품 콘텐츠 미리보기 mock 표시.
+
+### 실연동 상태
+
+- Firebase SDK import 없음.
+- 실제 Firestore/Auth 연결 없음.
+- 실제 PG/환불/정산 처리 없음.
+- 실제 알림톡, 배송조회, 외부 재고 API 호출 없음.
+- `.env`, Secret Key, service account, Firebase rules/config/deploy 파일 생성 없음.
+
 ## 2026-05-22 Cloudflare Pages static export 점검
 
 - `next.config.ts`에서 `output: "export"`와 `images.unoptimized: true` 적용 상태를 확인했다.

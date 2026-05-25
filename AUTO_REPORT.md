@@ -1,5 +1,33 @@
 # Auto Report
 
+## 22. 2026-05-25 Firebase products read verification
+
+| 항목 | 결과 |
+| --- | --- |
+| Firebase SDK | `npm.cmd install firebase` 실행, 최신 상태 |
+| 구현 상태 | `.env.local.example`, Firebase client/appCheck, products repository, seed script, package script 존재 확인 |
+| products read | Firestore `products`의 `status == "active"` 우선 read, 실패/빈 결과 시 mock fallback 유지 |
+| 대상 route | `/products`, `/tablet/products`, `/tablet/products/[id]` |
+| build | `npm.cmd run build` 성공, static pages 96개 |
+| Firestore 접속 | 현재 실행 환경 네트워크 제한으로 `EACCES`/`UNAVAILABLE` 로그 발생, fallback 대상 |
+| env 상태 | `.env.local` 존재 확인, 내용 읽지 않음, Git status 미표시 |
+| 금지 준수 | git/deploy/service account/private key/PG/환불/정산/알림톡/배송조회/외부 재고 API 실행 없음 |
+
+## 21. 2026-05-22 storefront/admin UX coding batch
+
+| 항목 | 결과 |
+| --- | --- |
+| 작업 범위 | 고객 폐쇄몰 쇼핑 UI, QR/비회원 흐름, 관리자/기업 콘텐츠 운영 mock UI 고도화 |
+| 쇼핑몰 UI | `components/storefront/TabletMallPages.tsx`, `components/storefront/GuestQrExperience.tsx`, `data/mockShopContent.ts` 추가 |
+| 태블릿/고객 route | `/tablet/products`, `/tablet/products/product-care-kit`, `/tablet/cart`, `/tablet/qr`, `/q/SANHO701`, `/q/SANHO701/status`, `/orders/guest/A5-20260519-001/refund` 확인 |
+| 관리자/기업 route | `/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/brands`, `/admin/home-editor`, `/admin/exhibitions`, `/company/products/preview`, `/company/ads/banners`, `/company/ads/videos`, `/company/brand`, `/company/exhibitions` 추가 |
+| 공통 UI | `DataTable`, `FilterBar`, `AppShell`, `TopBar`, `AdminSidebar`에 mock 상태/필터/정렬/테마 대응 보강 |
+| 검증 | `npm.cmd run build` 성공, `npm.cmd run lint` 성공 |
+| lint 메모 | `<img>` 사용에 대한 `@next/next/no-img-element` 경고 11건 존재, 오류는 없음 |
+| 브라우저 smoke | 기존 dev server `localhost:3000`에서 주요 route 7개 404 없음 확인 |
+| 실연동 상태 | Firebase/PG/Storage/알림톡/배송조회/외부 재고 API 실제 연결 없음, mock/test beta 유지 |
+| 금지 준수 | `.env`, Secret, service account, Firebase config/rules, deploy, git add/commit/push 실행 없음 |
+
 ## 20. 2026-05-22 Cloudflare Pages static export 점검
 
 | 항목 | 결과 |

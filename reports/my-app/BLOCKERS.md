@@ -1,5 +1,14 @@
 # my-app BLOCKERS
 
+## 2026-05-22 storefront/admin UX blockers
+
+1. Firebase Storage는 Spark 제한으로 보류 상태다. 상품 이미지, GIF, 영상 업로드는 실제 연결하지 않고 원격 mock image 또는 placeholder UI로만 표시한다.
+2. 실사 이미지 전략이 필요하다. 현재 쇼핑몰 느낌을 위해 `mommy-a5.pages.dev`의 공개 이미지 URL을 mock reference로 사용했으며, 운영 전에는 저작권/소유권/Storage/CDN 정책을 확정해야 한다.
+3. `npm.cmd run lint`는 성공했지만 `<img>` 사용에 대한 `@next/next/no-img-element` 경고 11건이 남아 있다. static export와 이미지 최적화 정책을 확정한 뒤 정리한다.
+4. 배너/영상/브랜드/기획전 관리 화면은 모두 mock UI다. 실제 업로드, 승인 알림, 게시 예약, 노출 통계, 클릭 추적은 구현하지 않았다.
+5. QR checkout, refund request, settlement/payout 화면은 모두 mock UI다. 실제 PG, 환불, 정산, 입금 처리는 계속 차단 상태다.
+6. 알림톡, 배송조회, 외부 재고 API는 공식 문서, 테스트 키, 템플릿, 계약 정보가 확보되기 전까지 연결 금지 상태를 유지한다.
+
 ## 현재 보류 항목
 
 1. 세부 트랙명이 명시되지 않아 현재 폴더명을 기준으로 `my-app` 트랙으로 해석함.

@@ -118,25 +118,6 @@ function fulfillmentLabel(product: Product, content?: StorefrontContent) {
   return "현장수령/택배";
 }
 
-function HeaderContextBadges({ context }: { context: StoreContext }) {
-  const { session, nursery, room } = context;
-  const badges = [
-    `조리원 ${nursery?.name ?? session.nurseryId} · ${room?.name ?? session.roomId}`,
-    `QR ${session.shortCode} · 만료 ${formatDateTime(session.expiresAt)}`,
-    "장바구니 연결",
-  ];
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {badges.map((badge) => (
-        <span key={badge} className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-slate-950 ring-1 ring-slate-200">
-          {badge}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function DataSourceBadge({ source, reason }: { source: ProductReadSource; reason?: string }) {
   const isFirebase = source === "Firebase 상품";
 
@@ -209,9 +190,6 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
 }
 
 function StoreShell({
-  title,
-  subtitle,
-  context,
   dataSource = "모의 대체 데이터",
   dataSourceNote,
   children,
@@ -248,22 +226,6 @@ function StoreShell({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
-        <section className="sr-only" aria-label="태블릿 화면 정보">
-          <div className="bg-slate-950/85 px-4 py-4 text-white backdrop-blur-md md:px-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-300">폐쇄몰 태블릿</p>
-                <h1 className="mt-2 text-3xl font-black md:text-5xl">{title}</h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{subtitle}</p>
-              </div>
-              <div className="grid gap-3">
-                <HeaderContextBadges context={context} />
-                <DataSourceBadge source={dataSource} reason={dataSourceNote} />
-              </div>
-            </div>
-          </div>
-        </section>
-
         {children}
         <div className="mt-8">
           <FirestoreReadDiagnostic source={dataSource} reason={dataSourceNote} />

@@ -975,6 +975,14 @@
 - 검증은 `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs` 모두 통과했습니다.
 - 실제 AI, 외부 최저가 API, PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출은 추가하지 않았습니다.
 
+## 2026-05-26 태블릿 주문/QR 상단 개발용 구역 삭제
+
+- `/tablet/qr` 화면에서 표시된 상단 어두운 제목/설명/QR/데이터소스 배지 구역을 공통 태블릿 셸에서 완전히 제거했습니다.
+- 같은 공통 셸을 쓰는 태블릿 주문 관련 화면에서도 해당 개발용 구역이 다시 표시되지 않습니다.
+- QR 카드, 주문 상품 요약, 결제 예정 금액은 유지해서 주문 작업 흐름은 그대로 보존했습니다.
+- 검증은 `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs` 모두 통과했습니다.
+- 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출은 추가하지 않았습니다.
+
 ## 2026-05-26 태블릿 로고 이동과 고스트 히스토리 버튼
 
 - 태블릿 상단 `HANSANYEON` 로고 링크를 `/tablet/products`에서 `/tablet`로 변경했다.

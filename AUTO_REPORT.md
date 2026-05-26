@@ -761,6 +761,17 @@
 | 검증 | `npm.cmd run lint` 통과, `npm.cmd run build` 통과, `npm.cmd --prefix functions run build` 통과, `node scripts/check-routes.mjs` 통과 |
 | Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |
 
+## 46. 2026-05-26 태블릿 주문/QR 상단 개발용 구역 삭제
+
+| 항목 | 결과 |
+| --- | --- |
+| 대상 | `/tablet/qr`를 포함한 태블릿 주문 관련 공통 화면 |
+| 삭제 | 상단 메뉴 아래에 보이던 어두운 개발용 제목/설명/QR/데이터소스 배지 구역을 공통 셸에서 완전 제거 |
+| 유지 | 실제 QR 카드, 주문 상품 요약, 결제 예정 금액, 하단 개발자 읽기 진단은 유지 |
+| 목적 | 태블릿 주문 화면이 불필요한 설명 박스 없이 바로 주문/QR 작업 영역으로 진입하도록 정리 |
+| 검증 | `npm.cmd run lint` 통과, `npm.cmd run build` 통과, `npm.cmd --prefix functions run build` 통과, `node scripts/check-routes.mjs` 통과 |
+| Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |
+
 ## 44. 2026-05-26 태블릿 로고 이동과 고스트 히스토리 버튼
 
 | 항목 | 결과 |

@@ -290,3 +290,12 @@
 4. Refresh or reseed `qr_payment_sessions` expiration dates before demo because old seeded QR sessions can be server-blocked as expired.
 5. After PG docs/keys arrive, fill the selected PG provider branch without changing the server amount recalculation and transaction write path.
 6. Keep real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.
+
+## 2026-05-26 Compliance next tasks
+
+1. Visually smoke `/company/onboarding`, `/company/products/new`, `/company/products/preview`, and `/admin/products`.
+2. Replace mock legal notice values with Firestore-backed company/product compliance documents after write rules and Custom Claims are finalized.
+3. Add admin review actions for approve/reject/request-fix with audit logs.
+4. Add category-specific legal notice templates for food, health functional food, cosmetics, medical device, electric/living goods, and children products.
+5. Verify KC number validity flow with official product-safety lookup policy before production.
+6. Keep legal final judgment, real uploads, refunds, settlements, Alimtalk, delivery tracking, and external inventory integrations blocked.

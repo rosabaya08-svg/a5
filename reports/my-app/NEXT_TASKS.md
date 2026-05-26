@@ -417,3 +417,12 @@
 4. Reseed demo QR sessions with future `expires_at` values before customer demos if the current seeded documents are expired.
 5. Keep the current mock-confirm transaction path and replace only the selected PG provider internals after official docs/keys arrive.
 6. Keep production refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.
+
+## 2026-05-26 Compliance next tasks
+
+1. Browser-smoke `/company/onboarding`, `/company/products/new`, `/company/products/preview`, and `/admin/products`.
+2. Persist company compliance documents to Firestore only after role-scoped write rules and audit logs are ready.
+3. Add admin approve/reject/request-fix actions for compliance review.
+4. Add category-specific notice templates for food, health functional food, cosmetics, medical device, electric/living goods, and children products.
+5. Design KC number verification against official product-safety lookup before production.
+6. Keep real legal judgment, file upload, refund, settlement payout, Alimtalk, delivery tracking, and external inventory blocked.

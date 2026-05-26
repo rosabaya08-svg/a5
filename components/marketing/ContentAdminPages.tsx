@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LegalNoticeChecklist } from "@/components/company/LegalNoticeChecklist";
 import { FirebaseCmsManager } from "@/components/firebase/FirebaseCmsManager";
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
@@ -282,6 +283,9 @@ export async function CompanyProductPreviewPage() {
   return (
     <CompanyContentShell title="상세페이지 미리보기" subtitle="상품 상세 본문, 이미지 갤러리, 모바일/태블릿 미리보기를 승인 요청 전에 확인합니다.">
       <FilterBar title="미리보기 필터" filters={["전체", "임시저장", "승인요청 전", "반려 수정", "모바일", "태블릿"]} mode="toolbar" searchPlaceholder="상품명 또는 브랜드" resultCount={content.productProfiles.length} />
+      <div className="mt-4" />
+      <LegalNoticeChecklist />
+      <div className="mt-4" />
       {productPreviewCards}
     </CompanyContentShell>
   );

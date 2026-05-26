@@ -107,3 +107,11 @@
 - Bulk user creation remains blocked.
 - Plain password issuance/storage remains blocked.
 - `CUSTOMER_GUEST` remains a QR/session/order lookup flow, not a Firebase Auth account.
+
+## 2026-05-26 Compliance blockers
+
+- Final product legality, restricted category interpretation, KC applicability, and legal notice wording require expert/legal review.
+- KC certification validity lookup is not connected to an official verification service.
+- Real Firebase Storage uploads, malware scanning, retention policy, and access logging are not connected.
+- Company compliance writes remain mock UI until role-scoped Firestore writes and audit logs are approved.
+- Real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

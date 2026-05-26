@@ -877,3 +877,14 @@
 - Failure UI covers expired QR, not-active/duplicate QR, amount mismatch, out-of-stock, not-found, endpoint missing, and fetch failure states.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
 - Boundaries preserved: no real PG call, no Firebase deploy, no secret/service account changes, no refund/settlement execution.
+
+## 2026-05-26 Company compliance and legal notices
+
+- Expanded `types/compliance.ts` and `data/legalCompliance.ts` for seller disclosure, product notice, return policy, KC/certification, restricted product categories, and approval-gate evaluation.
+- Rebuilt company compliance components for Korean seller disclosure, product notice, KC target/number, evidence upload mock, prohibited-product guard, and return/exchange/refund/A/S notices.
+- `/company/products/new` now has a visible disabled/enabled approval request gate. Selecting a prohibited item or missing KC/evidence fields disables approval request.
+- `/company/products/preview` now includes the legal notice checklist before product preview cards.
+- `/admin/products` now has a compliance summary showing red flags, KC/certification checks, seller disclosure count, product notice count, and expert review marker.
+- Updated `COMMERCE_LEGAL_NOTICE_PLAN.md` and `COMPANY_ONBOARDING_REQUIREMENTS.md`.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+- Boundaries preserved: no actual legal decision, no real upload, no real PG/refund/settlement, no Firebase deploy.

@@ -238,3 +238,11 @@
 - `NEXT_PUBLIC_PAYMENT_API_BASE_URL` must point to reachable deployed Functions before customer checkout can call ready/confirm/status in production Cloudflare.
 - Seeded QR sessions with past `expires_at` values will be correctly blocked by the server and need refresh/reseed before demo payment smoke.
 - Real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-26 Compliance blockers
+
+- Final product legality, restricted category interpretation, KC applicability, and notice wording require expert/legal review.
+- KC certification validity lookup is not connected to an official verification service.
+- Real Storage uploads, malware scanning, retention policy, and access logging are not connected.
+- Company compliance write paths are mock UI only until Firestore role-scoped writes and audit logs are approved.
+- Real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

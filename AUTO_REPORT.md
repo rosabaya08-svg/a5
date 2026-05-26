@@ -620,3 +620,20 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
 | Boundaries | No real PG approval/cancel/refund/settlement, no Firebase deploy, no secret/service account changes |
+
+## 36. 2026-05-26 Company compliance and legal notices
+
+| Item | Result |
+| --- | --- |
+| Scope | Added company product legal notice, prohibited-product, KC certification, seller disclosure, and admin approval summary gates |
+| Shared contract | Expanded `types/compliance.ts` and `data/legalCompliance.ts` with seller disclosure, product notice, return policy, restricted product, KC, and approval-gate evaluation data |
+| Company onboarding | `/company/onboarding` now shows seller disclosure and document upload mock requirements for business registration, bankbook copy, contact, CS, and return address |
+| Product registration | `/company/products/new` now includes prohibited-product checklist, KC target/number/evidence fields, product notice fields, return/exchange/refund/A/S notice, and disabled approval gate logic |
+| Preview | `/company/products/preview` now includes legal notice/KC checklist before preview cards |
+| Admin approval | `/admin/products` compliance summary now shows seller disclosure, product notice, return policy, prohibited red flags, KC/certification, and expert review marker |
+| Documents | Updated `COMMERCE_LEGAL_NOTICE_PLAN.md` and `COMPANY_ONBOARDING_REQUIREMENTS.md` |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+| Boundaries | No real file upload, no legal final judgment, no PG/refund/settlement execution, no Firebase deploy |

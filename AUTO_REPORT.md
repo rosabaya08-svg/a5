@@ -637,3 +637,22 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
 | Boundaries | No real file upload, no legal final judgment, no PG/refund/settlement execution, no Firebase deploy |
+
+## 37. 2026-05-26 Admin approval operations
+
+| Item | Result |
+| --- | --- |
+| Scope | Improved highest-admin approval and operations screens for enterprise beta review |
+| Types/data | Expanded `types/admin.ts` and `data/admin/operations.ts` with company approvals, product approvals, CMS slots, payment monitor, order monitor, audit operations, and repository readiness |
+| New admin component | Added `components/admin/AdminOperationsPanel.tsx` with reusable approval queues, CMS operations, payment/order monitors, audit viewer, and Firestore repository contract panels |
+| Company approvals | `/admin/companies` now shows 입점사 승인/반려 queue with documents, business registration, mail-order registration, risk flags, and disabled SUPER_ADMIN actions |
+| Product approvals | `/admin/products` now shows 상품 승인/반려 queue with legal notice, KC, evidence, prohibited red flags, and disabled SUPER_ADMIN actions |
+| CMS operations | `/admin/dashboard` now shows banner/video/GIF/brand/exhibition/popup content slots with period, order, target, and link settings |
+| Monitors | `/admin/payments` and `/admin/orders` now show payment/order monitor tables before legacy mock tables |
+| Audit viewer | `/admin/audit-logs` now shows admin operation audit entries and repository paths |
+| Repository gate | `/admin` now shows Firestore repository connection readiness and write policies |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+| Boundaries | All approval/write buttons remain disabled; real writes require SUPER_ADMIN claim, server validation, and audit log |

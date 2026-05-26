@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
+import {
+  AuditLogViewerPanel,
+  CmsOperationsPanel,
+  CompanyApprovalQueuePanel,
+  OrderMonitorPanel,
+  PaymentMonitorPanel,
+  ProductApprovalQueuePanel,
+  RepositoryConnectionPanel,
+} from "@/components/admin/AdminOperationsPanel";
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
@@ -128,6 +137,9 @@ export function AdminIndexPage() {
           <StatCard key={metric.label} metric={metric} />
         ))}
       </div>
+      <div className="mt-6">
+        <RepositoryConnectionPanel />
+      </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <RiskAlert risks={mockApi.risks()} />
         <ConfirmBox
@@ -154,6 +166,9 @@ export function AdminDashboardPage() {
       </div>
       <div className="mt-6">
         <AdminOperationMap />
+      </div>
+      <div className="mt-6">
+        <CmsOperationsPanel />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
         <section>
@@ -184,6 +199,8 @@ export function AdminCompaniesPage() {
   return (
     <AdminShell title="입점사 관리" subtitle="기업 승인, 수수료율, 정산 차단 상태를 확인합니다.">
       <AccountProvisioningPanel />
+      <div className="mt-4" />
+      <CompanyApprovalQueuePanel />
       <div className="mt-4" />
       <FilterBar title="입점사 필터" filters={["전체", "승인", "대기", "정산 보류"]} />
       <DataTable
@@ -278,6 +295,8 @@ export function AdminProductsPage() {
     <AdminShell title="상품 승인" subtitle="승인 대기 상품과 가격비교 표시값을 검토합니다.">
       <ComplianceSummaryPanel />
       <div className="mt-4" />
+      <ProductApprovalQueuePanel />
+      <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["전체", "승인대기", "승인완료", "재고부족"]} />
       <DataTable
         columns={["상품", "입점사", "카테고리", "상태", "폐쇄몰가", "재고"]}
@@ -300,6 +319,8 @@ export function AdminProductsPage() {
 export function AdminOrdersPage() {
   return (
     <AdminShell title="전체 주문" subtitle="QR 출처와 order_items 기준 정산 원장을 함께 확인합니다.">
+      <OrderMonitorPanel />
+      <div className="mt-4" />
       <DataTable
         columns={["주문번호", "고객", "상태", "수령", "금액", "QR"]}
         rows={mockApi.orders().map((order) => ({
@@ -324,6 +345,8 @@ export function AdminPaymentsPage() {
   return (
     <AdminShell title="결제" subtitle="실제 PG가 아닌 모의 결제 상태와 TID 형식만 확인합니다.">
       <PgReadinessPanel />
+      <div className="mt-4" />
+      <PaymentMonitorPanel />
       <div className="mt-4" />
       <ConfirmBox
         title="실제 PG 연동 금지"
@@ -381,6 +404,8 @@ export function AdminSettlementsPage() {
 export function AdminAuditLogsPage() {
   return (
     <AdminShell title="감사 로그" subtitle="권한, 금액, 상태 변경은 audit log로 보존한다는 원칙을 확인합니다.">
+      <AuditLogViewerPanel />
+      <div className="mt-4" />
       <DataTable
         columns={["시각", "역할", "행위자", "액션", "대상", "메시지"]}
         rows={mockApi.auditLogs().map((log) => ({

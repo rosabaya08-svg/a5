@@ -299,3 +299,12 @@
 4. Add category-specific legal notice templates for food, health functional food, cosmetics, medical device, electric/living goods, and children products.
 5. Verify KC number validity flow with official product-safety lookup policy before production.
 6. Keep legal final judgment, real uploads, refunds, settlements, Alimtalk, delivery tracking, and external inventory integrations blocked.
+
+## 2026-05-26 Admin operations next tasks
+
+1. Browser-smoke `/admin`, `/admin/dashboard`, `/admin/companies`, `/admin/products`, `/admin/payments`, `/admin/orders`, and `/admin/audit-logs`.
+2. Replace admin operation arrays in `data/admin/operations.ts` with Firestore repository reads after role-scoped rules are verified.
+3. Implement approve/reject/request-fix server endpoints with `SUPER_ADMIN` claim verification and audit log writes.
+4. Connect CMS slot writes to `marketing_banners`, `marketing_videos`, `home_sections`, `media_assets`, and `product_detail_pages`.
+5. Add payment webhook event drill-down after official PG webhook signature verification is implemented.
+6. Keep real PG cancel/refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.

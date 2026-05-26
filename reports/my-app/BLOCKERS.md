@@ -246,3 +246,11 @@
 - Real Storage uploads, malware scanning, retention policy, and access logging are not connected.
 - Company compliance write paths are mock UI only until Firestore role-scoped writes and audit logs are approved.
 - Real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-26 Admin operations blockers
+
+- Real approve/reject/status write actions require `SUPER_ADMIN` Custom Claim verification and audit log writes before enabling.
+- CMS write actions require Storage/media governance, scoped Firestore rules, and content approval policy.
+- Payment monitor is read/diagnostic only until PG webhook signature verification and provider event mapping are implemented.
+- Order monitor is read/diagnostic only; manual order state mutation must stay server-side.
+- Real PG cancel/refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

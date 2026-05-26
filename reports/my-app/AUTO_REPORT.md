@@ -888,3 +888,15 @@
 - Updated `COMMERCE_LEGAL_NOTICE_PLAN.md` and `COMPANY_ONBOARDING_REQUIREMENTS.md`.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
 - Boundaries preserved: no actual legal decision, no real upload, no real PG/refund/settlement, no Firebase deploy.
+
+## 2026-05-26 Admin approval operations
+
+- Expanded admin operation contracts in `types/admin.ts` and mock operation records in `data/admin/operations.ts`.
+- Added `components/admin/AdminOperationsPanel.tsx` for company approval queue, product approval queue, CMS slot operations, payment monitor, order monitor, audit viewer, and Firestore repository readiness.
+- `/admin/companies` now includes 입점사 승인/반려 queue with document, 통신판매업 신고번호, risk flag, and SUPER_ADMIN write gate.
+- `/admin/products` now includes 상품 승인/반려 queue with legal notice, KC/evidence, and 판매 금지 red flag summary.
+- `/admin/dashboard` now includes banner/video/GIF/brand/exhibition/popup CMS operations with exposure period, sort order, target, and link settings.
+- `/admin/payments`, `/admin/orders`, and `/admin/audit-logs` now include monitor/viewer panels before legacy mock tables.
+- `/admin` now includes Firestore repository connection readiness and write policy panel.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+- Boundaries preserved: no client direct write, no real PG/refund/settlement, no Firebase deploy. Actual writes require `SUPER_ADMIN` claim and audit logs.

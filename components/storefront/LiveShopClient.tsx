@@ -3,14 +3,25 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { mockCompanies } from "@/data/mockCompanies";
 import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
 import { saveLiveShopDocument } from "@/lib/firebase/liveShopRepository";
+import {
+  COMPANY_GROUP_PURCHASE_MESSAGE,
+  groupCartItemsByCompany,
+  removePaidItemsFromCart,
+  type CompanyPaymentGroup,
+} from "@/lib/payments/companyPaymentGroups";
 import { formatCurrency } from "@/lib/utils/format";
 import type { CartItemSnapshot, Product, ProductOption, QrPaymentSession } from "@/types/commerce";
 
 type CartLine = CartItemSnapshot & {
   productImage?: string;
   productId: string;
+};
+
+type IndexedCartLine = CartLine & {
+  cartIndex: number;
 };
 
 type LiveOrder = {
@@ -134,6 +145,13 @@ function cartTotal(items: CartLine[]) {
   return items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
 }
 
+function groupStatusLabel(group: CompanyPaymentGroup) {
+  if (group.paymentReady) return "결제 QR 생성 가능";
+  if (group.merchantStatus === "in_review") return "MID 심사 중";
+  if (group.merchantStatus === "blocked") return "MID 차단";
+  return "MID 확인 필요";
+}
+
 function toSnapshot(item: CartLine): CartItemSnapshot {
   return {
     productId: item.productId,
@@ -226,7 +244,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
   const selected = options.find((option) => option.id === selectedOptionId);
   const unitPrice = product.price + (selected?.priceDelta ?? 0);
 
-  async function addToCart(goCart: boolean) {
+  async function addToCart() {
     const current = readJson<CartLine[]>(cartKey, []);
     const optionName = selected?.name ?? "기본 옵션";
     const lineId = `${product.id}:${optionName}`;
@@ -252,23 +270,12 @@ export function AddToCartPanel({ product, options }: { product: Product; options
         ];
 
     const result = await persistCart(next);
-    setMessage(result.stored ? "장바구니에 담았습니다. 상단 장바구니 수량과 장바구니 화면에 바로 반영됩니다." : "장바구니 메모리에 반영했습니다. 브라우저 저장소 권한은 확인이 필요합니다.");
-
-    if (goCart) {
-      window.location.assign("/tablet/cart");
-    }
+    setMessage(result.stored ? "담았습니다. 상단 빨간 장바구니에 반영됐습니다." : "담았습니다. 브라우저 저장소 권한을 확인해 주세요.");
   }
 
   return (
     <section className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase text-slate-500">실제 장바구니 동작</p>
-          <h3 className="mt-1 text-lg font-black">옵션 선택 후 담기</h3>
-        </div>
-        <CartStatusBadge />
-      </div>
-      <div className="mt-3 grid gap-3">
+      <div className="grid gap-3">
         <label className="grid gap-1 text-sm font-bold">
           옵션
           <select
@@ -279,7 +286,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
             {options.length > 0 ? (
               options.map((option) => (
                 <option key={option.id} value={option.id}>
-                  {option.name} / {formatCurrency(product.price + option.priceDelta)} / 재고 {option.stock}
+                  {option.name} / {formatCurrency(product.price + option.priceDelta)}
                 </option>
               ))
             ) : (
@@ -302,22 +309,13 @@ export function AddToCartPanel({ product, options }: { product: Product; options
           <span className="text-slate-500">선택 금액</span>
           <strong className="ml-2 text-xl text-rose-600">{formatCurrency(unitPrice * quantity)}</strong>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => void addToCart(false)}
-            className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white"
-          >
-            장바구니 담기
-          </button>
-          <button
-            type="button"
-            onClick={() => void addToCart(true)}
-            className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white"
-          >
-            담고 장바구니 이동
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void addToCart()}
+          className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white"
+        >
+          담기
+        </button>
         {message ? <p className="rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p> : null}
       </div>
     </section>
@@ -327,6 +325,11 @@ export function AddToCartPanel({ product, options }: { product: Product; options
 export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapshot[] }) {
   const { items, replace } = useCart(fallbackItems);
   const [message, setMessage] = useState("");
+  const indexedItems = useMemo<IndexedCartLine[]>(
+    () => items.map((item, cartIndex) => ({ ...item, cartIndex })),
+    [items],
+  );
+  const paymentGroups = useMemo(() => groupCartItemsByCompany(indexedItems, mockCompanies), [indexedItems]);
   const total = cartTotal(items);
 
   async function setQuantity(index: number, quantity: number) {
@@ -336,12 +339,18 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     await replace(next);
   }
 
-  async function createQr() {
+  async function createQr(group: CompanyPaymentGroup<IndexedCartLine>) {
     if (items.length === 0) {
       setMessage("장바구니가 비어 있습니다.");
       return;
     }
 
+    if (!group.paymentReady) {
+      setMessage(`${group.companyName} MID가 운영 가능 상태가 아니라 결제 QR을 만들 수 없습니다.`);
+      return;
+    }
+
+    const groupItems = group.items.map(({ cartIndex, ...item }) => item);
     const code = makeShortCode();
     const createdAt = nowIso();
     const expiresAt = addHoursIso(createdAt, 3);
@@ -353,12 +362,12 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       nurseryId: "nursery-gangnam-01",
       roomId: "room-701",
       tabletId: "tablet-701-a",
-      cartId: "tablet-active-cart",
+      cartId: `tablet-active-cart-${group.companyId}`,
       createdAt,
       expiresAt,
       deliveryMethod: "pickup",
-      totalAmount: total,
-      items: items.map(toSnapshot),
+      totalAmount: group.totalAmount,
+      items: groupItems.map(toSnapshot),
     };
 
     const backend = await createBackendQrSession({
@@ -379,7 +388,11 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       return;
     }
 
-    setMessage(backend.ok ? "고객 휴대폰 결제 화면을 열었습니다." : `서버 결제 진입 생성 실패: ${backend.error}. 개발용 로컬 결제 화면으로 이동합니다.`);
+    setMessage(
+      backend.ok
+        ? `${group.companyName} 결제 QR을 생성했습니다. 결제 완료 후 남은 업체 QR을 이어서 만들 수 있습니다.`
+        : `서버 결제 진입 생성 실패: ${backend.error}. ${group.companyName} 개발용 로컬 결제 화면으로 이동합니다.`,
+    );
     window.location.assign(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
 
     if (!backend.ok) {
@@ -395,6 +408,13 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
   return (
     <section className="grid gap-5 lg:grid-cols-[1fr_380px]">
       <div className="grid gap-3">
+        <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">기업별 공동구매 결제</p>
+          <h2 className="mt-1 text-xl font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
+          <p className="mt-2 text-sm leading-6">
+            한 번의 결제 QR에는 한 기업/MID 상품만 담습니다. 결제 완료 후 남은 기업 묶음은 다음 QR로 이어서 생성합니다.
+          </p>
+        </section>
         {items.length === 0 ? (
           <div className="rounded-md bg-white/45 p-6 text-slate-950 shadow-sm backdrop-blur-xl">
             <h2 className="text-xl font-black">장바구니가 비었습니다</h2>
@@ -403,34 +423,61 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
             </Link>
           </div>
         ) : (
-          items.map((item, index) => (
-            <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+          paymentGroups.map((group, groupIndex) => (
+            <article key={group.companyId} className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black text-rose-600">{item.companyId}</p>
-                  <h3 className="mt-1 text-lg font-black">{item.productName}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{item.optionName}</p>
-                  <div className="mt-3 inline-flex overflow-hidden rounded-md border border-slate-200">
-                    <button type="button" onClick={() => void setQuantity(index, item.quantity - 1)} className="px-3 py-2 font-black">
-                      -
-                    </button>
-                    <span className="bg-slate-50 px-4 py-2 font-black">{item.quantity}</span>
-                    <button type="button" onClick={() => void setQuantity(index, item.quantity + 1)} className="px-3 py-2 font-black">
-                      +
-                    </button>
+                  <p className="text-xs font-black text-rose-600">결제 묶음 {groupIndex + 1}</p>
+                  <h3 className="mt-1 text-xl font-black">{group.companyName}</h3>
+                  <p className="mt-1 text-xs font-bold text-slate-500">MID {group.merchantIdMasked}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-black ${group.paymentReady ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+                  {groupStatusLabel(group)}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {group.items.map((item) => (
+                  <div key={`${item.productId}-${item.optionName}`} className="grid gap-4 rounded-md bg-white/45 p-3 sm:grid-cols-[1fr_auto]">
+                    <div>
+                      <h4 className="font-black">{item.productName}</h4>
+                      <p className="mt-1 text-sm text-slate-600">{item.optionName}</p>
+                      <div className="mt-3 inline-flex overflow-hidden rounded-md border border-slate-200 bg-white">
+                        <button type="button" onClick={() => void setQuantity(item.cartIndex, item.quantity - 1)} className="px-3 py-2 font-black">
+                          -
+                        </button>
+                        <span className="bg-slate-50 px-4 py-2 font-black">{item.quantity}</span>
+                        <button type="button" onClick={() => void setQuantity(item.cartIndex, item.quantity + 1)} className="px-3 py-2 font-black">
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="text-sm text-slate-500">{formatCurrency(item.unitPrice)} / 개</p>
+                      <p className="mt-1 text-xl font-black">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                      <button
+                        type="button"
+                        onClick={() => void setQuantity(item.cartIndex, 0)}
+                        className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/45 pt-4">
+                <div>
+                  <p className="text-xs font-black text-slate-500">업체별 결제 예정</p>
+                  <p className="text-2xl font-black text-rose-600">{formatCurrency(group.totalAmount)}</p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm text-slate-500">{formatCurrency(item.unitPrice)} / 개</p>
-                  <p className="mt-1 text-xl font-black">{formatCurrency(item.unitPrice * item.quantity)}</p>
-                  <button
-                    type="button"
-                    onClick={() => void setQuantity(index, 0)}
-                    className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
-                  >
-                    삭제
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => void createQr(group)}
+                  disabled={!group.paymentReady}
+                  className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  이 업체 결제 QR 생성
+                </button>
               </div>
             </article>
           ))
@@ -443,18 +490,18 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
             <span>상품 수량</span>
             <strong>{items.reduce((sum, item) => sum + item.quantity, 0)}개</strong>
           </div>
+          <div className="flex justify-between">
+            <span>결제 QR 묶음</span>
+            <strong>{paymentGroups.length}개 업체</strong>
+          </div>
           <div className="flex justify-between text-lg">
             <span className="font-black">합계</span>
             <strong className="text-rose-600">{formatCurrency(total)}</strong>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void createQr()}
-          className="mt-5 w-full rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white"
-        >
-          고객 휴대폰 결제 열기
-        </button>
+        <div className="mt-5 rounded-md border border-slate-200 bg-white/55 p-3 text-xs font-bold leading-5 text-slate-700">
+          {COMPANY_GROUP_PURCHASE_MESSAGE} 결제 완료된 업체 상품은 장바구니에서 빠지고, 남은 업체 묶음은 다음 QR로 생성합니다.
+        </div>
         <Link href="/tablet/products" className="mt-2 block rounded-md bg-slate-100 px-4 py-3 text-center text-sm font-black text-slate-900">
           상품 계속 보기
         </Link>

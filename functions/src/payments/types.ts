@@ -64,12 +64,24 @@ export type PaymentConfirmRequest = PaymentReadyRequest & {
   paymentIntentId: string;
   orderNoCandidate?: string;
   mockApprovalRequested?: boolean;
+  providerPaymentKey?: string;
+  transactionId?: string;
+  receiptUrl?: string;
+  customerName?: string;
+  customerPhoneMasked?: string;
+  deliveryMethod?: "pickup" | "delivery";
+  receiverAddress?: string;
+  receiverAddressDetail?: string;
 };
 
-export type MockPgApproval = {
+export type PgApproval = {
   provider: PaymentProviderId;
-  status: "approved_mock";
+  status: "approved_mock" | "approved";
   mockTid: string;
+  paymentKey?: string;
+  transactionId?: string;
+  receiptUrl?: string;
+  realPgCalled?: boolean;
   approvedAt: string;
   message: string;
 };
@@ -79,7 +91,7 @@ export type PaymentConfirmResponse = {
   provider: PaymentProviderId;
   pgReady: boolean;
   pgReadiness: PgServerReadinessSnapshot;
-  approval: MockPgApproval;
+  approval: PgApproval;
   orderNo: string;
   recalculatedAmount: number;
   merchantProfile?: CompanyMerchantProfile;
@@ -175,7 +187,7 @@ export type ServerPaymentIntent = {
   merchantId?: string;
   moduleKey?: string;
   merchantStatus?: CompanyMerchantProfile["merchantStatus"];
-  status: "ready_mock" | "confirmed_mock" | "cancel_blocked";
+  status: "ready" | "ready_mock" | "confirming" | "confirmed" | "confirmed_mock" | "failed" | "cancel_blocked";
   createdAt: string;
   expiresAt: string;
 };
@@ -192,6 +204,7 @@ export type HttpRequestLike = {
   body?: unknown;
   query?: Record<string, unknown>;
   get?: (name: string) => string | undefined;
+  rawBody?: Buffer | string;
 };
 
 export type HttpResponseLike = {

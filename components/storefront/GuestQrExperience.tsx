@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
-import { QrReceiverForm } from "@/components/storefront/QrReceiverForm";
+import { GuestCheckoutClient } from "@/components/guest/GuestCheckoutClient";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mockCompanies } from "@/data/mockCompanies";
 import { COMPANY_GROUP_PURCHASE_MESSAGE, groupCartItemsByCompany } from "@/lib/payments/companyPaymentGroups";
@@ -129,10 +128,6 @@ function MobileOrderSummary({ session, content }: { session: QrPaymentSession; c
   );
 }
 
-function CheckoutForm({ session }: { session: QrPaymentSession }) {
-  return <QrReceiverForm session={session} />;
-}
-
 function OrderTimeline({ order }: { order: Order }) {
   const steps = [
     { label: "QR 생성", active: true },
@@ -206,8 +201,7 @@ export async function QrCheckoutPage({ code }: { code: string }) {
     <GuestFrame title="결제 정보 입력" subtitle="결제자 정보와 주문 내용을 확인합니다.">
       <div className="grid gap-4">
         <MobileOrderSummary session={session} content={content} />
-        <CheckoutForm session={session} />
-        <ServerCheckoutFlow session={session} dataSource="qr_checkout" />
+        <GuestCheckoutClient session={session} dataSource="qr_checkout" />
       </div>
     </GuestFrame>
   );

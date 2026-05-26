@@ -13,6 +13,7 @@ export type PgCheckoutPayload = {
   customerName: string;
   customerPhoneMasked: string;
   qrSessionId: string;
+  returnCode: string;
   successUrl: string;
   failUrl: string;
   readyEndpoint: string;
@@ -29,12 +30,22 @@ export type PgBridgeStatus = {
 };
 
 export type PgBrowserProvider = {
-  requestPayment: (payload: PgCheckoutPayload) => Promise<{ ok: boolean; message?: string; transactionId?: string }>;
+  requestPayment: (payload: PgCheckoutPayload) => Promise<PgModulePaymentResult>;
+};
+
+export type PgModulePaymentResult = {
+  ok: boolean;
+  status?: string;
+  message?: string;
+  paymentKey?: string;
+  transactionId?: string;
+  receiptUrl?: string;
 };
 
 declare global {
   interface Window {
     A5PgProvider?: PgBrowserProvider;
+    [key: string]: unknown;
   }
 }
 
@@ -45,9 +56,13 @@ const publicPgEnv = {
   channelKey: process.env.NEXT_PUBLIC_PG_CHANNEL_KEY?.trim() ?? "",
   merchantId: process.env.NEXT_PUBLIC_PG_MERCHANT_ID?.trim() ?? "",
   scriptUrl: process.env.NEXT_PUBLIC_PG_SCRIPT_URL?.trim() ?? "",
+  globalName: process.env.NEXT_PUBLIC_PG_GLOBAL_NAME?.trim() ?? "",
+  requestMethod: process.env.NEXT_PUBLIC_PG_REQUEST_METHOD?.trim() || process.env.NEXT_PUBLIC_PG_REQUEST_FUNCTION?.trim() || "",
   successUrl: process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL?.trim() ?? "",
   failUrl: process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL?.trim() ?? "",
 };
+
+let pgScriptPromise: Promise<void> | undefined;
 
 export function buildPgCheckoutPayload(input: {
   orderNo: string;
@@ -56,11 +71,15 @@ export function buildPgCheckoutPayload(input: {
   customerName: string;
   customerPhoneMasked: string;
   qrSessionId: string;
+  returnCode?: string;
   merchantId?: string;
   moduleKey?: string;
 }): PgCheckoutPayload {
   const endpoints = getPaymentEndpointReadiness();
   const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const returnCode = input.returnCode || input.qrSessionId;
+  const successUrl = publicPgEnv.successUrl || `${origin}/q/${returnCode}/success`;
+  const failUrl = publicPgEnv.failUrl || `${origin}/q/${returnCode}/failed`;
 
   return {
     provider: publicPgEnv.provider || "unselected",
@@ -75,8 +94,9 @@ export function buildPgCheckoutPayload(input: {
     customerName: input.customerName,
     customerPhoneMasked: input.customerPhoneMasked,
     qrSessionId: input.qrSessionId,
-    successUrl: publicPgEnv.successUrl || `${origin}/q/${input.qrSessionId}/success`,
-    failUrl: publicPgEnv.failUrl || `${origin}/q/${input.qrSessionId}/failed`,
+    returnCode,
+    successUrl: applyReturnUrlTemplate(successUrl, { ...input, returnCode }),
+    failUrl: applyReturnUrlTemplate(failUrl, { ...input, returnCode }),
     readyEndpoint: endpoints.endpoints.ready,
     confirmEndpoint: endpoints.endpoints.confirm,
   };
@@ -87,11 +107,12 @@ export function getPgBridgeStatus(): PgBridgeStatus {
   const missing = [
     !publicPgEnv.provider ? "NEXT_PUBLIC_PG_PROVIDER" : "",
     !publicPgEnv.clientKey ? "NEXT_PUBLIC_PG_CLIENT_KEY" : "",
+    !publicPgEnv.scriptUrl ? "NEXT_PUBLIC_PG_SCRIPT_URL" : "",
     !publicPgEnv.successUrl ? "NEXT_PUBLIC_PAYMENT_SUCCESS_URL" : "",
     !publicPgEnv.failUrl ? "NEXT_PUBLIC_PAYMENT_FAIL_URL" : "",
     ...endpoints.missing,
   ].filter(Boolean);
-  const moduleLoaded = typeof window !== "undefined" && typeof window.A5PgProvider?.requestPayment === "function";
+  const moduleLoaded = typeof window !== "undefined" && Boolean(resolveBrowserProvider());
 
   return {
     configured: missing.length === 0,
@@ -105,14 +126,144 @@ export function getPgBridgeStatus(): PgBridgeStatus {
   };
 }
 
-export async function requestPgModulePayment(payload: PgCheckoutPayload) {
-  if (typeof window === "undefined" || typeof window.A5PgProvider?.requestPayment !== "function") {
+export async function requestPgModulePayment(payload: PgCheckoutPayload): Promise<PgModulePaymentResult> {
+  const loadResult = await loadPgBrowserModule();
+  if (!loadResult.ok) return loadResult;
+
+  const provider = resolveBrowserProvider();
+
+  if (!provider) {
     return {
       ok: false,
       status: "module_missing",
-      message: "PG 브라우저 모듈이 로드되지 않았습니다. 현재 결제는 모의 흐름으로 유지해야 합니다.",
+      message: "PG 브라우저 모듈은 로드되었지만 결제 호출 함수를 찾지 못했습니다. 관리자 PG 설정의 호출 함수명을 확인해 주세요.",
     };
   }
 
-  return window.A5PgProvider.requestPayment(payload);
+  try {
+    return normalizeModuleResult(await provider.requestPayment(payload));
+  } catch (error) {
+    return {
+      ok: false,
+      status: "module_request_failed",
+      message: error instanceof Error ? error.message : "PG 결제창 호출에 실패했습니다.",
+    };
+  }
+}
+
+function resolveBrowserProvider(): PgBrowserProvider | undefined {
+  if (typeof window === "undefined") return undefined;
+  if (typeof window.A5PgProvider?.requestPayment === "function") return window.A5PgProvider;
+
+  const functionPaths = [
+    publicPgEnv.requestMethod,
+    publicPgEnv.globalName && publicPgEnv.requestMethod ? `${publicPgEnv.globalName}.${publicPgEnv.requestMethod}` : "",
+    publicPgEnv.globalName ? `${publicPgEnv.globalName}.requestPayment` : "",
+    "INNOPAY.requestPayment",
+    "INNOPAY.pay",
+    "Innopay.requestPayment",
+    "INFINY.requestPayment",
+    "infiny.requestPayment",
+    "requestPayment",
+  ].filter(Boolean);
+
+  for (const path of functionPaths) {
+    const resolved = resolveFunctionPath(window, path);
+    if (resolved) {
+      return {
+        requestPayment: (payload) => Promise.resolve(resolved.fn.call(resolved.owner, payload) as ReturnType<PgBrowserProvider["requestPayment"]>),
+      };
+    }
+  }
+
+  return undefined;
+}
+
+export async function loadPgBrowserModule(): Promise<PgModulePaymentResult> {
+  if (typeof window === "undefined" || resolveBrowserProvider()) {
+    return { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." };
+  }
+
+  if (!publicPgEnv.scriptUrl) {
+    return { ok: false, status: "script_url_missing", message: "PG 스크립트 URL이 설정되지 않았습니다." };
+  }
+
+  const existing = document.querySelector<HTMLScriptElement>(`script[data-a5-pg-script="${publicPgEnv.provider || "pg"}"]`);
+  if (existing?.dataset.loaded === "true") {
+    return resolveBrowserProvider()
+      ? { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." }
+      : { ok: false, status: "request_function_missing", message: "PG 스크립트는 로드되었지만 결제 호출 함수를 찾지 못했습니다." };
+  }
+
+  pgScriptPromise ??= new Promise<void>((resolve, reject) => {
+    const script = existing ?? document.createElement("script");
+    script.src = publicPgEnv.scriptUrl;
+    script.async = true;
+    script.dataset.a5PgScript = publicPgEnv.provider || "pg";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("PG browser script failed to load."));
+
+    if (!existing) document.head.appendChild(script);
+  });
+
+  try {
+    await pgScriptPromise;
+  } catch (error) {
+    return {
+      ok: false,
+      status: "script_load_failed",
+      message: error instanceof Error ? error.message : "PG 브라우저 스크립트 로드에 실패했습니다.",
+    };
+  }
+
+  return resolveBrowserProvider()
+    ? { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." }
+    : { ok: false, status: "request_function_missing", message: "PG 스크립트는 로드되었지만 결제 호출 함수를 찾지 못했습니다." };
+}
+
+function resolveFunctionPath(root: Window, path: string): { owner: unknown; fn: (...args: unknown[]) => unknown } | undefined {
+  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return undefined;
+
+  let owner: unknown = root;
+  let current: unknown = root;
+
+  for (const part of parts) {
+    owner = current;
+    current = (current as Record<string, unknown> | undefined)?.[part];
+  }
+
+  return typeof current === "function" ? { owner, fn: current as (...args: unknown[]) => unknown } : undefined;
+}
+
+function normalizeModuleResult(value: unknown): PgModulePaymentResult {
+  if (typeof value !== "object" || value === null) {
+    return { ok: true, status: "requested", message: "PG 결제창 요청이 전달되었습니다." };
+  }
+
+  const data = value as Record<string, unknown>;
+  const ok = data.ok !== false && data.success !== false && data.status !== "failed";
+
+  return {
+    ok,
+    status: String(data.status ?? (ok ? "requested" : "failed")),
+    message: typeof data.message === "string" ? data.message : ok ? "PG 결제창 요청이 전달되었습니다." : "PG 결제창 요청에 실패했습니다.",
+    paymentKey: readString(data.paymentKey ?? data.payment_key ?? data.payToken),
+    transactionId: readString(data.transactionId ?? data.transaction_id ?? data.tid ?? data.TID),
+    receiptUrl: readString(data.receiptUrl ?? data.receipt_url),
+  };
+}
+
+function applyReturnUrlTemplate(url: string, input: { qrSessionId: string; returnCode: string; orderNo: string }) {
+  return url
+    .replaceAll("{shortCode}", encodeURIComponent(input.returnCode))
+    .replaceAll("{qrSessionId}", encodeURIComponent(input.qrSessionId))
+    .replaceAll("{orderNo}", encodeURIComponent(input.orderNo));
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

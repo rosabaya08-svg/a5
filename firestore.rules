@@ -227,6 +227,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /company_signup_requests/{requestId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow create: if betaCmsWrite(request.resource.data) || isSuperOrSeedAdmin();
+      allow update: if isSuperOrSeedAdmin();
+      allow delete: if false;
+    }
+
     match /company_documents/{documentId} {
       allow get, list: if isSuperOrSeedAdmin() || companyScoped(resource.data);
       allow create, update: if false;

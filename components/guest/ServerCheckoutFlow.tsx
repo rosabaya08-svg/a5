@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PgIntegrationPanel } from "@/components/storefront/PgIntegrationPanel";
+import { isQrReceiverFormComplete, maskCustomerPhone, type QrReceiverFormValue } from "@/components/storefront/QrReceiverForm";
 import { mockCompanies } from "@/data/mockCompanies";
 import {
   analyzeInfinyCart,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
-import { buildPgCheckoutPayload, getPgBridgeStatus } from "@/lib/payments/pgCheckoutBridge";
+import { buildPgCheckoutPayload, getPgBridgeStatus, requestPgModulePayment } from "@/lib/payments/pgCheckoutBridge";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 import type { CartItemSnapshot, QrPaymentSession } from "@/types/commerce";
 
@@ -55,8 +56,12 @@ type ConfirmResponse = {
   pgReady: boolean;
   merchantProfile?: ReadyResponse["merchantProfile"];
   approval: {
-    status: "approved_mock";
+    status: "approved_mock" | "approved";
     mockTid: string;
+    paymentKey?: string;
+    transactionId?: string;
+    receiptUrl?: string;
+    realPgCalled?: boolean;
     approvedAt: string;
     message: string;
   };
@@ -94,7 +99,7 @@ type StoredPaymentFlow = {
   paymentIntentId?: string;
   orderNo?: string;
   amount: number;
-  status: "idle" | "ready" | "confirmed_mock" | "failed";
+  status: "idle" | "ready" | "confirmed_mock" | "confirmed" | "failed";
   source: "firebase_functions" | "local_ui";
   message: string;
   updatedAt: string;
@@ -127,6 +132,18 @@ function checkoutPayload(session: QrPaymentSession, clientAmount = session.total
     clientAmount,
     currency: "KRW" as const,
     items: session.items.map(toServerItem),
+  };
+}
+
+function receiverPayload(receiver?: QrReceiverFormValue) {
+  if (!receiver) return {};
+
+  return {
+    customerName: receiver.customerName.trim(),
+    customerPhoneMasked: maskCustomerPhone(receiver.customerPhone),
+    deliveryMethod: receiver.deliveryMethod,
+    receiverAddress: receiver.address,
+    receiverAddressDetail: receiver.addressDetail,
   };
 }
 
@@ -415,10 +432,12 @@ export function ServerCheckoutFlow({
   session,
   dataSource,
   fallbackReason,
+  receiver,
 }: {
   session: QrPaymentSession;
   dataSource: string;
   fallbackReason?: string;
+  receiver?: QrReceiverFormValue;
 }) {
   const router = useRouter();
   const endpoints = useMemo(() => getPaymentEndpointReadiness(), []);
@@ -431,9 +450,10 @@ export function ServerCheckoutFlow({
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const providerIsMock = readiness.provider === "mock";
+  const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
-  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked;
+  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked || !receiverComplete;
 
   const pgPayload = useMemo(
     () =>
@@ -489,6 +509,13 @@ export function ServerCheckoutFlow({
 
   async function runConfirm() {
     if (!ready) return;
+    if (receiver && !isQrReceiverFormComplete(receiver)) {
+      setError({
+        code: "RECEIVER_REQUIRED",
+        message: "고객명, 연락처, 주소와 개인정보 동의를 먼저 입력해야 결제를 진행할 수 있습니다.",
+      });
+      return;
+    }
 
     setPending("confirm");
     setError(undefined);
@@ -498,6 +525,7 @@ export function ServerCheckoutFlow({
       paymentIntentId: ready.paymentIntentId,
       orderNoCandidate: ready.orderNoCandidate,
       mockApprovalRequested: true,
+      ...receiverPayload(receiver),
     });
 
     setPending("");
@@ -526,7 +554,74 @@ export function ServerCheckoutFlow({
       paymentIntentId: ready.paymentIntentId,
       orderNo: result.data.orderNo,
       amount: result.data.recalculatedAmount,
-      status: "confirmed_mock",
+      status: result.data.approval.realPgCalled ? "confirmed" : "confirmed_mock",
+      source: "firebase_functions",
+      message: result.data.message,
+      updatedAt: new Date().toISOString(),
+    });
+    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(ready.paymentIntentId)}`);
+  }
+
+  async function runProviderPayment() {
+    if (!ready) return;
+    if (receiver && !isQrReceiverFormComplete(receiver)) {
+      setError({
+        code: "RECEIVER_REQUIRED",
+        message: "고객명, 연락처, 주소와 개인정보 동의를 먼저 입력해야 결제를 진행할 수 있습니다.",
+      });
+      return;
+    }
+
+    setPending("confirm");
+    setError(undefined);
+
+    const pgResult = await requestPgModulePayment(pgPayload);
+    if (!pgResult.ok) {
+      setPending("");
+      setError({
+        code: "PG_BROWSER_MODULE_FAILED",
+        message: pgResult.message ?? "PG 결제창 호출 결과를 확인할 수 없습니다.",
+      });
+      return;
+    }
+
+    const result = await postPaymentFunction<ConfirmResponse>(endpoints.endpoints.confirm, {
+      ...checkoutPayload(session, ready.recalculatedAmount),
+      paymentIntentId: ready.paymentIntentId,
+      orderNoCandidate: ready.orderNoCandidate,
+      providerPaymentKey: pgResult.paymentKey,
+      transactionId: pgResult.transactionId,
+      receiptUrl: pgResult.receiptUrl,
+      ...receiverPayload(receiver),
+    });
+
+    setPending("");
+
+    if (!result.ok) {
+      setError(result.error);
+      writeStoredFlow({
+        shortCode: session.shortCode,
+        qrSessionId: session.id,
+        paymentIntentId: ready.paymentIntentId,
+        orderNo: ready.orderNoCandidate,
+        amount: ready.recalculatedAmount,
+        status: "failed",
+        source: "firebase_functions",
+        message: result.error.message,
+        updatedAt: new Date().toISOString(),
+        error: result.error,
+      });
+      return;
+    }
+
+    setConfirm(result.data);
+    writeStoredFlow({
+      shortCode: session.shortCode,
+      qrSessionId: session.id,
+      paymentIntentId: ready.paymentIntentId,
+      orderNo: result.data.orderNo,
+      amount: result.data.recalculatedAmount,
+      status: result.data.approval.realPgCalled ? "confirmed" : "confirmed_mock",
       source: "firebase_functions",
       message: result.data.message,
       updatedAt: new Date().toISOString(),
@@ -618,7 +713,7 @@ export function ServerCheckoutFlow({
       ) : null}
 
       <section className="rounded-md bg-white p-4 shadow-sm">
-        <div className="grid gap-2 md:grid-cols-3">
+        <div className="grid gap-2 md:grid-cols-4">
           <button
             type="button"
             onClick={() => void runReady()}
@@ -634,6 +729,14 @@ export function ServerCheckoutFlow({
             className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {pending === "confirm" ? "모의 승인 처리 중" : "2. 모의 승인 실행"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runProviderPayment()}
+            disabled={Boolean(pending) || !ready || providerIsMock || !ready.pgReady || !bridge.configured || !receiverComplete}
+            className="rounded-md bg-blue-700 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {pending === "confirm" ? "PG 결제 처리 중" : "2. PG 결제창 열기"}
           </button>
           <button
             type="button"

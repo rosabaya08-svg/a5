@@ -4,6 +4,8 @@ import type { ProviderReadiness } from "@/lib/payments/types";
 export const requiredPublicPgKeys = [
   "NEXT_PUBLIC_PG_PROVIDER",
   "NEXT_PUBLIC_PG_CLIENT_KEY",
+  "NEXT_PUBLIC_PG_SCRIPT_URL",
+  "NEXT_PUBLIC_PG_REQUEST_FUNCTION",
   "NEXT_PUBLIC_PAYMENT_SUCCESS_URL",
   "NEXT_PUBLIC_PAYMENT_FAIL_URL",
   "NEXT_PUBLIC_PAYMENT_API_BASE_URL",
@@ -13,8 +15,8 @@ export const optionalPublicPgKeys = ["NEXT_PUBLIC_PG_CHANNEL_KEY"] as const;
 
 export const requiredServerPgKeys = [
   "PG_SECRET_KEY",
-  "PG_CHANNEL_KEY",
   "PG_WEBHOOK_SECRET",
+  "PG_API_BASE_URL",
   "PAYMENT_WEBHOOK_URL",
 ] as const;
 
@@ -59,8 +61,11 @@ export function getPaymentConfigSummary() {
   const provider = toPaymentProviderId(candidate);
   const missingPublic = requiredPublicPgKeys.filter((key) => !readEnv(key));
   const missingServer = requiredServerPgKeys.filter((key) => !readEnv(key));
+  const missingProviderConfig = candidate === "infiny" && !readEnv("INFINY_CONFIRM_URL") && !readEnv("INFINY_API_BASE_URL")
+    ? ["INFINY_CONFIRM_URL or INFINY_API_BASE_URL"]
+    : [];
   const publicClientReady = candidate !== "mock" && candidate !== "unknown" && missingPublic.length === 0;
-  const serverConfirmReady = candidate !== "mock" && candidate !== "unknown" && missingServer.length === 0;
+  const serverConfirmReady = candidate !== "mock" && candidate !== "unknown" && missingServer.length === 0 && missingProviderConfig.length === 0;
 
   return {
     rawProvider,
@@ -71,7 +76,7 @@ export function getPaymentConfigSummary() {
     optionalPublicKeys: optionalPublicPgKeys,
     serverKeys: requiredServerPgKeys,
     missingPublic,
-    missingSecret: missingServer,
+    missingSecret: [...missingServer, ...missingProviderConfig],
     publicClientReady,
     serverConfirmReady,
     isContractReady: publicClientReady && serverConfirmReady,

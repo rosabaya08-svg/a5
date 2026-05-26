@@ -4,19 +4,58 @@ export type PgServerReadiness = {
   readyForAdapter: boolean;
   missingKeys: string[];
   secretKeysExpected: string[];
+  apiBaseUrl?: string;
+  confirmUrl?: string;
+  cancelUrl?: string;
+  statusUrl?: string;
+  webhookUrl?: string;
+  webhookSignatureHeader: string;
+  webhookSignatureAlgorithm: "sha256" | "sha512";
   message: string;
 };
 
-const requiredServerKeys = ["PG_SECRET_KEY", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
+const requiredSecretKeys = ["PG_SECRET_KEY", "PG_WEBHOOK_SECRET"] as const;
 
 function readEnv(name: string): string {
   return process.env[name]?.trim() ?? "";
 }
 
+function joinUrl(base: string, path: string): string {
+  if (!base) return "";
+  return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function readEndpoint(provider: string, key: "confirm" | "cancel" | "status"): string {
+  const upper = key.toUpperCase();
+  const providerUpper = provider.trim().toUpperCase();
+  const direct =
+    readEnv(`PG_${upper}_URL`) ||
+    readEnv(`${providerUpper}_${upper}_URL`) ||
+    readEnv(`INFINY_${upper}_URL`);
+  const base = readEnv("PG_API_BASE_URL") || readEnv(`${providerUpper}_API_BASE_URL`) || readEnv("INFINY_API_BASE_URL");
+  const path = readEnv(`PG_${upper}_PATH`) || readEnv(`${providerUpper}_${upper}_PATH`) || `/payments/${key}`;
+
+  return direct || joinUrl(base, path);
+}
+
 export function getPgServerReadiness(): PgServerReadiness {
   const provider = readEnv("PG_PROVIDER") || readEnv("NEXT_PUBLIC_PG_PROVIDER") || "mock";
-  const missingKeys = requiredServerKeys.filter((key) => !readEnv(key));
-  const readyForAdapter = provider !== "mock" && missingKeys.length === 0;
+  const normalizedProvider = provider.trim().toLowerCase();
+  const apiBaseUrl = readEnv("PG_API_BASE_URL") || readEnv("INFINY_API_BASE_URL");
+  const confirmUrl = readEndpoint(provider, "confirm");
+  const cancelUrl = readEndpoint(provider, "cancel");
+  const statusUrl = readEndpoint(provider, "status");
+  const webhookUrl = readEnv("PAYMENT_WEBHOOK_URL");
+  const missingKeys: string[] = normalizedProvider === "mock"
+    ? []
+    : [
+        ...requiredSecretKeys.filter((key) => !readEnv(key)),
+        !webhookUrl ? "PAYMENT_WEBHOOK_URL" : "",
+        !apiBaseUrl && !confirmUrl ? "PG_API_BASE_URL or PG_CONFIRM_URL" : "",
+      ].filter(Boolean);
+
+  const readyForAdapter = normalizedProvider !== "mock" && missingKeys.length === 0;
+  const webhookSignatureAlgorithm = readEnv("PG_WEBHOOK_SIGNATURE_ALGORITHM") === "sha512" ? "sha512" : "sha256";
 
   return {
     provider,
@@ -24,9 +63,16 @@ export function getPgServerReadiness(): PgServerReadiness {
     readyForAdapter,
     missingKeys,
     secretKeysExpected: ["PG_SECRET_KEY", "PG_WEBHOOK_SECRET"],
+    apiBaseUrl,
+    confirmUrl,
+    cancelUrl,
+    statusUrl,
+    webhookUrl,
+    webhookSignatureHeader: readEnv("PG_WEBHOOK_SIGNATURE_HEADER") || "x-pg-signature",
+    webhookSignatureAlgorithm,
     message: readyForAdapter
-      ? "PG server keys are present. Real provider adapter can be wired after approval."
-      : "PG server keys are missing or provider is mock. Real approval remains blocked.",
+      ? "PG server keys and confirm endpoint are present. Real provider adapter can call the configured PG."
+      : "PG server keys, webhook URL, confirm endpoint, or provider mode is not ready for real PG calls.",
   };
 }
 

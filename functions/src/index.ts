@@ -6,6 +6,7 @@ import { inventoryReserveHandler } from "./inventory/reserveInventory";
 import { ordersCreateHandler } from "./orders/createOrderSnapshot";
 import { paymentsCancelHandler } from "./payments/cancel";
 import { paymentsConfirmHandler } from "./payments/confirm";
+import { paymentsDiagnosticsHandler } from "./payments/diagnostics";
 import { paymentsReadyHandler } from "./payments/ready";
 import { paymentsStatusHandler } from "./payments/status";
 import { paymentsWebhookHandler } from "./payments/webhook";
@@ -19,6 +20,7 @@ const paymentFunctionOptions = {
 
 export const paymentsReady = onRequest(paymentFunctionOptions, paymentsReadyHandler);
 export const paymentsConfirm = onRequest(paymentFunctionOptions, paymentsConfirmHandler);
+export const paymentsDiagnostics = onRequest(paymentFunctionOptions, paymentsDiagnosticsHandler);
 export const paymentsWebhook = onRequest(paymentFunctionOptions, paymentsWebhookHandler);
 export const paymentsCancel = onRequest(paymentFunctionOptions, paymentsCancelHandler);
 export const paymentsStatus = onRequest(paymentFunctionOptions, paymentsStatusHandler);

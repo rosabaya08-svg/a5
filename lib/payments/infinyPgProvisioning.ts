@@ -9,10 +9,16 @@ export type InfinyPgRuntimeConfig = {
   channelKey: string;
   merchantId: string;
   apiBaseUrl: string;
+  confirmUrl: string;
+  cancelUrl: string;
+  statusUrl: string;
   scriptUrl: string;
+  requestFunctionName: string;
   successUrl: string;
   failUrl: string;
   webhookUrl: string;
+  webhookSignatureHeader: string;
+  webhookSignatureAlgorithm: "sha256" | "sha512";
   secretKeyRef: string;
   webhookSecretRef: string;
   splitSettlementEnabled: boolean;
@@ -51,10 +57,16 @@ export const defaultInfinyPgRuntimeConfig: InfinyPgRuntimeConfig = {
   channelKey: "",
   merchantId: "",
   apiBaseUrl: "",
+  confirmUrl: "",
+  cancelUrl: "",
+  statusUrl: "",
   scriptUrl: "",
-  successUrl: "https://with-commerce.pages.dev/payment/success",
-  failUrl: "https://with-commerce.pages.dev/payment/fail",
+  requestFunctionName: "INNOPAY.requestPayment",
+  successUrl: "https://with-commerce.pages.dev/q/{shortCode}/success",
+  failUrl: "https://with-commerce.pages.dev/q/{shortCode}/failed",
   webhookUrl: "",
+  webhookSignatureHeader: "x-pg-signature",
+  webhookSignatureAlgorithm: "sha256",
   secretKeyRef: "",
   webhookSecretRef: "",
   splitSettlementEnabled: false,
@@ -72,6 +84,7 @@ export function buildPgEnvTemplate(runtime: InfinyPgRuntimeConfig) {
     `NEXT_PUBLIC_PG_CLIENT_KEY=${runtime.clientKey}`,
     `NEXT_PUBLIC_PG_CHANNEL_KEY=${runtime.channelKey}`,
     `NEXT_PUBLIC_PG_SCRIPT_URL=${runtime.scriptUrl}`,
+    `NEXT_PUBLIC_PG_REQUEST_FUNCTION=${runtime.requestFunctionName}`,
     `NEXT_PUBLIC_PAYMENT_SUCCESS_URL=${runtime.successUrl}`,
     `NEXT_PUBLIC_PAYMENT_FAIL_URL=${runtime.failUrl}`,
     `NEXT_PUBLIC_PAYMENT_API_BASE_URL=${runtime.apiBaseUrl}`,
@@ -79,8 +92,15 @@ export function buildPgEnvTemplate(runtime: InfinyPgRuntimeConfig) {
     "# Server values",
     `PG_PROVIDER=${runtime.provider}`,
     `PG_ENVIRONMENT=${runtime.environment}`,
+    `PG_API_BASE_URL=${runtime.apiBaseUrl}`,
+    `INFINY_API_BASE_URL=${runtime.apiBaseUrl}`,
+    `INFINY_CONFIRM_URL=${runtime.confirmUrl}`,
+    `INFINY_CANCEL_URL=${runtime.cancelUrl}`,
+    `INFINY_STATUS_URL=${runtime.statusUrl}`,
     `PG_CHANNEL_KEY=${runtime.channelKey}`,
     `PAYMENT_WEBHOOK_URL=${runtime.webhookUrl}`,
+    `PG_WEBHOOK_SIGNATURE_HEADER=${runtime.webhookSignatureHeader}`,
+    `PG_WEBHOOK_SIGNATURE_ALGORITHM=${runtime.webhookSignatureAlgorithm}`,
     `PG_SECRET_KEY=<Secret Manager: ${runtime.secretKeyRef || "등록 필요"}>`,
     `PG_WEBHOOK_SECRET=<Secret Manager: ${runtime.webhookSecretRef || "등록 필요"}>`,
     "",
@@ -100,9 +120,15 @@ export function evaluateInfinyPgProvisioning(
     !runtime.clientKey ? "공개 client key 입력 필요" : "",
     !runtime.channelKey ? "channel key 입력 필요" : "",
     !runtime.apiBaseUrl ? "결제 API base URL 입력 필요" : "",
+    !runtime.confirmUrl && !runtime.apiBaseUrl ? "결제 승인 confirm endpoint 입력 필요" : "",
+    !runtime.cancelUrl && !runtime.apiBaseUrl ? "결제 취소 cancel endpoint 입력 필요" : "",
+    !runtime.statusUrl && !runtime.apiBaseUrl ? "결제 상태 status endpoint 입력 필요" : "",
+    !runtime.scriptUrl ? "브라우저 SDK Script URL 입력 필요" : "",
+    !runtime.requestFunctionName ? "브라우저 결제 호출 함수명 입력 필요" : "",
     !runtime.successUrl ? "결제 성공 URL 입력 필요" : "",
     !runtime.failUrl ? "결제 실패 URL 입력 필요" : "",
     !runtime.webhookUrl ? "결제 webhook URL 입력 필요" : "",
+    !runtime.webhookSignatureHeader ? "Webhook 서명 헤더명 입력 필요" : "",
     !runtime.secretKeyRef ? "PG_SECRET_KEY Secret Manager 참조 등록 필요" : "",
     !runtime.webhookSecretRef ? "PG_WEBHOOK_SECRET Secret Manager 참조 등록 필요" : "",
     !runtime.officialModuleReceived ? "인피니 공식 모듈/SDK 수령 확인 필요" : "",

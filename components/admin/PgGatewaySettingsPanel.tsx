@@ -49,8 +49,13 @@ const runtimeTextFields: Array<{ key: keyof InfinyPgRuntimeConfig; label: string
   { key: "channelKey", label: "channel key *", placeholder: "인피니 채널 키" },
   { key: "merchantId", label: "대표/플랫폼 MID", placeholder: "별도 발급 시에만 입력" },
   { key: "apiBaseUrl", label: "결제 API base URL *", placeholder: "https://.../payments" },
+  { key: "confirmUrl", label: "승인 confirm endpoint", placeholder: "https://.../payments/confirm" },
+  { key: "cancelUrl", label: "취소 cancel endpoint", placeholder: "https://.../payments/cancel" },
+  { key: "statusUrl", label: "상태 status endpoint", placeholder: "https://.../payments/status" },
   { key: "scriptUrl", label: "공식 스크립트/SDK URL", placeholder: "https://..." },
+  { key: "requestFunctionName", label: "브라우저 결제 호출 함수명 *", placeholder: "INNOPAY.requestPayment" },
   { key: "webhookUrl", label: "webhook URL *", placeholder: "https://.../webhook" },
+  { key: "webhookSignatureHeader", label: "Webhook 서명 헤더명 *", placeholder: "x-pg-signature" },
   { key: "successUrl", label: "결제 성공 URL *", placeholder: "https://.../payment/success" },
   { key: "failUrl", label: "결제 실패 URL *", placeholder: "https://.../payment/fail" },
   { key: "secretKeyRef", label: "PG_SECRET_KEY Secret Manager 참조 *", placeholder: "projects/.../secrets/PG_SECRET_KEY" },
@@ -155,10 +160,16 @@ export function PgGatewaySettingsPanel() {
         channel_key_set: Boolean(nextState.runtime.channelKey),
         representative_merchant_id: nextState.runtime.merchantId || null,
         api_base_url: nextState.runtime.apiBaseUrl,
+        confirm_url: nextState.runtime.confirmUrl,
+        cancel_url: nextState.runtime.cancelUrl,
+        status_url: nextState.runtime.statusUrl,
         script_url: nextState.runtime.scriptUrl,
+        request_function_name: nextState.runtime.requestFunctionName,
         success_url: nextState.runtime.successUrl,
         fail_url: nextState.runtime.failUrl,
         webhook_url: nextState.runtime.webhookUrl,
+        webhook_signature_header: nextState.runtime.webhookSignatureHeader,
+        webhook_signature_algorithm: nextState.runtime.webhookSignatureAlgorithm,
         secret_key_ref: nextState.runtime.secretKeyRef,
         webhook_secret_ref: nextState.runtime.webhookSecretRef,
         split_settlement_enabled: nextState.runtime.splitSettlementEnabled,
@@ -272,6 +283,18 @@ export function PgGatewaySettingsPanel() {
             <select value={state.runtime.environment} onChange={(event) => updateRuntime("environment", event.target.value as "test" | "production")} className={inputClass()}>
               <option value="test">Sandbox/Test</option>
               <option value="production">Production</option>
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-black text-slate-700">
+            Webhook 서명 알고리즘
+            <select
+              value={state.runtime.webhookSignatureAlgorithm}
+              onChange={(event) => updateRuntime("webhookSignatureAlgorithm", event.target.value as "sha256" | "sha512")}
+              className={inputClass()}
+            >
+              <option value="sha256">HMAC SHA-256</option>
+              <option value="sha512">HMAC SHA-512</option>
             </select>
           </label>
 

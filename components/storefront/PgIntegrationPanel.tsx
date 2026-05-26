@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { buildPgCheckoutPayload, getPgBridgeStatus, requestPgModulePayment } from "@/lib/payments/pgCheckoutBridge";
+import { buildPgCheckoutPayload, getPgBridgeStatus, loadPgBrowserModule } from "@/lib/payments/pgCheckoutBridge";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { formatCurrency } from "@/lib/utils/format";
 
@@ -45,7 +45,7 @@ export function PgIntegrationPanel({
   );
 
   async function probePgModule() {
-    const result = await requestPgModulePayment(payload);
+    const result = await loadPgBrowserModule();
     setProbeMessage(result.message ?? "PG 모듈 점검이 완료되었지만 PG사 응답 메시지는 없습니다.");
   }
 

@@ -229,8 +229,9 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
       );
     });
 
-    const customerUrl = buildCustomerUrl(request, `/q/${shortCode}`);
-    const paymentUrl = buildCustomerUrl(request, `/q/${shortCode}/checkout`);
+    const liveQrPath = `/q/live?code=${encodeURIComponent(shortCode)}`;
+    const customerUrl = buildCustomerUrl(request, liveQrPath);
+    const paymentUrl = buildCustomerUrl(request, liveQrPath);
 
     sendJson(response, 200, {
       ok: true,

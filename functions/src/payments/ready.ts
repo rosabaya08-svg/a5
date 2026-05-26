@@ -119,6 +119,23 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const companyId = [...companyIds][0] ?? "";
   const pgReadiness = getPgServerReadiness();
   const merchantProfile = await readCompanyMerchantProfile(companyId);
+  const resolvedProvider: PaymentProviderId = pgReadiness.provider === "mock" ? "mock" : merchantProfile.provider;
+
+  if (pgReadiness.provider !== "mock" && !pgReadiness.readyForAdapter) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "PAYMENT_READY_SERVER_KEYS_REQUIRED",
+        message: "PG server keys or Infiny endpoint config are missing. Fill Functions secrets/config before real payment.",
+        httpStatus: 409,
+        details: {
+          provider: pgReadiness.provider,
+          missingKeys: pgReadiness.missingKeys,
+        },
+      },
+    });
+    return;
+  }
 
   if (pgReadiness.provider !== "mock" && !merchantProfile.paymentReady) {
     sendJson(response, 409, {
@@ -153,12 +170,12 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     orderNoCandidate: makeOrderNo(now),
     amount: recalculatedAmount,
     currency: "KRW",
-    provider: "mock",
+    provider: resolvedProvider,
     companyId,
     merchantId: merchantProfile.merchantId,
     moduleKey: merchantProfile.moduleKey,
     merchantStatus: merchantProfile.merchantStatus,
-    status: "ready_mock",
+    status: resolvedProvider === "mock" ? "ready_mock" : "ready",
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
   };
@@ -181,7 +198,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           nursery_id: body.nurseryId ?? qrValidation.session?.nurseryId ?? null,
           room_id: body.roomId ?? qrValidation.session?.roomId ?? null,
           tablet_id: body.tabletId ?? qrValidation.session?.tabletId ?? null,
-          provider: "mock",
+          provider: resolvedProvider,
           pg_provider: merchantProfile.provider,
           company_id: merchantProfile.companyId,
           company_name: merchantProfile.companyName,
@@ -192,7 +209,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           merchant_status: merchantProfile.merchantStatus,
           merchant_payment_ready: merchantProfile.paymentReady,
           pg_ready: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
-          source: "firebase_functions_mock_ready",
+          source: resolvedProvider === "mock" ? "firebase_functions_mock_ready" : "firebase_functions_pg_ready",
           demo_read_enabled: true,
           guest_lookup_enabled: true,
           created_at: now.toISOString(),
@@ -229,7 +246,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
 
   const result: PaymentReadyResponse = {
     ok: true,
-    provider: "mock",
+    provider: resolvedProvider,
     pgReady: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
     pgReadiness,
     paymentIntentId: paymentIntent.id,
@@ -241,7 +258,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     expiresAt: paymentIntent.expiresAt,
     firestoreTransactionPlan: [...getPaymentReadyTransactionPlan(), ...getPgAdapterHandoffPlan()],
     message: pgReadiness.readyForAdapter
-      ? "Mock payment intent is ready and server keys are present. Wire the approved PG adapter next."
+      ? "Payment intent is ready and server keys are present for the configured PG adapter."
       : "Mock payment intent is ready. Real PG module remains blocked until keys and adapter are approved.",
   };
 

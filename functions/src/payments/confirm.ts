@@ -21,6 +21,7 @@ import {
   type PaymentConfirmRequest,
   type PaymentConfirmResponse,
   type PaymentProviderId,
+  type PgApproval,
   type ServerPricedItem,
 } from "./types";
 
@@ -85,7 +86,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   let pricedItems: ServerPricedItem[] = [];
   let recalculatedAmount = 0;
   let approvedAt = "";
-  let approval;
+  let approval: PgApproval | undefined;
   let merchantProfile: CompanyMerchantProfile | undefined;
 
   try {
@@ -94,7 +95,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
     const paymentRef = db.collection("payments").doc(paymentIntentId);
     const orderRef = db.collection("orders").doc(orderNo);
     const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
-    const eventRef = db.collection("payment_events").doc(`${paymentIntentId}-approved-mock`);
+    const eventRef = db.collection("payment_events").doc(`${paymentIntentId}-approved`);
     const auditRef = db.collection("audit_logs").doc();
     const productRefs = requestItems.map((item) => db.collection("products").doc(item.productId));
 
@@ -109,7 +110,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error("PAYMENT_INTENT_NOT_FOUND");
       }
 
-      if (paymentSnapshot.exists || orderSnapshot.exists || intentSnapshot.get("status") === "confirmed_mock") {
+      if (paymentSnapshot.exists || orderSnapshot.exists || ["confirmed_mock", "confirmed"].includes(String(intentSnapshot.get("status") ?? ""))) {
         throw new Error("DUPLICATE_PAYMENT_ATTEMPT");
       }
 
@@ -205,6 +206,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         companyId,
         merchantId,
         moduleKey,
+        providerPaymentKey: optionalString(body.providerPaymentKey),
+        transactionId: optionalString(body.transactionId),
+        receiptUrl: optionalString(body.receiptUrl),
       });
 
       if (!providerResult.ok) {
@@ -213,14 +217,19 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
 
       approval = providerResult.approval;
       approvedAt = approval.approvedAt;
+      const confirmedApproval = approval;
 
       transaction.set(
         intentRef,
         {
-          status: "confirmed_mock",
+          status: approval.status === "approved" ? "confirmed" : "confirmed_mock",
           confirmed_at: approvedAt,
           order_no: orderNo,
           mock_tid: approval.mockTid,
+          provider_payment_key: approval.paymentKey ?? null,
+          provider_transaction_id: approval.transactionId ?? null,
+          receipt_url: approval.receiptUrl ?? null,
+          real_pg_called: Boolean(approval.realPgCalled),
           updated_at: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -242,14 +251,17 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           pg_module_key: merchantProfile!.moduleKey ?? null,
           pg_module_key_masked: merchantProfile!.moduleKeyMasked,
           merchant_status: merchantProfile!.merchantStatus,
-          status: "approved_mock",
+          status: approval.status,
           amount: recalculatedAmount,
           currency: "KRW",
-          provider: "mock",
+          provider: merchantProfile!.provider,
           mock_tid: approval.mockTid,
+          provider_payment_key: approval.paymentKey ?? null,
+          provider_transaction_id: approval.transactionId ?? null,
+          receipt_url: approval.receiptUrl ?? null,
           approved_at: approvedAt,
-          pg_confirm_called: false,
-          source: "firebase_functions_mock_confirm",
+          pg_confirm_called: Boolean(approval.realPgCalled),
+          source: approval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
           guest_lookup_enabled: true,
           demo_read_enabled: true,
           created_at: approvedAt,
@@ -273,13 +285,15 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           room_id: body.roomId ?? qrValidation.session?.roomId ?? "room-701",
           tabletId: body.tabletId ?? qrValidation.session?.tabletId ?? "tablet-701-a",
           tablet_id: body.tabletId ?? qrValidation.session?.tabletId ?? "tablet-701-a",
-          customerName: "Guest",
-          customer_name: "Guest",
-          customerPhoneMasked: "010-****-0000",
-          customer_phone_masked: "010-****-0000",
+          customerName: optionalString(body.customerName) ?? "Guest",
+          customer_name: optionalString(body.customerName) ?? "Guest",
+          customerPhoneMasked: optionalString(body.customerPhoneMasked) ?? "010-****-0000",
+          customer_phone_masked: optionalString(body.customerPhoneMasked) ?? "010-****-0000",
           status: "paid",
-          deliveryMethod: "pickup",
-          delivery_method: "pickup",
+          deliveryMethod: body.deliveryMethod === "delivery" ? "delivery" : "pickup",
+          delivery_method: body.deliveryMethod === "delivery" ? "delivery" : "pickup",
+          receiver_address: optionalString(body.receiverAddress) ?? null,
+          receiver_address_detail: optionalString(body.receiverAddressDetail) ?? null,
           totalAmount: recalculatedAmount,
           total_amount: recalculatedAmount,
           paidAt: approvedAt,
@@ -291,11 +305,14 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           items_snapshot: pricedItems.map(toSnapshotItem),
           payment_id: paymentIntentId,
           mock_tid: approval.mockTid,
+          provider_payment_key: approval.paymentKey ?? null,
+          provider_transaction_id: approval.transactionId ?? null,
+          receipt_url: approval.receiptUrl ?? null,
           company_id: merchantProfile!.companyId,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
           pg_module_key: merchantProfile!.moduleKey ?? null,
-          source: "firebase_functions_mock_confirm",
+          source: approval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
           guest_lookup_enabled: true,
           demo_read_enabled: true,
           updated_at: FieldValue.serverTimestamp(),
@@ -327,7 +344,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
             pg_provider: "infiny",
             settlement_owner: "infiny",
             settlement_execution_blocked: true,
-            source: "firebase_functions_mock_confirm",
+            source: confirmedApproval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
             guest_lookup_enabled: true,
             demo_read_enabled: true,
             created_at: approvedAt,
@@ -350,10 +367,10 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
             company_id: item.companyId,
             type: "deduct",
             quantity: item.quantity,
-            reason: "mock_payment_confirm",
+            reason: confirmedApproval.realPgCalled ? "pg_payment_confirm" : "mock_payment_confirm",
             source_id: orderNo,
             payment_intent_id: paymentIntentId,
-            source: "firebase_functions_mock_confirm",
+            source: confirmedApproval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
             demo_read_enabled: true,
             created_at: approvedAt,
             updated_at: FieldValue.serverTimestamp(),
@@ -382,14 +399,16 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           order_no: orderNo,
           qr_session_id: qrSessionId,
           company_id: merchantProfile!.companyId,
-          status: "approved_mock",
+          status: approval.status,
+          provider_payment_key: approval.paymentKey ?? null,
+          provider_transaction_id: approval.transactionId ?? null,
           amount: recalculatedAmount,
           message: approval.message,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
           pg_module_key: merchantProfile!.moduleKey ?? null,
-          idempotency_key: `${paymentIntentId}-approved-mock`,
-          source: "firebase_functions_mock_confirm",
+          idempotency_key: `${paymentIntentId}-${approval.status}`,
+          source: approval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
           demo_read_enabled: true,
           created_at: approvedAt,
           updated_at: FieldValue.serverTimestamp(),
@@ -400,10 +419,12 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       transaction.set(auditRef, {
         ...toAuditLogDocument(
           createAuditLogDraft({
-            action: "mock_payment_confirm",
+            action: approval.realPgCalled ? "pg_payment_confirm" : "mock_payment_confirm",
             target: paymentIntentId,
             severity: "info",
-            message: "Mock payment confirmed and order/payment/inventory snapshots written in one transaction.",
+            message: approval.realPgCalled
+              ? "PG payment confirmed and order/payment/inventory snapshots written in one transaction."
+              : "Mock payment confirmed and order/payment/inventory snapshots written in one transaction.",
           }),
         ),
         updated_at: FieldValue.serverTimestamp(),
@@ -437,16 +458,16 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   });
   const auditPlan = appendAuditLogSkeleton(
     createAuditLogDraft({
-      action: "mock_payment_confirm",
+      action: approval?.realPgCalled ? "pg_payment_confirm" : "mock_payment_confirm",
       target: paymentIntentId,
       severity: "info",
-      message: "Mock approval only. Real PG confirm was not called.",
+      message: approval?.realPgCalled ? "Real PG approval was called through the provider adapter." : "Mock approval only. Real PG confirm was not called.",
     }),
   );
 
   const result: PaymentConfirmResponse = {
     ok: true,
-    provider: "mock",
+    provider: merchantProfile!.provider,
     pgReady: pgReadiness.readyForAdapter,
     pgReadiness,
     approval: approval!,
@@ -460,7 +481,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       ...orderSnapshot.writePlan,
       `Append audit log at ${auditPlan.plannedPath}.`,
     ],
-    message: "Payment confirm completed in mock mode. Replace provider adapter internals when PG module/keys are approved.",
+    message: approval!.realPgCalled
+      ? "Payment confirm completed through the configured PG provider adapter."
+      : "Payment confirm completed in mock mode. Real PG confirm was not called.",
   };
 
   sendJson(response, 200, result);

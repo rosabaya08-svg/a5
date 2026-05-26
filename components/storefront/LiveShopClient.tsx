@@ -252,20 +252,29 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
   return { items, replace };
 }
 
-export function CartStatusBadge() {
+export function FloatingCartButton() {
   const { items } = useCart();
   const count = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        window.location.assign("/tablet/cart");
-      }}
-      className="rounded-full bg-rose-600 px-5 py-3 text-base font-black text-white shadow-lg shadow-rose-600/20 ring-2 ring-rose-100/70"
-    >
-      장바구니 {count}
-    </button>
+    <nav aria-label="장바구니 이동" className="fixed bottom-5 right-4 z-40">
+      <button
+        type="button"
+        onClick={() => {
+          window.location.assign("/tablet/cart");
+        }}
+        className="flex min-h-14 items-center gap-3 rounded-full border border-white/30 bg-white/35 p-1.5 pr-5 text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.22)] backdrop-blur-xl transition active:scale-95"
+        aria-label={`장바구니 ${count}개 보기`}
+      >
+        <span className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-rose-600 text-white shadow-sm">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.4">
+            <path d="M7 8h13l-1.6 8.1a2 2 0 0 1-2 1.6H9.2a2 2 0 0 1-2-1.7L5.8 5.8A2 2 0 0 0 3.8 4H3" />
+            <path d="M9 21h.01M17 21h.01" strokeLinecap="round" />
+          </svg>
+        </span>
+        <span className="text-lg font-black leading-none">장바구니 {count}</span>
+      </button>
+    </nav>
   );
 }
 
@@ -302,7 +311,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
         ];
 
     const result = await persistCart(next);
-    setMessage(result.stored ? "담았습니다. 상단 빨간 장바구니에 반영됐습니다." : "담았습니다. 브라우저 저장소 권한을 확인해 주세요.");
+    setMessage(result.stored ? "담았습니다. 오른쪽 장바구니에 반영됐습니다." : "담았습니다. 브라우저 저장소 권한을 확인해 주세요.");
   }
 
   return (

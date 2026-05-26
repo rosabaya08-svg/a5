@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
+import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { staticProductIds } from "@/data/staticSmokeRoutes";
@@ -124,15 +124,13 @@ function StoreShell({ children }: { title?: string; subtitle?: string; context: 
                 <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
               </span>
             </Link>
-            <nav className="flex shrink-0 items-center">
-              <CartStatusBadge />
-            </nav>
             <TabletContextBadge />
           </div>
         </header>
 
         <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">{children}</div>
         <FloatingHistoryButtons />
+        <FloatingCartButton />
       </main>
     </TabletAccessGate>
   );

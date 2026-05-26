@@ -100,3 +100,10 @@
 - App Check enforcement remains OFF until Cloudflare domain and localhost behavior are verified.
 - Storage upload production behavior still needs file type, size, malware scan, approval workflow, and retention policy.
 - Remaining `<img>` lint warnings are non-blocking but should be resolved after final image/Storage strategy is approved.
+## 2026-05-26 Auth/RBAC blockers
+
+- First `SUPER_ADMIN` or `seed_admin` claim assignment still needs a trusted operator path; do not create Firebase Admin private key files.
+- Every production claim change needs audit log write and owner-approved account recovery policy.
+- Bulk user creation remains blocked.
+- Plain password issuance/storage remains blocked.
+- `CUSTOMER_GUEST` remains a QR/session/order lookup flow, not a Firebase Auth account.

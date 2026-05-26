@@ -380,3 +380,12 @@
 3. Map Firestore `home_sections` into full storefront content instead of content fallback.
 4. Add source badges to admin/company/nursery tables after their read paths use Firestore.
 5. Keep production PG, refund, settlement, Alimtalk, delivery tracking, and external inventory integrations blocked until official keys/docs and policies are approved.
+
+## 2026-05-26 Auth/RBAC next tasks
+
+1. Create the first `SUPER_ADMIN` or `seed_admin` claim only from a trusted operator runtime.
+2. Add audit log writes for every claim set, claim change, invite, reset-link issue, and account disable event.
+3. Add Firestore Rules tests for company_id, nursery_id, room_id, and tablet_id mismatch cases.
+4. Connect `/admin/permissions` to a server-only endpoint after owner approval and audit logging are ready.
+5. Keep `CUSTOMER_GUEST` outside Firebase Auth and continue QR/session/order lookup verification.
+6. Keep bulk user creation and plain password issuance blocked.

@@ -253,3 +253,12 @@
 4. Add source badges to admin/company/nursery pages once their foundation collection reads are wired into the visible tables.
 5. Keep mock fallback in place for demo safety until Firestore rules, indexes, and Custom Claims are verified on all role scopes.
 6. Keep real PG confirm/cancel/refund/settlement, Alimtalk, delivery tracking, and external inventory API blocked until official keys/docs are approved.
+
+## 2026-05-26 Auth/RBAC next tasks
+
+1. Create a manual seed/SUPER_ADMIN account in Firebase Auth and set the initial claim from a trusted operator path only.
+2. Add audit log writes around every Custom Claims change before production role assignment.
+3. Wire `/admin/permissions` to a server-only callable/onRequest endpoint after owner approval.
+4. Add Firestore Rules tests for company_id, nursery_id, room_id, and tablet_id scope mismatches.
+5. Keep CUSTOMER_GUEST outside Firebase Auth; validate QR/session/order lookup through server logic.
+6. Keep bulk user creation, plain password issuance, and Admin private key files blocked.

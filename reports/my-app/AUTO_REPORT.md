@@ -834,3 +834,14 @@
 - Updated legacy `components/pages/tabletPages.tsx` and `components/pages/guestPages.tsx` to re-export the live storefront implementations.
 - Updated marketing/content admin previews to obtain product and content data through repositories.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+
+## 2026-05-26 Firebase Auth/RBAC Custom Claims skeleton
+
+- Expanded `types/authClaims.ts` with A5 role, scope, validation, and access helpers.
+- Strengthened `functions/src/auth/verifyClaims.ts` so Functions can validate role assignment and scope mismatch before any Custom Claims mutation.
+- Updated `functions/src/auth/setCustomClaims.ts` to require `SUPER_ADMIN` or `seed_admin` requester claims and validate target scope.
+- Updated `functions/src/auth/inviteAdminUser.ts` to use invite/reset-link flow metadata, no plain password storage, and no bulk user creation.
+- Rebuilt the `/admin/permissions` panel with Korean role matrix, scope examples, invite flow, and guest-account boundary.
+- Updated `AUTH_CLAIMS_PLAN.md` with the implementation skeleton and remaining blocked items.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets`.
+- Boundaries preserved: no `.env.local` commit, no service account/private key, no Firebase deploy, no real PG/refund/settlement execution.

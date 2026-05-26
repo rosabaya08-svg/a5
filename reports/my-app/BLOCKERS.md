@@ -206,3 +206,11 @@
 - App Check enforcement remains OFF pending Cloudflare custom domain/reCAPTCHA verification.
 - Storage upload validation and media governance are still required before production upload.
 - `<img>` warnings are still present but not build-blocking.
+
+## 2026-05-26 Auth/RBAC blockers
+
+- Initial `SUPER_ADMIN` or `seed_admin` claim assignment still requires a trusted operator path; no Admin private key file should be generated.
+- Custom Claims mutation must be protected by audit log writes before production account issuance.
+- Bulk user creation remains blocked until owner approval and account recovery policy are defined.
+- Plain password issuance or storage remains prohibited.
+- `CUSTOMER_GUEST` must remain outside Firebase Auth and use QR/session/order verification only.

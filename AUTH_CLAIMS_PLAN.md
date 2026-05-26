@@ -183,3 +183,53 @@ Account rule:
 - Do not store plain passwords.
 - Invite/reset links are the intended Firebase Auth flow.
 - Bulk user creation remains blocked until owner review.
+
+# 2026-05-26 Auth/RBAC Implementation Skeleton
+
+This pass keeps Firebase Admin private keys out of the repo and prepares the role contract for a trusted Firebase Functions runtime.
+
+## Roles
+
+| Role | Purpose | Required scope |
+| --- | --- | --- |
+| `SUPER_ADMIN` | A5 operator with global admin/seed write authority | none |
+| `COMPANY_ADMIN` | Seller company operator | `company_id` |
+| `NURSERY_ADMIN` | Nursery operator | `nursery_id` |
+| `TABLET_DEVICE` | Room tablet/device scoped storefront access | `nursery_id`, `room_id`, `tablet_id` |
+| `CUSTOMER_GUEST` | Non-login QR payer/order lookup flow | no Firebase Auth account |
+| `seed_admin` | Temporary beta seed/admin write role | none, but must be audited and removed before production |
+
+## Added Contracts
+
+- `types/authClaims.ts` now defines shared frontend/documentation types and helpers:
+  - `A5AuthRole`
+  - `A5AssignableAuthRole`
+  - `A5RoleScope`
+  - `A5AuthClaims`
+  - `canSeedOrAdminWrite`
+  - `canAccessCompany`
+  - `canAccessNursery`
+  - `canAccessTablet`
+  - `canAccessScopedResource`
+  - `validateClaimsForRole`
+  - `buildAssignableClaims`
+- `functions/src/auth/verifyClaims.ts` mirrors the trusted runtime validation helpers for Functions.
+- `functions/src/auth/setCustomClaims.ts` validates requester and target claims before calling `setCustomUserClaims`.
+- `functions/src/auth/inviteAdminUser.ts` prepares the invitation/password reset contract and explicitly marks `plainPasswordStored: false` and `bulkUserCreation: false`.
+- `components/admin/AdminInvitePanel.tsx` shows the role matrix, required scopes, invite flow, and blocked guest/password practices in `/admin/permissions`.
+
+## Access Rules Prepared for Firestore/Functions
+
+1. `seed_admin` and `SUPER_ADMIN` may perform seed/admin write after server verification.
+2. `COMPANY_ADMIN` may access only resources where `company_id` matches its claim.
+3. `NURSERY_ADMIN` may access only resources where `nursery_id` matches its claim.
+4. `TABLET_DEVICE` may access only resources where `nursery_id`, `room_id`, and `tablet_id` all match.
+5. `CUSTOMER_GUEST` is not assignable as a Firebase Auth custom claim in this beta skeleton. Guest access remains QR/session/order verification based.
+
+## Explicitly Still Blocked
+
+- Creating or committing Firebase Admin private keys.
+- Creating `.env.local` values in Git.
+- Bulk user creation.
+- Plain text password issuance or storage.
+- Production role assignment without audit log, owner approval, and account recovery policy.

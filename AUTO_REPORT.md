@@ -565,3 +565,16 @@
 | Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
 | Build | `npm.cmd run build` passed and generated 95 static pages |
 | Boundary | No `.env.local` modification, no service account key, no Firebase deploy, and no real PG/API call |
+
+## 32. 2026-05-26 Firebase Auth/RBAC Custom Claims skeleton
+
+| Item | Result |
+| --- | --- |
+| Scope | Prepared A5 role/scope claim contract for Firebase Functions runtime |
+| Shared types | Expanded `types/authClaims.ts` with role, scope, validation, and access helper contracts |
+| Functions auth | Strengthened `functions/src/auth/verifyClaims.ts`, `setCustomClaims.ts`, and `inviteAdminUser.ts` with claim validation and no-plain-password invite metadata |
+| Admin UI | Rebuilt `/admin/permissions` content through `components/admin/AdminInvitePanel.tsx` with role matrix, scope examples, invite flow, and guest boundary |
+| Roles | `SUPER_ADMIN`, `COMPANY_ADMIN`, `NURSERY_ADMIN`, `TABLET_DEVICE`, `CUSTOMER_GUEST`, and `seed_admin` documented |
+| Write gate | `seed_admin` and `SUPER_ADMIN` are the only seed/admin write roles in the skeleton |
+| Validation | `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets` passed |
+| Boundaries | No Firebase deploy, no Admin private key, no `.env.local` commit, no bulk user creation, no plain password storage |

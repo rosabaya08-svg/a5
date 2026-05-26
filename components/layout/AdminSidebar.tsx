@@ -55,14 +55,14 @@ export function AdminSidebar({
           const hasActiveItem = section.items.some((item) => isActivePath(pathname, item.href));
           const sectionTone = hasActiveItem
             ? isDark
-              ? "border-white/30 bg-white/10 text-white"
-              : "border-slate-950 bg-slate-100 text-slate-950"
+              ? "bg-white/10 text-white"
+              : "bg-slate-100 text-slate-950"
             : isDark
-              ? "border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/10"
-              : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50";
+              ? "text-slate-200 hover:bg-white/10"
+              : "text-slate-700 hover:bg-slate-50 hover:text-slate-950";
 
           return (
-            <section key={section.title} className={`overflow-hidden rounded-md border transition ${sectionTone}`}>
+            <section key={section.title} className="overflow-hidden rounded-md">
               <button
                 type="button"
                 onClick={() =>
@@ -72,25 +72,20 @@ export function AdminSidebar({
                   })
                 }
                 aria-expanded={isOpen}
-                className="flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition ${sectionTone}`}
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black">{section.title}</span>
-                  <span className={`mt-0.5 block text-[11px] font-bold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    {section.items.length}개 메뉴
-                  </span>
-                </span>
+                <span className="min-w-0 truncate text-sm font-black">{section.title}</span>
                 <span
                   aria-hidden="true"
-                  className={`flex size-7 shrink-0 items-center justify-center rounded-md text-sm font-black transition ${
+                  className={`flex size-6 shrink-0 items-center justify-center text-sm font-black transition ${
                     isOpen ? "rotate-90" : ""
-                  } ${isDark ? "bg-white/10" : "bg-slate-100"}`}
+                  } ${hasActiveItem ? "text-current" : isDark ? "text-slate-400" : "text-slate-400"}`}
                 >
                   &gt;
                 </span>
               </button>
               {isOpen ? (
-                <div className={`grid gap-1 border-t p-2 ${isDark ? "border-white/10" : "border-slate-100"}`}>
+                <div className="grid gap-1 px-2 pb-2 pt-1">
                   {section.items.map((item) => {
                     const active = isActivePath(pathname, item.href);
                     const linkTone = active

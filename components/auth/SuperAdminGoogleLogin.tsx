@@ -40,9 +40,13 @@ function buildSession(user: User) {
   };
 }
 
-function friendlyLoginMessage(message: string) {
+function friendlyLoginMessage(message: string, code = "") {
   if (message.includes("api-key-not-valid") || message.includes("API key not valid")) {
     return "관리자 Google 로그인 설정이 완료되지 않았습니다. 운영자에게 문의해 주세요.";
+  }
+
+  if (code.includes("operation-not-allowed") || message.includes("operation-not-allowed")) {
+    return "관리자 Google 로그인 제공자가 아직 활성화되지 않았습니다. 운영자가 로그인 제공자를 사용 설정한 뒤 다시 시도해 주세요.";
   }
 
   return message;
@@ -95,8 +99,9 @@ export function SuperAdminGoogleLogin() {
         return undefined;
       })
       .catch((error: unknown) => {
+        const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
         setState("error");
-        setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인 결과 확인에 실패했습니다."));
+        setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인 결과 확인에 실패했습니다.", code));
       });
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -140,7 +145,7 @@ export function SuperAdminGoogleLogin() {
       }
 
       setState("error");
-      setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인에 실패했습니다."));
+      setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인에 실패했습니다.", code));
     }
   }
 

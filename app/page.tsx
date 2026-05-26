@@ -33,6 +33,29 @@ const entryCards = [
   },
 ];
 
+const featureSections = [
+  {
+    title: "최고관리자",
+    href: "/admin/feature-status",
+    features: ["기능 현황", "입점사", "조리원", "상품 승인", "주문", "외부 연동", "결제", "정산"],
+  },
+  {
+    title: "기업 관리자",
+    href: "/company",
+    features: ["입점 신청", "상품", "상품 등록", "주문", "재고", "배송/수령", "매출", "입금"],
+  },
+  {
+    title: "조리원 관리자",
+    href: "/nursery",
+    features: ["대시보드", "객실", "태블릿", "현장수령", "QR 이력", "주문 이력"],
+  },
+  {
+    title: "태블릿 / 고객",
+    href: "/tablet",
+    features: ["태블릿 로그인", "객실 선택", "상품 목록", "장바구니", "QR 생성", "비회원 주문조회"],
+  },
+];
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
@@ -55,6 +78,34 @@ export default function Home() {
             </Link>
           ))}
         </div>
+
+        <section className="mt-8 rounded-md border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-300">FEATURE MAP</p>
+              <h2 className="mt-2 text-2xl font-black">전체 기능 바로가기</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">역할별 로그인 이후 사용할 기능들을 한눈에 확인합니다.</p>
+            </div>
+            <Link href="/admin/feature-status" className="rounded-md bg-white px-4 py-3 text-sm font-black text-slate-950">
+              기능 현황 전체 보기
+            </Link>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {featureSections.map((section) => (
+              <Link key={section.title} href={section.href} className="rounded-md border border-white/10 bg-slate-900 p-4 transition hover:-translate-y-1 hover:bg-slate-800">
+                <h3 className="text-lg font-black">{section.title}</h3>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {section.features.map((feature) => (
+                    <span key={feature} className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-100 ring-1 ring-white/10">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       </section>
     </main>
   );

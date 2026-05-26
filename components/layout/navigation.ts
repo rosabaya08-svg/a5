@@ -7,6 +7,7 @@ export type NavItem = {
 export const adminNavItems: NavItem[] = [
   { href: "/admin/login", label: "최고관리자 로그인", badge: "Google" },
   { href: "/admin/dashboard", label: "대시보드" },
+  { href: "/admin/feature-status", label: "기능 현황" },
   { href: "/admin/companies", label: "입점사" },
   { href: "/admin/permissions", label: "권한/계정" },
   { href: "/admin/nurseries", label: "조리원" },

@@ -26,6 +26,7 @@ import {
   INFINY_PG_FEE_RATE,
   INFINY_TOTAL_FEE_RATE,
 } from "@/lib/payments/infinySettlementPolicy";
+import { mockPreviewRoutes } from "@/data/mockPreviewRoutes";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
@@ -73,6 +74,124 @@ function AdminOperationMap() {
         </Link>
       ))}
     </section>
+  );
+}
+
+const featureGroups = [
+  {
+    title: "최고관리자",
+    description: "입점사, 조리원, 상품, 주문, 결제, 정산, 외부 연동을 전체 관리합니다.",
+    links: [
+      { href: "/admin/dashboard", label: "대시보드", body: "주문, 상품 승인, QR, 정산 보류 요약" },
+      { href: "/admin/companies", label: "입점사", body: "회원가입 요청, 기업 승인, MID, 권한 확인" },
+      { href: "/admin/nurseries", label: "조리원", body: "조리원 계정, 객실, 태블릿 현황" },
+      { href: "/admin/products", label: "상품 승인", body: "승인 대기 상품, 고시, KC, 가격 검토" },
+      { href: "/admin/orders", label: "주문", body: "전체 주문과 QR 출처, order_items 확인" },
+      { href: "/admin/integrations", label: "외부 연동 센터", body: "사방넷, ERP, WMS, 공개 API 연동 관리" },
+      { href: "/admin/payments", label: "결제", body: "PG 상태, 승인/실패, 결제 로그 확인" },
+      { href: "/admin/settlements", label: "정산 검토", body: "입점사별 수수료와 입금 예정 검산" },
+      { href: "/admin/audit-logs", label: "감사 로그", body: "권한, 금액, 상태 변경 이력" },
+    ],
+  },
+  {
+    title: "기업 관리자",
+    description: "입점사가 자기 상품, 주문, 재고, 배송, 매출, 입금을 처리합니다.",
+    links: [
+      { href: "/company/dashboard", label: "대시보드", body: "상품, 주문, 재고, 입금 예정 요약" },
+      { href: "/company/onboarding", label: "입점 신청", body: "사업자 서류와 운영 정보 확인" },
+      { href: "/company/products", label: "상품 관리", body: "상품 상태, 옵션, 외부 상품코드, 재고" },
+      { href: "/company/products/new", label: "상품 등록", body: "상품 정보 작성과 승인 요청" },
+      { href: "/company/orders", label: "주문 관리", body: "자기 회사 주문상품 확인" },
+      { href: "/company/inventory", label: "재고 관리", body: "SKU/옵션별 재고와 품절 상태" },
+      { href: "/company/deliveries", label: "배송/수령", body: "송장 등록과 현장수령 처리" },
+      { href: "/company/sales", label: "매출", body: "확정 매출과 환불 보류" },
+      { href: "/company/payouts", label: "입금", body: "수수료, 입금 예정액, 정산서" },
+    ],
+  },
+  {
+    title: "조리원 관리자",
+    description: "조리원이 자기 객실, 태블릿, QR, 현장수령, 주문 이력을 확인합니다.",
+    links: [
+      { href: "/nursery/dashboard", label: "대시보드", body: "객실, 태블릿, QR, 현장수령 요약" },
+      { href: "/nursery/rooms", label: "객실", body: "A4 객실 가져오기와 A5 객실 운영본" },
+      { href: "/nursery/tablets", label: "태블릿", body: "객실별 단말 연결 상태" },
+      { href: "/nursery/pickups", label: "현장수령", body: "조리원에서 받을 주문 확인" },
+      { href: "/nursery/qr-history", label: "QR 이력", body: "QR 생성, 만료, 결제 상태" },
+      { href: "/nursery/orders", label: "주문 이력", body: "조리원 객실에서 발생한 주문" },
+    ],
+  },
+  {
+    title: "태블릿 / 고객",
+    description: "객실 태블릿에서 상품을 담고 고객 모바일 QR 결제와 주문조회로 이어집니다.",
+    links: [
+      { href: "/tablet/login", label: "태블릿 로그인", body: "사업자번호 확인과 객실 선택" },
+      { href: "/tablet/products", label: "상품 목록", body: "객실 고정 폐쇄몰 상품 탐색" },
+      { href: "/tablet/cart", label: "장바구니", body: "객실/태블릿별 장바구니" },
+      { href: "/tablet/qr", label: "QR 생성", body: "고객 모바일 결제 QR 표시" },
+      { href: "/orders/guest", label: "비회원 주문조회", body: "주문번호 기반 주문 상태 확인" },
+      { href: "/q/SANHO701", label: "고객 QR", body: "QR 스캔 후 모바일 결제 진입" },
+    ],
+  },
+];
+
+export function AdminFeatureStatusPage() {
+  return (
+    <AdminShell
+      title="기능 현황"
+      subtitle="첫 화면에서 빠졌던 기능 목록을 최고관리자 내부에서 다시 확인합니다."
+    >
+      <div className="grid gap-4">
+        {featureGroups.map((group) => (
+          <section key={group.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">A5 기능 묶음</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">{group.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{group.description}</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{group.links.length}개 기능</span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {group.links.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-md border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md"
+                >
+                  <p className="text-base font-black text-slate-950">{item.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
+                  <p className="mt-3 text-xs font-black text-blue-700">{item.href}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">내부 점검</p>
+              <h2 className="mt-1 text-xl font-black">이전 미리보기/진행 점검 화면</h2>
+              <p className="mt-2 text-sm leading-6">
+                운영 사용자 첫 화면에서는 숨기고, 최고관리자 내부에서만 접근해 화면 상태와 경로를 점검합니다.
+              </p>
+            </div>
+            <Link href="/mock-ui/status" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
+              진행 상태 열기
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {mockPreviewRoutes.map((route) => (
+              <Link key={route.id} href={route.href} className="rounded-md bg-white p-4 text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <p className="text-sm font-black">{route.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{route.description}</p>
+                <p className="mt-3 text-xs font-black text-amber-700">{route.href}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+    </AdminShell>
   );
 }
 

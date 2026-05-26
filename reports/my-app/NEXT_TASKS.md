@@ -372,3 +372,11 @@
 8. Review remaining `<img>` lint warnings after Storage/image policy is finalized.
 9. Keep production refund/settlement/Alimtalk/delivery/external inventory blocked.
 10. Confirm Cloudflare automatic deployment after GitHub push.
+
+## 2026-05-26 Repository integration next tasks
+
+1. Convert `components/pages/adminPages.tsx`, `companyPages.tsx`, and `nurseryPages.tsx` aggregate widgets from `mockApi` to repository-backed read models.
+2. Add repository smoke checks for foundation collections seeded to Firestore.
+3. Map Firestore `home_sections` into full storefront content instead of content fallback.
+4. Add source badges to admin/company/nursery tables after their read paths use Firestore.
+5. Keep production PG, refund, settlement, Alimtalk, delivery tracking, and external inventory integrations blocked until official keys/docs and policies are approved.

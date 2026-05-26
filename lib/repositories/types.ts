@@ -2,7 +2,9 @@ import type {
   AuditAction,
   AuditLog,
   CartItemSnapshot,
+  Company,
   DeliveryMethod,
+  Nursery,
   Order,
   OrderItem,
   Payment,
@@ -10,7 +12,15 @@ import type {
   ProductOption,
   QrPaymentSession,
   QrSessionType,
+  Room,
+  Tablet,
 } from "@/types/commerce";
+import type {
+  MallBanner,
+  MallBrand,
+  MallProductProfile,
+  MarketingSlot,
+} from "@/data/mockShopContent";
 import type { OrderStatus, PaymentStatus, ProductStatus, QrSessionStatus } from "@/types/status";
 import type { RoleScope, UserRole } from "@/types/roles";
 
@@ -51,6 +61,26 @@ export type ProductListFilters = {
   category?: string;
   companyId?: string;
   status?: ProductStatus;
+};
+
+export type CompanyListFilters = {
+  status?: Company["status"];
+};
+
+export type NurseryListFilters = {
+  status?: Nursery["status"];
+  region?: string;
+};
+
+export type RoomListFilters = {
+  nurseryId?: string;
+  pickupEnabled?: boolean;
+};
+
+export type TabletListFilters = {
+  nurseryId?: string;
+  roomId?: string;
+  status?: Tablet["status"];
 };
 
 export type OrderListFilters = {
@@ -135,12 +165,48 @@ export type AuditLogInput = {
   createdAt: string;
 };
 
+export type StorefrontContent = {
+  heroBanner: MallBanner;
+  promoBanners: MallBanner[];
+  brands: MallBrand[];
+  categories: { id: string; label: string; helper: string }[];
+  productProfiles: MallProductProfile[];
+  marketingSlots: MarketingSlot[];
+};
+
 export interface ProductRepository {
   listProducts(filters?: ProductListFilters): Promise<RepositoryResult<Product[]>>;
   listApprovedProducts(filters?: Omit<ProductListFilters, "status">): Promise<RepositoryResult<Product[]>>;
   getProductById(productId: string): Promise<RepositoryResult<Product>>;
   listProductOptions(productId: string): Promise<RepositoryResult<ProductOption[]>>;
   listCompanyProducts(companyId: string, filters?: Pick<ProductListFilters, "status" | "category">): Promise<RepositoryResult<Product[]>>;
+}
+
+export interface ProductOptionRepository {
+  listProductOptions(productId: string): Promise<RepositoryResult<ProductOption[]>>;
+  getProductOptionById(optionId: string): Promise<RepositoryResult<ProductOption>>;
+}
+
+export interface CompanyRepository {
+  listCompanies(filters?: CompanyListFilters): Promise<RepositoryResult<Company[]>>;
+  getCompanyById(companyId: string): Promise<RepositoryResult<Company>>;
+}
+
+export interface NurseryRepository {
+  listNurseries(filters?: NurseryListFilters): Promise<RepositoryResult<Nursery[]>>;
+  getNurseryById(nurseryId: string): Promise<RepositoryResult<Nursery>>;
+}
+
+export interface RoomRepository {
+  listRooms(filters?: RoomListFilters): Promise<RepositoryResult<Room[]>>;
+  listRoomsByNursery(nurseryId: string): Promise<RepositoryResult<Room[]>>;
+  getRoomById(roomId: string): Promise<RepositoryResult<Room>>;
+}
+
+export interface TabletRepository {
+  listTablets(filters?: TabletListFilters): Promise<RepositoryResult<Tablet[]>>;
+  listTabletsByNursery(nurseryId: string): Promise<RepositoryResult<Tablet[]>>;
+  getTabletById(tabletId: string): Promise<RepositoryResult<Tablet>>;
 }
 
 export interface QrSessionRepository {
@@ -180,13 +246,25 @@ export interface AuditLogRepository {
   listAuditLogs(filters?: { target?: string; actorRole?: UserRole }): Promise<RepositoryResult<AuditLog[]>>;
 }
 
+export interface ContentRepository {
+  getStorefrontContent(): Promise<RepositoryResult<StorefrontContent>>;
+  getProductProfileById(productId: string): Promise<RepositoryResult<MallProductProfile>>;
+  listMarketingSlots(filters?: { type?: "banner" | "video" }): Promise<RepositoryResult<MarketingSlot[]>>;
+}
+
 export type CommerceRepositories = {
   products: ProductRepository;
+  productOptions: ProductOptionRepository;
+  companies: CompanyRepository;
+  nurseries: NurseryRepository;
+  rooms: RoomRepository;
+  tablets: TabletRepository;
   qrSessions: QrSessionRepository;
   orders: OrderRepository;
   payments: PaymentRepository;
   inventory: InventoryRepository;
   auditLogs: AuditLogRepository;
+  content: ContentRepository;
 };
 
 export function repositoryOk<T>(data: T): RepositoryResult<T> {

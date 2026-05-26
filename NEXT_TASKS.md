@@ -244,3 +244,12 @@
 5. Replace beta `guest_write_enabled` seed compatibility with Custom Claims/Functions write paths before production.
 6. Connect admin/company/nursery read-model pages to the seeded foundation collections.
 7. Keep real PG confirm/cancel/refund/settlement, Alimtalk, delivery tracking, and external inventory API blocked until official keys and policies are approved.
+
+## 2026-05-26 Repository integration next tasks
+
+1. Convert admin/company/nursery dashboard aggregate widgets from `mockApi` helper summaries to repository-backed Firestore read models.
+2. Add repository smoke checks for `companies`, `nurseries`, `rooms`, `tablets`, `product_options`, `qr_payment_sessions`, and CMS content slots.
+3. Decide whether CMS `home_sections` should compose full storefront content from Firestore instead of using mock content fallback.
+4. Add source badges to admin/company/nursery pages once their foundation collection reads are wired into the visible tables.
+5. Keep mock fallback in place for demo safety until Firestore rules, indexes, and Custom Claims are verified on all role scopes.
+6. Keep real PG confirm/cancel/refund/settlement, Alimtalk, delivery tracking, and external inventory API blocked until official keys/docs are approved.

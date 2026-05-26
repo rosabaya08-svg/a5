@@ -1,20 +1,21 @@
 import Link from "next/link";
 import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockNurseries } from "@/data/mockNurseries";
-import { mockRooms } from "@/data/mockRooms";
+import type { MallProductProfile } from "@/data/mockShopContent";
 import {
-  mallBrands,
-  mallCategories,
-  mallHeroBanner,
-  mallPromoBanners,
-  productProfileById,
-  type MallProductProfile,
-} from "@/data/mockShopContent";
-import { mockRepositories } from "@/lib/repositories/mock";
-import { firebaseProductRepository } from "@/lib/repositories/firebase/firebaseProductRepository";
-import { getLiveQrSessionByShortCode } from "@/lib/repositories/liveCommerceRepository";
-import { repositoryData } from "@/lib/repositories/types";
+  requestedDataSource,
+} from "@/lib/repositories";
+import {
+  getLiveApprovedProducts,
+  getLiveNurseryById,
+  getLiveProductById,
+  getLiveProductOptions,
+  getLiveQrSessionByShortCode,
+  getLiveRoomById,
+  getLiveStorefrontContent,
+  productSourceLabel,
+} from "@/lib/repositories/liveCommerceRepository";
+import type { StorefrontContent } from "@/lib/repositories/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import type { CartItemSnapshot, Nursery, Product, QrPaymentSession, Room } from "@/types/commerce";
 
@@ -22,6 +23,7 @@ type StoreContext = {
   session: QrPaymentSession;
   nursery?: Nursery;
   room?: Room;
+  content: StorefrontContent;
 };
 
 type ProductReadSource = "Firebase products" | "mock fallback";
@@ -38,10 +40,6 @@ type ProductDetailRead = {
   reason?: string;
 };
 
-function requestedProductDataSource() {
-  return (process.env.NEXT_PUBLIC_DATA_SOURCE ?? "firebase").trim().toLowerCase();
-}
-
 const tabletNav = [
   { href: "/tablet/products", label: "상품" },
   { href: "/tablet/cart", label: "장바구니" },
@@ -52,69 +50,30 @@ const tabletNav = [
 const safetyBadges = ["장바구니 작동", "QR 세션 생성", "Firebase env 연동", "PG 결제 전 단계"];
 
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
-  const { data: session } = await getLiveQrSessionByShortCode(shortCode);
-  const nursery = mockNurseries.find((item) => item.id === session.nurseryId);
-  const room = mockRooms.find((item) => item.id === session.roomId);
+  const [{ data: session }, content] = await Promise.all([
+    getLiveQrSessionByShortCode(shortCode),
+    getLiveStorefrontContent(),
+  ]);
+  const [nursery, room] = await Promise.all([
+    getLiveNurseryById(session.nurseryId),
+    getLiveRoomById(session.roomId),
+  ]);
 
-  return { session, nursery, room };
+  return { session, nursery: nursery.data, room: room.data, content };
 }
 
 async function getApprovedProductsWithSource(): Promise<ProductListRead> {
-  const requestedSource = requestedProductDataSource();
-
-  if (requestedSource !== "firebase") {
-    return {
-      products: repositoryData(await mockRepositories.products.listApprovedProducts()),
-      source: "mock fallback",
-      reason: `NEXT_PUBLIC_DATA_SOURCE=${requestedSource || "unset"}; Firestore read skipped by data-source gate.`,
-    };
-  }
-
-  const firebaseResult = await firebaseProductRepository.listApprovedProducts();
-
-  if (firebaseResult.ok && firebaseResult.data.length > 0) {
-    return { products: firebaseResult.data, source: "Firebase products" };
-  }
-
-  return {
-    products: repositoryData(await mockRepositories.products.listApprovedProducts()),
-    source: "mock fallback",
-    reason: firebaseResult.ok ? "Firestore products returned empty." : firebaseResult.error.message,
-  };
+  const read = await getLiveApprovedProducts();
+  return { products: read.data, source: productSourceLabel(read.source), reason: read.reason };
 }
 
 async function getProductWithSource(productId: string): Promise<ProductDetailRead> {
-  const requestedSource = requestedProductDataSource();
-
-  if (requestedSource !== "firebase") {
-    return {
-      product: repositoryData(await mockRepositories.products.getProductById(productId)),
-      source: "mock fallback",
-      reason: `NEXT_PUBLIC_DATA_SOURCE=${requestedSource || "unset"}; Firestore read skipped by data-source gate.`,
-    };
-  }
-
-  const firebaseResult = await firebaseProductRepository.getProductById(productId);
-
-  if (firebaseResult.ok) {
-    return { product: firebaseResult.data, source: "Firebase products" };
-  }
-
-  return {
-    product: repositoryData(await mockRepositories.products.getProductById(productId)),
-    source: "mock fallback",
-    reason: firebaseResult.error.message,
-  };
+  const read = await getLiveProductById(productId);
+  return { product: read.data, source: productSourceLabel(read.source), reason: read.reason };
 }
 
 async function getProductOptionsWithFallback(productId: string) {
-  const firebaseResult = await firebaseProductRepository.listProductOptions(productId);
-
-  if (firebaseResult.ok && firebaseResult.data.length > 0) {
-    return firebaseResult.data;
-  }
-
-  return repositoryData(await mockRepositories.products.listProductOptions(productId));
+  return (await getLiveProductOptions(productId)).data;
 }
 
 function discountRate(product: Product) {
@@ -122,16 +81,16 @@ function discountRate(product: Product) {
   return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
-function profileFor(product: Product): MallProductProfile {
+function profileFor(product: Product, content?: StorefrontContent): MallProductProfile {
   return (
-    productProfileById[product.id] ?? {
+    content?.productProfiles.find((profile) => profile.productId === product.id) ?? {
       productId: product.id,
       brand: product.brand ?? "A5 Partner",
       displayName: product.name,
       subtitle: product.subtitle ?? "폐쇄몰 전용 mock 상품",
       category: product.category,
-      imageUrl: product.imageUrl ?? mallHeroBanner.imageUrl,
-      gallery: product.gallery ?? [product.imageUrl ?? mallHeroBanner.imageUrl],
+      imageUrl: product.imageUrl ?? "/file.svg",
+      gallery: product.gallery ?? [product.imageUrl ?? "/file.svg"],
       badges: product.badges ?? ["mock 상품"],
       tags: product.tags ?? [product.category],
       review: product.reviewSummary ?? { rating: 4.5, count: 12, highlight: "mock 후기 준비 중" },
@@ -151,10 +110,10 @@ function stockLabel(stock: number) {
   return { label: "재고 여유", className: "bg-emerald-100 text-emerald-800" };
 }
 
-function fulfillmentLabel(product: Product) {
+function fulfillmentLabel(product: Product, content?: StorefrontContent) {
   if (product.fulfillment?.delivery && !product.fulfillment.pickup) return "택배배송";
   if (!product.fulfillment?.delivery && product.fulfillment?.pickup) return "현장수령";
-  if (["식품", "외출"].includes(profileFor(product).category)) return "택배배송";
+  if (["식품", "외출"].includes(profileFor(product, content).category)) return "택배배송";
   return "현장수령/택배";
 }
 
@@ -219,7 +178,7 @@ function ProductDevPanel({
 }
 
 function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource; reason?: string }) {
-  const requestedSource = requestedProductDataSource();
+  const requestedSource = requestedDataSource();
 
   return (
     <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
@@ -326,17 +285,19 @@ function StoreShell({
   );
 }
 
-function HeroBanner() {
+function HeroBanner({ content }: { content: StorefrontContent }) {
+  const { heroBanner } = content;
+
   return (
     <section className="overflow-hidden rounded-md border border-white/10 bg-black">
-      <Link href={mallHeroBanner.href} className="block">
+      <Link href={heroBanner.href} className="block">
         <div className="relative min-h-[420px]">
-          <img src={mallHeroBanner.imageUrl} alt={mallHeroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={heroBanner.imageUrl} alt={heroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
           <div className="relative flex min-h-[420px] flex-col justify-end p-5 md:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">{mallHeroBanner.eyebrow}</p>
-            <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight md:text-6xl">{mallHeroBanner.title}</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">{mallHeroBanner.subtitle}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">{heroBanner.eyebrow}</p>
+            <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight md:text-6xl">{heroBanner.title}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">{heroBanner.subtitle}</p>
           </div>
         </div>
       </Link>
@@ -344,10 +305,10 @@ function HeroBanner() {
   );
 }
 
-function PromoBannerGrid() {
+function PromoBannerGrid({ content }: { content: StorefrontContent }) {
   return (
     <section className="grid gap-4 md:grid-cols-2">
-      {mallPromoBanners.map((banner) => (
+      {content.promoBanners.map((banner) => (
         <Link key={banner.id} href={banner.href} className="group overflow-hidden rounded-md border border-white/15 bg-white/20 backdrop-blur-md">
           <div className="relative min-h-40">
             <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]" />
@@ -399,7 +360,7 @@ function VideoAdStrip() {
   );
 }
 
-function BrandGrid() {
+function BrandGrid({ content }: { content: StorefrontContent }) {
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -412,7 +373,7 @@ function BrandGrid() {
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        {mallBrands.map((brand) => (
+        {content.brands.map((brand) => (
           <article key={brand.id} className="rounded-md bg-white/80 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md">
             <div className="flex h-16 items-center justify-center">
               <img src={brand.logoUrl} alt={brand.name} className="max-h-12 max-w-full object-contain" />
@@ -425,7 +386,7 @@ function BrandGrid() {
   );
 }
 
-function CatalogControls() {
+function CatalogControls({ content }: { content: StorefrontContent }) {
   return (
     <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_150px_150px]">
@@ -449,7 +410,7 @@ function CatalogControls() {
         ))}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {mallCategories.map((category) => (
+        {content.categories.map((category) => (
           <span key={category.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
             {category.label} · {category.helper}
           </span>
@@ -460,8 +421,8 @@ function CatalogControls() {
   );
 }
 
-function ProductCard({ product, source }: { product: Product; source?: ProductReadSource }) {
-  const profile = profileFor(product);
+function ProductCard({ product, source, content }: { product: Product; source?: ProductReadSource; content?: StorefrontContent }) {
+  const profile = profileFor(product, content);
   const stock = stockLabel(product.stock);
   const rate = discountRate(product);
   const readSource = source ?? (product.source ? "Firebase products" : "mock fallback");
@@ -484,7 +445,7 @@ function ProductCard({ product, source }: { product: Product; source?: ProductRe
           <p className="text-xs font-bold text-slate-500">최저가 대비 {formatCurrency(product.comparison.platformLowestPrice - product.comparison.closedMallPrice)} 절감 mock</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product)}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${stock.className}`}>{stock.label}</span>
         </div>
         <button className="rounded-md border border-rose-500 px-3 py-2 text-sm font-black text-rose-600">AI 분석</button>
@@ -494,7 +455,19 @@ function ProductCard({ product, source }: { product: Product; source?: ProductRe
   );
 }
 
-function ProductRail({ title, eyebrow, products, source }: { title: string; eyebrow: string; products: Product[]; source?: ProductReadSource }) {
+function ProductRail({
+  title,
+  eyebrow,
+  products,
+  source,
+  content,
+}: {
+  title: string;
+  eyebrow: string;
+  products: Product[];
+  source?: ProductReadSource;
+  content?: StorefrontContent;
+}) {
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -508,15 +481,15 @@ function ProductRail({ title, eyebrow, products, source }: { title: string; eyeb
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (
-          <ProductCard key={`${title}-${product.id}`} product={product} source={source} />
+          <ProductCard key={`${title}-${product.id}`} product={product} source={source} content={content} />
         ))}
       </div>
     </section>
   );
 }
 
-function ProductGallery({ product }: { product: Product }) {
-  const profile = profileFor(product);
+function ProductGallery({ product, content }: { product: Product; content?: StorefrontContent }) {
+  const profile = profileFor(product, content);
   const images = profile.gallery.length ? profile.gallery : [profile.imageUrl];
 
   return (
@@ -561,8 +534,8 @@ function PriceComparePanel({ product }: { product: Product }) {
   );
 }
 
-function DetailTabs({ product }: { product: Product }) {
-  const profile = profileFor(product);
+function DetailTabs({ product, content }: { product: Product; content?: StorefrontContent }) {
+  const profile = profileFor(product, content);
 
   return (
     <section className="rounded-md bg-white/80 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
@@ -578,8 +551,8 @@ function DetailTabs({ product }: { product: Product }) {
   );
 }
 
-function CartLine({ item }: { item: CartItemSnapshot }) {
-  const profile = productProfileById[item.productId];
+function CartLine({ item, content }: { item: CartItemSnapshot; content?: StorefrontContent }) {
+  const profile = content?.productProfiles.find((profile) => profile.productId === item.productId);
   const displayName = profile?.displayName ?? item.productName;
 
   return (
@@ -644,11 +617,11 @@ export async function TabletProductsPage() {
       dataSourceNote={reason}
     >
       <div className="grid gap-8">
-        <HeroBanner />
-        <PromoBannerGrid />
+        <HeroBanner content={context.content} />
+        <PromoBannerGrid content={context.content} />
         <VideoAdStrip />
-        <BrandGrid />
-        <CatalogControls />
+        <BrandGrid content={context.content} />
+        <CatalogControls content={context.content} />
         <ProductRail title="베이비 베스트 핫딜" eyebrow="Baby best hot deal" products={products.slice(0, 4)} />
         <ProductRail title="산모 회복 케어" eyebrow="Sanmo care special" products={products.filter((product) => profileFor(product).category.includes("산모")).slice(0, 4)} />
         <ProductRail title="신상품/기획전" eyebrow="New arrivals and exhibition" products={products.slice(-4)} />

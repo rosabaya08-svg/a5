@@ -6,8 +6,10 @@ import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mallBrands, mallHeroBanner, mallPromoBanners, marketingSlots, productProfiles } from "@/data/mockShopContent";
-import { mockProducts } from "@/data/mockProducts";
+import type { MarketingSlot, MallProductProfile } from "@/data/mockShopContent";
+import { commerceRepositories } from "@/lib/repositories";
+import { getLiveStorefrontContent } from "@/lib/repositories/liveCommerceRepository";
+import { repositoryData, type StorefrontContent } from "@/lib/repositories/types";
 import { formatCurrency } from "@/lib/utils/format";
 
 export const legacyAdminMarketingNav: NavItem[] = adminNavItems;
@@ -84,10 +86,10 @@ function CompanyContentShell({ title, subtitle, children }: { title: string; sub
   );
 }
 
-function BannerPreviewGrid() {
+function BannerPreviewGrid({ content }: { content: StorefrontContent }) {
   return (
     <section className="grid gap-4 md:grid-cols-2">
-      {[mallHeroBanner, ...mallPromoBanners].map((banner) => (
+      {[content.heroBanner, ...content.promoBanners].map((banner) => (
         <article key={banner.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
           <div className="relative min-h-44">
             <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover" />
@@ -108,8 +110,8 @@ function BannerPreviewGrid() {
   );
 }
 
-function ContentSlotsTable({ type }: { type?: "video" | "banner" }) {
-  const rows = marketingSlots
+function ContentSlotsTable({ slots, type }: { slots: MarketingSlot[]; type?: "video" | "banner" }) {
+  const rows = slots
     .filter((slot) => {
       if (type === "video") return slot.title.includes("영상");
       if (type === "banner") return slot.title.includes("배너") || slot.placement.includes("hero");
@@ -138,7 +140,9 @@ function ContentSlotsTable({ type }: { type?: "video" | "banner" }) {
   );
 }
 
-export function AdminBannerManagementPage() {
+export async function AdminBannerManagementPage() {
+  const content = await getLiveStorefrontContent();
+
   return (
     <AdminContentShell
       title="광고 배너 관리"
@@ -149,15 +153,17 @@ export function AdminBannerManagementPage() {
         filters={["전체", "승인완료", "승인대기", "기간예약", "대상 조리원", "링크 확인"]}
         mode="toolbar"
         searchPlaceholder="hero, brand, popup"
-        resultCount={marketingSlots.length}
+        resultCount={content.marketingSlots.length}
       />
-      <BannerPreviewGrid />
-      <ContentSlotsTable type="banner" />
+      <BannerPreviewGrid content={content} />
+      <ContentSlotsTable slots={content.marketingSlots} type="banner" />
     </AdminContentShell>
   );
 }
 
-export function AdminVideoManagementPage() {
+export async function AdminVideoManagementPage() {
+  const content = await getLiveStorefrontContent();
+
   return (
     <AdminContentShell
       title="광고 영상 관리"
@@ -174,18 +180,20 @@ export function AdminVideoManagementPage() {
             </div>
           </div>
         </article>
-        <ContentSlotsTable type="video" />
+        <ContentSlotsTable slots={content.marketingSlots} type="video" />
       </section>
     </AdminContentShell>
   );
 }
 
-export function AdminBrandManagementPage() {
+export async function AdminBrandManagementPage() {
+  const content = await getLiveStorefrontContent();
+
   return (
     <AdminContentShell title="브랜드 로고 관리" subtitle="공식 파트너 브랜드 로고, 브랜드관 링크, 노출 상태를 mock으로 관리합니다.">
-      <FilterBar title="브랜드 필터" filters={["전체", "featured", "new", "review", "카테고리"]} mode="toolbar" searchPlaceholder="몽쉘베베, 제스파" resultCount={mallBrands.length} />
+      <FilterBar title="브랜드 필터" filters={["전체", "featured", "new", "review", "카테고리"]} mode="toolbar" searchPlaceholder="몽쉘베베, 제스파" resultCount={content.brands.length} />
       <section className="grid gap-3 md:grid-cols-4">
-        {mallBrands.map((brand) => (
+        {content.brands.map((brand) => (
           <article key={brand.id} className="rounded-md border border-slate-200 bg-white p-4">
             <div className="grid h-24 place-items-center rounded-md bg-slate-50">
               <img src={brand.logoUrl} alt={brand.name} className="max-h-16 max-w-full object-contain" />
@@ -239,11 +247,13 @@ export function AdminExhibitionsPage() {
   );
 }
 
-function ProductPreviewCards() {
+async function ProductPreviewCards({ profiles }: { profiles: MallProductProfile[] }) {
+  const products = repositoryData(await commerceRepositories.products.listApprovedProducts());
+
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {productProfiles.slice(0, 6).map((profile) => {
-        const product = mockProducts.find((item) => item.id === profile.productId);
+      {profiles.slice(0, 6).map((profile) => {
+        const product = products.find((item) => item.id === profile.productId);
         return (
           <article key={profile.productId} className="overflow-hidden rounded-md border border-slate-200 bg-white">
             <img src={profile.imageUrl} alt={profile.displayName} className="aspect-[4/3] w-full object-cover" />
@@ -265,24 +275,31 @@ function ProductPreviewCards() {
   );
 }
 
-export function CompanyProductPreviewPage() {
+export async function CompanyProductPreviewPage() {
+  const content = await getLiveStorefrontContent();
+  const productPreviewCards = await ProductPreviewCards({ profiles: content.productProfiles });
+
   return (
     <CompanyContentShell title="상세페이지 미리보기" subtitle="상품 상세 본문, 이미지 갤러리, 모바일/태블릿 미리보기를 승인 요청 전에 확인합니다.">
-      <FilterBar title="미리보기 필터" filters={["전체", "임시저장", "승인요청 전", "반려 수정", "모바일", "태블릿"]} mode="toolbar" searchPlaceholder="상품명 또는 브랜드" resultCount={productProfiles.length} />
-      <ProductPreviewCards />
+      <FilterBar title="미리보기 필터" filters={["전체", "임시저장", "승인요청 전", "반려 수정", "모바일", "태블릿"]} mode="toolbar" searchPlaceholder="상품명 또는 브랜드" resultCount={content.productProfiles.length} />
+      {productPreviewCards}
     </CompanyContentShell>
   );
 }
 
-export function CompanyBannerAdPage() {
+export async function CompanyBannerAdPage() {
+  const content = await getLiveStorefrontContent();
+
   return (
     <CompanyContentShell title="배너 광고 소재 제출" subtitle="입점사가 배너 광고 소재와 링크를 제출하는 mock 화면입니다.">
-      <BannerPreviewGrid />
+      <BannerPreviewGrid content={content} />
     </CompanyContentShell>
   );
 }
 
-export function CompanyVideoAdPage() {
+export async function CompanyVideoAdPage() {
+  const content = await getLiveStorefrontContent();
+
   return (
     <CompanyContentShell title="영상 광고 소재 제출" subtitle="영상 파일 업로드는 보류하고 썸네일, 노출 위치, 승인 상태만 mock으로 확인합니다.">
       <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
@@ -295,16 +312,19 @@ export function CompanyVideoAdPage() {
             </div>
           </div>
         </article>
-        <ContentSlotsTable type="video" />
+        <ContentSlotsTable slots={content.marketingSlots} type="video" />
       </section>
     </CompanyContentShell>
   );
 }
 
-export function CompanyBrandRoomPage() {
+export async function CompanyBrandRoomPage() {
+  const content = await getLiveStorefrontContent();
+  const productPreviewCards = await ProductPreviewCards({ profiles: content.productProfiles });
+
   return (
     <CompanyContentShell title="브랜드관 정보 수정" subtitle="브랜드 로고, 소개, 대표 상품, 기획전 참여 상태를 mock으로 관리합니다.">
-      <ProductPreviewCards />
+      {productPreviewCards}
     </CompanyContentShell>
   );
 }

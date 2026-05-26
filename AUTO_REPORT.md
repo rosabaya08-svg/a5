@@ -533,6 +533,24 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
 
+## 31. 2026-05-26 Repository layer integration
+
+| Item | Result |
+| --- | --- |
+| Scope | Routed storefront and content-facing screens through repository layer instead of direct `data/mock*.ts` imports |
+| Repository selector | Added `lib/repositories/index.ts` with `NEXT_PUBLIC_DATA_SOURCE=firebase` selector, Firestore-first reads, and mock fallback |
+| Repository contracts | Expanded `lib/repositories/types.ts` with ProductOption, Company, Nursery, Room, Tablet, and Content repositories |
+| Firebase repositories | Added Firestore read repositories for `companies`, `nurseries`, `rooms`, `tablets`, `product_options`, and CMS content slots |
+| Mock repositories | Added fallback repositories for companies, nurseries, rooms, tablets, product options, and storefront content |
+| Storefront screens | `/products`, `/tablet/products`, `/tablet/products/[id]`, `/tablet/cart`, `/tablet/qr`, `/q/[code]`, checkout, and guest order screens now reach data through live repository helpers |
+| Legacy facades | `components/pages/tabletPages.tsx` and `components/pages/guestPages.tsx` now re-export the live storefront implementations |
+| Source display | Product screens continue to show `Firebase products` or `mock fallback` with read reason and developer fields |
+| Direct imports | Active `app/**` and `components/**` no longer import core `data/mockProducts`, `mockOrders`, `mockQrSessions`, `mockCompanies`, `mockNurseries`, `mockRooms`, `mockTablets`, or `mockShopContent` directly |
+| Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+
 ## 30. 2026-05-26 Firestore foundation seed expansion
 
 | Item | Result |

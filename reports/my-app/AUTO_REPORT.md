@@ -823,3 +823,14 @@
 - `.env.local.example` includes `NEXT_PUBLIC_DATA_SOURCE=firebase`.
 - Firestore smoke passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea.
 - `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs` passed.
+
+## 2026-05-26 Repository layer integration
+
+- Added repository selector in `lib/repositories/index.ts` for Firestore-first reads with mock fallback.
+- Expanded repository contracts for products, product options, companies, nurseries, rooms, tablets, QR sessions, orders, payments, inventory, audit logs, and content.
+- Added Firebase repository files for foundation collections: companies, nurseries, rooms, tablets, product options, and content slots.
+- Added mock fallback repository files for the same foundation collections and storefront content.
+- Updated tablet/customer storefront components so active screens no longer import core `data/mock*.ts` directly.
+- Updated legacy `components/pages/tabletPages.tsx` and `components/pages/guestPages.tsx` to re-export the live storefront implementations.
+- Updated marketing/content admin previews to obtain product and content data through repositories.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.

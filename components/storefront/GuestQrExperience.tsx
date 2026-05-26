@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PgIntegrationPanel } from "@/components/storefront/PgIntegrationPanel";
-import { productProfileById } from "@/data/mockShopContent";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
-import { getLiveOrderByOrderNo, getLiveQrSessionByShortCode, type LiveReadSource } from "@/lib/repositories/liveCommerceRepository";
+import {
+  getLiveOrderByOrderNo,
+  getLiveQrSessionByShortCode,
+  getLiveStorefrontContent,
+  type LiveReadSource,
+} from "@/lib/repositories/liveCommerceRepository";
+import type { StorefrontContent } from "@/lib/repositories/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import type { Order, OrderItem, QrPaymentSession } from "@/types/commerce";
 
@@ -87,7 +92,7 @@ function QrStateNotice({ session }: { session: QrPaymentSession }) {
   );
 }
 
-function MobileOrderSummary({ session }: { session: QrPaymentSession }) {
+function MobileOrderSummary({ session, content }: { session: QrPaymentSession; content?: StorefrontContent }) {
   return (
     <section className="rounded-md bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -102,7 +107,7 @@ function MobileOrderSummary({ session }: { session: QrPaymentSession }) {
       </p>
       <div className="mt-4 grid gap-3">
         {session.items.map((item) => {
-          const profile = productProfileById[item.productId];
+          const profile = content?.productProfiles.find((candidate) => candidate.productId === item.productId);
           return (
             <article key={`${item.productId}-${item.optionName}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-md bg-slate-50 p-3">
               <div className="overflow-hidden rounded-md bg-white">
@@ -228,11 +233,11 @@ function OrderTimeline({ order }: { order: Order }) {
   );
 }
 
-function OrderItems({ items }: { items: OrderItem[] }) {
+function OrderItems({ items, content }: { items: OrderItem[]; content?: StorefrontContent }) {
   return (
     <section className="grid gap-3">
       {items.map((item) => {
-        const profile = Object.values(productProfileById).find((candidate) => candidate.displayName === item.productName || candidate.productId === item.id);
+        const profile = content?.productProfiles.find((candidate) => candidate.displayName === item.productName || candidate.productId === item.id);
         return (
           <article key={item.id} className="rounded-md bg-white p-4 shadow-sm">
             <div className="flex justify-between gap-4">
@@ -250,7 +255,10 @@ function OrderItems({ items }: { items: OrderItem[] }) {
 }
 
 export async function QrLandingPage({ code }: { code: string }) {
-  const { data: session, source, reason } = await getLiveQrSessionByShortCode(code);
+  const [{ data: session, source, reason }, content] = await Promise.all([
+    getLiveQrSessionByShortCode(code),
+    getLiveStorefrontContent(),
+  ]);
   const canCheckout = session.status === "active";
 
   return (
@@ -258,7 +266,7 @@ export async function QrLandingPage({ code }: { code: string }) {
       <div className="grid gap-4">
         <QrStateNotice session={session} />
         <LiveDataSourceNotice source={source} reason={reason} />
-        <MobileOrderSummary session={session} />
+        <MobileOrderSummary session={session} content={content} />
         <Link
           href={canCheckout ? `/q/${session.shortCode}/checkout` : `/q/${session.shortCode}/status`}
           className={`block rounded-md px-4 py-4 text-center text-base font-black ${canCheckout ? "bg-rose-600 text-white" : "bg-slate-950 text-white"}`}
@@ -271,13 +279,16 @@ export async function QrLandingPage({ code }: { code: string }) {
 }
 
 export async function QrCheckoutPage({ code }: { code: string }) {
-  const { data: session, source, reason } = await getLiveQrSessionByShortCode(code);
+  const [{ data: session, source, reason }, content] = await Promise.all([
+    getLiveQrSessionByShortCode(code),
+    getLiveStorefrontContent(),
+  ]);
   const canCheckout = session.status === "active";
 
   return (
     <GuestFrame title="결제 정보 입력" subtitle="실제 PG 호출 없이 결제 전 확인 UI만 제공합니다.">
       <div className="grid gap-4">
-        <MobileOrderSummary session={session} />
+        <MobileOrderSummary session={session} content={content} />
         <LiveDataSourceNotice source={source} reason={reason} />
         <CheckoutFormMock session={session} />
         <PaymentReadinessPanel amount={session.totalAmount} />
@@ -364,14 +375,17 @@ export async function QrFailedPage({ code }: { code: string }) {
 }
 
 export async function QrExpiredPage({ code }: { code: string }) {
-  const { data: session, source, reason } = await getLiveQrSessionByShortCode(code);
+  const [{ data: session, source, reason }, content] = await Promise.all([
+    getLiveQrSessionByShortCode(code),
+    getLiveStorefrontContent(),
+  ]);
 
   return (
     <GuestFrame title="QR 만료" subtitle="만료된 QR은 결제 진입을 차단하고 새 QR 생성을 안내합니다.">
       <div className="grid gap-4">
         <QrStateNotice session={{ ...session, status: "expired" }} />
         <LiveDataSourceNotice source={source} reason={reason} />
-        <MobileOrderSummary session={session} />
+        <MobileOrderSummary session={session} content={content} />
         <Link href="/tablet/qr" className="block rounded-md bg-slate-950 px-4 py-4 text-center text-base font-black text-white">태블릿에서 새 QR 생성</Link>
       </div>
     </GuestFrame>
@@ -379,14 +393,17 @@ export async function QrExpiredPage({ code }: { code: string }) {
 }
 
 export async function QrStatusPage({ code }: { code: string }) {
-  const { data: session, source, reason } = await getLiveQrSessionByShortCode(code);
+  const [{ data: session, source, reason }, content] = await Promise.all([
+    getLiveQrSessionByShortCode(code),
+    getLiveStorefrontContent(),
+  ]);
 
   return (
     <GuestFrame title="QR 상태" subtitle="active, paid, expired, cancelled 상태별 고객 안내를 한 화면에서 확인합니다.">
       <div className="grid gap-4">
         <QrStateNotice session={session} />
         <LiveDataSourceNotice source={source} reason={reason} />
-        <MobileOrderSummary session={session} />
+        <MobileOrderSummary session={session} content={content} />
       </div>
     </GuestFrame>
   );
@@ -419,7 +436,10 @@ export function GuestOrderLookupPage() {
 }
 
 export async function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
-  const { data, source, reason } = await getLiveOrderByOrderNo(orderNo);
+  const [{ data, source, reason }, content] = await Promise.all([
+    getLiveOrderByOrderNo(orderNo),
+    getLiveStorefrontContent(),
+  ]);
   const { order, items } = data;
 
   return (
@@ -442,7 +462,7 @@ export async function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
         </section>
         <LiveDataSourceNotice source={source} reason={reason} />
         <OrderTimeline order={order} />
-        <OrderItems items={items} />
+        <OrderItems items={items} content={content} />
         <Link href={`/orders/guest/${order.orderNo}/refund`} className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-black text-red-700">환불 요청 mock 보기</Link>
       </div>
     </GuestFrame>
@@ -450,7 +470,10 @@ export async function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
 }
 
 export async function GuestRefundRequestPage({ orderNo }: { orderNo: string }) {
-  const { data, source, reason } = await getLiveOrderByOrderNo(orderNo);
+  const [{ data, source, reason }, content] = await Promise.all([
+    getLiveOrderByOrderNo(orderNo),
+    getLiveStorefrontContent(),
+  ]);
   const { order, items } = data;
 
   return (
@@ -466,7 +489,7 @@ export async function GuestRefundRequestPage({ orderNo }: { orderNo: string }) {
           </div>
         </section>
         <LiveDataSourceNotice source={source} reason={reason} />
-        <OrderItems items={items} />
+        <OrderItems items={items} content={content} />
         <section className="rounded-md border border-red-200 bg-red-50 p-4 text-red-950">
           <h2 className="font-black">운영 환불 차단</h2>
           <p className="mt-2 text-sm leading-6">이 화면은 고객용 환불 요청 UI 예약입니다. PG 취소, 환불 승인, 정산 보류, 고객 알림은 모두 blocker로 유지합니다.</p>

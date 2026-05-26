@@ -187,6 +187,24 @@ function profileFor(product: Product, content?: StorefrontContent): MallProductP
   );
 }
 
+function HansanyeonLegalFooter() {
+  return (
+    <footer className="mx-auto mt-10 max-w-7xl border-t border-white/25 px-4 py-6 text-xs font-bold leading-6 text-slate-700 md:px-6">
+      <div className="rounded-md bg-white/35 p-4 shadow-sm backdrop-blur-xl">
+        <p>
+          (주)한국산후조리원연합회 대표자 : 이석범 대표전화 : 02-2038-2203 팩스 : 02-2038-2203 사업자등록번호 : 760-86-03326
+        </p>
+        <p>
+          주소 : 경기 과천시 과천대로7길 65 (갈현동, 과천상상자이타워) 개인정보책임자(이메일) : hansy0619@naver.com
+        </p>
+        <p>
+          오픈마켓(산후조리원연합회)은 통신판매중개자 이며, 판매자가 등록한 상품 및 거래에 대한 정보 등의 저작권 책임은 각 판매자 에게 있습니다.
+        </p>
+      </div>
+    </footer>
+  );
+}
+
 function StoreShell({ children }: { title?: string; subtitle?: string; context: StoreContext; children: React.ReactNode }) {
   return (
     <TabletAccessGate>
@@ -205,6 +223,7 @@ function StoreShell({ children }: { title?: string; subtitle?: string; context: 
         </header>
 
         <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">{children}</div>
+        <HansanyeonLegalFooter />
         <FloatingHistoryButtons />
         <FloatingCartButton />
       </main>

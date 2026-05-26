@@ -87,7 +87,9 @@ git diff --cached --name-only | findstr /i ".env secret serviceAccount private k
 - `/orders/guest/[orderNo]`
 - `/admin/dashboard`
 - `/admin/payments`
+- `/admin/pg-settings`
 - `/admin/permissions`
+- `/company/login`
 - `/company/dashboard`
 - `/company/onboarding`
 - `/company/orders`
@@ -95,11 +97,14 @@ git diff --cached --name-only | findstr /i ".env secret serviceAccount private k
 - `/company/products/new`
 - `/company/products/preview`
 - `/nursery/dashboard`
+- `/nursery/login`
 - `/nursery/rooms`
 - `/nursery/tablets`
 - `/nursery/qr-history`
 - `/nursery/orders`
 - `/nursery/pickups`
+- `/tablet/login`
+- `/tablet/room-setup`
 - `/mock-ui/status`
 
 ## Latest Local Gate Result
@@ -110,7 +115,7 @@ git diff --cached --name-only | findstr /i ".env secret serviceAccount private k
 - `npm.cmd run check:no-secrets`: pass
 - `node scripts/check-routes.mjs`: pass, 71 page routes
 - `npm.cmd run lint`: pass, 0 errors and existing `<img>` warnings only
-- `npm.cmd run build`: pass, 95 static pages
+- `npm.cmd run build`: pass, 100 static pages after login/PG setting routes
 - `npm.cmd --prefix functions run build`: pass
 - `npm.cmd run check:firestore-products`: pass, 4 active Firestore products
 

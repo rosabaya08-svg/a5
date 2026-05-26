@@ -923,3 +923,14 @@
 - Firestore products smoke passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea.
 - Integrated `npm.cmd run check:release` passed; local static generation emitted Firestore `EACCES/UNAVAILABLE` warnings, but the repository fallback path preserved the successful build.
 - Boundaries preserved: no Firebase deploy, no Cloudflare API deploy, no real PG/refund/settlement payout, no secret/service account files.
+
+## 2026-05-26 Admin login, tablet fixed login, and PG settings UI
+
+- Added `/company/login` for company admin beta login with business registration number and default password `1004`.
+- Added `/nursery/login` for nursery admin beta login with business registration number and default password `1004`.
+- Added `/tablet/login` and `/tablet/room-setup` for tablet first login, fixed-login persistence, and room number setup.
+- Tablet storefront now shows business name + room name in the top bar and includes a `수정` button for room changes.
+- Added `/admin/pg-settings` for highest-admin PG provider/API configuration review.
+- Rebuilt admin/company/nursery navigation labels in Korean and added login/PG settings entries.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+- Boundaries preserved: no real Firebase Auth password issuance, no PG secret storage, no real PG call, no secret/service account files.

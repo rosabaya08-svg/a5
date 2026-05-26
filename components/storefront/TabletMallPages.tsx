@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
+import { TabletContextBadge, TabletFirstLoginGate } from "@/components/tablet/TabletAccessFlow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { MallProductProfile } from "@/data/mockShopContent";
 import {
@@ -238,6 +239,7 @@ function StoreShell({
 }) {
   return (
     <main className="min-h-screen bg-transparent text-white">
+      <TabletFirstLoginGate />
       <header className="sticky top-0 z-20 border-b border-white/20 bg-white/65 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/55">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <Link href="/tablet/products" className="flex items-center gap-3">
@@ -255,6 +257,7 @@ function StoreShell({
             ))}
             <CartStatusBadge />
           </nav>
+          <TabletContextBadge />
         </div>
       </header>
 

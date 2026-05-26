@@ -690,3 +690,20 @@
 | Firestore smoke | `npm.cmd run check:firestore-products` passed with 4 active products |
 | Integrated gate | `npm.cmd run check:release` passed; Firestore backend emitted local `EACCES/UNAVAILABLE` warnings during static generation, but fallback preserved successful build |
 | Boundaries | No Firebase deploy, no Cloudflare API deploy, no real PG/refund/settlement payout, no secret/service account files |
+
+## 40. 2026-05-26 Admin login, tablet fixed login, and PG settings UI
+
+| Item | Result |
+| --- | --- |
+| Scope | Added beta login and configuration entry points for company admin, nursery admin, tablet closed mall, and highest-admin PG settings |
+| Company login | Added `/company/login`; login id is business registration number and beta default password is `1004` |
+| Nursery login | Added `/nursery/login`; login id is nursery business registration number and beta default password is `1004` |
+| Tablet first login | Added `/tablet/login` and `/tablet/room-setup`; after first local fixed-login and room setup, tablet storefront redirects directly to the closed mall |
+| Tablet header | Tablet storefront header now shows A2-style business name + room name and a `수정` button for room changes |
+| Admin PG settings | Added `/admin/pg-settings` for PG provider/public key/API base URL/webhook URL review; secret values remain blocked from browser/Git |
+| Navigation | Rebuilt admin/company/nursery side navigation labels in Korean and added login/PG settings entries |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 100 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 76 page routes |
+| Boundaries | No real Firebase Auth password issue, no plain password storage, no PG secret storage, no real PG call |

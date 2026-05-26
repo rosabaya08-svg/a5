@@ -82,7 +82,9 @@ npm.cmd --prefix functions run build
 - `/orders/guest/A5-20260519-001`
 - `/admin/dashboard`
 - `/admin/payments`
+- `/admin/pg-settings`
 - `/admin/permissions`
+- `/company/login`
 - `/company/dashboard`
 - `/company/products`
 - `/company/orders`
@@ -90,11 +92,14 @@ npm.cmd --prefix functions run build
 - `/company/products/new`
 - `/company/products/preview`
 - `/nursery/dashboard`
+- `/nursery/login`
 - `/nursery/rooms`
 - `/nursery/tablets`
 - `/nursery/qr-history`
 - `/nursery/orders`
 - `/nursery/pickups`
+- `/tablet/login`
+- `/tablet/room-setup`
 
 ## Not Approved Yet
 

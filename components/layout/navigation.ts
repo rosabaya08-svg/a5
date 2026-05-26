@@ -19,11 +19,13 @@ export const adminNavItems: NavItem[] = [
   { href: "/admin/exhibitions", label: "기획전" },
   { href: "/admin/orders", label: "주문" },
   { href: "/admin/payments", label: "결제" },
-  { href: "/admin/settlements", label: "정산 검산" },
+  { href: "/admin/pg-settings", label: "PG 설정", badge: "중요" },
+  { href: "/admin/settlements", label: "정산 검토" },
   { href: "/admin/audit-logs", label: "감사 로그" },
 ];
 
 export const companyNavItems: NavItem[] = [
+  { href: "/company/login", label: "기업 로그인", badge: "베타" },
   { href: "/company/dashboard", label: "대시보드" },
   { href: "/company/onboarding", label: "입점 신청", badge: "필수" },
   { href: "/company/products", label: "상품" },
@@ -41,6 +43,7 @@ export const companyNavItems: NavItem[] = [
 ];
 
 export const nurseryNavItems: NavItem[] = [
+  { href: "/nursery/login", label: "조리원 로그인", badge: "베타" },
   { href: "/nursery/dashboard", label: "대시보드" },
   { href: "/nursery/rooms", label: "객실" },
   { href: "/nursery/tablets", label: "태블릿" },

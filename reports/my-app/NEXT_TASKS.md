@@ -455,3 +455,12 @@
 4. Enter PG server-only secrets in Firebase Functions runtime or Secret Manager only.
 5. Use `npm run check:release` before future GitHub pushes.
 6. Review existing `<img>` warnings after Storage/image governance is finalized.
+
+## 2026-05-26 Login/PG settings next tasks
+
+1. Browser-smoke `/company/login`, `/nursery/login`, `/tablet/login`, `/tablet/room-setup`, and `/admin/pg-settings`.
+2. Replace beta default password `1004` with Firebase Auth invite/reset-password before production.
+3. Add role-scoped Custom Claims checks before any company/nursery write action is enabled.
+4. Replace tablet localStorage fixed-login with TABLET_DEVICE claim and registered tablet id for production device binding.
+5. Keep PG secret keys in Firebase Functions runtime or Secret Manager only.
+6. Add audit log write plans for PG configuration changes before enabling real save actions.

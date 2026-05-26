@@ -329,3 +329,12 @@
 4. Add PG server secrets only to Firebase Functions runtime or Secret Manager, never to Git or Cloudflare Pages.
 5. Keep `npm run check:release` as the pre-push local gate for future changes.
 6. Review the 12 existing `<img>` warnings after final Storage/image optimization policy is approved.
+
+## 2026-05-26 Login/PG settings next tasks
+
+1. Browser-smoke `/company/login`, `/nursery/login`, `/tablet/login`, `/tablet/room-setup`, and `/admin/pg-settings`.
+2. Replace beta default password `1004` with Firebase Auth invite/reset-password flow before production.
+3. Add server-side Custom Claims checks before enabling company/nursery write actions.
+4. Replace tablet localStorage fixed-login with TABLET_DEVICE claim, App Check, and registered tablet id when production device binding starts.
+5. Enter PG public/browser keys only after official sandbox keys arrive; keep secret keys in Firebase Functions runtime or Secret Manager only.
+6. Add audit logs for PG setting changes before real configuration writes are enabled.

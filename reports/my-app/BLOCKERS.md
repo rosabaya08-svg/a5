@@ -270,3 +270,11 @@
 - Real PG server secrets must be stored only in Firebase Functions runtime or Secret Manager.
 - Cloudflare deployment must be visually smoked after GitHub push; this task does not call Cloudflare deploy APIs.
 - Existing `<img>` lint warnings remain warnings only until Storage/image optimization policy is finalized.
+
+## 2026-05-26 Login/PG settings blockers
+
+- Default password `1004` is beta-only and must not be used for production authentication.
+- Company/nursery login screens currently create local beta sessions only; real Firebase Auth and Custom Claims are still required.
+- Tablet fixed-login currently uses localStorage for beta device persistence; production requires TABLET_DEVICE claim, registered tablet id, App Check, and revocation policy.
+- PG settings screen does not store secrets; actual `PG_SECRET_KEY` and `PG_WEBHOOK_SECRET` must be entered only in Firebase Functions runtime or Secret Manager.
+- Real PG setting writes require SUPER_ADMIN claim checks and audit logs before activation.

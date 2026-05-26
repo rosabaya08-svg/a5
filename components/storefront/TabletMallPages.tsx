@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
-import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { staticProductIds } from "@/data/staticSmokeRoutes";
@@ -61,6 +60,19 @@ function platformDeal(product: Product) {
   const savings = Math.max(0, platformLowestPrice - closedMallPrice);
   const rate = platformLowestPrice > 0 ? Math.round((savings / platformLowestPrice) * 100) : 0;
   return { savings, rate };
+}
+
+function AiPriceSummary({ product, large = false }: { product: Product; large?: boolean }) {
+  const deal = platformDeal(product);
+
+  return (
+    <div className="grid gap-2 rounded-md bg-white/35 p-4">
+      <p className="text-sm font-black text-rose-600">AI 분석</p>
+      <p className="text-sm font-black text-slate-500">플랫폼 최저가 대비</p>
+      <p className={`${large ? "text-4xl" : "text-xl"} font-black text-rose-600`}>폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
+      <p className={`${large ? "text-xl" : "text-sm"} font-black text-emerald-700`}>{deal.rate}% 추가 할인된 금액</p>
+    </div>
+  );
 }
 
 const discountBands = [
@@ -217,7 +229,6 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
 function ProductCard({ product, content }: { product: Product; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
   const rate = discountRate(product);
-  const deal = platformDeal(product);
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
@@ -232,22 +243,10 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
               <p className="text-xs font-black text-rose-600">{profile.brand}</p>
               <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
             </div>
-            <div className="grid gap-1 rounded-md bg-white/35 p-3">
-              <p className="text-xs font-black text-slate-500">플랫폼 최저가 대비</p>
-              <p className="text-xl font-black text-rose-600">폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
-              <p className="text-sm font-black text-emerald-700">{deal.rate}% 추가 할인된 금액</p>
-            </div>
+            <AiPriceSummary product={product} />
           </div>
         </button>
       </form>
-      <div className="px-4 pb-4">
-        <PriceAnalysisButton
-          productName={profile.displayName}
-          platformLowestPrice={product.comparison.platformLowestPrice}
-          closedMallPrice={product.comparison.closedMallPrice}
-          className="w-full"
-        />
-      </div>
     </article>
   );
 }
@@ -344,7 +343,6 @@ export async function TabletProductDetailPage({ productId }: { productId: string
   const product = await getProduct(productId);
   const options = await getProductOptions(product.id);
   const profile = profileFor(product, context.content);
-  const deal = platformDeal(product);
 
   return (
     <StoreShell title={profile.displayName} subtitle={profile.subtitle} context={context}>
@@ -354,18 +352,8 @@ export async function TabletProductDetailPage({ productId }: { productId: string
           <div className="rounded-md bg-white/45 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
             <p className="text-sm font-black text-rose-600">{profile.brand}</p>
             <h2 className="mt-2 text-4xl font-black">{profile.displayName}</h2>
-            <div className="mt-5 grid gap-2 rounded-md bg-white/35 p-4">
-              <p className="text-sm font-black text-slate-500">플랫폼 최저가 대비</p>
-              <p className="text-4xl font-black text-rose-600">폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
-              <p className="text-xl font-black text-emerald-700">{deal.rate}% 추가 할인된 금액</p>
-            </div>
             <div className="mt-5">
-              <PriceAnalysisButton
-                productName={profile.displayName}
-                platformLowestPrice={product.comparison.platformLowestPrice}
-                closedMallPrice={product.comparison.closedMallPrice}
-                className="w-full"
-              />
+              <AiPriceSummary product={product} large />
             </div>
           </div>
 

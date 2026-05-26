@@ -1,5 +1,4 @@
 export {
-  TabletAskPage,
   TabletCartPage,
   TabletHomePage,
   TabletProductDetailPage,

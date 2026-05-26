@@ -166,7 +166,7 @@ function ProductDevPanel({
   compact?: boolean;
 }) {
   return (
-    <div className={`rounded-md border border-white/35 bg-white/70 text-[11px] font-bold text-slate-500 shadow-sm backdrop-blur-md ${compact ? "p-2" : "p-3"}`}>
+    <div className={`rounded-md border border-white/35 bg-white/35 text-[11px] font-bold text-slate-500 shadow-sm backdrop-blur-md ${compact ? "p-2" : "p-3"}`}>
       <div className="grid gap-1">
         {productDevRows(product, source).map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3">
@@ -184,7 +184,7 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
   const requestedSource = requestedDataSource();
 
   return (
-    <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+    <section className="rounded-md border border-white/30 bg-white/40 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">개발자 읽기 진단</p>
@@ -195,7 +195,7 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
         </div>
         <DataSourceBadge source={source} reason={reason} />
       </div>
-      <div className="mt-4 rounded-md bg-white/55 p-3 text-xs font-bold text-slate-600 ring-1 ring-white/40">
+      <div className="mt-4 rounded-md bg-white/30 p-3 text-xs font-bold text-slate-600 ring-1 ring-white/40">
         <p className="mb-1">데이터 소스 환경값: {requestedSource || "미설정"}</p>
         {reason ? <p>마지막 대체 표시 사유: {reason}</p> : <p>이번 렌더링에서 파이어스토어 읽기 실패가 감지되지 않았습니다.</p>}
       </div>
@@ -218,7 +218,7 @@ function StoreShell({
   return (
     <main className="min-h-screen bg-transparent text-white">
       <TabletFirstLoginGate />
-      <header className="sticky top-0 z-20 border-b border-white/20 bg-white/65 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/55">
+      <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
           <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
@@ -288,7 +288,7 @@ function PromoBannerGrid({ content }: { content: StorefrontContent }) {
 function VideoAdStrip() {
   return (
     <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-      <article className="overflow-hidden rounded-md border border-white/25 bg-white/80 text-slate-950 shadow-sm backdrop-blur-xl">
+      <article className="overflow-hidden rounded-md border border-white/25 bg-white/40 text-slate-950 shadow-sm backdrop-blur-xl">
         <div className="grid gap-0 md:grid-cols-[1fr_280px]">
           <div className="grid aspect-video place-items-center bg-slate-950 text-center text-white">
             <div>
@@ -309,7 +309,7 @@ function VideoAdStrip() {
           </div>
         </div>
       </article>
-      <article className="rounded-md border border-white/10 bg-gradient-to-br from-rose-100 to-amber-100 p-5 text-slate-950">
+      <article className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">폐쇄몰 안내</p>
         <h3 className="mt-2 text-3xl font-black">조리원 객실 전용 특가</h3>
         <p className="mt-3 text-sm leading-6 text-slate-700">
@@ -328,13 +328,13 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">공식 입점 브랜드</p>
           <h2 className="mt-2 text-2xl font-black">브랜드관</h2>
         </div>
-        <Link href="/admin/brands" className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-950 shadow-sm backdrop-blur-md">
+        <Link href="/admin/brands" className="rounded-full bg-white/35 px-3 py-1 text-xs font-black text-slate-950 shadow-sm backdrop-blur-md">
           브랜드 관리 모의 화면
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {content.brands.map((brand) => (
-          <article key={brand.id} className="rounded-md bg-white/80 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md">
+          <article key={brand.id} className="rounded-md bg-white/35 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md">
             <div className="flex h-16 items-center justify-center">
               <img src={brand.logoUrl} alt={brand.name} className="max-h-12 max-w-full object-contain" />
             </div>
@@ -353,29 +353,34 @@ function ProductCard({ product, source, content }: { product: Product; source?: 
   const readSource = source ?? (product.source ? "Firebase 상품" : "모의 대체 데이터");
 
   return (
-    <Link href={`/tablet/products/${product.id}`} className="group overflow-hidden rounded-md bg-white/88 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/95 hover:shadow-2xl">
-      <div className="relative aspect-[4/5] bg-slate-100">
-        <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
-        <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
-      </div>
-      <div className="grid gap-3 p-4">
-        <div>
-          <p className="text-xs font-black text-rose-600">{profile.brand}</p>
-          <h3 className="mt-1 min-h-12 text-base font-black leading-6">{profile.displayName}</h3>
-          <p className="mt-1 text-xs text-slate-500">{profile.subtitle}</p>
+    <form action={`/tablet/products/${product.id}`} className="contents">
+      <button
+        type="submit"
+        className="group overflow-hidden rounded-md bg-white/45 text-left text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl"
+      >
+        <div className="relative aspect-[4/5] bg-slate-100">
+          <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
+          <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
         </div>
-        <div>
-          <p className="text-xs text-slate-400 line-through">정상가 {formatCurrency(product.comparison.listPrice)}</p>
-          <p className="mt-1 text-2xl font-black text-rose-600">{formatCurrency(product.comparison.closedMallPrice)}</p>
-          <p className="text-xs font-bold text-slate-500">최저가 대비 {formatCurrency(product.comparison.platformLowestPrice - product.comparison.closedMallPrice)} 절감 모의 표시</p>
+        <div className="grid gap-3 p-4">
+          <div>
+            <p className="text-xs font-black text-rose-600">{profile.brand}</p>
+            <h3 className="mt-1 min-h-12 text-base font-black leading-6">{profile.displayName}</h3>
+            <p className="mt-1 text-xs text-slate-500">{profile.subtitle}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 line-through">정상가 {formatCurrency(product.comparison.listPrice)}</p>
+            <p className="mt-1 text-2xl font-black text-rose-600">{formatCurrency(product.comparison.closedMallPrice)}</p>
+            <p className="text-xs font-bold text-slate-500">최저가 대비 {formatCurrency(product.comparison.platformLowestPrice - product.comparison.closedMallPrice)} 절감 모의 표시</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${stock.className}`}>{stock.label}</span>
+          </div>
+          <ProductDevPanel product={product} source={readSource} compact />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${stock.className}`}>{stock.label}</span>
-        </div>
-        <ProductDevPanel product={product} source={readSource} compact />
-      </div>
-    </Link>
+      </button>
+    </form>
   );
 }
 
@@ -445,12 +450,12 @@ function ProductGallery({ product, content }: { product: Product; content?: Stor
 
   return (
     <section className="grid gap-3">
-      <div className="overflow-hidden rounded-md bg-white/80 shadow-sm backdrop-blur-md">
+      <div className="overflow-hidden rounded-md bg-white/35 shadow-sm backdrop-blur-md">
         <img src={images[0]} alt={profile.displayName} className="aspect-square w-full object-cover" />
       </div>
       <div className="grid grid-cols-3 gap-3">
         {images.slice(0, 3).map((image, index) => (
-          <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white/80 shadow-sm backdrop-blur-md">
+          <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white/35 shadow-sm backdrop-blur-md">
             <img src={image} alt={`${profile.displayName} ${index + 1}`} className="aspect-square w-full object-cover" />
           </div>
         ))}
@@ -463,10 +468,10 @@ function DetailTabs({ product, content }: { product: Product; content?: Storefro
   const profile = profileFor(product, content);
 
   return (
-    <section className="rounded-md bg-white/80 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+    <section className="rounded-md bg-white/40 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-3 md:grid-cols-3">
         {profile.detailTabs.map((tab) => (
-          <article key={tab.title} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <article key={tab.title} className="rounded-md border border-white/35 bg-white/35 p-4">
             <h3 className="font-black">{tab.title}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{tab.body}</p>
           </article>
@@ -481,7 +486,7 @@ function CartLine({ item, content }: { item: CartItemSnapshot; content?: Storefr
   const displayName = profile?.displayName ?? item.productName;
 
   return (
-    <article className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+    <article className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="grid gap-4 sm:grid-cols-[96px_1fr_auto]">
         <div className="overflow-hidden rounded-md bg-slate-100">
           {profile ? <img src={profile.imageUrl} alt={displayName} className="aspect-square w-full object-cover" /> : null}
@@ -502,26 +507,6 @@ function CartLine({ item, content }: { item: CartItemSnapshot; content?: Storefr
         </div>
       </div>
     </article>
-  );
-}
-
-function SummaryPanel({ session, ask = false }: { session: QrPaymentSession; ask?: boolean }) {
-  return (
-    <aside className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-      <h2 className="text-xl font-black">주문 요약</h2>
-      <div className="mt-4 grid gap-3 text-sm">
-        <div className="flex justify-between"><span>상품 수량</span><strong>{session.items.reduce((total, item) => total + item.quantity, 0)}개</strong></div>
-        <div className="flex justify-between"><span>수령방식</span><strong>{session.deliveryMethod === "pickup" ? "현장수령" : "택배배송"}</strong></div>
-        <div className="flex justify-between"><span>QR 만료</span><strong>{formatDateTime(session.expiresAt)}</strong></div>
-        <div className="border-t border-slate-100 pt-3">
-          <div className="flex justify-between text-lg"><span className="font-black">합계</span><strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong></div>
-        </div>
-      </div>
-      <Link href={ask ? `/q/${session.shortCode}` : "/tablet/cart"} className="mt-5 block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">
-        {ask ? "고객 결제 화면 열기" : "장바구니로 이동"}
-      </Link>
-      <p className="mt-3 text-xs leading-5 text-slate-500">QR은 2~3시간 만료, 1회성 사용, 재사용 차단 전제로 표시됩니다. 실제 PG 요청은 없습니다.</p>
-    </aside>
   );
 }
 
@@ -547,7 +532,7 @@ export async function TabletProductsPage() {
         <VideoAdStrip />
         <BrandGrid content={context.content} />
         <DiscountBandRails products={products} source={source} content={context.content} />
-        <div className="rounded-md border border-white/30 bg-white/78 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+        <div className="rounded-md border border-white/30 bg-white/40 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase text-slate-500">장바구니 바로가기</p>
@@ -572,7 +557,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <ProductGallery product={product} />
         <section className="grid gap-4">
-          <div className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
+          <div className="rounded-md bg-white/45 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 {profile.badges.map((badge) => (
@@ -589,7 +574,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
               <p className="mt-1 text-5xl font-black text-rose-600">{formatCurrency(product.comparison.closedMallPrice)}</p>
               <p className="mt-2 text-sm font-bold text-emerald-700">{discountRate(product)}% 할인 · {fulfillmentLabel(product)} · {stockLabel(product.stock).label}</p>
             </div>
-            <div className="mt-5 rounded-md bg-slate-50 p-4">
+            <div className="mt-5 rounded-md bg-white/35 p-4">
               <p className="text-sm font-black">리뷰 요약</p>
               <p className="mt-1 text-sm text-slate-600">{profile.review.rating.toFixed(1)}점 / {profile.review.count}개 모의 후기 · {profile.review.highlight}</p>
             </div>
@@ -612,7 +597,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
       <div className="mt-6">
         <DetailTabs product={product} />
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/40 bg-white/85 p-3 text-slate-950 shadow-2xl backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/40 bg-white/45 p-3 text-slate-950 shadow-2xl backdrop-blur-xl md:hidden">
         <Link href="/tablet/cart" className="block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">장바구니 열기</Link>
       </div>
     </StoreShell>
@@ -638,7 +623,7 @@ export async function TabletQrPage() {
     <StoreShell title="구매 QR 생성" subtitle="고객 또는 보호자가 모바일에서 결제 진입 화면으로 넘어가는 QR 모의 흐름입니다." context={context}>
       <LiveQrSessionPanel fallbackSession={session} />
       <div className="hidden">
-        <section className="rounded-md bg-white/82 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
+        <section className="rounded-md bg-white/45 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-slate-100">
             <div>
               <p className="text-xs font-black uppercase text-slate-500">QR 코드</p>
@@ -652,7 +637,7 @@ export async function TabletQrPage() {
           {session.items.map((item) => (
             <CartLine key={`${item.productId}-${item.optionName}`} item={item} />
           ))}
-          <div className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+          <div className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex justify-between text-lg">
               <span className="font-black">결제 예정</span>
               <strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong>
@@ -660,18 +645,6 @@ export async function TabletQrPage() {
             <p className="mt-2 text-sm text-slate-600">실제 PG 승인, Firebase write, 알림톡 발송은 실행하지 않습니다.</p>
           </div>
         </section>
-      </div>
-    </StoreShell>
-  );
-}
-
-export async function TabletAskPage() {
-  const context = await getContext("ASKMOM88");
-
-  return (
-    <StoreShell title="조르기 QR" subtitle="보호자에게 전달하는 결제 요청 QR 모의 흐름입니다. 회원가입 없이 QR 랜딩으로 진입합니다." context={context}>
-      <div className="mx-auto max-w-4xl">
-        <SummaryPanel session={context.session} ask />
       </div>
     </StoreShell>
   );

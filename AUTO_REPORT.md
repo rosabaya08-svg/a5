@@ -738,3 +738,14 @@
 | Functions build | `npm.cmd --prefix functions run build` 통과 |
 | Route check | `node scripts/check-routes.mjs` 통과, 76개 page route 확인 |
 | Boundaries | 실제 PG 승인/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. `.env.local`/secret/service account 변경 없음 |
+
+## 43. 2026-05-26 태블릿 상단 UI 정리와 난잡도 분석
+
+| 항목 | 결과 |
+| --- | --- |
+| 즉시 수정 | `/tablet/products` 및 `/products` 공유 상단에서 조리원/객실, QR 코드/만료, 장바구니 연결 정보를 기존 배지 위치로 통합 |
+| 삭제 | 상단 아래의 `조리원`, `QR 세션`, `결제 상태/실결제 없음` 3개 카드 영역 제거 |
+| 유지 | `Firebase 상품` 데이터 소스 배지는 Firestore read 확인용으로 유지 |
+| 분석 문서 | `reports/my-app/UIUX_CLUTTER_AUDIT.md` 신규 작성 |
+| 분석 대상 | 태블릿/고객 QR/관리자/기업/조리원 주요 route의 반복 경고, 개발자 진단 과노출, 카드 과밀 문제 정리 |
+| Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |

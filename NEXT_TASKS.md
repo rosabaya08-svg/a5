@@ -357,3 +357,12 @@
 4. 기존 `<img>` lint 경고 12개는 이미지 최적화 정책 확정 후 `next/image` 전환 여부를 결정한다.
 5. PG 공식 문서와 키를 받은 뒤에도 secret은 Firebase Functions runtime 또는 Secret Manager에만 입력하고 Git/Cloudflare 공개 환경변수에는 넣지 않는다.
 6. 실제 결제, 환불, 정산 지급, 알림톡, 배송조회, 외부 재고 API는 계속 차단한다.
+
+## 2026-05-26 UI/UX 난잡도 정리 다음 작업
+
+1. `/tablet/products/[id]`에서 상품 이미지/가격/구매 CTA를 우선 배치하고 개발자 진단 패널은 하단 접힘 영역으로 이동한다.
+2. `/q/SANHO701/checkout`을 `결제 정보 -> 서버 검증 -> 결제 실행` 단계형 UI로 재정렬한다.
+3. `/company/products/new`를 긴 단일 페이지에서 단계형 상품 등록 flow로 분리한다.
+4. `/admin/marketing/banners`와 `/admin/brands`를 등록/목록/미리보기 탭 구조로 정리한다.
+5. `/nursery/dashboard`는 오늘 현장수령, 활성 QR, 객실/태블릿 이슈만 첫 화면에 노출하도록 축약한다.
+6. 고객 쇼핑 화면에서는 `Firebase`, `env`, `PG`, `mock fallback` 같은 내부 진단 문구를 하단 개발자 패널로 이동한다.

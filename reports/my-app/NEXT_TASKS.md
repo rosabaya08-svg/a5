@@ -482,3 +482,12 @@
 4. `Firebase`, `Cloudflare`, `PG`, `Functions`, env key, route, collection id는 운영 식별자이므로 그대로 유지한다.
 5. `<img>` 경고 12개는 이미지 최적화/Storage 정책 확정 후 처리한다.
 6. 실제 PG 승인/환불/정산, 알림톡, 배송조회, 외부 재고 API는 계속 차단한다.
+
+## 2026-05-26 UI/UX 난잡도 정리 다음 작업
+
+1. `/tablet/products/[id]`에서 상품 이미지, 가격, 옵션, 구매 CTA가 개발자 진단보다 먼저 보이도록 단순화한다.
+2. `/q/SANHO701/checkout`을 고객 정보, 서버 검증, 결제 실행 3단계 흐름으로 재구성한다.
+3. `/company/products/new`를 기본 정보, 법적 고지/KC, 미디어/상세, 미리보기, 승인 요청 단계로 분리한다.
+4. `/admin/marketing/banners`와 `/admin/brands`를 등록, 목록, 미리보기 탭 구조로 분리한다.
+5. `/nursery/dashboard`는 오늘 현장수령, 활성 QR, 객실 이슈, 태블릿 이슈 중심으로 축약한다.
+6. 고객 화면의 Firebase/PG/mock fallback 진단은 첫 화면 카드가 아니라 작은 개발자 패널로 이동한다.

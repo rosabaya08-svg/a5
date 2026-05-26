@@ -957,3 +957,11 @@
 - Functions build passed: `npm.cmd --prefix functions run build`.
 - Route check passed: `node scripts/check-routes.mjs` found 76 page routes.
 - Boundaries preserved: no secret/service account changes, no real PG/refund/settlement, no Alimtalk/delivery/external inventory API calls.
+
+## 2026-05-26 태블릿 상단 정리와 UI/UX 난잡도 점검
+
+- `components/storefront/TabletMallPages.tsx`를 수정해 태블릿 폐쇄몰 상단 배지 줄에 조리원/객실, QR 코드/만료 정보를 표시했다.
+- 하단에 중복으로 보이던 `조리원`, `QR 세션`, `결제 상태/실결제 없음` 카드 영역을 제거했다.
+- `Firebase 상품` 데이터 소스 배지는 Firestore 상품 읽기 확인에 필요하므로 유지했다.
+- `reports/my-app/UIUX_CLUTTER_AUDIT.md`를 추가해 태블릿, 고객 QR, 관리자, 기업, 조리원 화면의 반복 배지, 개발자 진단 과노출, 첫 화면 카드 과밀 문제를 route 기준으로 정리했다.
+- 경계 유지: 실제 PG/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. secret/service account 변경 없음.

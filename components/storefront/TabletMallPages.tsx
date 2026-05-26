@@ -48,8 +48,6 @@ const tabletNav = [
   { href: "/tablet/ask", label: "조르기" },
 ];
 
-const safetyBadges = ["장바구니 작동", "QR 세션 생성", "Firebase env 연동", "PG 결제 전 단계"];
-
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
   const [{ data: session }, content] = await Promise.all([
     getLiveQrSessionByShortCode(shortCode),
@@ -118,11 +116,18 @@ function fulfillmentLabel(product: Product, content?: StorefrontContent) {
   return "현장수령/택배";
 }
 
-function SafetyBadges() {
+function HeaderContextBadges({ context }: { context: StoreContext }) {
+  const { session, nursery, room } = context;
+  const badges = [
+    `조리원 ${nursery?.name ?? session.nurseryId} · ${room?.name ?? session.roomId}`,
+    `QR ${session.shortCode} · 만료 ${formatDateTime(session.expiresAt)}`,
+    "장바구니 연결",
+  ];
+
   return (
     <div className="flex flex-wrap gap-2">
-      {safetyBadges.map((badge) => (
-        <span key={badge} className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-black text-slate-950 ring-1 ring-slate-200">
+      {badges.map((badge) => (
+        <span key={badge} className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-slate-950 ring-1 ring-slate-200">
           {badge}
         </span>
       ))}
@@ -201,27 +206,6 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
   );
 }
 
-function ContextStrip({ context }: { context: StoreContext }) {
-  const { session, nursery, room } = context;
-  const items = [
-    { label: "조리원", value: nursery?.name ?? session.nurseryId, helper: room?.name ?? session.roomId },
-    { label: "QR 세션", value: session.shortCode, helper: `만료 ${formatDateTime(session.expiresAt)}` },
-  { label: "결제 상태", value: "실결제 없음", helper: "실제 PG/Firebase 호출 없음" },
-  ];
-
-  return (
-    <section className="grid gap-3 bg-white/55 p-4 backdrop-blur-md md:grid-cols-3">
-      {items.map((item) => (
-        <article key={item.label} className="rounded-md border border-white/45 bg-white/65 p-3 shadow-sm backdrop-blur-md">
-          <p className="text-xs font-bold uppercase text-slate-500">{item.label}</p>
-          <p className="mt-1 text-base font-black text-slate-950">{item.value}</p>
-          <p className="mt-1 text-sm text-slate-600">{item.helper}</p>
-        </article>
-      ))}
-    </section>
-  );
-}
-
 function StoreShell({
   title,
   subtitle,
@@ -271,12 +255,11 @@ function StoreShell({
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{subtitle}</p>
               </div>
               <div className="grid gap-3">
-                <SafetyBadges />
+                <HeaderContextBadges context={context} />
                 <DataSourceBadge source={dataSource} reason={dataSourceNote} />
               </div>
             </div>
           </div>
-          <ContextStrip context={context} />
         </section>
 
         {children}

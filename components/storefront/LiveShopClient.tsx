@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
@@ -260,9 +260,11 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
 }
 
 export function FloatingCartButton() {
+  const pathname = usePathname();
   const { items } = useCart();
   const [isPopping, setIsPopping] = useState(false);
   const count = items.reduce((total, item) => total + item.quantity, 0);
+  const normalizedPathname = pathname.replace(/\/$/, "");
 
   useEffect(() => {
     let popTimer: number | undefined;
@@ -288,6 +290,10 @@ export function FloatingCartButton() {
       window.removeEventListener(cartAddedEventName, pop);
     };
   }, []);
+
+  if (normalizedPathname === "/tablet/cart") {
+    return null;
+  }
 
   return (
     <nav aria-label="장바구니 이동" className="fixed bottom-5 right-4 z-40">

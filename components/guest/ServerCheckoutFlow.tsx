@@ -446,14 +446,14 @@ export function ServerCheckoutFlow({
   const [ready, setReady] = useState<ReadyResponse>();
   const [confirm, setConfirm] = useState<ConfirmResponse>();
   const [error, setError] = useState<CheckoutApiError>();
-  const [pending, setPending] = useState<"ready" | "confirm" | "amount-test" | "">("");
+  const [pending, setPending] = useState<"ready" | "pg" | "confirm" | "amount-test" | "">("");
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const providerIsMock = readiness.provider === "mock";
   const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
-  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked || !receiverComplete;
+  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked || !receiverComplete || !activeQr;
 
   const pgPayload = useMemo(
     () =>
@@ -464,6 +464,7 @@ export function ServerCheckoutFlow({
         customerName: "비회원 고객",
         customerPhoneMasked: "010-****-0000",
         qrSessionId: session.id,
+        returnCode: session.shortCode,
         merchantId: ready?.merchantProfile?.merchantId,
         moduleKey: ready?.merchantProfile?.moduleKey,
       }),
@@ -572,7 +573,7 @@ export function ServerCheckoutFlow({
       return;
     }
 
-    setPending("confirm");
+    setPending("pg");
     setError(undefined);
 
     const pgResult = await requestPgModulePayment(pgPayload);
@@ -584,6 +585,8 @@ export function ServerCheckoutFlow({
       });
       return;
     }
+
+    setPending("confirm");
 
     const result = await postPaymentFunction<ConfirmResponse>(endpoints.endpoints.confirm, {
       ...checkoutPayload(session, ready.recalculatedAmount),
@@ -649,8 +652,8 @@ export function ServerCheckoutFlow({
         ? `${merchantAnalysis.blockerReason} 인피니 분할정산 API 확인 전까지 실결제 승인을 차단합니다.`
         : providerIsMock
         ? "모의 결제사일 때만 confirm까지 이어지며 orders/payments/order_items/inventory/audit log 기록 구조를 탑니다."
-        : "실제 PG SDK/API 호출은 아직 금지되어 있으며 PG사 어댑터와 키 수령 후 연결합니다.",
-      state: confirm ? ("done" as const) : pgPolicyBlocked ? ("blocked" as const) : providerIsMock ? ("ready" as const) : ("blocked" as const),
+        : "PG 공개 SDK 호출 후 Functions confirm 어댑터가 서버 금액 검증과 PG 승인 API를 이어받습니다.",
+      state: confirm ? ("done" as const) : pgPolicyBlocked ? ("blocked" as const) : ("ready" as const),
     },
   ];
 
@@ -662,13 +665,15 @@ export function ServerCheckoutFlow({
             <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-600">서버 결제 흐름</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">서버 검증 후 결제 진행</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              이 화면은 Firebase Functions 결제 서버 계층으로 ready/confirm을 호출합니다. 실제 PG 승인, 취소, 환불, 정산은 아직 호출하지 않습니다.
+              이 화면은 Firebase Functions 결제 서버 계층으로 ready/confirm을 호출합니다. PG 설정이 완료되면 브라우저 결제창과 서버 승인 어댑터로 이어집니다.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-black">
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">{dataSource}</span>
             <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">{readiness.label}</span>
-            <span className="rounded-full bg-red-100 px-3 py-1 text-red-800">실결제 아님</span>
+            <span className={`rounded-full px-3 py-1 ${providerIsMock ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>
+              {providerIsMock ? "모의 결제" : "PG 결제"}
+            </span>
           </div>
         </div>
         {fallbackReason ? <p className="mt-3 rounded-md bg-amber-50 p-3 text-xs font-bold text-amber-900">대체 표시 사유: {fallbackReason}</p> : null}
@@ -736,7 +741,7 @@ export function ServerCheckoutFlow({
             disabled={Boolean(pending) || !ready || providerIsMock || !ready.pgReady || !bridge.configured || !receiverComplete}
             className="rounded-md bg-blue-700 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {pending === "confirm" ? "PG 결제 처리 중" : "2. PG 결제창 열기"}
+            {pending === "pg" ? "PG 결제창 호출 중" : pending === "confirm" ? "PG 승인 처리 중" : "2. PG 결제창 열기"}
           </button>
           <button
             type="button"
@@ -748,7 +753,7 @@ export function ServerCheckoutFlow({
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-            실제 PG 결제사가 선택되면 이 영역은 PG 결제창 호출 직전 상태까지 표시합니다. 공식 모듈 불러오기와 승인 호출은 별도 승인 전까지 차단합니다.
+            실제 PG 결제사가 선택되고 키/엔드포인트가 준비되면 PG 결제창 호출 후 Firebase Functions 승인 단계로 이어집니다.
         </p>
       </section>
 
@@ -801,7 +806,7 @@ export function ServerCheckoutFlow({
           PG사: {bridge.provider} / 브라우저 모듈: {bridge.moduleLoaded ? "로드됨" : "미로드"} / 결제 준비 주소: {pgPayload.readyEndpoint || "미입력"}
         </p>
         <p className="mt-2 text-xs leading-5">
-          실제 결제창 호출은 결제사 공식 모듈과 키 검수 이후에만 열립니다. 현재 승인은 Firebase Functions 모의 결제사로만 진행됩니다.
+          실제 결제창 호출은 결제사 공식 모듈, 공개키, 기업 MID, Functions Secret과 confirm endpoint가 모두 준비된 경우에만 진행됩니다.
         </p>
       </section>
 

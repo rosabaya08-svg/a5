@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
-import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
+import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel, LiveTabletOrderHistoryPage } from "@/components/storefront/LiveShopClient";
 import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
@@ -511,6 +511,16 @@ export async function TabletCartPage() {
   return (
     <StoreShell title="장바구니" subtitle="태블릿 장바구니" context={context}>
       <LiveCartPage fallbackItems={session.items} />
+    </StoreShell>
+  );
+}
+
+export async function TabletOrdersPage() {
+  const context = await getContext();
+
+  return (
+    <StoreShell title="주문 완료 내역" subtitle="태블릿 개인정보 보호 주문 조회" context={context}>
+      <LiveTabletOrderHistoryPage />
     </StoreShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   QrReceiverForm,
   initialQrReceiverFormValue,
@@ -13,7 +13,14 @@ import {
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
 import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
-import { readLiveShopQrSessionByShortCode, saveLiveShopDocument } from "@/lib/firebase/liveShopRepository";
+import {
+  listLiveShopCompletedOrdersForRoom,
+  readLiveShopOrderByOrderNo,
+  readLiveShopQrSessionByShortCode,
+  saveLiveShopDocument,
+  type LiveShopCompletedOrder,
+  type LiveShopStoredOrder,
+} from "@/lib/firebase/liveShopRepository";
 import {
   COMPANY_GROUP_PURCHASE_MESSAGE,
   groupCartItemsByCompany,
@@ -39,6 +46,8 @@ type LiveOrder = {
   customerName: string;
   customerPhoneMasked: string;
   receiver?: QrReceiverFormValue;
+  guestOrderUrl?: string;
+  shareMessage?: string;
   createdAt: string;
   paidAt: string;
   status: "paid" | "ready_for_pickup";
@@ -46,6 +55,7 @@ type LiveOrder = {
 
 const cartKeyBase = "a5-live-cart";
 const lastQrKeyBase = "a5-live-last-qr";
+const completedOrderSyncKeyBase = "a5-live-completed-order-sync";
 const qrPrefix = "a5-live-qr:";
 const orderPrefix = "a5-live-order:";
 const cartAddedEventName = "a5-cart-added";
@@ -66,6 +76,10 @@ function currentCartKey() {
 
 function currentLastQrKey() {
   return scopedKey(lastQrKeyBase);
+}
+
+function currentCompletedOrderSyncKey() {
+  return scopedKey(completedOrderSyncKeyBase);
 }
 
 function currentCartId(companyId?: string) {
@@ -92,6 +106,15 @@ function makeQrImageUrl(targetUrl: string) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function localDateKeyFromIso(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? localDateKey() : localDateKey(date);
 }
 
 function addHoursIso(baseIso: string, hours: number) {
@@ -122,6 +145,21 @@ function readQrCheckoutSession(code: string) {
 
 function readLiveOrder(orderNo: string) {
   return orderNo ? readJson<LiveOrder | null>(`${orderPrefix}${orderNo}`, null) : null;
+}
+
+function toLiveOrder(order: LiveShopStoredOrder): LiveOrder {
+  return {
+    orderNo: order.orderNo,
+    qrSession: order.qrSession,
+    customerName: order.customerName,
+    customerPhoneMasked: order.customerPhoneMasked,
+    receiver: order.receiver,
+    guestOrderUrl: order.guestOrderUrl,
+    shareMessage: order.shareMessage,
+    createdAt: order.createdAt,
+    paidAt: order.paidAt,
+    status: order.status,
+  };
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -202,6 +240,34 @@ function cartTotal(items: CartLine[]) {
   return items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
 }
 
+function cartItemsEqual(left: CartLine[], right: CartLine[]) {
+  if (left.length !== right.length) return false;
+
+  return left.every((item, index) => {
+    const other = right[index];
+    return (
+      item.productId === other.productId &&
+      item.optionName === other.optionName &&
+      item.companyId === other.companyId &&
+      item.quantity === other.quantity &&
+      item.unitPrice === other.unitPrice
+    );
+  });
+}
+
+function itemQuantity(items: CartItemSnapshot[]) {
+  return items.reduce((total, item) => total + item.quantity, 0);
+}
+
+function orderShareUrl(orderNo: string) {
+  const path = `/orders/guest/live?orderNo=${encodeURIComponent(orderNo)}`;
+  return typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+}
+
+function completedOrderShareMessage(orderNo: string) {
+  return `주문내역 확인: ${orderNo}`;
+}
+
 function groupStatusLabel(group: CompanyPaymentGroup) {
   if (group.paymentReady) return "QR 결제 가능";
   if (group.merchantStatus === "in_review") return "MID 심사 중";
@@ -239,6 +305,58 @@ function persistCart(items: CartLine[]) {
   return { stored };
 }
 
+function useCompletedOrderCartSync({
+  enabled,
+  replace,
+  onSynced,
+}: {
+  enabled: boolean;
+  replace: (next: CartLine[]) => Promise<void>;
+  onSynced?: () => void;
+}) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
+
+    async function syncCompletedOrders() {
+      const tabletSession = readTabletRoomSession();
+      if (!tabletSession) return;
+
+      const today = localDateKey();
+      const completedOrders = await listLiveShopCompletedOrdersForRoom({
+        nurseryId: tabletSession.nurseryId,
+        roomId: tabletSession.roomId,
+        date: today,
+      });
+      if (cancelled || completedOrders.length === 0) return;
+
+      const syncedOrderNos = new Set(readJson<string[]>(currentCompletedOrderSyncKey(), []));
+      const unsyncedOrders = completedOrders.filter((order) => !syncedOrderNos.has(order.orderNo));
+      if (unsyncedOrders.length === 0) return;
+
+      const paidItems = unsyncedOrders.flatMap((order) => order.items);
+      const currentCart = readJson<CartLine[]>(currentCartKey(), []);
+      const remainingCart = removePaidItemsFromCart(currentCart, paidItems);
+
+      if (!cartItemsEqual(currentCart, remainingCart)) {
+        await replace(remainingCart);
+        if (!cancelled) onSynced?.();
+      }
+
+      writeJson(currentCompletedOrderSyncKey(), [...syncedOrderNos, ...unsyncedOrders.map((order) => order.orderNo)]);
+    }
+
+    void syncCompletedOrders();
+    const interval = window.setInterval(() => void syncCompletedOrders(), 12000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [enabled, onSynced, replace]);
+}
+
 function useCart(fallbackItems: CartItemSnapshot[] = []) {
   const fallback = useMemo<CartLine[]>(
     () =>
@@ -274,20 +392,25 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
     };
   }, [fallback]);
 
-  async function replace(next: CartLine[]) {
+  const replace = useCallback(async (next: CartLine[]) => {
     setItems(next);
     await persistCart(next);
-  }
+  }, []);
 
   return { items, replace };
 }
 
 export function FloatingCartButton() {
   const pathname = usePathname();
-  const { items } = useCart();
+  const { items, replace } = useCart();
   const [isPopping, setIsPopping] = useState(false);
   const count = items.reduce((total, item) => total + item.quantity, 0);
   const normalizedPathname = pathname.replace(/\/$/, "");
+
+  useCompletedOrderCartSync({
+    enabled: normalizedPathname !== "/tablet/cart",
+    replace,
+  });
 
   useEffect(() => {
     let popTimer: number | undefined;
@@ -471,6 +594,15 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
   );
   const paymentGroups = useMemo(() => groupCartItemsByCompany(indexedItems, mockCompanies), [indexedItems]);
   const total = cartTotal(items);
+  const notifyCompletedSync = useCallback(() => {
+    setMessage("고객 휴대폰 결제 완료 항목을 장바구니에서 주문 완료로 반영했습니다.");
+  }, []);
+
+  useCompletedOrderCartSync({
+    enabled: true,
+    replace,
+    onSynced: notifyCompletedSync,
+  });
 
   async function setQuantity(index: number, quantity: number) {
     const next = items
@@ -567,9 +699,14 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
         {items.length === 0 ? (
           <div className="rounded-md bg-white/45 p-6 text-slate-950 shadow-sm backdrop-blur-xl">
             <h2 className="text-xl font-black">장바구니가 비었습니다</h2>
-            <Link href="/tablet/products" className="mt-4 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
-              상품 보러가기
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/tablet/products" className="inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
+                상품 보러가기
+              </Link>
+              <Link href="/tablet/orders" className="inline-flex rounded-md bg-white/60 px-4 py-3 text-sm font-black text-slate-900">
+                주문 완료 내역
+              </Link>
+            </div>
           </div>
         ) : (
           paymentGroups.map((group, groupIndex) => (
@@ -652,6 +789,9 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
         </div>
         <Link href="/tablet/products" className="mt-2 block rounded-md bg-slate-100 px-4 py-3 text-center text-sm font-black text-slate-900">
           상품 계속 보기
+        </Link>
+        <Link href="/tablet/orders" className="mt-2 block rounded-md bg-white/70 px-4 py-3 text-center text-sm font-black text-slate-900">
+          주문 완료 내역
         </Link>
         {message ? <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p> : null}
       </aside>
@@ -827,12 +967,37 @@ export function LiveQrCheckoutPage() {
     const orderNo = order.orderNo;
     const paidSession = {
       ...order.qrSession,
+      status: "paid" as const,
       deliveryMethod: receiver.deliveryMethod,
       pickupLocation: order.qrSession.pickupLocation ?? session.pickupLocation,
     };
+    const completedDate = localDateKeyFromIso(paidAt);
+    const guestOrderUrl = orderShareUrl(orderNo);
+    const shareMessage = completedOrderShareMessage(orderNo);
+    const orderForStorage: LiveOrder = {
+      ...order,
+      qrSession: paidSession,
+      status: "paid",
+      guestOrderUrl,
+      shareMessage,
+    };
+    const tabletSafeSummary = {
+      order_no: orderNo,
+      status: "paid",
+      completed_at: paidAt,
+      completed_date: completedDate,
+      total_amount: paidSession.totalAmount,
+      item_count: itemQuantity(paidSession.items),
+      nursery_id: paidSession.nurseryId,
+      room_id: paidSession.roomId,
+      tablet_id: paidSession.tabletId,
+      cart_id: paidSession.cartId,
+      qr_session_id: paidSession.id,
+      short_code: paidSession.shortCode,
+    };
 
     const savedSession = writeJson(`${qrPrefix}${paidSession.shortCode}`, paidSession);
-    const savedOrder = writeJson(`${orderPrefix}${orderNo}`, order);
+    const savedOrder = writeJson(`${orderPrefix}${orderNo}`, orderForStorage);
     const currentCart = readJson<CartLine[]>(currentCartKey(), []);
     const remainingCart = removePaidItemsFromCart(currentCart, paidSession.items);
     const remainingStored = persistCart(remainingCart).stored;
@@ -857,17 +1022,27 @@ export function LiveQrCheckoutPage() {
     void Promise.all([
       saveLiveShopDocument("qr_payment_sessions", paidSession.id, {
         ...paidSession,
+        status: "paid",
         short_code: paidSession.shortCode,
         total_amount: paidSession.totalAmount,
         pickup_location: paidSession.pickupLocation,
+        paid_at: paidAt,
+        order_no: orderNo,
       }),
       saveLiveShopDocument("orders", orderNo, {
         order_no: orderNo,
         qr_session_id: paidSession.id,
         short_code: paidSession.shortCode,
+        nursery_id: paidSession.nurseryId,
+        room_id: paidSession.roomId,
+        tablet_id: paidSession.tabletId,
+        cart_id: paidSession.cartId,
         customer_name: order.customerName,
         customer_phone_masked: order.customerPhoneMasked,
-        status: order.status,
+        status: "paid",
+        order_completed: true,
+        completed_at: paidAt,
+        completed_date: completedDate,
         delivery_method: receiver.deliveryMethod,
         receiver_address: receiver.address,
         receiver_address_detail: receiver.addressDetail,
@@ -880,12 +1055,31 @@ export function LiveQrCheckoutPage() {
         },
         pickup_location: paidSession.pickupLocation,
         total_amount: paidSession.totalAmount,
+        item_count: tabletSafeSummary.item_count,
         items: paidSession.items,
         paid_at: paidAt,
+        guest_order_url: guestOrderUrl,
+        share_message: shareMessage,
+        tablet_safe_summary: tabletSafeSummary,
+        admin_data_provision_enabled: true,
+        customer_order_share_enabled: true,
+        notification_payload: {
+          event: "order.payment_completed",
+          order_no: orderNo,
+          qr_session_id: paidSession.id,
+          guest_order_url: guestOrderUrl,
+          share_message: shareMessage,
+          tablet_safe_summary: tabletSafeSummary,
+        },
       }),
       ...paidSession.items.map((item, index) =>
         saveLiveShopDocument("order_items", `${orderNo}-${index + 1}`, {
           order_no: orderNo,
+          order_id: orderNo,
+          qr_session_id: paidSession.id,
+          nursery_id: paidSession.nurseryId,
+          room_id: paidSession.roomId,
+          tablet_id: paidSession.tabletId,
           ...item,
           line_total: item.unitPrice * item.quantity,
         }),
@@ -960,20 +1154,63 @@ export function LiveGuestOrderPage() {
   const orderNo = params.get("orderNo") ?? "";
   const remainingHint = params.get("remaining") === "1";
   const [order, setOrder] = useState<LiveOrder | null>(() => readLiveOrder(orderNo));
+  const [shareFeedback, setShareFeedback] = useState("");
   const { items: remainingItems } = useCart([]);
   const remainingGroups = useMemo(() => groupCartItemsByCompany(remainingItems, mockCompanies), [remainingItems]);
 
   useEffect(() => {
-    const sync = () => setOrder(readLiveOrder(orderNo));
+    let cancelled = false;
+
+    const sync = () => {
+      const localOrder = readLiveOrder(orderNo);
+      if (localOrder) setOrder(localOrder);
+    };
+
+    async function syncRemoteOrder() {
+      const remoteOrder = await readLiveShopOrderByOrderNo(orderNo);
+      if (!remoteOrder || cancelled) return;
+
+      const liveOrder = toLiveOrder(remoteOrder);
+      writeJson(`${orderPrefix}${orderNo}`, liveOrder);
+      setOrder(liveOrder);
+    }
+
+    sync();
+    void syncRemoteOrder();
 
     window.addEventListener("a5-cart-change", sync);
     window.addEventListener("storage", sync);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("a5-cart-change", sync);
       window.removeEventListener("storage", sync);
     };
   }, [orderNo]);
+
+  async function shareOrder() {
+    if (!order) return;
+
+    const url = order.guestOrderUrl ?? orderShareUrl(order.orderNo);
+    const text = order.shareMessage ?? completedOrderShareMessage(order.orderNo);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "주문내역 확인",
+          text,
+          url,
+        });
+        setShareFeedback("주문내역 공유창을 열었습니다.");
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setShareFeedback("주문내역 확인 링크를 복사했습니다.");
+    } catch {
+      setShareFeedback("공유를 완료하지 못했습니다. 주문번호를 보관해 주세요.");
+    }
+  }
 
   if (!order) {
     return (
@@ -1017,6 +1254,14 @@ export function LiveGuestOrderPage() {
         <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
           주문 접수가 완료되었습니다. 주문번호로 배송 상태와 취소/환불 문의를 확인할 수 있습니다.
         </p>
+        <button
+          type="button"
+          onClick={() => void shareOrder()}
+          className="mt-3 w-full rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white"
+        >
+          카카오톡 등으로 주문내역 공유
+        </button>
+        {shareFeedback ? <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-700">{shareFeedback}</p> : null}
         {remainingHint || remainingGroups.length > 0 ? (
           <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
             <p className="font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
@@ -1028,5 +1273,143 @@ export function LiveGuestOrderPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function completedOrderTime(order: LiveShopCompletedOrder) {
+  const date = new Date(order.completedAt);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+}
+
+export function LiveTabletOrderHistoryPage() {
+  const [dateKey, setDateKey] = useState(() => localDateKey());
+  const [orders, setOrders] = useState<LiveShopCompletedOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const totalAmount = orders.reduce((total, order) => total + order.totalAmount, 0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrders() {
+      const tabletSession = readTabletRoomSession();
+      if (!tabletSession) {
+        if (!cancelled) {
+          setOrders([]);
+          setIsLoading(false);
+          setMessage("객실 선택 후 주문 완료 내역을 조회할 수 있습니다.");
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setMessage("");
+      const completedOrders = await listLiveShopCompletedOrdersForRoom({
+        nurseryId: tabletSession.nurseryId,
+        roomId: tabletSession.roomId,
+        date: dateKey,
+      });
+
+      if (!cancelled) {
+        setOrders(completedOrders);
+        setIsLoading(false);
+      }
+    }
+
+    void loadOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dateKey]);
+
+  return (
+    <section className="grid gap-5">
+      <div className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">tablet order privacy</p>
+            <h1 className="mt-2 text-3xl font-black">날짜별 주문 완료 내역</h1>
+            <p className="mt-2 text-sm font-bold text-slate-600">
+              태블릿에는 결제 완료 여부, 주문번호, 시간, 금액, 수량만 표시합니다.
+            </p>
+          </div>
+          <label className="grid gap-1 text-sm font-black text-slate-700">
+            조회 날짜
+            <input
+              type="date"
+              value={dateKey}
+              onChange={(event) => setDateKey(event.target.value || localDateKey())}
+              className="rounded-md border border-white/50 bg-white/80 px-3 py-3 text-slate-950"
+            />
+          </label>
+        </div>
+      </div>
+
+      <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
+        <p className="text-sm font-black">개인정보 보호 표시 기준</p>
+        <p className="mt-1 text-sm font-bold leading-6">
+          고객 성명, 연락처, 주소, 상품명, 옵션명은 이 태블릿 주문내역에 표시하지 않습니다. 다음 고객이 같은 객실 태블릿을 볼 수 있기 때문입니다.
+        </p>
+      </section>
+
+      {message ? <p className="rounded-md bg-amber-50 p-4 text-sm font-bold text-amber-900">{message}</p> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-3">
+          {isLoading ? (
+            <div className="rounded-md bg-white/45 p-6 text-slate-950 shadow-sm backdrop-blur-xl">
+              <p className="text-lg font-black">주문 완료 내역을 불러오는 중입니다.</p>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="rounded-md bg-white/45 p-6 text-slate-950 shadow-sm backdrop-blur-xl">
+              <p className="text-lg font-black">선택한 날짜에 표시할 주문 완료 내역이 없습니다.</p>
+            </div>
+          ) : (
+            orders.map((order) => (
+              <article key={order.orderNo} className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black text-slate-500">주문번호</p>
+                    <h2 className="mt-1 text-xl font-black">{order.orderNo}</h2>
+                  </div>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">주문 완료</span>
+                </div>
+                <div className="mt-4 grid gap-3 text-sm font-bold text-slate-700 sm:grid-cols-3">
+                  <div className="rounded-md bg-white/45 p-3">
+                    <p className="text-xs text-slate-500">완료 시간</p>
+                    <p className="mt-1 text-slate-950">{completedOrderTime(order)}</p>
+                  </div>
+                  <div className="rounded-md bg-white/45 p-3">
+                    <p className="text-xs text-slate-500">상품 수량</p>
+                    <p className="mt-1 text-slate-950">{order.itemCount}개</p>
+                  </div>
+                  <div className="rounded-md bg-white/45 p-3">
+                    <p className="text-xs text-slate-500">결제 금액</p>
+                    <p className="mt-1 text-rose-600">{formatCurrency(order.totalAmount)}</p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <aside className="rounded-md bg-white/45 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
+          <p className="text-sm font-black text-slate-500">{dateKey} 주문 완료</p>
+          <p className="mt-2 text-3xl font-black">{orders.length}건</p>
+          <div className="mt-4 flex justify-between text-sm font-bold">
+            <span>결제 완료 합계</span>
+            <strong className="text-rose-600">{formatCurrency(totalAmount)}</strong>
+          </div>
+          <Link href="/tablet/products" className="mt-5 block rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
+            상품 보러가기
+          </Link>
+          <Link href="/tablet/cart" className="mt-2 block rounded-md bg-slate-100 px-4 py-3 text-center text-sm font-black text-slate-900">
+            장바구니로 이동
+          </Link>
+        </aside>
+      </div>
+    </section>
   );
 }

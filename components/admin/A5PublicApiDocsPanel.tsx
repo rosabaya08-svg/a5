@@ -133,6 +133,9 @@ const orderOpenApiSpec = {
           status: { type: "string" },
           paymentStatus: { type: "string" },
           deliveryMethod: { type: "string", enum: ["delivery", "pickup"] },
+          guestOrderUrl: { type: "string" },
+          shareMessage: { type: "string" },
+          tabletSafeSummary: { $ref: "#/components/schemas/TabletSafeSummary" },
           receiver: { $ref: "#/components/schemas/Receiver" },
           items: { type: "array", items: { $ref: "#/components/schemas/OrderItem" } },
           shipment: { $ref: "#/components/schemas/Shipment" },
@@ -160,6 +163,18 @@ const orderOpenApiSpec = {
           quantity: { type: "integer" },
           unitPrice: { type: "integer" },
           externalProductCode: { type: "string" },
+        },
+      },
+      TabletSafeSummary: {
+        type: "object",
+        description: "태블릿 날짜별 주문 완료 내역에 표시할 개인정보 제외 요약입니다.",
+        properties: {
+          orderNo: { type: "string" },
+          status: { type: "string", example: "paid" },
+          completedAt: { type: "string", format: "date-time" },
+          completedDate: { type: "string", example: "2026-05-27" },
+          totalAmount: { type: "integer" },
+          itemCount: { type: "integer" },
         },
       },
       Shipment: {
@@ -224,6 +239,16 @@ const orderApiGuide = `# A5 주문내역 상세 실시간 연동 API
   "status": "PAYMENT_COMPLETED",
   "paymentStatus": "APPROVED",
   "deliveryMethod": "pickup",
+  "guestOrderUrl": "https://a5-closed-mall.pages.dev/orders/guest/live?orderNo=A5-20260519-001",
+  "shareMessage": "주문내역 확인: A5-20260519-001",
+  "tabletSafeSummary": {
+    "orderNo": "A5-20260519-001",
+    "status": "paid",
+    "completedAt": "2026-05-19T05:10:00.000Z",
+    "completedDate": "2026-05-19",
+    "totalAmount": 127000,
+    "itemCount": 1
+  },
   "receiver": {
     "name": "김*영",
     "phone": "010-****-2388",
@@ -254,6 +279,12 @@ Header:
 - X-A5-Event: order.payment_completed
 - X-A5-Signature: HMAC-SHA256 signature
 - X-A5-Timestamp: Unix timestamp
+
+## 고객/태블릿 공유 데이터
+- guestOrderUrl: 고객이 카카오톡 등으로 주문내역을 다시 열 수 있는 주문 확인 URL입니다.
+- shareMessage: 고객 공유 메시지 기본 문구입니다.
+- tabletSafeSummary: 객실 태블릿에는 주문 완료 여부, 주문번호, 완료 시간, 금액, 수량만 표시합니다.
+- 태블릿 화면에는 고객 성명, 연락처, 주소, 상품명, 옵션명을 제공하지 않습니다.
 
 ## 운영 전 필수 확인
 1. 기업 API Key 발급

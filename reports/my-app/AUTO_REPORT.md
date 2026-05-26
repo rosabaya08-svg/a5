@@ -1004,3 +1004,8 @@
 - The order export includes A5 required supplier-operation fields: `입점사ID`, `공급사명`, `정산상태`.
 - Added invoice upload template CSV download for manual Sabangnet/shipping workflow preparation.
 - No Sabangnet API, real shipping API, or secret credential was connected.
+## 2026-05-26 super admin Google login update
+- Added `/admin/login` with Firebase Google login for the master email `rosabaya08@gmail.com`.
+- Non-master Google accounts are blocked and signed out.
+- No secret, service account, private key, or real PG/API credential was added.
+- Verification passed: lint, Next build, Functions build, route check with 77 routes, and no-secret check.

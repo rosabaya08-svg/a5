@@ -401,3 +401,8 @@
 4. Add invoice CSV upload parsing and order status update after the template is confirmed.
 5. Add bulk status change flow: paid -> preparing shipment -> shipped -> delivered.
 6. Add product-code mapping screen for A5 product id and Sabangnet product code.
+## 2026-05-26 super admin login next tasks
+1. Enable Google provider in Firebase Console if it is not already enabled.
+2. Add Cloudflare Pages and custom mall domains to Firebase Auth authorized domains.
+3. Add server-side `SUPER_ADMIN` Custom Claim verification before production route guarding.
+4. Decide whether `/admin/**` should redirect to `/admin/login` when the local beta session is missing.

@@ -142,3 +142,8 @@
 - Official Sabangnet order upload template is not attached yet.
 - Actual Sabangnet API credentials are not available and were not connected.
 - Invoice upload parsing and bulk order status mutation need the confirmed template before production use.
+## 2026-05-26 super admin login blockers
+- Firebase Console Google provider must be enabled for real Google sign-in.
+- Firebase Auth authorized domains must include the deployed Cloudflare/custom domains.
+- Production admin route protection still needs server-side ID token and `SUPER_ADMIN` Custom Claim verification.
+- This task did not create OAuth secrets, service account keys, or private keys.

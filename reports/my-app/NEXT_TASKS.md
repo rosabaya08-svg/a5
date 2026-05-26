@@ -524,3 +524,8 @@
 3. Match A5 CSV header order and field names to the official template.
 4. Add invoice CSV upload parsing.
 5. Add company order bulk status update.
+## 2026-05-26 super admin login next tasks
+1. Enable Firebase Auth Google provider if not enabled yet.
+2. Register Cloudflare Pages/custom domains as Firebase Auth authorized domains.
+3. Add server-side `SUPER_ADMIN` Custom Claim verification before production admin route enforcement.
+4. Smoke test `/admin/login -> Google login -> /admin/dashboard` after deploy.

@@ -303,3 +303,7 @@
 - Official Sabangnet/Sabangnet Mini Excel upload template is still needed.
 - Free plan upload support remains unconfirmed.
 - Actual Sabangnet API integration is blocked until API contract, account, and credentials are available.
+## 2026-05-26 super admin login blockers
+- Google sign-in depends on Firebase Console provider activation.
+- Production admin protection still needs server-side ID token and `SUPER_ADMIN` claim verification.
+- OAuth secret, service account key, private key, and `.env.local` values were not created or committed.

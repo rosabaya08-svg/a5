@@ -802,3 +802,14 @@
 - Added product export fields for product mapping: A5 product code, Sabangnet product code, prices, options, stock, supplier.
 - Added invoice upload template CSV download as a manual operation bridge.
 - No Sabangnet API, shipping API, PG settlement, or external credential was connected.
+## 2026-05-26 super admin Google login update
+- Added `/admin/login` for highest-admin Google login.
+- Master account is fixed to `rosabaya08@gmail.com`.
+- Login uses Firebase Web SDK Google provider and stores only a local beta session marker after the email check succeeds.
+- Non-master Google accounts are signed out and blocked from the console entry button.
+- No OAuth secret, service account, private key, or `.env.local` value was added.
+- Verification: `npm.cmd run lint` passed with existing warnings only.
+- Verification: `npm.cmd run build` passed and generated `/admin/login`.
+- Verification: `npm.cmd --prefix functions run build` passed.
+- Verification: `node scripts/check-routes.mjs` passed with 77 routes.
+- Verification: `npm.cmd run check:no-secrets` passed.

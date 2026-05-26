@@ -245,11 +245,9 @@ function HeroBanner({ content }: { content: StorefrontContent }) {
 
   return (
     <section className="overflow-hidden rounded-md border border-white/10 bg-black">
-      <HardNavigateLink href={heroBanner.href || SHOP_HOME_HREF} className="block" ariaLabel={heroBanner.title}>
-        <div className="relative min-h-[420px]">
-          <img src={heroBanner.imageUrl} alt={heroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
-        </div>
-      </HardNavigateLink>
+      <div className="relative min-h-[420px]">
+        <img src={heroBanner.imageUrl} alt={heroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
+      </div>
     </section>
   );
 }

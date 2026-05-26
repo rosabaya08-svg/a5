@@ -84,7 +84,7 @@ function makeShortCode() {
 }
 
 function mapQrSession(documentId: string, data: DocumentData): QrPaymentSession {
-  const items = asCartItems(data.items);
+  const items = asCartItems(data.items ?? data.items_snapshot ?? data.itemsSnapshot);
 
   return {
     id: asString(data.id ?? data.qr_session_id ?? data.qrSessionId, documentId),
@@ -98,7 +98,7 @@ function mapQrSession(documentId: string, data: DocumentData): QrPaymentSession 
     createdAt: asIsoDate(data.createdAt ?? data.created_at),
     expiresAt: asIsoDate(data.expiresAt ?? data.expires_at),
     deliveryMethod: asDeliveryMethod(data.deliveryMethod ?? data.delivery_method),
-    totalAmount: asNumber(data.totalAmount ?? data.total_amount, totalAmount(items)),
+    totalAmount: asNumber(data.totalAmount ?? data.total_amount ?? data.total_amount_snapshot ?? data.totalAmountSnapshot, totalAmount(items)),
     items,
   };
 }
@@ -127,7 +127,17 @@ function toFirestorePayload(session: QrPaymentSession) {
     delivery_method: session.deliveryMethod,
     totalAmount: session.totalAmount,
     total_amount: session.totalAmount,
+    total_amount_snapshot: session.totalAmount,
     items: session.items,
+    items_snapshot: session.items.map((item) => ({
+      product_id: item.productId,
+      product_name: item.productName,
+      option_name: item.optionName,
+      unit_price: item.unitPrice,
+      quantity: item.quantity,
+      company_id: item.companyId,
+      line_amount: item.unitPrice * item.quantity,
+    })),
     guest_read_enabled: true,
     source: "firebase_storefront",
     updated_at: serverTimestamp(),

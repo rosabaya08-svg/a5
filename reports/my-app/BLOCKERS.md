@@ -231,3 +231,10 @@
 - Toss/PortOne/KCP/NICE exact request and response fields must come from the official PG document.
 - Real cancel/refund remains blocked until refund policy and settlement hold rules are approved.
 - Real webhook status transitions remain blocked until signature verification is implemented.
+
+## 2026-05-26 Checkout server flow blockers
+
+- Real PG payment window calls remain blocked until the selected PG provider module, sandbox keys, and official request/response contract are approved.
+- `NEXT_PUBLIC_PAYMENT_API_BASE_URL` must point to reachable deployed Functions before customer checkout can call ready/confirm/status in production Cloudflare.
+- Seeded QR sessions with past `expires_at` values will be correctly blocked by the server and need refresh/reseed before demo payment smoke.
+- Real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

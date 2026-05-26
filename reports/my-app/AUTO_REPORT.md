@@ -865,3 +865,15 @@
 - Completed PG skeleton provider so the UI/service layer can call all methods while real calls remain blocked.
 - Expanded Functions `providerAdapter.ts` with candidate branches, operation plan, and server-only handoff notes.
 - No actual PG API call, SDK import, secret value, deploy, cancel, refund, or settlement execution was added.
+
+## 2026-05-26 Checkout server payment flow
+
+- Added `components/guest/ServerCheckoutFlow.tsx` for customer checkout server validation, mock confirm, payment status lookup, and PG handoff diagnostics.
+- `/q/[code]/checkout` now shows QR session id/code, calls `paymentsReady`, and can continue to `paymentsConfirm` only through the mock provider path.
+- `/q/[code]/success`, `/q/[code]/failed`, `/q/[code]/expired`, and `/q/[code]/status` now include a payment status panel backed by the `paymentsStatus` endpoint helper.
+- `lib/payments/paymentEndpoints.ts` now exposes the `paymentsStatus` endpoint key.
+- `lib/repositories/firebase/firebaseQrSessionRepository.ts` now reads Firestore `items_snapshot` and `total_amount_snapshot` so the screen payload matches Functions recalculation inputs.
+- `/orders/guest/[orderNo]` now explicitly marks the Firestore-first `order_no` lookup path.
+- Failure UI covers expired QR, not-active/duplicate QR, amount mismatch, out-of-stock, not-found, endpoint missing, and fetch failure states.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+- Boundaries preserved: no real PG call, no Firebase deploy, no secret/service account changes, no refund/settlement execution.

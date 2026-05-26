@@ -1,10 +1,11 @@
-export type PaymentFunctionKey = "ready" | "confirm" | "webhook" | "cancel";
+export type PaymentFunctionKey = "ready" | "confirm" | "webhook" | "cancel" | "status";
 
 const functionNames: Record<PaymentFunctionKey, string> = {
   ready: "paymentsReady",
   confirm: "paymentsConfirm",
   webhook: "paymentsWebhook",
   cancel: "paymentsCancel",
+  status: "paymentsStatus",
 };
 
 function trimSlash(value: string) {
@@ -36,6 +37,7 @@ export function getPaymentEndpointReadiness() {
       confirm: getPaymentFunctionUrl("confirm"),
       webhook: getPaymentFunctionUrl("webhook"),
       cancel: getPaymentFunctionUrl("cancel"),
+      status: getPaymentFunctionUrl("status"),
     },
     missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL"],
   };

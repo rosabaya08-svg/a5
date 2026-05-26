@@ -1,7 +1,6 @@
 import Link from "next/link";
+import { PaymentStatusPanel, ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { PgIntegrationPanel } from "@/components/storefront/PgIntegrationPanel";
-import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import {
   getLiveOrderByOrderNo,
   getLiveQrSessionByShortCode,
@@ -155,45 +154,6 @@ function CheckoutFormMock({ session }: { session: QrPaymentSession }) {
   );
 }
 
-function PaymentReadinessPanel({ amount }: { amount: number }) {
-  const readiness = getPaymentReadiness();
-  const missingKeys = readiness.missingKeys.length ? readiness.missingKeys.join(", ") : "없음";
-
-  return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-600">PG readiness</p>
-          <h2 className="mt-1 text-xl font-black">PG 모듈 연결 준비 상태</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            결제 버튼은 현재 mock 흐름을 유지합니다. PG 키 수령 후에는 서버 confirm endpoint에서 금액을 재계산한 뒤 provider adapter를 연결해야 합니다.
-          </p>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-black ${readiness.ready ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
-          {readiness.label}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-2 text-sm md:grid-cols-3">
-        <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold text-slate-500">결제 예정 금액</p>
-          <p className="mt-1 text-lg font-black text-slate-950">{formatCurrency(amount)}</p>
-        </div>
-        <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold text-slate-500">현재 provider</p>
-          <p className="mt-1 font-black text-slate-950">{readiness.provider}</p>
-        </div>
-        <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold text-slate-500">누락 키</p>
-          <p className="mt-1 break-words font-black text-slate-950">{missingKeys}</p>
-        </div>
-      </div>
-      <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-900">
-        실제 승인, 취소, 환불, 웹훅 처리는 아직 차단되어 있습니다. Cloudflare static export 화면에서는 PG secret을 사용할 수 없으므로 Functions, Cloud Run, Workers 중 서버 실행 위치가 필요합니다.
-      </div>
-    </section>
-  );
-}
-
 function LiveDataSourceNotice({ source, reason }: { source: LiveReadSource; reason?: string }) {
   const isFirestore = source === "Firestore";
 
@@ -283,38 +243,13 @@ export async function QrCheckoutPage({ code }: { code: string }) {
     getLiveQrSessionByShortCode(code),
     getLiveStorefrontContent(),
   ]);
-  const canCheckout = session.status === "active";
-
   return (
-    <GuestFrame title="결제 정보 입력" subtitle="실제 PG 호출 없이 결제 전 확인 UI만 제공합니다.">
+    <GuestFrame title="서버 결제 검증" subtitle="Firebase Functions ready/confirm 서버 계층을 통해 금액 재계산, QR 검증, mock 승인 흐름을 확인합니다.">
       <div className="grid gap-4">
         <MobileOrderSummary session={session} content={content} />
         <LiveDataSourceNotice source={source} reason={reason} />
         <CheckoutFormMock session={session} />
-        <PaymentReadinessPanel amount={session.totalAmount} />
-        <PgIntegrationPanel
-          amount={session.totalAmount}
-          orderNo={`A5-${session.shortCode}`}
-          orderName={`A5 closed mall ${session.shortCode}`}
-          customerName="보호자"
-          customerPhoneMasked="010-****-5678"
-          qrSessionId={session.id}
-        />
-        <section className="rounded-md border border-red-200 bg-red-50 p-4">
-          <div className="flex justify-between">
-            <span className="font-black">서버 재계산 대상 금액</span>
-            <strong className="text-xl text-rose-600">{formatCurrency(session.totalAmount)}</strong>
-          </div>
-          <p className="mt-2 text-xs leading-5 text-slate-600">운영 전환 시 클라이언트 금액을 신뢰하지 않고 QR snapshot 기준으로 서버에서 재계산해야 합니다.</p>
-        </section>
-        <div className="grid gap-2">
-          <Link href={canCheckout ? `/q/${session.shortCode}/loading` : `/q/${session.shortCode}/status`} className="rounded-md bg-rose-600 px-4 py-4 text-center text-base font-black text-white">
-            {canCheckout ? "PG 모듈 연결 지점으로 진행(mock)" : "결제 차단 상태 보기"}
-          </Link>
-          <Link href={`/q/${session.shortCode}/failed`} className="rounded-md bg-slate-200 px-4 py-3 text-center text-sm font-black text-slate-900">
-            실패 화면 미리보기
-          </Link>
-        </div>
+        <ServerCheckoutFlow session={session} dataSource={source} fallbackReason={reason} />
       </div>
     </GuestFrame>
   );
@@ -343,13 +278,15 @@ export async function QrSuccessPage({ code }: { code: string }) {
   const { data: session, source, reason } = await getLiveQrSessionByShortCode(code);
 
   return (
-    <GuestFrame title="mock 결제 완료" subtitle="QR 재사용 차단과 주문 원장 기록이 필요한 성공 상태입니다.">
-      <section className="rounded-md border border-emerald-200 bg-white p-5 text-center shadow-sm">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-2xl font-black text-emerald-700">OK</div>
-        <h2 className="mt-4 text-3xl font-black">{formatCurrency(session.totalAmount)}</h2>
-        <div className="mt-4"><LiveDataSourceNotice source={source} reason={reason} /></div>
-        <p className="mt-2 text-sm text-slate-600">운영 PG 승인 내역이 아닌 mock 완료 화면입니다.</p>
-        <Link href="/orders/guest/A5-20260519-001" className="mt-5 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">주문 상세 보기</Link>
+    <GuestFrame title="서버 결제 완료" subtitle="Firebase Functions mock confirm 결과와 payment status 조회를 함께 확인합니다.">
+      <section className="grid gap-4">
+        <section className="rounded-md border border-emerald-200 bg-white p-5 text-center shadow-sm">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-2xl font-black text-emerald-700">OK</div>
+          <h2 className="mt-4 text-3xl font-black">{formatCurrency(session.totalAmount)}</h2>
+          <div className="mt-4"><LiveDataSourceNotice source={source} reason={reason} /></div>
+          <p className="mt-2 text-sm text-slate-600">실제 PG 승인이 아닌 Firebase Functions mock confirm 완료 화면입니다.</p>
+        </section>
+        <PaymentStatusPanel shortCode={code} mode="success" />
       </section>
     </GuestFrame>
   );
@@ -363,6 +300,7 @@ export async function QrFailedPage({ code }: { code: string }) {
       <div className="grid gap-4">
         <QrStateNotice session={session} />
         <LiveDataSourceNotice source={source} reason={reason} />
+        <PaymentStatusPanel shortCode={code} mode="failed" />
         <section className="rounded-md border border-red-200 bg-white p-5 text-center shadow-sm">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-red-100 text-xl font-black text-red-700">FAIL</div>
           <h2 className="mt-4 text-2xl font-black">{session.shortCode}</h2>
@@ -386,6 +324,7 @@ export async function QrExpiredPage({ code }: { code: string }) {
         <QrStateNotice session={{ ...session, status: "expired" }} />
         <LiveDataSourceNotice source={source} reason={reason} />
         <MobileOrderSummary session={session} content={content} />
+        <PaymentStatusPanel shortCode={code} mode="failed" />
         <Link href="/tablet/qr" className="block rounded-md bg-slate-950 px-4 py-4 text-center text-base font-black text-white">태블릿에서 새 QR 생성</Link>
       </div>
     </GuestFrame>
@@ -404,6 +343,7 @@ export async function QrStatusPage({ code }: { code: string }) {
         <QrStateNotice session={session} />
         <LiveDataSourceNotice source={source} reason={reason} />
         <MobileOrderSummary session={session} content={content} />
+        <PaymentStatusPanel shortCode={code} mode="status" />
       </div>
     </GuestFrame>
   );
@@ -461,6 +401,12 @@ export async function GuestOrderDetailPage({ orderNo }: { orderNo: string }) {
           </div>
         </section>
         <LiveDataSourceNotice source={source} reason={reason} />
+        <section className="rounded-md border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+          <h2 className="font-black">order_no 기반 조회</h2>
+          <p className="mt-1">
+            이 화면은 <strong>{order.orderNo}</strong> 값을 기준으로 Firestore orders 문서를 먼저 조회하고, 실패하거나 권한이 막히면 mock fallback으로 내려갑니다.
+          </p>
+        </section>
         <OrderTimeline order={order} />
         <OrderItems items={items} content={content} />
         <Link href={`/orders/guest/${order.orderNo}/refund`} className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-black text-red-700">환불 요청 mock 보기</Link>

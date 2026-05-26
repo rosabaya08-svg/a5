@@ -603,3 +603,20 @@
 | PG skeleton | Complete skeleton blocks real calls while preserving handoff shape |
 | Functions adapter | Server adapter slot exposes provider operation plan and mock confirm placeholder only |
 | Boundaries | No actual PG SDK import, no secret values, no firebase deploy, no real approval/cancel/refund/settlement |
+
+## 35. 2026-05-26 Checkout server payment flow
+
+| Item | Result |
+| --- | --- |
+| Scope | Routed `/q/[code]/checkout` through the Firebase Functions payment ready/confirm flow while keeping real PG calls blocked |
+| Checkout UI | Added `components/guest/ServerCheckoutFlow.tsx` with QR session id/code, server validation, payment intent, mock confirm, PG handoff, and developer diagnostics |
+| Status UI | Added reusable payment status panel for success, failed, expired, and status pages using `paymentsStatus` lookup by `paymentIntentId` or `order_no` |
+| Repository fix | Updated Firestore QR session mapping to read `items_snapshot` and `total_amount_snapshot`, matching Functions amount recalculation inputs |
+| Endpoint helper | Added `paymentsStatus` to the public payment endpoint helper |
+| Guest order lookup | `/orders/guest/[orderNo]` now explicitly documents the Firestore-first `order_no` read path with mock fallback |
+| Error states | Checkout now shows expired QR, amount mismatch, out-of-stock, duplicate/not-active, and missing endpoint failure guidance |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+| Boundaries | No real PG approval/cancel/refund/settlement, no Firebase deploy, no secret/service account changes |

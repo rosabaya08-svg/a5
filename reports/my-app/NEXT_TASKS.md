@@ -408,3 +408,12 @@
 4. Implement the selected provider branch inside `functions/src/payments/providerAdapter.ts`.
 5. Keep frontend `PaymentProvider` calls and server transaction writes unchanged.
 6. Add webhook signature verification and idempotency tests from the official PG document.
+
+## 2026-05-26 Checkout server flow next tasks
+
+1. Confirm deployed Functions URLs for `paymentsReady`, `paymentsConfirm`, and `paymentsStatus`.
+2. Set Cloudflare `NEXT_PUBLIC_PAYMENT_API_BASE_URL` to the Functions base URL when endpoint reachability is confirmed.
+3. Browser-smoke `/q/SANHO701/checkout` through ready, mock confirm, success status, failed status, expired QR, amount mismatch, and retry paths.
+4. Reseed demo QR sessions with future `expires_at` values before customer demos if the current seeded documents are expired.
+5. Keep the current mock-confirm transaction path and replace only the selected PG provider internals after official docs/keys arrive.
+6. Keep production refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.

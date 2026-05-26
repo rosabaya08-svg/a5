@@ -281,3 +281,12 @@
 4. Replace only the selected branch internals in `functions/src/payments/providerAdapter.ts`.
 5. Keep `paymentsConfirm` amount recalculation and Firestore transaction unchanged while swapping mock approval for real provider confirm.
 6. Add the official webhook signature verification before any webhook status transition.
+
+## 2026-05-26 Checkout server flow next tasks
+
+1. Deploy or confirm deployed Firebase Functions endpoints for `paymentsReady`, `paymentsConfirm`, and `paymentsStatus` before live browser smoke.
+2. Set `NEXT_PUBLIC_PAYMENT_API_BASE_URL` in Cloudflare Pages to the Functions base URL only after endpoint reachability is confirmed.
+3. Run browser smoke for `/q/SANHO701/checkout`, server ready, mock confirm, success status lookup, failed state, expired state, and amount mismatch.
+4. Refresh or reseed `qr_payment_sessions` expiration dates before demo because old seeded QR sessions can be server-blocked as expired.
+5. After PG docs/keys arrive, fill the selected PG provider branch without changing the server amount recalculation and transaction write path.
+6. Keep real refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.

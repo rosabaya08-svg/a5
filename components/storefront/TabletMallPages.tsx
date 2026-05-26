@@ -62,16 +62,20 @@ function platformDeal(product: Product) {
   return { savings, rate };
 }
 
-function AiPriceSummary({ product, large = false }: { product: Product; large?: boolean }) {
+function AiPriceSummary({ product, large = false, defaultOpen = true }: { product: Product; large?: boolean; defaultOpen?: boolean }) {
   const deal = platformDeal(product);
 
   return (
-    <div className="grid gap-2 rounded-md bg-white/35 p-4">
-      <p className="text-sm font-black text-rose-600">AI 분석</p>
-      <p className="text-sm font-black text-slate-500">플랫폼 최저가 대비</p>
-      <p className={`${large ? "text-4xl" : "text-xl"} font-black text-rose-600`}>폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
-      <p className={`${large ? "text-xl" : "text-sm"} font-black text-emerald-700`}>{deal.rate}% 추가 할인된 금액</p>
-    </div>
+    <details className="group rounded-md bg-white/35 p-3" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-center rounded-md border border-rose-600 px-4 py-3 text-sm font-black text-rose-600 transition hover:bg-rose-50 [&::-webkit-details-marker]:hidden">
+        AI 분석
+      </summary>
+      <div className="mt-3 grid gap-2 rounded-md bg-white/40 p-3">
+        <p className="text-sm font-black text-slate-500">플랫폼 최저가 대비</p>
+        <p className={`${large ? "text-4xl" : "text-xl"} font-black text-rose-600`}>폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
+        <p className={`${large ? "text-xl" : "text-sm"} font-black text-emerald-700`}>{deal.rate}% 추가 할인된 금액</p>
+      </div>
+    </details>
   );
 }
 
@@ -230,21 +234,19 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
-      <form action={`/tablet/products/${product.id}`}>
-        <button type="submit" className="block w-full text-left">
-          <div className="relative aspect-[4/5] bg-slate-100">
-            <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
-            <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
-          </div>
-          <div className="grid gap-3 p-4">
-            <div>
-              <p className="text-xs font-black text-rose-600">{profile.brand}</p>
-              <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
-            </div>
-            <AiPriceSummary product={product} />
-          </div>
-        </button>
-      </form>
+      <Link href={`/tablet/products/${product.id}`} className="block" aria-label={`${profile.displayName} 상세 보기`}>
+        <div className="relative aspect-[4/5] bg-slate-100">
+          <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
+          <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
+        </div>
+      </Link>
+      <div className="grid gap-3 p-4">
+        <Link href={`/tablet/products/${product.id}`} className="block">
+          <p className="text-xs font-black text-rose-600">{profile.brand}</p>
+          <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
+        </Link>
+        <AiPriceSummary product={product} />
+      </div>
     </article>
   );
 }

@@ -4,19 +4,28 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const defaultProjectId = "a5-closed-mall";
+const defaultFirebasePublicConfig = {
+  apiKey: "AIzaSyCVZXG1uM3NS09AeQf08UQNOw-SZ_a5RYE",
+  authDomain: "a5-closed-mall.firebaseapp.com",
+  projectId: defaultProjectId,
+  storageBucket: "a5-closed-mall.firebasestorage.app",
+  messagingSenderId: "954291596226",
+  appId: "1:954291596226:web:1307d2c2f8fa25229d845b",
+  measurementId: "G-TZJBLJLK0Y",
+};
+
+function publicEnv(name: string, fallback: string) {
+  return process.env[name]?.trim() || fallback;
+}
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
-  authDomain:
-    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ??
-    `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? defaultProjectId}.firebaseapp.com`,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? defaultProjectId,
-  storageBucket:
-    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??
-    `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? defaultProjectId}.firebasestorage.app`,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: publicEnv("NEXT_PUBLIC_FIREBASE_API_KEY", defaultFirebasePublicConfig.apiKey),
+  authDomain: publicEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", defaultFirebasePublicConfig.authDomain),
+  projectId: publicEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", defaultFirebasePublicConfig.projectId),
+  storageBucket: publicEnv("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET", defaultFirebasePublicConfig.storageBucket),
+  messagingSenderId: publicEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", defaultFirebasePublicConfig.messagingSenderId),
+  appId: publicEnv("NEXT_PUBLIC_FIREBASE_APP_ID", defaultFirebasePublicConfig.appId),
+  measurementId: publicEnv("NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID", defaultFirebasePublicConfig.measurementId),
 };
 
 export type FirebaseRuntimeStatus = {

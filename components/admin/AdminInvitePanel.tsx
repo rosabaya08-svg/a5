@@ -36,7 +36,7 @@ const rolePlans: Array<{
     role: "TABLET_DEVICE",
     label: "객실 태블릿",
     scope: "nursery_id + room_id + tablet_id 필수",
-    access: "자기 객실 태블릿의 폐쇄몰 탐색, cart, QR 세션 생성 흐름만 허용합니다.",
+    access: "자기 객실 태블릿의 산후조리원 핫딜 탐색, cart, QR 세션 생성 흐름만 허용합니다.",
     write: "주문/결제 확정 write는 태블릿이 직접 하지 않고 Functions 서버 흐름으로 넘깁니다.",
     risk: "일반 브라우저 접근과 다른 객실 QR 생성은 scope mismatch로 차단해야 합니다.",
   },
@@ -84,7 +84,7 @@ export function AdminInvitePanel() {
             <p className="text-xs font-black uppercase text-blue-600">파이어베이스 권한 클레임</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">관리자 계정 발급 및 권한 설계</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-              A5 폐쇄몰은 비밀번호를 운영자가 평문으로 만들거나 전달하지 않습니다. 계정 발급은 Firebase Auth 초대 또는
+              A5 산후조리원 핫딜은 비밀번호를 운영자가 평문으로 만들거나 전달하지 않습니다. 계정 발급은 Firebase Auth 초대 또는
               비밀번호 재설정 링크를 사용하고, 실제 접근 범위는 Custom Claims의 role과 scope로 제한합니다.
             </p>
           </div>

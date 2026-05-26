@@ -144,7 +144,7 @@ export const generatedFileGroups: FileGroup[] = [
   },
   {
     id: "group-storefront",
-    label: "폐쇄몰 쇼핑 화면",
+    label: "산후조리원 핫딜 쇼핑 화면",
     path: "components/storefront/**",
     count: 2,
     purpose: "한산연 스타일 태블릿몰, 상품 상세, 장바구니, QR, 결제, 비회원 주문 경험입니다.",
@@ -219,7 +219,7 @@ export const worktreePorts: WorktreePort[] = [
     track: "태블릿/QR",
     port: 3004,
     folder: "my-app-tablet-qr",
-    purpose: "태블릿 폐쇄몰, 고객 QR, 결제, 비회원 조회 화면입니다.",
+    purpose: "태블릿 산후조리원 핫딜, 고객 QR, 결제, 비회원 조회 화면입니다.",
   },
   {
     id: "port-firebase-contract",
@@ -313,7 +313,7 @@ export const generatedScreens: StatusListItem[] = [
   {
     id: "screen-storefront",
     title: "/mock-ui/storefront",
-    detail: "폐쇄몰 배너, 카테고리, 혜택, 상품 카드, 가격 비교 레이어입니다.",
+    detail: "산후조리원 핫딜 배너, 카테고리, 혜택, 상품 카드, 가격 비교 레이어입니다.",
     tone: "complete",
   },
   {
@@ -387,7 +387,7 @@ export const completedItems: StatusListItem[] = [
   },
   {
     id: "done-storefront",
-    title: "폐쇄몰 쇼핑 화면 미리보기",
+    title: "산후조리원 핫딜 쇼핑 화면 미리보기",
     detail: "실제 고객 경로를 건드리지 않고 태블릿/고객 쇼핑 구조를 확인합니다.",
     tone: "complete",
   },
@@ -597,7 +597,7 @@ export const smokeRoutes: SmokeRoute[] = [
   { id: "route-hub", route: "/mock-ui", purpose: "미리보기 허브", status: "preview_ready" },
   { id: "route-smoke", route: "/mock-ui/smoke", purpose: "화면 점검 체크리스트", status: "preview_ready" },
   { id: "route-merge", route: "/mock-ui/merge", purpose: "병합 인수인계 보드", status: "preview_ready" },
-  { id: "route-storefront", route: "/mock-ui/storefront", purpose: "폐쇄몰 쇼핑 화면", status: "preview_ready" },
+  { id: "route-storefront", route: "/mock-ui/storefront", purpose: "산후조리원 핫딜 쇼핑 화면", status: "preview_ready" },
   { id: "route-detail", route: "/mock-ui/detail", purpose: "상품/QR/주문 상세", status: "preview_ready" },
   { id: "route-checkout", route: "/mock-ui/checkout", purpose: "결제와 비회원 조회", status: "preview_ready" },
   { id: "route-session", route: "/mock-ui/session", purpose: "QR 생명주기와 기기 출처", status: "preview_ready" },
@@ -646,7 +646,7 @@ export const route404Statuses: Route404Status[] = [
     route: "/tablet/products",
     previousState: "not_checked",
     currentState: "expected_200",
-    evidence: "브라우저 화면 점검에서 폐쇄몰 상품 홈이 정상 로드되었습니다.",
+    evidence: "브라우저 화면 점검에서 산후조리원 핫딜 상품 홈이 정상 로드되었습니다.",
   },
   {
     id: "404-tablet-cart",

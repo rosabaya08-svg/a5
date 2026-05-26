@@ -58,7 +58,7 @@ export function ProductCategoryClassificationPanel() {
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">enterprise taxonomy</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">기업 상품 분류</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            산후조리원 폐쇄몰 기준으로 대분류, 세분류, 승인 검수, 노출관, 수령 방식을 함께 고정합니다.
+            산후조리원 핫딜 기준으로 대분류, 세분류, 승인 검수, 노출관, 수령 방식을 함께 고정합니다.
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${reviewTone(selectedCategory.reviewLevel)}`}>

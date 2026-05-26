@@ -75,7 +75,7 @@ function ProductPriceSummary({ product, productName, large = false }: { product:
         </p>
         <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{deal.rate}% 할인</span>
       </div>
-      <p className={`${large ? "text-4xl" : "text-2xl"} font-black text-rose-600`}>폐쇄몰가 {formatCurrency(closedMallPrice)}</p>
+      <p className={`${large ? "text-4xl" : "text-2xl"} font-black text-rose-600`}>산후조리원 핫딜가 {formatCurrency(closedMallPrice)}</p>
       <p className={`${large ? "text-lg" : "text-sm"} font-black text-slate-600`}>정상가 대비 {formatCurrency(deal.savings)} 할인</p>
       <PriceAnalysisButton productName={productName} closedMallPrice={closedMallPrice} platformLowestPrice={platformLowestPrice} />
     </div>
@@ -84,7 +84,7 @@ function ProductPriceSummary({ product, productName, large = false }: { product:
 
 const discountBands = [
   { title: "베스트 할인", eyebrow: "플랫폼 최저가 대비", min: 36, max: 80 },
-  { title: "베이비 특가", eyebrow: "폐쇄몰 추가 할인", min: 10, max: 35 },
+  { title: "베이비 특가", eyebrow: "산후조리원 핫딜 추가 할인", min: 10, max: 35 },
 ] as const;
 
 function sortByNormalPriceDiscount(products: Product[]) {
@@ -106,7 +106,7 @@ function profileFor(product: Product, content?: StorefrontContent): MallProductP
       productId: product.id,
       brand: product.brand ?? "A5 Partner",
       displayName: product.name,
-      subtitle: product.subtitle ?? "폐쇄몰 전용 상품",
+      subtitle: product.subtitle ?? "산후조리원 핫딜 전용 상품",
       category: product.category,
       imageUrl: product.imageUrl ?? "/file.svg",
       gallery: product.gallery ?? [product.imageUrl ?? "/file.svg"],
@@ -124,11 +124,11 @@ function StoreShell({ children }: { title?: string; subtitle?: string; context: 
       <main className="min-h-screen bg-transparent text-white">
         <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
-            <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
+            <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 산후조리원 핫딜 메인으로 이동">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
               <span>
                 <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
-                <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
+                <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 산후조리원 핫딜</span>
               </span>
             </Link>
             <TabletContextBadge />
@@ -195,13 +195,13 @@ function VideoAdStrip() {
             </div>
           </div>
           <div className="p-5">
-            <p className="text-xs font-black text-rose-600">폐쇄몰 안내</p>
+            <p className="text-xs font-black text-rose-600">산후조리원 핫딜 안내</p>
             <h3 className="mt-2 text-2xl font-black">객실 전용 특가</h3>
           </div>
         </div>
       </article>
       <article className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">폐쇄몰 안내</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">산후조리원 핫딜 안내</p>
         <h3 className="mt-2 text-3xl font-black">조리원 객실 전용 특가</h3>
       </article>
     </section>
@@ -335,7 +335,7 @@ export async function TabletProductsPage() {
   const products = await getApprovedProducts();
 
   return (
-    <StoreShell title="폐쇄몰 쇼핑 홈" subtitle="태블릿 폐쇄몰" context={context}>
+    <StoreShell title="산후조리원 핫딜 쇼핑 홈" subtitle="태블릿 산후조리원 핫딜" context={context}>
       <div className="grid gap-8">
         <HeroBanner content={context.content} />
         <PromoBannerGrid content={context.content} />

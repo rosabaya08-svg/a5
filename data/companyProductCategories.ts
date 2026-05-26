@@ -220,7 +220,7 @@ export const categoryRegistrationFields = [
   "모델명",
   "정상가",
   "플랫폼 최저가",
-  "폐쇄몰가",
+  "산후조리원 핫딜가",
   "옵션/재고",
   "배송/현장수령",
   "고시/인증",

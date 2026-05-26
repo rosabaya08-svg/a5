@@ -374,7 +374,7 @@ export function TabletRoomSetupPage() {
             ))}
           </div>
           <button type="submit" className="h-12 rounded-md bg-rose-600 text-sm font-black text-white">
-            적용하고 폐쇄몰 열기
+            적용하고 산후조리원 핫딜 열기
           </button>
         </form>
       </section>

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "A5 폐쇄몰",
-  description: "산후조리원 태블릿 폐쇄몰입니다.",
+  title: "A5 산후조리원 핫딜",
+  description: "산후조리원 태블릿 핫딜입니다.",
 };
 
 export default function RootLayout({

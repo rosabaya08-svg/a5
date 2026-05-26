@@ -4,10 +4,10 @@ export const journeySteps: JourneyStep[] = [
   {
     id: "journey-browse",
     kind: "tablet_browse",
-    title: "폐쇄몰 상품 탐색",
+    title: "산후조리원 핫딜 상품 탐색",
     routeCandidate: "/tablet/products",
     actor: "객실 태블릿 사용자",
-    description: "세션 배너, 카테고리, 상품 카드, 폐쇄몰가, 수령 방식, 재고 라벨을 보여줍니다.",
+    description: "세션 배너, 카테고리, 상품 카드, 산후조리원 핫딜가, 수령 방식, 재고 라벨을 보여줍니다.",
     mockState: "ready",
     riskStatuses: ["mock_only"],
   },

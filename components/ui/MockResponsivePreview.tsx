@@ -8,7 +8,7 @@ export function MockResponsivePreview() {
   return (
     <section className="grid gap-4">
       <SearchSortFilterPanel
-        title="폐쇄몰 상품 제어"
+        title="산후조리원 핫딜 상품 제어"
         description="검색, 필터, 정렬을 저장소 연동 전에 확인하는 화면입니다."
         searchPlaceholder="상품명 또는 주문번호 검색"
         filterGroups={commerceFilterGroups}

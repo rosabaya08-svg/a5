@@ -77,7 +77,7 @@ export const productApprovalQueue: ProductApprovalItem[] = [
 export const adminContentSlots: AdminContentSlot[] = [
   {
     id: "content-main-hero",
-    title: "폐쇄몰 메인 히어로 배너",
+    title: "산후조리원 핫딜 메인 히어로 배너",
     placement: "home_hero",
     assetType: "banner",
     targetNurseryIds: ["nursery-gangnam-01"],

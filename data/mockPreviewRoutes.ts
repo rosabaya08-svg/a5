@@ -13,7 +13,7 @@ export const mockPreviewRoutes: MockPreviewRoute[] = [
     id: "preview-storefront",
     href: "/mock-ui/storefront",
     title: "쇼핑몰 화면",
-    description: "폐쇄몰 배너, 카테고리, 상품 카드, 가격 비교 레이어를 미리봅니다.",
+    description: "산후조리원 핫딜 배너, 카테고리, 상품 카드, 가격 비교 레이어를 미리봅니다.",
     area: "storefront",
     riskStatuses: ["mock_only"],
   },

@@ -56,9 +56,9 @@ export function ProductPricePolicyForm() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-600">가격 정책 필수 입력</p>
-          <h2 className="mt-1 text-xl font-black">정상가/플랫폼 최저가 기준 폐쇄몰가 설정</h2>
+          <h2 className="mt-1 text-xl font-black">정상가/플랫폼 최저가 기준 산후조리원 핫딜가 설정</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            기업 어드민 상품 등록 시 정상가와 플랫폼 최저가는 필수입니다. 폐쇄몰가는 플랫폼 최저가보다 낮아야 하며, 정상가 대비 10% 이하 할인은 쇼핑몰 노출 금지로 처리합니다.
+            기업 어드민 상품 등록 시 정상가와 플랫폼 최저가는 필수입니다. 산후조리원 핫딜가는 플랫폼 최저가보다 낮아야 하며, 정상가 대비 10% 이하 할인은 쇼핑몰 노출 금지로 처리합니다.
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${pricing.band.tone}`}>{pricing.band.label}</span>
@@ -133,7 +133,7 @@ export function ProductPricePolicyForm() {
           <p className="mt-1 text-lg font-black">{formatCurrency(pricing.platformLowestPrice)}</p>
         </div>
         <div className="rounded-md bg-slate-950 p-3 text-white">
-          <p className="text-xs font-black text-slate-300">계산된 폐쇄몰가</p>
+          <p className="text-xs font-black text-slate-300">계산된 산후조리원 핫딜가</p>
           <p className="mt-1 text-lg font-black">{formatCurrency(pricing.closedMallPrice)}</p>
         </div>
         <div className="rounded-md bg-emerald-50 p-3 text-emerald-900">

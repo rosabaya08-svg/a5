@@ -58,7 +58,7 @@ function AdminShell({
 
 function AdminOperationMap() {
   const items = [
-    { title: "폐쇄몰 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 모의 콘텐츠 관리로 편성", href: "/admin/home-editor" },
+    { title: "산후조리원 핫딜 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 모의 콘텐츠 관리로 편성", href: "/admin/home-editor" },
     { title: "광고 소재 승인", body: "이미지, 영상, GIF 등록 위치와 승인/반려 상태를 운영자가 검토", href: "/admin/marketing/banners" },
     { title: "기업 관리자 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/권한 클레임으로 설계", href: "/admin/companies" },
     { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 승인 엔드포인트 없이는 실결제 차단", href: "/admin/payments" },
@@ -125,7 +125,7 @@ const featureGroups = [
     description: "객실 태블릿에서 상품을 담고 고객 모바일 QR 결제와 주문조회로 이어집니다.",
     links: [
       { href: "/tablet/login", label: "태블릿 로그인", body: "사업자번호 확인과 객실 선택" },
-      { href: "/tablet/products", label: "상품 목록", body: "객실 고정 폐쇄몰 상품 탐색" },
+      { href: "/tablet/products", label: "상품 목록", body: "객실 고정 산후조리원 핫딜 상품 탐색" },
       { href: "/tablet/cart", label: "장바구니", body: "객실/태블릿별 장바구니" },
       { href: "/tablet/qr", label: "QR 생성", body: "고객 모바일 결제 QR 표시" },
       { href: "/orders/guest", label: "비회원 주문조회", body: "주문번호 기반 주문 상태 확인" },
@@ -257,7 +257,7 @@ export function AdminIndexPage() {
   return (
     <AdminShell
       title="운영 콘솔"
-      subtitle="산후조리원 폐쇄몰 베타의 모의 운영 지표와 차단 항목을 확인합니다."
+      subtitle="산후조리원 핫딜 베타의 모의 운영 지표와 차단 항목을 확인합니다."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.adminMetrics().map((metric) => (
@@ -400,7 +400,7 @@ export function AdminTabletsPage() {
   const rooms = mockApi.rooms();
 
   return (
-    <AdminShell title="태블릿 관리" subtitle="폐쇄몰 접근 장치와 객실 연결 상태를 확인합니다.">
+    <AdminShell title="태블릿 관리" subtitle="산후조리원 핫딜 접근 장치와 객실 연결 상태를 확인합니다.">
       <DataTable
         columns={["태블릿", "객실", "상태", "마지막 접속", "세션 원칙"]}
         rows={mockApi.tablets().map((tablet) => ({
@@ -429,7 +429,7 @@ export function AdminProductsPage() {
       <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["전체", "승인대기", "승인완료", "재고부족"]} />
       <DataTable
-        columns={["상품", "입점사", "카테고리", "상태", "폐쇄몰가", "재고"]}
+        columns={["상품", "입점사", "카테고리", "상태", "산후조리원 핫딜가", "재고"]}
         rows={mockApi.products().map((product) => ({
           id: product.id,
           cells: [

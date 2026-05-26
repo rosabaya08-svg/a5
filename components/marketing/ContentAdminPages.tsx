@@ -98,7 +98,7 @@ export async function AdminBrandManagementPage() {
 
 export function AdminHomeEditorPage() {
   return (
-    <AdminContentShell title="홈 편집" subtitle="태블릿 폐쇄몰 홈 섹션과 노출 순서를 관리합니다.">
+    <AdminContentShell title="홈 편집" subtitle="태블릿 산후조리원 핫딜 홈 섹션과 노출 순서를 관리합니다.">
       <RequestCards
         items={[
           { title: "메인 배너", body: "대표 기획전 배너와 연결 상품을 관리합니다.", status: "운영중" },
@@ -135,7 +135,7 @@ export async function CompanyProductPreviewPage() {
         <p className="mt-2 text-sm leading-6 text-slate-600">{product.subtitle}</p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">폐쇄몰가</p>
+            <p className="text-xs font-black text-slate-500">산후조리원 핫딜가</p>
             <p className="mt-1 text-xl font-black text-rose-600">{formatCurrency(product.price)}</p>
           </div>
           <div className="rounded-md bg-slate-50 p-3">

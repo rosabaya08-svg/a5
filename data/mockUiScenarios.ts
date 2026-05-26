@@ -12,7 +12,7 @@ export const mockEmptyStates: MockUiState[] = [
     kind: "empty",
     title: "조건에 맞는 상품이 없습니다",
     description:
-      "폐쇄몰은 카테고리와 가격 필터를 유지하면서 차분한 빈 상태를 보여줄 수 있습니다.",
+      "산후조리원 핫딜은 카테고리와 가격 필터를 유지하면서 차분한 빈 상태를 보여줄 수 있습니다.",
     tone: "neutral",
     action: { label: "필터 초기화", description: "전체 모의 상품으로 돌아갑니다." },
   },
@@ -105,7 +105,7 @@ export const commerceFilterGroups: FilterGroup[] = [
 ];
 
 export const commerceSortOptions: SortOption[] = [
-  { label: "추천순", value: "recommended", description: "폐쇄몰 기본 노출 순서입니다." },
+  { label: "추천순", value: "recommended", description: "산후조리원 핫딜 기본 노출 순서입니다." },
   { label: "할인율 높은순", value: "discount_desc" },
   { label: "낮은 가격순", value: "price_asc" },
   { label: "최신 모의 상품순", value: "created_desc" },
@@ -118,7 +118,7 @@ export const productDetailMockSections: DetailSection[] = [
     description: "AI 또는 외부 가격 API를 호출하지 않는 모의 전용 비교 블록입니다.",
     fields: [
       { label: "정상가", value: "158,000원" },
-      { label: "폐쇄몰가", value: "119,000원" },
+      { label: "산후조리원 핫딜가", value: "119,000원" },
       { label: "표시 할인율", value: "25%" },
     ],
   },

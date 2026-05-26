@@ -88,7 +88,7 @@ const productHeaders: Header<CompanyExcelProductRow>[] = [
   { key: "optionName", label: "옵션명" },
   { key: "normalPrice", label: "정상가" },
   { key: "platformLowestPrice", label: "플랫폼 최저가" },
-  { key: "closedMallPrice", label: "폐쇄몰가" },
+  { key: "closedMallPrice", label: "산후조리원 핫딜가" },
   { key: "stock", label: "재고" },
   { key: "status", label: "상태" },
   { key: "companyId", label: "입점사ID" },

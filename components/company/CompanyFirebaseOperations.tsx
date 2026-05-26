@@ -186,7 +186,7 @@ export async function CompanyFirestoreProductsPanel({ companyId = defaultCompany
     <section className="grid gap-3">
       <SourceBadge read={read} />
       <DataTable
-        columns={["상품", "카테고리", "상태", "폐쇄몰가", "재고", "외부 코드", "seeded_at"]}
+        columns={["상품", "카테고리", "상태", "산후조리원 핫딜가", "재고", "외부 코드", "seeded_at"]}
         rows={buildProductRows(read.data)}
         emptyMessage="이 company_id에 연결된 Firestore 상품이 없습니다."
         sortLabel="정렬: Firestore active 상품 우선"

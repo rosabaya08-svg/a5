@@ -71,7 +71,7 @@ const tabs: Array<{
     label: "홈 디자인",
     collection: "home_sections",
     prefix: "theme",
-    helper: "폐쇄몰 홈 섹션, 테마 모드, 노출 순서를 Firebase에 등록/수정합니다.",
+    helper: "산후조리원 핫딜 홈 섹션, 테마 모드, 노출 순서를 Firebase에 등록/수정합니다.",
   },
   {
     id: "exposure",
@@ -344,7 +344,7 @@ export function FirebaseCmsManager({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase text-slate-500">파이어베이스 실시간 CMS</p>
-          <h2 className="mt-1 text-2xl font-black">a5 폐쇄몰 디자인/콘텐츠 등록</h2>
+          <h2 className="mt-1 text-2xl font-black">a5 산후조리원 핫딜 디자인/콘텐츠 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
             배너, 브랜드 로고, 영상/GIF, 상세페이지, 홈 섹션을 Firestore와 Firebase Storage에 바로 등록/수정합니다.
             PG, 주문, 정산, 외부 API는 서버 승인 로직 완료 전까지 차단됩니다.

@@ -101,7 +101,7 @@ export function PriceAnalysisButton({
                 </div>
                 <div className="rounded-md bg-rose-50 p-3">
                   <p className="text-sm font-black text-rose-700">오픈몰 대비</p>
-                  <p className="mt-1 text-3xl font-black text-rose-600">폐쇄몰 {formatCurrency(analysis.platformSavings)} 더 저렴함</p>
+                  <p className="mt-1 text-3xl font-black text-rose-600">산후조리원 핫딜 {formatCurrency(analysis.platformSavings)} 더 저렴함</p>
                 </div>
                 <p className="rounded-md bg-emerald-50 p-3 text-lg font-black text-emerald-700">{analysis.platformRate}% 추가 할인된 금액</p>
               </div>

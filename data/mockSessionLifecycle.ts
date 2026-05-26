@@ -50,7 +50,7 @@ export const deviceContexts: DeviceContext[] = [
     roomName: "701호",
     tabletLabel: "태블릿 701-A",
     lastSeenAt: "2026-05-20 21:25",
-    sourcePolicy: "태블릿 전용 폐쇄몰 진입입니다. 일반 브라우저 접근은 모의 차단 상태로 표시합니다.",
+    sourcePolicy: "태블릿 전용 산후조리원 핫딜 진입입니다. 일반 브라우저 접근은 모의 차단 상태로 표시합니다.",
     riskStatuses: ["mock_only"],
   },
   {

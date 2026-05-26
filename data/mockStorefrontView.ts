@@ -7,10 +7,10 @@ import type {
 
 export const storefrontBanner: StorefrontBanner = {
   id: "storefront-banner-san-ho-701",
-  eyebrow: "객실 고객 전용 폐쇄몰",
+  eyebrow: "객실 고객 전용 산후조리원 핫딜",
   title: "701호 전용 쇼핑 세션",
   description:
-    "조리원 정보, QR 만료, 회원 전용 가격, 모의 결제 흐름을 갖춘 태블릿 우선 폐쇄몰 미리보기입니다.",
+    "조리원 정보, QR 만료, 회원 전용 가격, 모의 결제 흐름을 갖춘 태블릿 우선 산후조리원 핫딜 미리보기입니다.",
   nurseryName: "산호 산후조리원",
   roomName: "701호",
   expiresAt: "2026-05-20 23:10",
@@ -47,8 +47,8 @@ export const storefrontCategories: StorefrontCategory[] = [
 export const storefrontBenefits: StorefrontBenefit[] = [
   {
     id: "benefit-price",
-    title: "폐쇄몰 전용가",
-    description: "정상가, 모의 최저가, 폐쇄몰가를 함께 표시합니다.",
+    title: "산후조리원 핫딜 전용가",
+    description: "정상가, 모의 최저가, 산후조리원 핫딜가를 함께 표시합니다.",
     riskStatuses: ["mock_only"],
   },
   {
@@ -70,7 +70,7 @@ export const storefrontPriceLayers: StorefrontPriceLayer[] = [
     id: "layer-price",
     title: "가격 비교 레이어",
     normalPriceLabel: "정상가",
-    closedMallPriceLabel: "폐쇄몰가",
+    closedMallPriceLabel: "산후조리원 핫딜가",
     comparisonLabel: "플랫폼 최저가 모의 비교",
     disclaimer: "AI 분석이 아니며 외부 가격 API를 호출하지 않습니다.",
   },

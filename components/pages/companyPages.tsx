@@ -121,7 +121,7 @@ export function CompanyProductsPage() {
       </div>
       <FilterBar title="상품 필터" filters={["전체", "임시저장", "승인요청", "승인완료", "반려", "판매중지"]} resultCount={products.length} mode="toolbar" />
       <DataTable
-        columns={["상품", "카테고리", "상태", "폐쇄몰가", "옵션", "외부코드", "재고"]}
+        columns={["상품", "카테고리", "상태", "산후조리원 핫딜가", "옵션", "외부코드", "재고"]}
         rows={products.map((product) => ({
           id: product.id,
           cells: [
@@ -148,7 +148,7 @@ export function CompanyProductNewPage() {
     ["SKU / 옵션", "옵션명, SKU, 재고를 입력하세요"],
     ["정상가", "정상가를 입력하세요"],
     ["플랫폼 최저가", "비교 기준 금액을 입력하세요"],
-    ["폐쇄몰가", "판매 금액을 입력하세요"],
+    ["산후조리원 핫딜가", "판매 금액을 입력하세요"],
     ["배송/수령 방식", "택배배송 또는 현장수령"],
     ["반품/교환/AS", "고객 안내 기준을 입력하세요"],
   ];

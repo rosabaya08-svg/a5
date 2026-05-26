@@ -22,7 +22,7 @@ const entryCards = [
   {
     href: "/tablet",
     eyebrow: "TABLET",
-    title: "태블릿 폐쇄몰",
+    title: "태블릿 산후조리원 핫딜",
     description: "객실에 고정된 태블릿에서 상품을 담고 고객 결제 QR을 생성합니다.",
   },
   {
@@ -61,8 +61,8 @@ export default function Home() {
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
       <section className="mx-auto max-w-6xl">
         <div className="max-w-3xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">A5 CLOSED MALL</p>
-          <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">산후조리원 객실 기반 QR 결제 폐쇄몰</h1>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">A5 HOT DEAL</p>
+          <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">산후조리원 객실 기반 QR 결제 핫딜</h1>
           <p className="mt-5 text-base leading-7 text-slate-300">
             역할에 맞는 로그인 후 상품, 주문, 객실, 태블릿, 정산, 외부 연동 업무를 진행합니다.
           </p>

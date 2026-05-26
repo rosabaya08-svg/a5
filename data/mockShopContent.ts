@@ -52,7 +52,7 @@ export const mallHeroBanner: MallBanner = {
   id: "hero-hansan-sanho",
   title: "한국산후조리원연합회 공식 후원사 몰",
   subtitle: "산모와 아기를 위한 프리미엄 멤버십 전용 특가를 모의/테스트 베타 화면으로 검증합니다.",
-  eyebrow: "한산연 전용 멤버십 폐쇄몰",
+  eyebrow: "한산연 전용 멤버십 산후조리원 핫딜",
   href: "/tablet/products",
   imageUrl: "https://mommy-a5.pages.dev/images/banners/hansan.jpg",
   tone: "gold",

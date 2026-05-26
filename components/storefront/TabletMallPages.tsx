@@ -25,6 +25,8 @@ type StoreContext = {
   content: StorefrontContent;
 };
 
+const SHOP_HOME_HREF = "/tablet/products";
+
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
   const [{ data: session }, content] = await Promise.all([
     getLiveQrSessionByShortCode(shortCode),
@@ -124,7 +126,7 @@ function StoreShell({ children }: { title?: string; subtitle?: string; context: 
       <main className="min-h-screen bg-transparent text-white">
         <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
-            <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 산후조리원 핫딜 메인으로 이동">
+            <Link href={SHOP_HOME_HREF} prefetch className="flex items-center gap-3" aria-label="한산연몰 첫페이지로 이동">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
               <span>
                 <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>

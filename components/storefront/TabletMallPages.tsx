@@ -191,6 +191,14 @@ function HansanyeonLegalFooter() {
   return (
     <footer className="mx-auto mt-10 max-w-7xl border-t border-white/25 px-4 py-6 text-xs font-bold leading-6 text-slate-700 md:px-6">
       <div className="rounded-md bg-white/35 p-4 shadow-sm backdrop-blur-xl">
+        <nav aria-label="법적 고지" className="mb-3 flex flex-wrap gap-3 text-slate-950">
+          <a href="https://www.sanmo.kr/bbs/content.php?co_id=provision" target="_blank" rel="noreferrer" className="font-black underline-offset-4 hover:underline">
+            서비스 이용약관
+          </a>
+          <a href="https://www.sanmo.kr/bbs/content.php?co_id=privacy" target="_blank" rel="noreferrer" className="font-black underline-offset-4 hover:underline">
+            개인정보 처리방침
+          </a>
+        </nav>
         <p>
           (주)한국산후조리원연합회 대표자 : 이석범 대표전화 : 02-2038-2203 팩스 : 02-2038-2203 사업자등록번호 : 760-86-03326
         </p>
@@ -200,6 +208,7 @@ function HansanyeonLegalFooter() {
         <p>
           오픈마켓(산후조리원연합회)은 통신판매중개자 이며, 판매자가 등록한 상품 및 거래에 대한 정보 등의 저작권 책임은 각 판매자 에게 있습니다.
         </p>
+        <p className="mt-3 text-slate-500">Copyright 주식회사 산후조리원연합회 Inc. All rights reserved.</p>
       </div>
     </footer>
   );

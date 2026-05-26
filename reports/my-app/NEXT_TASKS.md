@@ -464,3 +464,12 @@
 4. Replace tablet localStorage fixed-login with TABLET_DEVICE claim and registered tablet id for production device binding.
 5. Keep PG secret keys in Firebase Functions runtime or Secret Manager only.
 6. Add audit log write plans for PG configuration changes before enabling real save actions.
+
+## 2026-05-26 Firebase CMS live registration next tasks
+
+1. Smoke `/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/brands`, and `/admin/home-editor` after Cloudflare deploy picks up this commit.
+2. Create and edit a live banner record, brand record, video/GIF record, and home section record from the admin UI.
+3. Upload one small image and one small GIF/video to confirm Storage URLs are returned and displayed in the live record list.
+4. Connect storefront sections to prioritize Firestore CMS records over fallback banner/brand content.
+5. Add audit log writes and SUPER_ADMIN/COMPANY_ADMIN custom-claim checks before production CMS writes.
+6. Keep private business documents, bank documents, PG, order/payment ledgers, refund, settlement payout, Alimtalk, delivery tracking, and external inventory blocked.

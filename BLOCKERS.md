@@ -123,3 +123,11 @@
 - Payment monitor remains read/diagnostic only until PG webhook signature verification and provider event mapping are implemented.
 - Order monitor remains read/diagnostic only; manual order state mutation must stay server-side.
 - Real PG cancel/refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-26 Firebase CMS live registration blockers
+
+- CMS create/update is enabled as a guarded beta path; production still needs Custom Claims, server-side audit logs, and stricter approval workflow.
+- Storefront rendering needs browser smoke after Cloudflare deploy to confirm live Firestore CMS records override fallback banners/brands/home sections.
+- Storage upload is enabled only for public storefront/ad/product media; private business documents, bank documents, settlement files, payout files, and audit exports remain blocked.
+- Malware scanning, media moderation, retention policy, and deletion governance are not implemented.
+- PG, order/payment ledgers, refund, settlement payout, Alimtalk, delivery tracking, and external inventory API integrations remain blocked.

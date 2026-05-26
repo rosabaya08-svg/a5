@@ -338,3 +338,13 @@
 4. Replace tablet localStorage fixed-login with TABLET_DEVICE claim, App Check, and registered tablet id when production device binding starts.
 5. Enter PG public/browser keys only after official sandbox keys arrive; keep secret keys in Firebase Functions runtime or Secret Manager only.
 6. Add audit logs for PG setting changes before real configuration writes are enabled.
+
+## 2026-05-26 Firebase CMS live registration next tasks
+
+1. Browser-smoke `/admin/marketing/banners`, `/admin/marketing/videos`, `/admin/brands`, and `/admin/home-editor` on the Cloudflare domain after the next deploy.
+2. Register one test banner, one brand logo, one video/GIF placeholder, and one home section; confirm each appears in the Firebase live record list.
+3. Upload one small image and one small GIF/video under 25 MB to verify Storage rules and public download URLs.
+4. Confirm storefront rendering consumes the new CMS records; if not, wire `getLiveStorefrontContent` to prioritize Firestore CMS collections over static fallback content.
+5. Add server-side audit logs for CMS create/update/status changes before production opening.
+6. Replace beta guarded browser writes with SUPER_ADMIN/COMPANY_ADMIN custom-claim writes before public production use.
+7. Keep PG, order/payment write ledgers, refund, settlement payout, Alimtalk, delivery tracking, external inventory, private business documents, and bank document uploads blocked.

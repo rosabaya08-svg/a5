@@ -14,7 +14,7 @@ import {
 } from "@/lib/firebase/contentRepository";
 
 type CmsMode = "admin" | "company" | "nursery" | "tablet";
-type CmsTab = "banners" | "videos" | "detail" | "theme" | "exposure";
+type CmsTab = "banners" | "videos" | "brands" | "detail" | "theme" | "exposure";
 
 type FormState = {
   id: string;
@@ -40,38 +40,45 @@ const tabs: Array<{
 }> = [
   {
     id: "banners",
-    label: "Banner",
+    label: "배너",
     collection: "marketing_banners",
     prefix: "banner",
-    helper: "Main hero, popup, tablet banner, brand strip exposure.",
+    helper: "메인 히어로, 기획전, 팝업, 태블릿 배너를 Firebase에 등록/수정합니다.",
   },
   {
     id: "videos",
-    label: "Video",
+    label: "영상/GIF",
     collection: "marketing_videos",
     prefix: "video",
-    helper: "Video ad slot, poster, schedule, target and approval status.",
+    helper: "광고 영상, GIF, 썸네일, 노출 기간과 승인 상태를 Firebase에 등록/수정합니다.",
+  },
+  {
+    id: "brands",
+    label: "브랜드",
+    collection: "brands",
+    prefix: "brand",
+    helper: "브랜드 로고, 브랜드관 링크, 카테고리와 노출 상태를 Firebase에 등록/수정합니다.",
   },
   {
     id: "detail",
-    label: "Detail",
+    label: "상세페이지",
     collection: "product_detail_pages",
     prefix: "detail",
-    helper: "Company product detail draft with live desktop/tablet/mobile preview data.",
+    helper: "입점사 상품 상세페이지 본문과 미디어를 Firebase에 등록/수정합니다.",
   },
   {
     id: "theme",
-    label: "Theme",
+    label: "홈 디자인",
     collection: "home_sections",
     prefix: "theme",
-    helper: "Dark, white and system mode token selection.",
+    helper: "폐쇄몰 홈 섹션, 테마 모드, 노출 순서를 Firebase에 등록/수정합니다.",
   },
   {
     id: "exposure",
-    label: "Exposure",
+    label: "노출대상",
     collection: "tablet_home_configs",
     prefix: "target",
-    helper: "Nursery, room, tablet and QR audience targeting rules.",
+    helper: "조리원, 객실, 태블릿, QR 세션별 노출 정책을 Firebase에 등록/수정합니다.",
   },
 ];
 
@@ -138,6 +145,21 @@ function firestoreScopeForMode(mode: CmsMode) {
   return {};
 }
 
+function defaultTabForRoute(defaultTab: CmsTab): CmsTab {
+  if (typeof window === "undefined") {
+    return defaultTab;
+  }
+
+  const path = window.location.pathname;
+
+  if (path.includes("/brands")) return "brands";
+  if (path.includes("/videos")) return "videos";
+  if (path.includes("/home-editor")) return "theme";
+  if (path.includes("/products")) return "detail";
+
+  return defaultTab;
+}
+
 export function FirebaseCmsManager({
   mode,
   defaultTab = "banners",
@@ -148,12 +170,13 @@ export function FirebaseCmsManager({
   compact?: boolean;
 }) {
   const runtime = useMemo(() => getFirebaseRuntimeStatus(), []);
-  const [activeTab, setActiveTab] = useState<CmsTab>(defaultTab);
+  const [activeTab, setActiveTab] = useState<CmsTab>(() => defaultTabForRoute(defaultTab));
   const [form, setForm] = useState<FormState>(emptyForm);
   const [file, setFile] = useState<File | null>(null);
   const [records, setRecords] = useState<Record<CmsCollectionName, CmsRecord[]>>({
     marketing_banners: [],
     marketing_videos: [],
+    brands: [],
     product_detail_pages: [],
     home_sections: [],
     tablet_home_configs: [],
@@ -202,7 +225,7 @@ export function FirebaseCmsManager({
       themeMode: valueOf(record, "mode") || emptyForm.themeMode,
     });
     setActiveTab(activeTab);
-    setMessage(`Editing ${record.id}`);
+    setMessage(`${record.id} 수정 모드입니다.`);
   }
 
   async function submitForm(event: FormEvent<HTMLFormElement>) {
@@ -221,7 +244,7 @@ export function FirebaseCmsManager({
       const payload: CmsRecord = {
         id,
         ...firestoreScopeForMode(mode),
-        title: form.title || `${active.label} draft`,
+        title: form.title || `${active.label} 초안`,
         placement: form.placement,
         target: form.target,
         click_target: form.link,
@@ -249,6 +272,7 @@ export function FirebaseCmsManager({
           asset_url: uploaded.url,
           asset_path: uploaded.path,
           asset_type: uploaded.assetType,
+          source_app: mode,
         });
         await saveCmsRecord("media_assets", {
           id: `asset-${id}`,
@@ -260,15 +284,16 @@ export function FirebaseCmsManager({
           source_collection: active.collection,
           source_record_id: id,
           owner_type: mode,
+          source_app: mode,
           status: "uploaded",
         });
       }
 
       setForm(emptyForm);
       setFile(null);
-      setMessage(`Saved ${id} to ${active.collection}.`);
+      setMessage(`${active.collection}에 ${id} 저장 완료.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Firebase save failed.");
+      setMessage(error instanceof Error ? error.message : "Firebase 저장 실패.");
     } finally {
       setSaving(false);
     }
@@ -283,7 +308,7 @@ export function FirebaseCmsManager({
         source_app: mode,
       });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Status update failed.");
+      setMessage(error instanceof Error ? error.message : "상태 수정 실패.");
     }
   }
 
@@ -292,10 +317,10 @@ export function FirebaseCmsManager({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase text-slate-500">Firebase live CMS</p>
-          <h2 className="mt-1 text-2xl font-black">a5-closed-mall content control</h2>
+          <h2 className="mt-1 text-2xl font-black">a5 폐쇄몰 디자인/콘텐츠 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-            Firestore CMS records and Firebase Storage uploads are connected for beta. PG, orders, settlement, and
-            external APIs remain blocked until server-side approval logic is complete.
+            배너, 브랜드 로고, 영상/GIF, 상세페이지, 홈 섹션을 Firestore와 Firebase Storage에 바로 등록/수정합니다.
+            PG, 주문, 정산, 외부 API는 서버 승인 로직 완료 전까지 차단됩니다.
           </p>
         </div>
         <ThemeModeToggle />
@@ -303,23 +328,22 @@ export function FirebaseCmsManager({
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">Project</p>
+          <p className="text-xs font-bold uppercase text-slate-500">프로젝트</p>
           <p className="mt-1 font-black">{runtime.projectId}</p>
         </div>
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">Storage</p>
+          <p className="text-xs font-bold uppercase text-slate-500">스토리지</p>
           <p className="mt-1 break-all text-sm font-bold">{runtime.storageBucket}</p>
         </div>
         <div className={`rounded-md p-3 ${runtime.configured ? "bg-emerald-50" : "bg-amber-50"}`}>
-          <p className="text-xs font-bold uppercase text-slate-500">Connection</p>
-          <p className="mt-1 font-black">{runtime.configured ? "Ready" : "Env required"}</p>
+          <p className="text-xs font-bold uppercase text-slate-500">연결</p>
+          <p className="mt-1 font-black">{runtime.configured ? "등록 가능" : "환경변수 필요"}</p>
         </div>
       </div>
 
       {!runtime.configured ? (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-          Add Firebase web app values to `.env.local`: {runtime.missing.join(", ")}. The code is ready but live writes are
-          disabled until those values exist.
+          `.env.local`에 Firebase Web App 값을 넣어야 등록/수정이 활성화됩니다: {runtime.missing.join(", ")}
         </div>
       ) : null}
 
@@ -344,17 +368,17 @@ export function FirebaseCmsManager({
         <form onSubmit={submitForm} className="rounded-md border border-slate-200 bg-slate-50 p-4">
           <div className="grid gap-3">
             <label className="grid gap-1 text-sm font-bold">
-              Title
+              제목
               <input
                 value={form.title}
                 onChange={(event) => updateForm("title", event.target.value)}
                 className="rounded-md border border-slate-200 px-3 py-2"
-                placeholder="Campaign or detail title"
+                placeholder="캠페인명, 배너명, 상세페이지 제목"
               />
             </label>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-bold">
-                Placement
+                노출 위치
                 <input
                   value={form.placement}
                   onChange={(event) => updateForm("placement", event.target.value)}
@@ -362,7 +386,7 @@ export function FirebaseCmsManager({
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
-                Target
+                노출 대상
                 <input
                   value={form.target}
                   onChange={(event) => updateForm("target", event.target.value)}
@@ -372,7 +396,7 @@ export function FirebaseCmsManager({
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-bold">
-                Link / preview path
+                링크 / 미리보기 경로
                 <input
                   value={form.link}
                   onChange={(event) => updateForm("link", event.target.value)}
@@ -380,7 +404,7 @@ export function FirebaseCmsManager({
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
-                Status
+                상태
                 <select
                   value={form.status}
                   onChange={(event) => updateForm("status", event.target.value)}
@@ -396,7 +420,7 @@ export function FirebaseCmsManager({
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="grid gap-1 text-sm font-bold">
-                Start
+                시작
                 <input
                   type="datetime-local"
                   value={form.startsAt}
@@ -405,7 +429,7 @@ export function FirebaseCmsManager({
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
-                End
+                종료
                 <input
                   type="datetime-local"
                   value={form.endsAt}
@@ -414,7 +438,7 @@ export function FirebaseCmsManager({
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
-                Order
+                노출 순서
                 <input
                   value={form.order}
                   onChange={(event) => updateForm("order", event.target.value)}
@@ -424,7 +448,7 @@ export function FirebaseCmsManager({
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-bold">
-                Product ID
+                상품 ID
                 <input
                   value={form.productId}
                   onChange={(event) => updateForm("productId", event.target.value)}
@@ -433,7 +457,7 @@ export function FirebaseCmsManager({
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
-                Theme mode
+                테마 모드
                 <select
                   value={form.themeMode}
                   onChange={(event) => updateForm("themeMode", event.target.value)}
@@ -448,16 +472,16 @@ export function FirebaseCmsManager({
               </label>
             </div>
             <label className="grid gap-1 text-sm font-bold">
-              Body / JSON note
+              본문 / JSON 메모
               <textarea
                 value={form.body}
                 onChange={(event) => updateForm("body", event.target.value)}
                 className="min-h-24 rounded-md border border-slate-200 px-3 py-2"
-                placeholder="Detail blocks, campaign note, rejection reason or targeting policy."
+                placeholder="상세 블록, 캠페인 설명, 반려 사유, 노출 정책을 입력하세요."
               />
             </label>
             <label className="grid gap-1 text-sm font-bold">
-              Image / video file
+              이미지 / 영상 파일
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -470,7 +494,7 @@ export function FirebaseCmsManager({
                 disabled={saving || !runtime.configured}
                 className="rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {saving ? "Saving..." : form.id ? "Update Firebase" : "Create Firebase"}
+                {saving ? "저장 중..." : form.id ? "Firebase 수정" : "Firebase 등록"}
               </button>
               <button
                 type="button"
@@ -480,7 +504,7 @@ export function FirebaseCmsManager({
                 }}
                 className="rounded-md bg-white px-4 py-2 text-sm font-black text-slate-700 ring-1 ring-slate-200"
               >
-                Reset
+                초기화
               </button>
             </div>
           </div>
@@ -489,7 +513,7 @@ export function FirebaseCmsManager({
         <div className="rounded-md border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">Live records</p>
+              <p className="text-xs font-black uppercase text-slate-500">Firebase 등록 목록</p>
               <h3 className="text-lg font-black">{active.collection}</h3>
             </div>
             <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
@@ -500,7 +524,7 @@ export function FirebaseCmsManager({
           <div className="mt-3 grid gap-3">
             {records[active.collection].length === 0 ? (
               <div className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">
-                No live Firestore documents yet. Create one from the form after `.env.local` is configured.
+                아직 등록된 Firebase 문서가 없습니다. 위 폼에서 등록하면 이 영역에 바로 표시됩니다.
               </div>
             ) : (
               records[active.collection].map((record) => (
@@ -531,7 +555,7 @@ export function FirebaseCmsManager({
                       onClick={() => editRecord(record)}
                       className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700"
                     >
-                      Edit
+                      수정
                     </button>
                     {["approved", "scheduled", "paused", "rejected"].map((status) => (
                       <button

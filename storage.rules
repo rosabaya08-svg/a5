@@ -30,26 +30,39 @@ service firebase.storage {
       return true;
     }
 
-    // Beta-safe policy: reads are scoped for already-approved assets, writes stay blocked.
-    // Actual uploadBytes enablement requires a separate approval, validation, and malware-scan plan.
+    function betaCmsUpload() {
+      return request.resource != null &&
+        request.resource.size < 25 * 1024 * 1024 &&
+        (
+          request.resource.contentType.matches("image/.*") ||
+          request.resource.contentType.matches("video/.*")
+        );
+    }
+
+    // Beta CMS policy: storefront media registration is enabled for A5 closed-mall setup.
+    // Payment, order, settlement, and private documents remain blocked.
     match /public/storefront/{fileName=**} {
       allow read: if publicReadEnabled();
-      allow write: if false;
+      allow create, update: if betaCmsUpload() || isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     match /companies/{companyId}/products/{productId}/images/{fileName=**} {
       allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/products/{productId}/gifs/{fileName=**} {
       allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/products/{productId}/videos/{fileName=**} {
       allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/onboarding/{fileName=**} {
@@ -64,7 +77,8 @@ service firebase.storage {
 
     match /companies/{companyId}/ad-materials/{fileName=**} {
       allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /nurseries/{nurseryId}/business-documents/{fileName=**} {

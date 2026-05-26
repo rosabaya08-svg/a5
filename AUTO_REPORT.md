@@ -707,3 +707,19 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 76 page routes |
 | Boundaries | No real Firebase Auth password issue, no plain password storage, no PG secret storage, no real PG call |
+
+## 41. 2026-05-26 Firebase CMS registration/edit activation
+
+| Item | Result |
+| --- | --- |
+| Scope | Changed closed-mall banner/design CMS from mock-only review to real Firestore/Storage beta registration and editing |
+| CMS manager | Added Korean live registration UI labels, route-aware default tabs, and a dedicated brand logo tab backed by the `brands` collection |
+| Firestore writes | Guarded CMS writes are enabled for `marketing_banners`, `marketing_videos`, `brands`, `product_detail_pages`, `home_sections`, `tablet_home_configs`, and `media_assets` |
+| Storage uploads | Enabled beta image/video uploads for storefront, ad-material, product image, GIF, and video paths with MIME and 25 MB size guard |
+| Firebase deploy | `firebase.cmd deploy --only firestore:rules,storage` completed for `a5-closed-mall`; Functions/Hosting were not deployed |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 100 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 76 page routes |
+| Security | `npm.cmd run check:no-secrets` passed; `.env.local` remains ignored/untracked and no service account key exists |
+| Boundaries | PG, orders, payments, refunds, settlements, Alimtalk, delivery tracking, external inventory, and private document uploads remain blocked |

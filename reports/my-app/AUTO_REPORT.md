@@ -934,3 +934,14 @@
 - Rebuilt admin/company/nursery navigation labels in Korean and added login/PG settings entries.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
 - Boundaries preserved: no real Firebase Auth password issuance, no PG secret storage, no real PG call, no secret/service account files.
+
+## 2026-05-26 Firebase CMS registration/edit activation
+
+- Converted the banner/design CMS path from mock-only wording to live Firebase beta registration/editing.
+- `FirebaseCmsManager` now has Korean operator labels, a route-aware default tab, and a real `brands` tab for brand logo/brand hall records.
+- `lib/firebase/contentRepository.ts` now supports the `brands` collection and stores brand assets under `public/storefront/brands/**`.
+- Firestore CMS rules now allow guarded beta writes for banners, videos/GIFs, brands, product detail pages, home sections, tablet home configs, and media assets.
+- Storage rules now allow beta image/video uploads under storefront, company ad-material, and product media paths with a 25 MB limit.
+- Deployed only Firestore/Storage rules to `a5-closed-mall` with `firebase.cmd deploy --only firestore:rules,storage`.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets`.
+- Boundaries preserved: no Functions deploy, no Hosting deploy, no PG call, no order/payment ledger write, no refund/settlement execution, no secret/service account files.

@@ -4,11 +4,13 @@ Updated: 2026-05-26
 
 ## Goal
 
-Prepare beta-safe Firestore rules for the A5 closed mall without running a deploy in this task.
+Prepare beta-safe Firestore rules for the A5 closed mall and record the live beta deploy state.
 
 The current rule file is designed around these boundaries:
 
-- Public storefront reads are allowed only for active/approved/published content.
+- Public storefront reads are allowed for active/approved/published content.
+- CMS beta reads are enabled for storefront design/admin pages so operators can review draft records from the browser.
+- CMS beta writes are enabled only when the browser payload carries the A5 beta guard fields: `guest_write_enabled=true`, `source=cms_beta`, `source_app`, `status`, and `updated_at`.
 - Role/scope reads are allowed for admin, company, nursery, and tablet contexts.
 - Customer guest access is read-only and must be limited by QR/session/order lookup fields.
 - Client writes to order, payment, inventory, audit, refund, settlement, payout, webhook, delivery, and notification ledgers are blocked.
@@ -33,7 +35,8 @@ The current rule file is designed around these boundaries:
 
 | Area | Client write policy |
 | --- | --- |
-| Catalog/CMS/foundation seed data | `SUPER_ADMIN` or `seed_admin` only, and only when request data has `status` and `updated_at` |
+| Catalog/foundation seed data | `SUPER_ADMIN` or `seed_admin` only, and only when request data has `status` and `updated_at` |
+| CMS beta content | Browser beta write allowed only for guarded CMS payloads in `product_detail_pages`, `brands`, `home_sections`, `marketing_banners`, `marketing_videos`, `tablet_home_configs`, and `media_assets` |
 | Orders, order items, payments, payment events | Blocked |
 | Webhook events | Blocked |
 | Inventory movements | Blocked |
@@ -62,10 +65,10 @@ These must be written by Firebase Functions/Admin SDK only:
 
 ## Deploy Command Candidates
 
-Do not run these automatically in this phase. They are recorded for the owner/operator:
+Executed for the live beta on 2026-05-26:
 
 ```powershell
-firebase.cmd deploy --only firestore:rules
+firebase.cmd deploy --only firestore:rules,storage
 ```
 
 ## Pre-Deploy Checklist
@@ -82,4 +85,4 @@ firebase.cmd deploy --only firestore:rules
 - Real webhook signature verification.
 - Real settlement payout execution.
 - Customer direct writes to QR, order, payment, or inventory state.
-- Firestore rules deployment without owner/operator confirmation.
+- Production write expansion outside guarded CMS beta paths.

@@ -4,17 +4,17 @@ Updated: 2026-05-26
 
 ## Goal
 
-Prepare beta-safe Firebase Storage rules for the A5 closed mall while keeping actual uploads blocked until a separate upload approval and validation pass.
+Prepare beta-safe Firebase Storage rules for the A5 closed mall while enabling storefront CMS media registration/editing for the live beta.
 
-Storage is initialized for `a5-closed-mall`, but this phase does not enable production `uploadBytes` behavior.
+Storage is initialized for `a5-closed-mall`. CMS upload is enabled only for closed-mall visual assets; private business documents, payout files, settlement files, and audit exports remain blocked.
 
 ## Current Beta Rule
 
 - Default: deny all reads and writes.
 - Public storefront media paths can be read.
 - Company/nursery private document paths can be read only by scoped operators.
-- All writes are currently denied.
-- Upload candidates are documented, but actual upload enablement requires separate approval.
+- CMS asset writes are enabled for image/video files under the approved storefront/ad/product media paths.
+- Uploads are limited by MIME type and a 25 MB beta size limit.
 
 ## Read Paths
 
@@ -34,13 +34,17 @@ Storage is initialized for `a5-closed-mall`, but this phase does not enable prod
 | `policies/**` | signed-in operators only |
 | `audit-exports/**` | `SUPER_ADMIN` only |
 
-## Upload Candidates, Not Yet Enabled
+## Enabled Beta Upload Paths
 
-The following upload candidates are intentionally not enabled in `storage.rules` yet:
+The following upload paths are enabled for the A5 closed-mall CMS beta:
 
-- `SUPER_ADMIN` CMS uploads for banners, videos, GIFs, popup assets, brand logos, and policy documents.
-- `COMPANY_ADMIN` scoped uploads for product images, product GIFs, product videos, business registration, bankbook copy, certification evidence, and ad materials.
-- `NURSERY_ADMIN` scoped uploads for nursery business documents and room/tablet proofs.
+- `public/storefront/**` for homepage sections, brand logos, and storefront media assets.
+- `companies/{companyId}/ad-materials/**` for banner, video, GIF, and campaign media.
+- `companies/{companyId}/products/{productId}/images/**` for product/detail images.
+- `companies/{companyId}/products/{productId}/gifs/**` for GIF assets.
+- `companies/{companyId}/products/{productId}/videos/**` for product/detail video assets.
+
+These paths are still beta-limited and do not enable private document uploads or payout/settlement files.
 
 ## Required Before Enabling Uploads
 
@@ -52,20 +56,19 @@ The following upload candidates are intentionally not enabled in `storage.rules`
 6. Approval workflow for public storefront exposure.
 7. Firestore `media_assets` document write flow and audit log.
 8. Retention and deletion policy for business documents and bank documents.
-9. Owner approval to enable actual `uploadBytes` paths.
+9. Production approval before expanding uploads beyond storefront/CMS beta paths.
 
 ## Deploy Command Candidate
 
-Do not run this automatically in this phase. It is recorded for the owner/operator:
+Executed for the live beta on 2026-05-26:
 
 ```powershell
-firebase.cmd deploy --only storage:rules
+firebase.cmd deploy --only firestore:rules,storage
 ```
 
 ## Still Blocked
 
-- Actual Storage uploads from admin/company/nursery UI.
-- Product media upload, business document upload, bank document upload, and video/GIF upload.
+- Private business document upload, bank document upload, settlement/payout files, and audit export uploads.
 - Signed URL policy.
 - Malware scan integration.
-- Storage rules deployment without owner/operator confirmation.
+- Production upload governance beyond storefront/CMS beta.

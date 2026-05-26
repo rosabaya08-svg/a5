@@ -278,3 +278,11 @@
 - Tablet fixed-login currently uses localStorage for beta device persistence; production requires TABLET_DEVICE claim, registered tablet id, App Check, and revocation policy.
 - PG settings screen does not store secrets; actual `PG_SECRET_KEY` and `PG_WEBHOOK_SECRET` must be entered only in Firebase Functions runtime or Secret Manager.
 - Real PG setting writes require SUPER_ADMIN claim checks and audit logs before activation.
+
+## 2026-05-26 Firebase CMS live registration blockers
+
+- CMS create/update is enabled as a guarded beta path, but production should replace beta browser writes with Custom Claims and server-side audit logs.
+- Storefront rendering still needs a final smoke pass to confirm live Firestore CMS records override every fallback banner/brand/home section.
+- Storage upload is enabled only for public storefront/ad/product media; private business documents, bank documents, settlement files, and audit exports remain blocked.
+- Malware scanning, moderation workflow, retention policy, and asset deletion governance are not implemented yet.
+- PG, order/payment ledger writes, refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.

@@ -7,11 +7,12 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
+import { ensureAnonymousFirebaseUser, getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
 
 export type CmsCollectionName =
   | "marketing_banners"
   | "marketing_videos"
+  | "brands"
   | "product_detail_pages"
   | "home_sections"
   | "tablet_home_configs"
@@ -70,6 +71,10 @@ function cmsStoragePath(collectionName: CmsCollectionName, recordId: string, fil
     return `companies/${companyId}/ad-materials/${collectionName}/${recordId}/${fileName}`;
   }
 
+  if (collectionName === "brands") {
+    return `public/storefront/brands/${recordId}/${fileName}`;
+  }
+
   if (collectionName === "home_sections" || collectionName === "tablet_home_configs") {
     return `public/storefront/${collectionName}/${recordId}/${fileName}`;
   }
@@ -77,28 +82,48 @@ function cmsStoragePath(collectionName: CmsCollectionName, recordId: string, fil
   return `public/storefront/media_assets/${recordId}/${fileName}`;
 }
 
+async function prepareCmsSession() {
+  try {
+    return await ensureAnonymousFirebaseUser();
+  } catch {
+    // The current beta rules allow guarded CMS writes without an Auth provider.
+    // Keep the CMS usable until dedicated admin login/custom-claims rollout is complete.
+    return null;
+  }
+}
+
 export function subscribeCmsRecords(
   collectionName: CmsCollectionName,
   onChange: (records: CmsRecord[]) => void,
   onError: (message: string) => void,
 ): Unsubscribe {
-  const db = getFirebaseDb();
+  let unsubscribe: Unsubscribe = () => undefined;
 
-  if (!db) {
-    onError("Firebase web config is missing. Add NEXT_PUBLIC_FIREBASE_* values to enable live sync.");
-    return () => undefined;
-  }
+  void prepareCmsSession()
+    .then(() => {
+      const db = getFirebaseDb();
 
-  return onSnapshot(
-    collection(db, collectionName),
-    (snapshot) => {
-      onChange(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-    },
-    (error) => onError(error.message),
-  );
+      if (!db) {
+        onError("Firebase web config is missing. Add NEXT_PUBLIC_FIREBASE_* values to enable live sync.");
+        return;
+      }
+
+      unsubscribe = onSnapshot(
+        collection(db, collectionName),
+        (snapshot) => {
+          onChange(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        },
+        (error) => onError(error.message),
+      );
+    })
+    .catch((error) => onError(error instanceof Error ? error.message : "Firebase anonymous auth failed."));
+
+  return () => unsubscribe();
 }
 
 export async function saveCmsRecord(collectionName: CmsCollectionName, record: CmsRecord) {
+  await prepareCmsSession();
+
   const db = getFirebaseDb();
 
   if (!db) {
@@ -128,6 +153,8 @@ export async function uploadCmsFile(
   file: File,
   scope?: CmsUploadScope,
 ): Promise<{ url: string; path: string; assetType: string }> {
+  await prepareCmsSession();
+
   const storage = getFirebaseStorageClient();
 
   if (!storage) {

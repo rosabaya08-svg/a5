@@ -1,10 +1,15 @@
 import { getAdminDb } from "../firebaseAdmin";
 import { normalizeOrderNumber } from "../orders/orderNumber";
-import { sendJson, type HttpRequestLike, type HttpResponseLike, type PaymentStatusResponse } from "./types";
+import { sendJson, type HttpRequestLike, type HttpResponseLike, type PaymentProviderId, type PaymentStatusResponse } from "./types";
 
 function getQueryString(request: HttpRequestLike, key: string): string {
   const value = request.query?.[key];
   return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+}
+
+function asPaymentProviderId(value: unknown): PaymentProviderId {
+  const allowed: PaymentProviderId[] = ["mock", "pg_contract", "infiny", "toss", "portone", "kcp", "nice"];
+  return allowed.includes(value as PaymentProviderId) ? (value as PaymentProviderId) : "mock";
 }
 
 export async function paymentsStatusHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
@@ -64,7 +69,7 @@ export async function paymentsStatusHandler(request: HttpRequestLike, response: 
       status: String(data.status ?? "unknown"),
       amount: typeof data.amount === "number" ? data.amount : undefined,
       currency: data.currency === "KRW" ? "KRW" : undefined,
-      provider: data.provider === "pg_contract" ? "pg_contract" : "mock",
+      provider: asPaymentProviderId(data.provider),
       message: "Payment status read through Firebase Functions. No PG secret was used.",
     };
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
+import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
 import {
   AuditLogViewerPanel,
   CmsOperationsPanel,
@@ -18,6 +19,12 @@ import { FilterBar } from "@/components/ui/FilterBar";
 import { RiskAlert } from "@/components/ui/RiskAlert";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  A5_PLATFORM_FEE_RATE,
+  calculateInfinySettlement,
+  INFINY_PG_FEE_RATE,
+  INFINY_TOTAL_FEE_RATE,
+} from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
@@ -197,24 +204,25 @@ export function AdminDashboardPage() {
 
 export function AdminCompaniesPage() {
   return (
-    <AdminShell title="입점사 관리" subtitle="기업 승인, 수수료율, 정산 차단 상태를 확인합니다.">
+    <AdminShell title="입점사 관리" subtitle="기업 승인, 인피니 MID, 수수료율, 정산 차단 상태를 확인합니다.">
       <AccountProvisioningPanel />
       <div className="mt-4" />
       <CompanyApprovalQueuePanel />
       <div className="mt-4" />
       <FilterBar title="입점사 필터" filters={["전체", "승인", "대기", "정산 보류"]} />
       <DataTable
-        columns={["기업", "담당자", "상태", "수수료", "상품", "승인대기", "정산"]}
+        columns={["기업", "담당자", "상태", "PG/MID", "수수료", "상품", "승인대기", "정산"]}
         rows={mockApi.companies().map((company) => ({
           id: company.id,
           cells: [
             <span key="name" className="font-semibold text-slate-950">{company.name}</span>,
             company.managerName,
             company.status,
+            `${company.pgProfile?.providerLabel ?? "인피니 PG"} / ${company.pgProfile?.merchantIdMasked ?? "MID 발급 대기"}`,
             formatPercent(company.commissionRate),
             company.productCount,
             company.pendingProductCount,
-            company.settlementBlocked ? "보류" : "정상",
+            company.settlementBlocked ? "지급 차단" : "정상",
           ],
         }))}
       />
@@ -343,14 +351,14 @@ export function AdminOrdersPage() {
 
 export function AdminPaymentsPage() {
   return (
-    <AdminShell title="결제" subtitle="실제 PG가 아닌 모의 결제 상태와 TID 형식만 확인합니다.">
+    <AdminShell title="결제" subtitle="인피니 PG 전환 전까지 모의 결제 상태와 TID 형식만 확인합니다.">
       <PgReadinessPanel />
       <div className="mt-4" />
       <PaymentMonitorPanel />
       <div className="mt-4" />
       <ConfirmBox
-        title="실제 PG 연동 금지"
-        description="운영 MID/KEY, 테스트 MID, 공식 문서, 사람 승인 전까지 실제 결제 모듈은 만들지 않습니다."
+        title="인피니 MID 승인 전 실결제 차단"
+        description="기업별 MID, 분할정산 API, 테스트 승인, webhook 검증 전까지 실제 결제 모듈은 열지 않습니다. MID 입력은 최고관리자 화면에서만 처리합니다."
       />
       <div className="mt-4">
         <DataTable
@@ -371,30 +379,46 @@ export function AdminPaymentsPage() {
   );
 }
 
+export function AdminIntegrationsPage() {
+  return (
+    <AdminShell
+      title="외부 연동 센터"
+      subtitle="사방넷, 네이버 커머스API, 카페24, 쿠팡, WMS, ERP를 A5 표준 주문/물류 모델과 연결합니다."
+    >
+      <ExternalIntegrationCenterPanel />
+    </AdminShell>
+  );
+}
+
 export function AdminSettlementsPage() {
   const companies = mockApi.companies();
 
   return (
-    <AdminShell title="정산 검산" subtitle="order_items 기준 모의 정산을 확인하며 실제 지급은 차단합니다.">
+    <AdminShell title="인피니 정산 검산" subtitle="order_items 기준 인피니 공제율을 확인하며 우리 시스템 지급은 차단합니다.">
       <ConfirmBox
-        title="정산 지급 실행 금지"
-        description="이 화면은 정산 계산 초안과 검산 상태만 표시합니다. 지급 완료 처리는 사람 승인 전까지 만들지 않습니다."
+        title="우리 시스템 정산 지급 실행 금지"
+        description={`인피니가 PG 수수료 ${formatPercent(INFINY_PG_FEE_RATE)}와 우리 주문 수수료 ${formatPercent(A5_PLATFORM_FEE_RATE)}를 합산해 총 ${formatPercent(INFINY_TOTAL_FEE_RATE)} 공제 후 기업사에 정산합니다. 이 화면은 검산과 조회만 제공합니다.`}
       />
       <div className="mt-4">
         <DataTable
-          columns={["기간", "입점사", "상태", "총액", "수수료", "환불보류", "예상입금"]}
-          rows={mockApi.settlements().map((settlement) => ({
-            id: settlement.id,
-            cells: [
-              settlement.period,
-              companies.find((company) => company.id === settlement.companyId)?.name ?? settlement.companyId,
-              <StatusBadge key="status" status={settlement.status} />,
-              formatCurrency(settlement.grossAmount),
-              formatCurrency(settlement.commissionAmount),
-              formatCurrency(settlement.refundHoldAmount),
-              formatCurrency(settlement.payoutAmount),
-            ],
-          }))}
+          columns={["기간", "입점사", "상태", "총액", "인피니 2.5%", "A5 4.5%", "환불보류", "예상입금"]}
+          rows={mockApi.settlements().map((settlement) => {
+            const fees = calculateInfinySettlement(settlement.grossAmount);
+
+            return {
+              id: settlement.id,
+              cells: [
+                settlement.period,
+                companies.find((company) => company.id === settlement.companyId)?.name ?? settlement.companyId,
+                <StatusBadge key="status" status={settlement.status} />,
+                formatCurrency(settlement.grossAmount),
+                formatCurrency(fees.pgFeeAmount),
+                formatCurrency(fees.platformFeeAmount),
+                formatCurrency(settlement.refundHoldAmount),
+                formatCurrency(settlement.payoutAmount),
+              ],
+            };
+          })}
         />
       </div>
     </AdminShell>

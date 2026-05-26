@@ -5,6 +5,7 @@ export type NavItem = {
 };
 
 export const adminNavItems: NavItem[] = [
+  { href: "/admin/login", label: "최고관리자 로그인", badge: "Google" },
   { href: "/admin/dashboard", label: "대시보드" },
   { href: "/admin/companies", label: "입점사" },
   { href: "/admin/permissions", label: "권한/계정", badge: "신규" },
@@ -18,6 +19,7 @@ export const adminNavItems: NavItem[] = [
   { href: "/admin/brands", label: "브랜드관" },
   { href: "/admin/exhibitions", label: "기획전" },
   { href: "/admin/orders", label: "주문" },
+  { href: "/admin/integrations", label: "외부 연동", badge: "허브" },
   { href: "/admin/payments", label: "결제" },
   { href: "/admin/pg-settings", label: "PG 설정", badge: "중요" },
   { href: "/admin/settlements", label: "정산 검토" },

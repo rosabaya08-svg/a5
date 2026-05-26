@@ -149,6 +149,16 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
     await validateTabletScope(db, { nurseryId, roomId, tabletId });
 
     const pricedItems = await priceCartItemsFromFirestore(db, items);
+    const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
+    if (companyIds.size > 1) {
+      throw new QrCreateHttpError(
+        "QR_CREATE_COMPANY_GROUP_REQUIRED",
+        "One payment QR can contain items from only one company/MID. Create a separate QR for each company group.",
+        409,
+        { companyIds: [...companyIds] },
+      );
+    }
+
     const totalAmount = calculateItemsAmount(pricedItems);
     const clientAmount = readClientAmount(body);
 

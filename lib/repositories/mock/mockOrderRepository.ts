@@ -1,4 +1,5 @@
 import { mockOrders, mockOrderItems } from "@/data/mockOrders";
+import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { OrderRepository } from "@/lib/repositories/types";
 import { repositoryError, repositoryOk } from "@/lib/repositories/types";
 
@@ -73,7 +74,7 @@ export const mockOrderRepository: OrderRepository = {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       deliveryStatus: input.qrSession.deliveryMethod === "pickup" ? "pickup_ready" as const : "invoice_pending" as const,
-      settlementAmount: Math.round(item.unitPrice * item.quantity * 0.85),
+      settlementAmount: calculateInfinySettlement(item.unitPrice * item.quantity).payoutAmount,
     }));
 
     return repositoryOk({ order, items });

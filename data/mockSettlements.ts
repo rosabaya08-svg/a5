@@ -27,9 +27,9 @@ export const mockSettlements: Settlement[] = [
     companyId: "company-momtable",
     period: "2026-05",
     status: "payout_blocked",
-    grossAmount: 0,
-    commissionAmount: 0,
+    grossAmount: 72000,
+    commissionAmount: calculateInfinySettlement(72000).totalFeeAmount,
     refundHoldAmount: 0,
-    payoutAmount: 0,
+    payoutAmount: calculateInfinySettlement(72000).payoutAmount,
   },
 ];

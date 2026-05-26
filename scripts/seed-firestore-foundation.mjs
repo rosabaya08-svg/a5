@@ -229,7 +229,7 @@ const records = [
     tablet_id: "tablet-701-a",
     cart_id: "cart-701-001",
     delivery_method: "pickup",
-    total_amount_snapshot: 147000,
+    total_amount_snapshot: 75000,
     expires_at: "2026-05-20T18:12:00+09:00",
     items_snapshot: [
       {
@@ -242,6 +242,21 @@ const records = [
         quantity: 1,
         line_amount: 75000,
       },
+    ],
+  }),
+  record("qr_payment_sessions", "qr-momqr72", {
+    qr_session_id: "qr-momqr72",
+    short_code: "MOMQR72",
+    type: "purchase",
+    status: "active",
+    nursery_id: "nursery-gangnam-01",
+    room_id: "room-701",
+    tablet_id: "tablet-701-a",
+    cart_id: "cart-701-002",
+    delivery_method: "pickup",
+    total_amount_snapshot: 72000,
+    expires_at: "2026-05-20T18:31:00+09:00",
+    items_snapshot: [
       {
         product_id: "product-tea",
         option_id: "opt-tea-basic",

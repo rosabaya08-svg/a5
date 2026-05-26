@@ -13,7 +13,7 @@ export const mockQrSessions: QrPaymentSession[] = [
     createdAt: "2026-05-19T15:12:00+09:00",
     expiresAt: "2026-05-19T18:12:00+09:00",
     deliveryMethod: "pickup",
-    totalAmount: 147000,
+    totalAmount: 75000,
     items: [
       {
         productId: "product-care-kit",
@@ -23,6 +23,22 @@ export const mockQrSessions: QrPaymentSession[] = [
         quantity: 1,
         companyId: "company-sanho-care",
       },
+    ],
+  },
+  {
+    id: "qr-004",
+    shortCode: "MOMQR72",
+    type: "purchase",
+    status: "active",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-701",
+    tabletId: "tablet-701-a",
+    cartId: "cart-701-002",
+    createdAt: "2026-05-19T15:31:00+09:00",
+    expiresAt: "2026-05-19T18:31:00+09:00",
+    deliveryMethod: "pickup",
+    totalAmount: 72000,
+    items: [
       {
         productId: "product-tea",
         productName: "수유맘 루이보스 티 세트",

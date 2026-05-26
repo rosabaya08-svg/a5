@@ -6,8 +6,8 @@ export default function Page() {
   return (
     <AppShell
       sectionTitle="최고관리자"
-      title="PG 결제 모듈 설정"
-      subtitle="PG사 변경, 공개 API 설정값, Functions secret 입력 대상을 한 화면에서 검토합니다."
+      title="인피니 PG / MID 설정"
+      subtitle="기업별 인피니 MID, 수수료, 분할정산 전환 조건을 최고관리자 권한으로 관리합니다."
       scopeLabel="최고관리자 / 결제 설정"
       navItems={adminNavItems}
       accent="admin"

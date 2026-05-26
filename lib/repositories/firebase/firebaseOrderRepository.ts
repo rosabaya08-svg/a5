@@ -12,6 +12,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
+import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { CreateOrderFromQrInput, OrderItemListFilters, OrderListFilters, OrderRepository } from "@/lib/repositories/types";
 import { repositoryError, repositoryOk } from "@/lib/repositories/types";
 import type { DeliveryMethod, Order, OrderItem } from "@/types/commerce";
@@ -106,7 +107,7 @@ function mapOrderItem(documentId: string, data: DocumentData, orderIdFallback = 
     quantity,
     unitPrice,
     deliveryStatus: asDeliveryStatus(data.deliveryStatus ?? data.delivery_status),
-    settlementAmount: asNumber(data.settlementAmount ?? data.settlement_amount, Math.round(quantity * unitPrice * 0.85)),
+    settlementAmount: asNumber(data.settlementAmount ?? data.settlement_amount, calculateInfinySettlement(quantity * unitPrice).payoutAmount),
   };
 }
 
@@ -280,7 +281,7 @@ export const firebaseOrderRepository: OrderRepository = {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       deliveryStatus: input.qrSession.deliveryMethod === "pickup" ? "pickup_ready" : "invoice_pending",
-      settlementAmount: Math.round(item.unitPrice * item.quantity * 0.85),
+      settlementAmount: calculateInfinySettlement(item.unitPrice * item.quantity).payoutAmount,
     }));
 
     try {

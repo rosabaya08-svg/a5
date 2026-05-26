@@ -21,6 +21,10 @@ export const requiredServerPgKeys = [
 
 const providerAliases: Record<string, PaymentProviderCandidate> = {
   mock: "mock",
+  infiny: "infiny",
+  infini: "infiny",
+  infinypg: "infiny",
+  infinipg: "infiny",
   toss: "toss",
   tosspayments: "toss",
   portone: "portone",
@@ -46,7 +50,7 @@ export function resolvePaymentProviderCandidate(value?: string): PaymentProvider
 }
 
 export function toPaymentProviderId(candidate: PaymentProviderCandidate): PaymentProviderId {
-  if (candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
+  if (candidate === "infiny" || candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
   return candidate === "mock" ? "mock" : "pg_skeleton";
 }
 
@@ -107,7 +111,7 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
       missingKeys,
       publicKeys: summary.publicKeys,
       serverKeys: summary.serverKeys,
-      blockers: ["NEXT_PUBLIC_PG_PROVIDER는 toss, portone, kcp, nice 중 하나여야 합니다."],
+      blockers: ["NEXT_PUBLIC_PG_PROVIDER는 infiny, toss, portone, kcp, nice 중 하나여야 합니다."],
     handoff: ["어댑터 내부 구현 전 PG사와 결제사 이름을 확인합니다."],
     };
   }

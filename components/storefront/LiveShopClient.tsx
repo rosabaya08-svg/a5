@@ -350,7 +350,16 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       return;
     }
 
-    const groupItems = group.items.map(({ cartIndex, ...item }) => item);
+    const groupItems: CartLine[] = group.items.map((item) => ({
+      productId: item.productId,
+      optionId: item.optionId,
+      productName: item.productName,
+      optionName: item.optionName,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      companyId: item.companyId,
+      productImage: item.productImage,
+    }));
     const code = makeShortCode();
     const createdAt = nowIso();
     const expiresAt = addHoursIso(createdAt, 3);
@@ -513,6 +522,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
 
 export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPaymentSession }) {
   const [session, setSession] = useState<QrPaymentSession>(() => readLastQrSession(fallbackSession));
+  const sessionGroup = groupCartItemsByCompany(session.items, mockCompanies)[0];
 
   useEffect(() => {
     const sync = () => setSession(readLastQrSession(fallbackSession));
@@ -541,6 +551,13 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
         </Link>
       </div>
       <div className="grid gap-3">
+        <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">기업별 결제 QR</p>
+          <h2 className="mt-1 text-lg font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
+          <p className="mt-2 text-sm leading-6">
+            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 결제합니다. 다른 업체 상품은 장바구니에서 별도 QR로 이어집니다.
+          </p>
+        </section>
         {session.items.map((item) => (
           <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex justify-between gap-4">
@@ -607,14 +624,26 @@ export function LiveQrCheckoutPage() {
 
     const savedSession = writeJson(`${qrPrefix}${paidSession.shortCode}`, paidSession);
     const savedOrder = writeJson(`${orderPrefix}${orderNo}`, order);
+    const currentCart = readJson<CartLine[]>(cartKey, []);
+    const remainingCart = removePaidItemsFromCart(currentCart, paidSession.items);
+    const remainingStored = persistCart(remainingCart).stored;
 
-    if (!savedSession || !savedOrder) {
+    if (!savedSession || !savedOrder || !remainingStored) {
       setMessage("주문을 브라우저 저장소에 저장하지 못했습니다. 브라우저 저장소 권한을 확인해 주세요.");
       return;
     }
 
-    setMessage(backend.ok ? "백엔드 결제 승인과 주문 저장을 완료했습니다." : `로컬 주문으로 진행합니다. 백엔드 대기: ${backend.error}`);
-    router.push(`/orders/guest/live?orderNo=${orderNo}`);
+    const hasRemaining = remainingCart.length > 0;
+    setMessage(
+      backend.ok
+        ? hasRemaining
+          ? "결제 완료. 남은 업체 상품은 장바구니에서 다음 QR로 생성할 수 있습니다."
+          : "백엔드 결제 승인과 주문 저장을 완료했습니다."
+        : hasRemaining
+          ? `로컬 주문으로 진행합니다. 남은 업체 상품은 다음 QR로 생성할 수 있습니다. 백엔드 대기: ${backend.error}`
+          : `로컬 주문으로 진행합니다. 백엔드 대기: ${backend.error}`,
+    );
+    router.push(`/orders/guest/live?orderNo=${orderNo}${hasRemaining ? "&remaining=1" : ""}`);
 
     void Promise.all([
       saveLiveShopDocument("qr_payment_sessions", paidSession.id, {
@@ -661,7 +690,10 @@ export function LiveQrCheckoutPage() {
       <section className="mx-auto max-w-md rounded-md bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase text-rose-600">live QR checkout</p>
         <h1 className="mt-2 text-3xl font-black">{session.shortCode}</h1>
-        <p className="mt-2 text-sm text-slate-600">브라우저 저장소와 Firebase에 저장되는 실제 주문 생성 흐름입니다.</p>
+        <p className="mt-2 text-sm text-slate-600">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
+        <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
+          이 QR은 한 기업/MID 상품만 결제합니다. 결제 완료 후 남은 업체 상품은 장바구니에서 다음 QR로 생성됩니다.
+        </div>
         <div className="mt-4 grid gap-3">
           {session.items.map((item) => (
             <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-slate-50 p-3">
@@ -691,7 +723,10 @@ export function LiveQrCheckoutPage() {
 export function LiveGuestOrderPage() {
   const params = useSearchParams();
   const orderNo = params.get("orderNo") ?? "";
+  const remainingHint = params.get("remaining") === "1";
   const [order, setOrder] = useState<LiveOrder | null>(() => readLiveOrder(orderNo));
+  const { items: remainingItems } = useCart([]);
+  const remainingGroups = useMemo(() => groupCartItemsByCompany(remainingItems, mockCompanies), [remainingItems]);
 
   useEffect(() => {
     const sync = () => setOrder(readLiveOrder(orderNo));
@@ -740,6 +775,15 @@ export function LiveGuestOrderPage() {
         <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
           주문 생성 완료. Firebase env가 있으면 Firestore `orders`, `order_items`에도 저장됩니다.
         </p>
+        {remainingHint || remainingGroups.length > 0 ? (
+          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+            <p className="font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
+            <p className="mt-1 font-bold">남은 업체 묶음 {remainingGroups.length}개는 장바구니에서 다음 결제 QR로 생성할 수 있습니다.</p>
+            <Link href="/tablet/cart" className="mt-3 block rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
+              남은 업체 결제 QR 생성
+            </Link>
+          </div>
+        ) : null}
       </section>
     </main>
   );

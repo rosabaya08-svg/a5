@@ -22,6 +22,12 @@ import {
   type ServerPricedItem,
 } from "./types";
 
+const INFINY_TOTAL_FEE_RATE = 7;
+
+function calculateInfinySettlementAmount(lineAmount: number) {
+  return Math.max(lineAmount - Math.round(lineAmount * (INFINY_TOTAL_FEE_RATE / 100)), 0);
+}
+
 export async function paymentsConfirmHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
 
@@ -149,6 +155,11 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         };
       });
 
+      const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
+      if (companyIds.size > 1) {
+        throw new Error(`COMPANY_GROUP_REQUIRED:${JSON.stringify({ companyIds: [...companyIds] })}`);
+      }
+
       recalculatedAmount = calculateItemsAmount(pricedItems);
       const amountAssertion = assertAmount(body.clientAmount ?? asNumber(intentSnapshot.get("recalculated_amount"), NaN), recalculatedAmount);
 
@@ -267,7 +278,10 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
             unit_price: item.unitPrice,
             line_amount: lineAmount,
             delivery_status: "pickup_ready",
-            settlement_amount: Math.round(lineAmount * 0.85),
+            settlement_amount: calculateInfinySettlementAmount(lineAmount),
+            pg_provider: "infiny",
+            settlement_owner: "infiny",
+            settlement_execution_blocked: true,
             source: "firebase_functions_mock_confirm",
             guest_lookup_enabled: true,
             demo_read_enabled: true,
@@ -439,6 +453,7 @@ function errorStatus(code: string): number {
   if (code === "QR_SESSION_NOT_ACTIVE" || code === "QR_SESSION_EXPIRED") return 409;
   if (code === "OUT_OF_STOCK") return 409;
   if (code === "AMOUNT_MISMATCH") return 409;
+  if (code === "COMPANY_GROUP_REQUIRED") return 409;
   if (code.endsWith("NOT_FOUND")) return 404;
   return 503;
 }
@@ -454,6 +469,7 @@ function errorMessage(code: string, detail: string): string {
     PRODUCT_NOT_ACTIVE: `Product is not active: ${detail}.`,
     OUT_OF_STOCK: `Product is out of stock: ${detail}.`,
     AMOUNT_MISMATCH: "Client amount does not match server recalculated amount.",
+    COMPANY_GROUP_REQUIRED: "One payment QR can contain items from only one company/MID. Create the next company QR after this payment.",
   };
 
   return messages[code] ?? detail;

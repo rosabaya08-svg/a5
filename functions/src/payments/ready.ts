@@ -98,6 +98,20 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     return;
   }
 
+  const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
+  if (companyIds.size > 1) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "PAYMENT_READY_COMPANY_GROUP_REQUIRED",
+        message: "One payment QR can contain items from only one company/MID. Create a separate QR for each company group.",
+        httpStatus: 409,
+        details: { companyIds: [...companyIds] },
+      },
+    });
+    return;
+  }
+
   const recalculatedAmount = calculateItemsAmount(pricedItems);
   const amountAssertion = assertAmount(body.clientAmount ?? qrValidation.session?.totalAmountSnapshot, recalculatedAmount);
 

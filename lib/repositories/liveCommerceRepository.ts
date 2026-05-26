@@ -6,6 +6,7 @@ import {
   type RepositoryReadSource,
 } from "@/lib/repositories";
 import { repositoryData, type InventoryMovement, type OrderWithItems } from "@/lib/repositories/types";
+import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { MallProductProfile } from "@/data/mockShopContent";
 import type { Nursery, Order, OrderItem, Product, ProductOption, QrPaymentSession, Room, Tablet } from "@/types/commerce";
 
@@ -90,24 +91,28 @@ export type CompanySettlementPreview = {
   refundHoldAmount: number;
   payoutAmount: number;
   itemCount: number;
-  basis: "order_items";
+  basis: "order_items_infiny_7_percent";
+  settlementOwner: "infiny";
+  settlementExecutionBlocked: true;
 };
 
 export async function getLiveCompanySettlementPreview(companyId: string): Promise<LiveRead<CompanySettlementPreview>> {
   const orderItems = await getLiveCompanyOrderItems(companyId);
   const grossAmount = orderItems.data.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
-  const payoutAmount = orderItems.data.reduce((total, item) => total + item.settlementAmount, 0);
+  const settlement = calculateInfinySettlement(grossAmount);
 
   return {
     data: {
       companyId,
       period: "2026-05",
       grossAmount,
-      commissionAmount: Math.max(grossAmount - payoutAmount, 0),
+      commissionAmount: settlement.totalFeeAmount,
       refundHoldAmount: 0,
-      payoutAmount,
+      payoutAmount: settlement.payoutAmount,
       itemCount: orderItems.data.length,
-      basis: "order_items",
+      basis: "order_items_infiny_7_percent",
+      settlementOwner: "infiny",
+      settlementExecutionBlocked: true,
     },
     source: orderItems.source,
     reason: orderItems.reason,

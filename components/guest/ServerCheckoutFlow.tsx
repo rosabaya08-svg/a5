@@ -4,10 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PgIntegrationPanel } from "@/components/storefront/PgIntegrationPanel";
+import { mockCompanies } from "@/data/mockCompanies";
+import {
+  analyzeInfinyCart,
+  calculateInfinySettlement,
+  INFINY_TOTAL_FEE_RATE,
+  type InfinyCartAnalysis,
+} from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { buildPgCheckoutPayload, getPgBridgeStatus } from "@/lib/payments/pgCheckoutBridge";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 import type { CartItemSnapshot, QrPaymentSession } from "@/types/commerce";
 
 type CheckoutApiError = {
@@ -322,6 +329,72 @@ function DeveloperPayloadPanel({
   );
 }
 
+function InfinyMultiMerchantCartPanel({ analysis }: { analysis: InfinyCartAnalysis }) {
+  const settlement = calculateInfinySettlement(analysis.totalAmount);
+  const isBlocked = analysis.requiresSplitSettlementApi || !analysis.allCompaniesHaveMid;
+  const tone = isBlocked ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-950";
+  const headline = isBlocked ? "다중 MID 단일 결제 확인 필요" : "단일 MID 결제 가능";
+
+  return (
+    <section className={`rounded-md border p-4 ${tone}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em]">인피니 PG 장바구니 분석</p>
+          <h3 className="mt-1 text-lg font-black">{headline}</h3>
+          <p className="mt-2 text-sm leading-6">{analysis.blockerReason}</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black">
+          기업 {analysis.uniqueCompanyCount}곳 / MID {analysis.uniqueMidCount}개
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {analysis.companyLines.map((line) => (
+          <div key={line.companyId} className="grid gap-2 rounded-md bg-white/80 p-3 text-sm md:grid-cols-[1fr_160px_160px_140px]">
+            <div>
+              <p className="font-black text-slate-950">{line.companyName}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">{line.companyId}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black text-slate-500">MID</p>
+              <p className="mt-1 break-words font-bold text-slate-900">{line.merchantIdMasked}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black text-slate-500">기업별 금액</p>
+              <p className="mt-1 font-bold text-slate-900">{formatCurrency(line.amount)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black text-slate-500">품목</p>
+              <p className="mt-1 font-bold text-slate-900">{line.itemCount}건</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm md:grid-cols-4">
+        {[
+          ["총 결제액", formatCurrency(analysis.totalAmount)],
+          ["총 공제율", formatPercent(INFINY_TOTAL_FEE_RATE)],
+          ["총 공제", formatCurrency(settlement.totalFeeAmount)],
+          ["기업 정산 예정", formatCurrency(settlement.payoutAmount)],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-md bg-white/80 p-3">
+            <p className="text-xs font-black text-slate-500">{label}</p>
+            <p className="mt-1 font-black text-slate-950">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {analysis.requiresSplitSettlementApi ? (
+        <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-bold leading-5 text-red-900">
+          운영 판단: 회사별 MID가 다르면 일반적인 PG 승인 1건에 여러 독립 MID를 동시에 태우는 구조는 전제하면 안 됩니다.
+          인피니의 marketplace/split settlement API 또는 대표 MID + 하위가맹점 배분 필드가 확인될 때만 고객 1회 결제를 열 수 있습니다.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function ServerCheckoutFlow({
   session,
   dataSource,
@@ -342,7 +415,9 @@ export function ServerCheckoutFlow({
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const providerIsMock = readiness.provider === "mock";
-  const buttonDisabled = Boolean(pending) || !endpoints.ready;
+  const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
+  const pgPolicyBlocked = !providerIsMock && (merchantAnalysis.requiresSplitSettlementApi || !merchantAnalysis.allCompaniesHaveMid);
+  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked;
 
   const pgPayload = useMemo(
     () =>
@@ -456,11 +531,13 @@ export function ServerCheckoutFlow({
     },
     {
       label: "3단계",
-      title: providerIsMock ? "모의 승인 + transaction 기록" : "PG 결제창 연결 준비",
-      body: providerIsMock
+      title: pgPolicyBlocked ? "다중 MID 결제 정책 차단" : providerIsMock ? "모의 승인 + transaction 기록" : "PG 결제창 연결 준비",
+      body: pgPolicyBlocked
+        ? `${merchantAnalysis.blockerReason} 인피니 분할정산 API 확인 전까지 실결제 승인을 차단합니다.`
+        : providerIsMock
         ? "모의 결제사일 때만 confirm까지 이어지며 orders/payments/order_items/inventory/audit log 기록 구조를 탑니다."
         : "실제 PG SDK/API 호출은 아직 금지되어 있으며 PG사 어댑터와 키 수령 후 연결합니다.",
-      state: confirm ? ("done" as const) : providerIsMock ? ("ready" as const) : ("blocked" as const),
+      state: confirm ? ("done" as const) : pgPolicyBlocked ? ("blocked" as const) : providerIsMock ? ("ready" as const) : ("blocked" as const),
     },
   ];
 
@@ -489,6 +566,8 @@ export function ServerCheckoutFlow({
           <FlowStepCard key={step.label} {...step} />
         ))}
       </div>
+
+      <InfinyMultiMerchantCartPanel analysis={merchantAnalysis} />
 
       <section className="rounded-md bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-4">

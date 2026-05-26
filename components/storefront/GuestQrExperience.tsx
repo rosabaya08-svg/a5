@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PaymentStatusPanel, ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { mockCompanies } from "@/data/mockCompanies";
+import { COMPANY_GROUP_PURCHASE_MESSAGE, groupCartItemsByCompany } from "@/lib/payments/companyPaymentGroups";
 import {
   getLiveOrderByOrderNo,
   getLiveQrSessionByShortCode,
@@ -92,6 +94,8 @@ function QrStateNotice({ session }: { session: QrPaymentSession }) {
 }
 
 function MobileOrderSummary({ session, content }: { session: QrPaymentSession; content?: StorefrontContent }) {
+  const paymentGroups = groupCartItemsByCompany(session.items, mockCompanies);
+
   return (
     <section className="rounded-md bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -104,6 +108,12 @@ function MobileOrderSummary({ session, content }: { session: QrPaymentSession; c
       <p className="mt-2 text-sm text-slate-600">
         {session.nurseryId} / {session.roomId} / 만료 {formatDateTime(session.expiresAt)}
       </p>
+      <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+        <p className="font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
+        <p className="mt-1 font-bold">
+          현재 QR은 {paymentGroups[0]?.companyName ?? "선택 업체"} 상품 결제용입니다. 다른 업체 상품은 별도 QR로 이어집니다.
+        </p>
+      </div>
       <div className="mt-4 grid gap-3">
         {session.items.map((item) => {
           const profile = content?.productProfiles.find((candidate) => candidate.productId === item.productId);

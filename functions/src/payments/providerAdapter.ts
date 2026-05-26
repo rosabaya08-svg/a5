@@ -1,7 +1,7 @@
 import { getPgServerReadiness } from "./providerRuntime";
 import type { MockPgApproval, PaymentProviderId } from "./types";
 
-export type PgProviderCandidate = "toss" | "portone" | "kcp" | "nice" | "unknown";
+export type PgProviderCandidate = "infiny" | "toss" | "portone" | "kcp" | "nice" | "unknown";
 
 export type PgProviderOperation =
   | "createPaymentIntent"
@@ -79,6 +79,7 @@ export type ProviderConfirmResult =
 export function resolveProviderCandidate(value?: string): PgProviderCandidate {
   const provider = String(value ?? "").trim().toLowerCase().replace(/[\s_-]/g, "");
 
+  if (provider === "infiny" || provider === "infini" || provider === "infinypg" || provider === "infinipg") return "infiny";
   if (provider === "toss" || provider === "tosspayments") return "toss";
   if (provider === "portone" || provider === "iamport") return "portone";
   if (provider === "kcp") return "kcp";
@@ -88,7 +89,7 @@ export function resolveProviderCandidate(value?: string): PgProviderCandidate {
 }
 
 export function providerCandidateToId(candidate: PgProviderCandidate): PaymentProviderId {
-  if (candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
+  if (candidate === "infiny" || candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
   return "pg_contract";
 }
 
@@ -104,7 +105,7 @@ export function getProviderAdapterSlot(providerName?: string): PgProviderAdapter
     serverSecrets: ["PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET"],
     endpointKeys: ["NEXT_PUBLIC_PAYMENT_SUCCESS_URL", "NEXT_PUBLIC_PAYMENT_FAIL_URL", "PAYMENT_WEBHOOK_URL", "NEXT_PUBLIC_PAYMENT_API_BASE_URL"],
     blockedOperations: ["real_approval", "real_cancel", "real_refund", "real_settlement"],
-    supportedCandidates: ["toss", "portone", "kcp", "nice"],
+    supportedCandidates: ["infiny", "toss", "portone", "kcp", "nice"],
     operationPlan: {
       createPaymentIntent: "Map A5 order snapshot into provider prepare/request payload after server amount recalculation.",
       requestPayment: "Browser opens the provider module with public client key only.",

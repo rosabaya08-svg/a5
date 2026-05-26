@@ -20,8 +20,8 @@ export function MockSettlementPreview({ items }: { items: SettlementPreviewItem[
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">정산 미리보기</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">실제 지급 없음</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">인피니 정산 미리보기</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">우리 시스템 지급 없음</h2>
         </div>
         <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
           payout disabled
@@ -33,9 +33,9 @@ export function MockSettlementPreview({ items }: { items: SettlementPreviewItem[
             <tr>
               <th className="px-3 py-3">기업</th>
               <th className="px-3 py-3">총액</th>
-              <th className="px-3 py-3">수수료</th>
+              <th className="px-3 py-3">총 공제 7%</th>
               <th className="px-3 py-3">보류</th>
-              <th className="px-3 py-3">예상 지급액</th>
+              <th className="px-3 py-3">인피니 예상입금</th>
               <th className="px-3 py-3">상태</th>
             </tr>
           </thead>

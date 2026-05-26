@@ -9,7 +9,13 @@ import {
   type CompanySettlementPreview,
   type LiveRead,
 } from "@/lib/repositories/liveCommerceRepository";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import {
+  A5_PLATFORM_FEE_RATE,
+  calculateInfinySettlement,
+  INFINY_PG_FEE_RATE,
+  INFINY_TOTAL_FEE_RATE,
+} from "@/lib/payments/infinySettlementPolicy";
+import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 import type { InventoryMovement } from "@/lib/repositories/types";
 import type { OrderItem, Product } from "@/types/commerce";
 
@@ -108,24 +114,27 @@ function buildInventoryRows(movements: InventoryMovement[]) {
 
 function SettlementPreviewCard({ read }: { read: LiveRead<CompanySettlementPreview> }) {
   const settlement = read.data;
+  const fees = calculateInfinySettlement(settlement.grossAmount);
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">company_id 기준 입금 예정 미리보기</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">정산 예정 금액</h2>
+          <h2 className="mt-1 text-lg font-black text-slate-950">인피니 정산 예정 금액</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            실제 정산 지급은 금지되어 있으며, 현재는 Firestore/모의 order_items 기준으로만 예상 금액을 계산합니다.
+            실제 지급 실행은 우리 시스템에서 차단하고, Firestore/모의 order_items 기준으로 인피니 정산 검산값만 표시합니다.
           </p>
         </div>
         <SourceBadge read={read} />
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
+      <div className="mt-4 grid gap-3 md:grid-cols-4 xl:grid-cols-6">
         {[
           ["기간", settlement.period],
           ["주문 항목", `${settlement.itemCount}건`],
           ["총 판매액", formatCurrency(settlement.grossAmount)],
+          [`인피니 ${formatPercent(INFINY_PG_FEE_RATE)}`, formatCurrency(fees.pgFeeAmount)],
+          [`A5 ${formatPercent(A5_PLATFORM_FEE_RATE)}`, formatCurrency(fees.platformFeeAmount)],
           ["예상 입금", formatCurrency(settlement.payoutAmount)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-md bg-slate-50 p-3">
@@ -134,6 +143,9 @@ function SettlementPreviewCard({ read }: { read: LiveRead<CompanySettlementPrevi
           </div>
         ))}
       </div>
+      <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-bold leading-5 text-red-900">
+        총 공제율 {formatPercent(INFINY_TOTAL_FEE_RATE)}. 정산 주체는 인피니이며, 기업 어드민에는 지급 실행 버튼을 제공하지 않습니다.
+      </p>
     </section>
   );
 }

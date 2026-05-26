@@ -1,3 +1,4 @@
+import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { AnalyticsTile, RiskDistributionItem, SettlementPreviewItem } from "@/types/mockAnalyticsView";
 
 export const analyticsTiles: AnalyticsTile[] = [
@@ -72,9 +73,9 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
     companyName: "A5 케어 서플라이",
     period: "2026-05-W3",
     grossAmount: 1840000,
-    commissionAmount: 184000,
+    commissionAmount: calculateInfinySettlement(1840000).totalFeeAmount,
     holdAmount: 0,
-    payoutPreview: 1656000,
+    payoutPreview: calculateInfinySettlement(1840000).payoutAmount,
     state: "confirmed_mock",
     riskStatuses: ["mock_only", "settlement_hold"],
   },
@@ -83,9 +84,9 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
     companyName: "회복 선물 상사",
     period: "2026-05-W3",
     grossAmount: 960000,
-    commissionAmount: 96000,
+    commissionAmount: calculateInfinySettlement(960000).totalFeeAmount,
     holdAmount: 120000,
-    payoutPreview: 744000,
+    payoutPreview: calculateInfinySettlement(960000).payoutAmount - 120000,
     state: "review",
     riskStatuses: ["needs_review", "settlement_hold"],
   },
@@ -94,8 +95,8 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
     companyName: "외부 재고 파트너",
     period: "2026-05-W3",
     grossAmount: 420000,
-    commissionAmount: 42000,
-    holdAmount: 378000,
+    commissionAmount: calculateInfinySettlement(420000).totalFeeAmount,
+    holdAmount: calculateInfinySettlement(420000).payoutAmount,
     payoutPreview: 0,
     state: "payout_blocked",
     riskStatuses: ["blocked", "integration_pending"],

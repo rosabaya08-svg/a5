@@ -1,3 +1,4 @@
+import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { AuditLog, Order, OrderItem, Payment } from "@/types/commerce";
 
 export const mockOrders: Order[] = [
@@ -26,10 +27,25 @@ export const mockOrders: Order[] = [
     customerPhoneMasked: "010-****-7811",
     status: "ready_for_pickup",
     deliveryMethod: "pickup",
-    totalAmount: 147000,
+    totalAmount: 75000,
     paidAt: "2026-05-19T15:28:00+09:00",
     createdAt: "2026-05-19T15:22:00+09:00",
-    itemIds: ["order-item-002", "order-item-004"],
+    itemIds: ["order-item-002"],
+  },
+  {
+    id: "order-004",
+    orderNo: "A5-20260519-003",
+    qrSessionId: "qr-004",
+    nurseryId: "nursery-gangnam-01",
+    roomId: "room-701",
+    customerName: "박*린",
+    customerPhoneMasked: "010-****-7811",
+    status: "ready_for_pickup",
+    deliveryMethod: "pickup",
+    totalAmount: 72000,
+    paidAt: "2026-05-19T15:36:00+09:00",
+    createdAt: "2026-05-19T15:31:00+09:00",
+    itemIds: ["order-item-004"],
   },
   {
     id: "order-003",
@@ -58,7 +74,7 @@ export const mockOrderItems: OrderItem[] = [
     quantity: 1,
     unitPrice: 128000,
     deliveryStatus: "invoice_pending",
-    settlementAmount: 108800,
+    settlementAmount: calculateInfinySettlement(128000).payoutAmount,
   },
   {
     id: "order-item-002",
@@ -69,18 +85,18 @@ export const mockOrderItems: OrderItem[] = [
     quantity: 1,
     unitPrice: 75000,
     deliveryStatus: "pickup_ready",
-    settlementAmount: 66000,
+    settlementAmount: calculateInfinySettlement(75000).payoutAmount,
   },
   {
     id: "order-item-004",
-    orderId: "order-002",
+    orderId: "order-004",
     companyId: "company-momtable",
     productName: "수유맘 루이보스 티 세트",
     optionName: "20포",
     quantity: 2,
     unitPrice: 36000,
     deliveryStatus: "pickup_ready",
-    settlementAmount: 64800,
+    settlementAmount: calculateInfinySettlement(72000).payoutAmount,
   },
   {
     id: "order-item-003",
@@ -91,7 +107,7 @@ export const mockOrderItems: OrderItem[] = [
     quantity: 1,
     unitPrice: 39000,
     deliveryStatus: "picked_up",
-    settlementAmount: 33150,
+    settlementAmount: calculateInfinySettlement(39000).payoutAmount,
   },
 ];
 
@@ -110,9 +126,18 @@ export const mockPayments: Payment[] = [
     orderId: "order-002",
     orderNo: "A5-20260519-002",
     status: "approved_mock",
-    amount: 147000,
+    amount: 75000,
     mockTid: "MOCK-TID-20260519-002",
     approvedAt: "2026-05-19T15:28:00+09:00",
+  },
+  {
+    id: "payment-004",
+    orderId: "order-004",
+    orderNo: "A5-20260519-003",
+    status: "approved_mock",
+    amount: 72000,
+    mockTid: "MOCK-TID-20260519-003",
+    approvedAt: "2026-05-19T15:36:00+09:00",
   },
   {
     id: "payment-003",
@@ -150,7 +175,7 @@ export const mockAuditLogs: AuditLog[] = [
     actorName: "운영자",
     action: "blocked",
     target: "settlement-payout",
-    message: "실제 정산 지급은 C등급으로 차단",
+    message: "인피니 정산 대행 정책으로 우리 시스템 지급 실행 차단",
     createdAt: "2026-05-19T16:10:00+09:00",
   },
 ];

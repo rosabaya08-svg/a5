@@ -1,8 +1,13 @@
 import { collection, doc, getDoc, getDocs, query, where, type QueryConstraint } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
+import {
+  buildInfinyPgProfile,
+  defaultInfinyPgProfile,
+  INFINY_TOTAL_FEE_RATE,
+} from "@/lib/payments/infinySettlementPolicy";
 import type { CompanyRepository, CompanyListFilters } from "@/lib/repositories/types";
 import { repositoryError, repositoryOk } from "@/lib/repositories/types";
-import type { Company } from "@/types/commerce";
+import type { Company, PgMerchantStatus } from "@/types/commerce";
 
 function asString(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value : fallback;
@@ -18,16 +23,28 @@ function asCompanyStatus(status: unknown, approvalStatus: unknown): Company["sta
   return "approved";
 }
 
+function asPgMerchantStatus(value: unknown): PgMerchantStatus {
+  const allowed: PgMerchantStatus[] = ["not_applied", "in_review", "mid_issued", "active", "blocked"];
+  return allowed.includes(value as PgMerchantStatus) ? (value as PgMerchantStatus) : "not_applied";
+}
+
 function mapCompany(documentId: string, data: Record<string, unknown>): Company {
+  const merchantId = asString(data.infiny_mid ?? data.pg_merchant_id ?? data.merchantId);
+  const merchantStatus = asPgMerchantStatus(data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus);
+  const pgProfile = merchantId || merchantStatus !== "not_applied"
+    ? buildInfinyPgProfile({ merchantId: merchantId || undefined, merchantStatus })
+    : defaultInfinyPgProfile();
+
   return {
     id: asString(data.company_id ?? data.companyId, documentId),
     name: asString(data.name, "A5 company"),
     managerName: asString(data.manager_name ?? data.managerName, "A5 manager"),
     status: asCompanyStatus(data.status, data.approval_status),
-    commissionRate: asNumber(data.commission_rate ?? data.commissionRate, 0),
+    commissionRate: asNumber(data.commission_rate ?? data.commissionRate, INFINY_TOTAL_FEE_RATE),
     productCount: asNumber(data.product_count ?? data.productCount, 0),
     pendingProductCount: asNumber(data.pending_product_count ?? data.pendingProductCount, 0),
-    settlementBlocked: Boolean(data.settlement_blocked ?? data.settlementBlocked ?? false),
+    settlementBlocked: Boolean(data.settlement_blocked ?? data.settlementBlocked ?? true),
+    pgProfile,
   };
 }
 

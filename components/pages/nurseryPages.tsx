@@ -1,6 +1,14 @@
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
 import { nurseryNavItems } from "@/components/layout/navigation";
+import {
+  NurseryOperationsOverview,
+  NurseryOrdersFirestorePanel,
+  NurseryPickupEventsPanel,
+  NurseryQrSessionsPanel,
+  NurseryRoomsFirestorePanel,
+  NurseryTabletsFirestorePanel,
+} from "@/components/nursery/NurseryFirebaseOperations";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -105,6 +113,8 @@ export function NurseryDashboardPage() {
     <NurseryShell title="조리원 대시보드" subtitle="객실, 태블릿, QR, 현장수령 주문을 조리원 기준으로 확인합니다.">
       <NurseryIdentityPanel />
       <div className="mt-4" />
+      <NurseryOperationsOverview nurseryId={nurseryId} />
+      <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.nurseryMetrics(nurseryId).map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -129,6 +139,8 @@ export function NurseryRoomsPage() {
     <NurseryShell title="객실 관리" subtitle="객실과 태블릿 연결, 현장수령 가능 여부를 확인합니다.">
       <RoomSelectionMock />
       <div className="mt-4" />
+      <NurseryRoomsFirestorePanel nurseryId={nurseryId} />
+      <div className="mt-4" />
       <DataTable
         columns={["객실", "층", "현장수령", "연결 태블릿", "QR 출처"]}
         rows={mockApi
@@ -152,6 +164,8 @@ export function NurseryRoomsPage() {
 export function NurseryTabletsPage() {
   return (
     <NurseryShell title="태블릿 관리" subtitle="객실 태블릿 활성 상태와 마지막 접속 시각을 확인합니다.">
+      <NurseryTabletsFirestorePanel nurseryId={nurseryId} />
+      <div className="mt-4" />
       <DataTable
         columns={["태블릿", "객실", "상태", "마지막 접속", "접근 범위"]}
         rows={mockApi
@@ -179,6 +193,8 @@ export function NurseryPickupsPage() {
 
   return (
     <NurseryShell title="현장수령" subtitle="조리원에서 확인해야 하는 현장수령 주문을 표시합니다.">
+      <NurseryPickupEventsPanel nurseryId={nurseryId} />
+      <div className="mt-4" />
       <DataTable
         columns={["주문번호", "객실", "고객", "상태", "금액"]}
         rows={pickupOrders.map((order) => ({
@@ -200,6 +216,9 @@ export function NurseryQrHistoryPage() {
   return (
     <NurseryShell title="QR 이력" subtitle="객실/태블릿별 QR 세션 생성, 만료, 결제 상태를 확인합니다.">
       <FilterBar title="QR 필터" filters={["활성", "결제완료", "만료", "조르기"]} />
+      <div className="mt-4" />
+      <NurseryQrSessionsPanel nurseryId={nurseryId} />
+      <div className="mt-4" />
       <DataTable
         columns={["코드", "타입", "상태", "객실", "태블릿", "만료", "금액"]}
         rows={mockApi
@@ -225,6 +244,8 @@ export function NurseryQrHistoryPage() {
 export function NurseryOrdersPage() {
   return (
     <NurseryShell title="조리원 주문 이력" subtitle="조리원 출처로 생성된 주문만 확인합니다.">
+      <NurseryOrdersFirestorePanel nurseryId={nurseryId} />
+      <div className="mt-4" />
       <DataTable
         columns={["주문번호", "객실", "고객", "상태", "수령", "금액"]}
         rows={mockApi

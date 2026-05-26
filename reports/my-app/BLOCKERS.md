@@ -254,3 +254,12 @@
 - Payment monitor is read/diagnostic only until PG webhook signature verification and provider event mapping are implemented.
 - Order monitor is read/diagnostic only; manual order state mutation must stay server-side.
 - Real PG cancel/refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-26 Company/Nursery operations blockers
+
+- Company and nursery screens are read-first with mock fallback; write actions still require role-scoped Custom Claims, Functions validation, and audit logs.
+- `pickup_events` is currently displayed from scoped pickup orders; a dedicated server-written `pickup_events` collection remains blocked until Functions policy is approved.
+- Settlement payout is preview-only from `order_items`; real payout, tax, refund hold, and bank transfer logic remain blocked.
+- External inventory API synchronization is not called; inventory movement rows only show Firestore/mock repository data.
+- A4 linkage fields are prepared as candidate external ids, but no A4 API call or cross-project write is active.
+- Real PG cancel/refund, Alimtalk, delivery tracking, and external inventory API integrations remain blocked.

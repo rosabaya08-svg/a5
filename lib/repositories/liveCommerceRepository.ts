@@ -5,9 +5,9 @@ import {
   readRepositoryWithSource,
   type RepositoryReadSource,
 } from "@/lib/repositories";
-import { repositoryData, type OrderWithItems } from "@/lib/repositories/types";
+import { repositoryData, type InventoryMovement, type OrderWithItems } from "@/lib/repositories/types";
 import type { MallProductProfile } from "@/data/mockShopContent";
-import type { Nursery, Product, ProductOption, QrPaymentSession, Room } from "@/types/commerce";
+import type { Nursery, Order, OrderItem, Product, ProductOption, QrPaymentSession, Room, Tablet } from "@/types/commerce";
 
 export type LiveReadSource = RepositoryReadSource;
 
@@ -58,6 +58,62 @@ export async function getLiveProductOptions(productId: string): Promise<LiveRead
   );
 }
 
+export async function getLiveCompanyProducts(companyId: string): Promise<LiveRead<Product[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.products.listCompanyProducts(companyId),
+    () => mockRepositories.products.listCompanyProducts(companyId),
+    { fallbackOnEmpty: true, emptyReason: "Firestore company products returned empty." },
+  );
+}
+
+export async function getLiveCompanyOrderItems(companyId: string): Promise<LiveRead<OrderItem[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.orders.listOrderItemsByCompany(companyId),
+    () => mockRepositories.orders.listOrderItemsByCompany(companyId),
+    { fallbackOnEmpty: true, emptyReason: "Firestore company order items returned empty." },
+  );
+}
+
+export async function getLiveCompanyInventoryMovements(companyId: string): Promise<LiveRead<InventoryMovement[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.inventory.listInventoryMovements({ companyId }),
+    () => mockRepositories.inventory.listInventoryMovements({ companyId }),
+    { fallbackOnEmpty: true, emptyReason: "Firestore company inventory movements returned empty." },
+  );
+}
+
+export type CompanySettlementPreview = {
+  companyId: string;
+  period: string;
+  grossAmount: number;
+  commissionAmount: number;
+  refundHoldAmount: number;
+  payoutAmount: number;
+  itemCount: number;
+  basis: "order_items";
+};
+
+export async function getLiveCompanySettlementPreview(companyId: string): Promise<LiveRead<CompanySettlementPreview>> {
+  const orderItems = await getLiveCompanyOrderItems(companyId);
+  const grossAmount = orderItems.data.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+  const payoutAmount = orderItems.data.reduce((total, item) => total + item.settlementAmount, 0);
+
+  return {
+    data: {
+      companyId,
+      period: "2026-05",
+      grossAmount,
+      commissionAmount: Math.max(grossAmount - payoutAmount, 0),
+      refundHoldAmount: 0,
+      payoutAmount,
+      itemCount: orderItems.data.length,
+      basis: "order_items",
+    },
+    source: orderItems.source,
+    reason: orderItems.reason,
+  };
+}
+
 export async function getLiveNurseryById(nurseryId: string): Promise<LiveRead<Nursery | undefined>> {
   try {
     return await readRepositoryWithSource(
@@ -86,6 +142,70 @@ export async function getLiveRoomById(roomId: string): Promise<LiveRead<Room | u
       reason: error instanceof Error ? error.message : "Room repository lookup failed.",
     };
   }
+}
+
+export async function getLiveNurseryRooms(nurseryId: string): Promise<LiveRead<Room[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.rooms.listRoomsByNursery(nurseryId),
+    () => mockRepositories.rooms.listRoomsByNursery(nurseryId),
+    { fallbackOnEmpty: true, emptyReason: "Firestore nursery rooms returned empty." },
+  );
+}
+
+export async function getLiveNurseryTablets(nurseryId: string): Promise<LiveRead<Tablet[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.tablets.listTabletsByNursery(nurseryId),
+    () => mockRepositories.tablets.listTabletsByNursery(nurseryId),
+    { fallbackOnEmpty: true, emptyReason: "Firestore nursery tablets returned empty." },
+  );
+}
+
+export async function getLiveNurseryQrSessions(nurseryId: string): Promise<LiveRead<QrPaymentSession[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.qrSessions.listQrSessions({ nurseryId }),
+    () => mockRepositories.qrSessions.listQrSessions({ nurseryId }),
+    { fallbackOnEmpty: true, emptyReason: "Firestore nursery QR sessions returned empty." },
+  );
+}
+
+export async function getLiveNurseryOrders(nurseryId: string): Promise<LiveRead<Order[]>> {
+  return readRepositoryWithSource(
+    () => firebaseRepositories.orders.listOrdersByNursery(nurseryId),
+    () => mockRepositories.orders.listOrdersByNursery(nurseryId),
+    { fallbackOnEmpty: true, emptyReason: "Firestore nursery orders returned empty." },
+  );
+}
+
+export type NurseryPickupEventPreview = {
+  id: string;
+  nurseryId: string;
+  roomId: string;
+  orderNo: string;
+  status: Order["status"];
+  amount: number;
+  createdAt: string;
+  sourceCollection: "orders" | "pickup_events";
+};
+
+export async function getLiveNurseryPickupEvents(nurseryId: string): Promise<LiveRead<NurseryPickupEventPreview[]>> {
+  const orders = await getLiveNurseryOrders(nurseryId);
+
+  return {
+    data: orders.data
+      .filter((order) => order.deliveryMethod === "pickup")
+      .map((order) => ({
+        id: `pickup-${order.id}`,
+        nurseryId: order.nurseryId,
+        roomId: order.roomId,
+        orderNo: order.orderNo,
+        status: order.status,
+        amount: order.totalAmount,
+        createdAt: order.createdAt,
+        sourceCollection: "orders",
+      })),
+    source: orders.source,
+    reason: orders.reason ?? "pickup_events collection is prepared as a server-write collection; preview is derived from scoped orders.",
+  };
 }
 
 export async function getLiveStorefrontContent() {

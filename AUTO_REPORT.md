@@ -656,3 +656,19 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
 | Boundaries | All approval/write buttons remain disabled; real writes require SUPER_ADMIN claim, server validation, and audit log |
+
+## 38. 2026-05-26 Company/Nursery Firebase operations schema
+
+| Item | Result |
+| --- | --- |
+| Scope | Connected company and nursery operation screens to Firestore-first repository reads with mock fallback |
+| Company | `/company/dashboard`, `/company/products`, `/company/orders`, `/company/inventory`, `/company/sales`, and `/company/payouts` now show company_id scoped products, order_items, inventory_movements, and settlement preview data |
+| Product registration | `/company/products/new` now highlights the Firestore schema-ready product registration, legal notice, KC, preview, and approval-request flow |
+| Nursery | `/nursery/dashboard`, `/nursery/rooms`, `/nursery/tablets`, `/nursery/qr-history`, `/nursery/orders`, and `/nursery/pickups` now show nursery_id scoped rooms, tablets, QR sessions, orders, and pickup previews |
+| A4 readiness | Nursery panels display external_nursery_id, external_room_id, and external_tablet_id candidates for the future A4 bridge |
+| Repository | Added inventory movement list reads so company inventory pages can display only movements for the current company scope |
+| Validation | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+| Boundaries | No Firebase deploy, no real PG/refund/settlement payout, no real Alimtalk/delivery/external inventory API call |

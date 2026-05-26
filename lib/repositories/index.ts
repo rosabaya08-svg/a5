@@ -5,6 +5,7 @@ import type {
   CommerceRepositories,
   CreateOrderFromQrInput,
   CreatePaymentReadyInput,
+  InventoryMovementListFilters,
   InventoryMovement,
   OrderItemListFilters,
   OrderListFilters,
@@ -366,6 +367,13 @@ export const commerceRepositories: CommerceRepositories = {
   },
 
   inventory: {
+    listInventoryMovements(filters?: InventoryMovementListFilters) {
+      return resultWithFallback(
+        () => firebaseRepositories.inventory.listInventoryMovements(filters),
+        () => mockRepositories.inventory.listInventoryMovements(filters),
+        { fallbackOnEmpty: true, emptyReason: "Firestore inventory movements returned empty." },
+      );
+    },
     getOptionStock(optionId) {
       return resultWithFallback(
         () => firebaseRepositories.inventory.getOptionStock(optionId),

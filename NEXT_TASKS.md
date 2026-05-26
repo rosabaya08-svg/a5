@@ -308,3 +308,15 @@
 4. Connect CMS slot writes to `marketing_banners`, `marketing_videos`, `home_sections`, `media_assets`, and `product_detail_pages`.
 5. Add payment webhook event drill-down after official PG webhook signature verification is implemented.
 6. Keep real PG cancel/refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.
+
+## 2026-05-26 Company/Nursery Firebase operations next tasks
+
+1. Browser-smoke `/company/dashboard`, `/company/products`, `/company/orders`, `/company/inventory`, `/company/sales`, and `/company/payouts`.
+2. Browser-smoke `/nursery/dashboard`, `/nursery/rooms`, `/nursery/tablets`, `/nursery/qr-history`, `/nursery/orders`, and `/nursery/pickups`.
+3. Verify Firestore rules allow the intended read scopes for `company_id=company-sanho-care` and `nursery_id=nursery-gangnam-01`.
+4. Add repository smoke scripts for `inventory_movements`, `order_items`, `rooms`, `tablets`, and `qr_payment_sessions`.
+5. Replace company dashboard aggregate metric cards with Firestore aggregate read models when indexes are confirmed.
+6. Replace nursery dashboard aggregate metric cards with Firestore aggregate read models when indexes are confirmed.
+7. Implement `pickup_events` server-write documents after Functions/audit policy is approved; current pickup panel is derived from scoped orders.
+8. Keep settlement payout as preview-only until PG settlement, refund hold, tax invoice, and payout approval policy are finalized.
+9. Keep real Alimtalk, delivery tracking, and external inventory API calls blocked until official keys/docs are approved.

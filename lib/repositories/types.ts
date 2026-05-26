@@ -156,6 +156,12 @@ export type InventoryMovement = {
   createdBy?: string;
 };
 
+export type InventoryMovementListFilters = {
+  companyId?: string;
+  productId?: string;
+  optionId?: string;
+};
+
 export type AuditLogInput = {
   actorRole: UserRole;
   actorName: string;
@@ -234,6 +240,7 @@ export interface PaymentRepository {
 }
 
 export interface InventoryRepository {
+  listInventoryMovements(filters?: InventoryMovementListFilters): Promise<RepositoryResult<InventoryMovement[]>>;
   getOptionStock(optionId: string): Promise<RepositoryResult<number>>;
   reserveStock(optionId: string, quantity: number, sourceId: string): Promise<RepositoryResult<InventoryMovement>>;
   deductStock(optionId: string, quantity: number, orderId: string): Promise<RepositoryResult<InventoryMovement>>;

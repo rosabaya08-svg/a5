@@ -1,6 +1,21 @@
-import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  type QueryConstraint,
+} from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { InventoryMovement, InventoryRepository } from "@/lib/repositories/types";
+import type {
+  InventoryMovement,
+  InventoryMovementListFilters,
+  InventoryMovementType,
+  InventoryRepository,
+} from "@/lib/repositories/types";
 import { repositoryError, repositoryOk } from "@/lib/repositories/types";
 
 const productOptionsCollection = "product_options";
@@ -10,8 +25,55 @@ function asNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function asString(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function asIsoDate(value: unknown) {
+  if (!value) return new Date().toISOString();
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+
+  if (typeof value === "object") {
+    const maybeTimestamp = value as { seconds?: number; toDate?: () => Date };
+
+    if (typeof maybeTimestamp.toDate === "function") return maybeTimestamp.toDate().toISOString();
+    if (typeof maybeTimestamp.seconds === "number") return new Date(maybeTimestamp.seconds * 1000).toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
+function asMovementType(value: unknown): InventoryMovementType {
+  const allowed: InventoryMovementType[] = ["reserve", "deduct", "restore", "external_sync", "manual_adjust"];
+  return allowed.includes(value as InventoryMovementType) ? (value as InventoryMovementType) : "manual_adjust";
+}
+
 function movementId(prefix: string, optionId: string) {
   return `${prefix}-${optionId}-${Date.now()}`;
+}
+
+function movementConstraints(filters?: InventoryMovementListFilters) {
+  const constraints: QueryConstraint[] = [];
+  if (filters?.companyId) constraints.push(where("company_id", "==", filters.companyId));
+  if (filters?.productId) constraints.push(where("product_id", "==", filters.productId));
+  if (filters?.optionId) constraints.push(where("option_id", "==", filters.optionId));
+  return constraints;
+}
+
+function mapMovement(documentId: string, data: Record<string, unknown>): InventoryMovement {
+  return {
+    id: asString(data.id, documentId),
+    productId: asString(data.product_id ?? data.productId) || undefined,
+    optionId: asString(data.option_id ?? data.optionId),
+    companyId: asString(data.company_id ?? data.companyId) || undefined,
+    type: asMovementType(data.type),
+    quantity: asNumber(data.quantity),
+    reason: asString(data.reason, "Firestore inventory movement"),
+    sourceId: asString(data.source_id ?? data.sourceId) || undefined,
+    createdAt: asIsoDate(data.created_at ?? data.createdAt),
+    createdBy: asString(data.created_by ?? data.createdBy) || undefined,
+  };
 }
 
 async function createMovement(movement: Omit<InventoryMovement, "id">, idPrefix: string) {
@@ -45,6 +107,22 @@ async function createMovement(movement: Omit<InventoryMovement, "id">, idPrefix:
 }
 
 export const firebaseInventoryRepository: InventoryRepository = {
+  async listInventoryMovements(filters) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    try {
+      const snapshot = await getDocs(query(collection(db, movementsCollection), ...movementConstraints(filters)));
+      return repositoryOk(snapshot.docs.map((item) => mapMovement(item.id, item.data())));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore inventory movement read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore inventory movements read failed. ${message}`);
+    }
+  },
+
   async getOptionStock(optionId) {
     const db = getFirebaseDb();
 

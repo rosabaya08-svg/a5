@@ -27,6 +27,34 @@ function buildMovement(
 }
 
 export const mockInventoryRepository: InventoryRepository = {
+  async listInventoryMovements(filters) {
+    const movements = mockProductOptions.map((option) => {
+      const product = mockProducts.find((item) => item.id === option.productId);
+
+      return {
+        id: `mock-inventory-external-sync-${option.id}`,
+        productId: option.productId,
+        optionId: option.id,
+        companyId: product?.companyId,
+        type: "external_sync" as const,
+        quantity: option.stock,
+        reason: "mock company scoped inventory read",
+        sourceId: product?.externalProductCode,
+        createdAt: new Date("2026-05-20T09:00:00.000Z").toISOString(),
+        createdBy: "mock-repository",
+      };
+    });
+
+    return repositoryOk(
+      movements.filter((movement) => {
+        if (filters?.companyId && movement.companyId !== filters.companyId) return false;
+        if (filters?.productId && movement.productId !== filters.productId) return false;
+        if (filters?.optionId && movement.optionId !== filters.optionId) return false;
+        return true;
+      }),
+    );
+  },
+
   async getOptionStock(optionId) {
     const option = mockProductOptions.find((item) => item.id === optionId);
 

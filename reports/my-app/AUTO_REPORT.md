@@ -900,3 +900,14 @@
 - `/admin` now includes Firestore repository connection readiness and write policy panel.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
 - Boundaries preserved: no client direct write, no real PG/refund/settlement, no Firebase deploy. Actual writes require `SUPER_ADMIN` claim and audit logs.
+
+## 2026-05-26 Company/Nursery Firebase operations schema
+
+- Added company operation panels for Firestore-first `products`, `order_items`, `inventory_movements`, and order-item based settlement preview.
+- Added nursery operation panels for Firestore-first `rooms`, `tablets`, `qr_payment_sessions`, `orders`, and pickup preview derived from scoped orders.
+- Updated company screens: `/company/dashboard`, `/company/products`, `/company/orders`, `/company/inventory`, `/company/sales`, `/company/payouts`, and `/company/products/new`.
+- Updated nursery screens: `/nursery/dashboard`, `/nursery/rooms`, `/nursery/tablets`, `/nursery/qr-history`, `/nursery/orders`, and `/nursery/pickups`.
+- Added A4 bridge candidate fields on nursery panels: `external_nursery_id`, `external_room_id`, and `external_tablet_id`.
+- Expanded inventory repositories with `listInventoryMovements` so company inventory views are scoped by `company_id`.
+- Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
+- Boundaries preserved: no Firebase deploy, no real PG/refund/settlement payout, no real Alimtalk/delivery/external inventory API call.

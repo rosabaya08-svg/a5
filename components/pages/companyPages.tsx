@@ -4,6 +4,14 @@ import type { NavItem } from "@/components/layout/AdminSidebar";
 import { companyNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { CertificationEvidenceUploader } from "@/components/company/CertificationEvidenceUploader";
+import {
+  CompanyFirestoreProductsPanel,
+  CompanyInventoryMovementsPanel,
+  CompanyOperationsOverview,
+  CompanyOrderItemsPanel,
+  CompanyProductRegistrationFlowPanel,
+  CompanySettlementPreviewPanel,
+} from "@/components/company/CompanyFirebaseOperations";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { LegalNoticeChecklist } from "@/components/company/LegalNoticeChecklist";
@@ -135,6 +143,8 @@ export function CompanyDashboardPage() {
     <CompanyShell title="기업 대시보드" subtitle="상품, 주문, 재고, 입금 예정 금액을 입점사 기준으로 확인합니다.">
       <CompanyOnboardingPanel />
       <div className="mt-4" />
+      <CompanyOperationsOverview companyId={companyId} />
+      <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.companyMetrics(companyId).map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -167,6 +177,8 @@ export function CompanyProductsPage() {
     <CompanyShell title="상품 관리" subtitle="상품 승인 상태와 옵션 재고를 확인합니다.">
       <ProductPreviewGate />
       <div className="mt-4" />
+      <CompanyFirestoreProductsPanel companyId={companyId} />
+      <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["승인완료", "승인요청", "외부 재고 코드", "상세 미리보기"]} mode="toolbar" resultCount={mockApi.products().filter((product) => product.companyId === companyId).length} />
       <DataTable
         columns={["상품", "상태", "가격", "옵션", "외부코드", "재고"]}
@@ -193,6 +205,8 @@ export function CompanyProductNewPage() {
   return (
     <CompanyShell title="상품 등록 초안" subtitle="실제 저장 없이 등록 폼 구조와 필수 입력 항목만 표시합니다.">
       <CompanyOnboardingPanel />
+      <div className="mt-4" />
+      <CompanyProductRegistrationFlowPanel />
       <div className="mt-4" />
       <SellerDisclosureForm />
       <div className="mt-4" />
@@ -255,6 +269,8 @@ export function CompanyOrdersPage() {
 
   return (
     <CompanyShell title="주문 관리" subtitle="입점사에 배정된 order_items 기준 주문만 확인합니다.">
+      <CompanyOrderItemsPanel companyId={companyId} />
+      <div className="mt-4" />
       <DataTable
         columns={["주문번호", "고객", "상태", "수령", "금액", "생성"]}
         rows={mockApi
@@ -281,6 +297,8 @@ export function CompanyOrdersPage() {
 export function CompanyInventoryPage() {
   return (
     <CompanyShell title="재고 관리" subtitle="내 상품의 내부 재고와 외부 재고 코드 매핑 상태를 확인합니다.">
+      <CompanyInventoryMovementsPanel companyId={companyId} />
+      <div className="mt-4" />
       <DataTable
         columns={["상품", "내부 재고", "외부 상품 코드", "동기화 방식", "주의"]}
         rows={mockApi
@@ -327,6 +345,8 @@ export function CompanyDeliveriesPage() {
 export function CompanySalesPage() {
   return (
     <CompanyShell title="매출 현황" subtitle="orders 총액이 아니라 입점사 order_items 기준으로 표시합니다.">
+      <CompanySettlementPreviewPanel companyId={companyId} />
+      <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.companyMetrics(companyId).map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -345,6 +365,8 @@ export function CompanySalesPage() {
 export function CompanyPayoutsPage() {
   return (
     <CompanyShell title="입금 현황" subtitle="mock 정산 상태와 지급 차단 여부를 확인합니다.">
+      <CompanySettlementPreviewPanel companyId={companyId} />
+      <div className="mt-4" />
       <DataTable
         columns={["기간", "상태", "총액", "수수료", "보류", "예상입금"]}
         rows={mockApi

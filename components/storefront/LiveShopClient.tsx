@@ -180,10 +180,10 @@ function cartTotal(items: CartLine[]) {
 }
 
 function groupStatusLabel(group: CompanyPaymentGroup) {
-  if (group.paymentReady) return "결제 QR 생성 가능";
+  if (group.paymentReady) return "QR 결제 가능";
   if (group.merchantStatus === "in_review") return "MID 심사 중";
   if (group.merchantStatus === "blocked") return "MID 차단";
-  return "MID 확인 필요";
+  return "테스트 QR 가능";
 }
 
 function toSnapshot(item: CartLine): CartItemSnapshot {
@@ -469,11 +469,6 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       return;
     }
 
-    if (!group.paymentReady) {
-      setMessage(`${group.companyName} MID가 운영 가능 상태가 아니라 결제 QR을 만들 수 없습니다.`);
-      return;
-    }
-
     const groupItems: CartLine[] = group.items.map((item) => ({
       productId: item.productId,
       optionId: item.optionId,
@@ -521,12 +516,8 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       return;
     }
 
-    setMessage(
-      backend.ok
-        ? `${group.companyName} 결제 QR을 생성했습니다. 결제 완료 후 남은 업체 QR을 이어서 만들 수 있습니다.`
-        : `결제 진입을 생성하지 못했습니다: ${backend.error}. 잠시 후 다시 시도해 주세요.`,
-    );
-    window.location.assign(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
+    setMessage(`${group.companyName} 결제 QR을 생성했습니다. QR 화면으로 이동합니다.`);
+    window.location.assign("/tablet/qr");
 
     if (!backend.ok) {
       void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
@@ -564,7 +555,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
                   <h3 className="mt-1 text-xl font-black">{group.companyName}</h3>
                   <p className="mt-1 text-xs font-bold text-slate-500">MID {group.merchantIdMasked}</p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-black ${group.paymentReady ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+                <span className={`rounded-full px-3 py-1 text-xs font-black ${group.paymentReady ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"}`}>
                   {groupStatusLabel(group)}
                 </span>
               </div>
@@ -606,10 +597,9 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
                 <button
                   type="button"
                   onClick={() => void createQr(group)}
-                  disabled={!group.paymentReady}
-                  className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white transition active:scale-[0.98]"
                 >
-                  이 업체 결제 QR 생성
+                  QR 결제 생성
                 </button>
               </div>
             </article>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
 import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
@@ -39,6 +39,7 @@ const cartKeyBase = "a5-live-cart";
 const lastQrKeyBase = "a5-live-last-qr";
 const qrPrefix = "a5-live-qr:";
 const orderPrefix = "a5-live-order:";
+const cartAddedEventName = "a5-cart-added";
 const memoryStore = new Map<string, string>();
 
 function readTabletScope() {
@@ -127,6 +128,12 @@ function readText(key: string): string | null {
 function announceStorageChange() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("a5-cart-change"));
+  }
+}
+
+function announceCartAdded() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(cartAddedEventName));
   }
 }
 
@@ -254,7 +261,33 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
 
 export function FloatingCartButton() {
   const { items } = useCart();
+  const [isPopping, setIsPopping] = useState(false);
   const count = items.reduce((total, item) => total + item.quantity, 0);
+
+  useEffect(() => {
+    let popTimer: number | undefined;
+    let popFrame: number | undefined;
+
+    function pop() {
+      window.clearTimeout(popTimer);
+      if (popFrame !== undefined) {
+        window.cancelAnimationFrame(popFrame);
+      }
+      setIsPopping(false);
+      popFrame = window.requestAnimationFrame(() => setIsPopping(true));
+      popTimer = window.setTimeout(() => setIsPopping(false), 760);
+    }
+
+    window.addEventListener(cartAddedEventName, pop);
+
+    return () => {
+      window.clearTimeout(popTimer);
+      if (popFrame !== undefined) {
+        window.cancelAnimationFrame(popFrame);
+      }
+      window.removeEventListener(cartAddedEventName, pop);
+    };
+  }, []);
 
   return (
     <nav aria-label="장바구니 이동" className="fixed bottom-5 right-4 z-40">
@@ -263,7 +296,7 @@ export function FloatingCartButton() {
         onClick={() => {
           window.location.assign("/tablet/cart");
         }}
-        className="flex min-h-14 items-center gap-3 rounded-full border border-white/30 bg-white/35 p-1.5 pr-5 text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.22)] backdrop-blur-xl transition active:scale-95"
+        className={`flex min-h-14 items-center gap-3 rounded-full border border-white/30 bg-white/35 p-1.5 pr-5 text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.22)] backdrop-blur-xl transition active:scale-95 ${isPopping ? "a5-cart-pop" : ""}`}
         aria-label={`장바구니 ${count}개 보기`}
       >
         <span className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-rose-600 text-white shadow-sm">
@@ -282,8 +315,31 @@ export function AddToCartPanel({ product, options }: { product: Product; options
   const [selectedOptionId, setSelectedOptionId] = useState(options[0]?.id ?? "default");
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const addTimerRef = useRef<number | undefined>(undefined);
+  const addFrameRef = useRef<number | undefined>(undefined);
   const selected = options.find((option) => option.id === selectedOptionId);
   const unitPrice = product.price + (selected?.priceDelta ?? 0);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(addTimerRef.current);
+      if (addFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(addFrameRef.current);
+      }
+    };
+  }, []);
+
+  function playAddAnimation() {
+    window.clearTimeout(addTimerRef.current);
+    if (addFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(addFrameRef.current);
+    }
+
+    setIsAdding(false);
+    addFrameRef.current = window.requestAnimationFrame(() => setIsAdding(true));
+    addTimerRef.current = window.setTimeout(() => setIsAdding(false), 640);
+  }
 
   async function addToCart() {
     const current = readJson<CartLine[]>(currentCartKey(), []);
@@ -311,6 +367,10 @@ export function AddToCartPanel({ product, options }: { product: Product; options
         ];
 
     const result = await persistCart(next);
+    if (result.stored) {
+      playAddAnimation();
+      announceCartAdded();
+    }
     setMessage(result.stored ? "담았습니다. 오른쪽 장바구니에 반영됐습니다." : "담았습니다. 브라우저 저장소 권한을 확인해 주세요.");
   }
 
@@ -353,9 +413,19 @@ export function AddToCartPanel({ product, options }: { product: Product; options
         <button
           type="button"
           onClick={() => void addToCart()}
-          className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white"
+          className={`grid min-h-12 place-items-center overflow-hidden px-4 py-3 text-sm font-black text-white shadow-sm transition-all duration-[240ms] ease-out active:scale-[0.98] ${
+            isAdding ? "a5-add-cart-morph rounded-full bg-rose-600 shadow-rose-600/25" : "rounded-md bg-slate-950"
+          }`}
         >
-          담기
+          <span className="flex items-center justify-center gap-2">
+            {isAdding ? (
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M7 8h13l-1.6 8.1a2 2 0 0 1-2 1.6H9.2a2 2 0 0 1-2-1.7L5.8 5.8A2 2 0 0 0 3.8 4H3" />
+                <path d="M9 21h.01M17 21h.01" strokeLinecap="round" />
+              </svg>
+            ) : null}
+            {isAdding ? "담겼어요" : "담기"}
+          </span>
         </button>
         {message ? <p className="rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p> : null}
       </div>

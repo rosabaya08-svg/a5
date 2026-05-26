@@ -5,7 +5,7 @@ import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { staticProductIds } from "@/data/staticSmokeRoutes";
-import type { MallProductProfile } from "@/data/mockShopContent";
+import { mallBrands, type MallBrand, type MallProductProfile } from "@/data/mockShopContent";
 import {
   getLiveApprovedProducts,
   getLiveNurseryById,
@@ -27,6 +27,16 @@ type StoreContext = {
 };
 
 const SHOP_HOME_HREF = "/tablet/products/";
+
+const dealFilters = [
+  { id: "clearance-80", bannerId: "promo-clearance-80", title: "최대 할인 상품", eyebrow: "오늘의 메가 할인", min: 30, max: 80 },
+  { id: "baby-50", bannerId: "promo-baby-50", title: "베이비 베스트 특가", eyebrow: "베이비케어 할인", min: 10, max: 50, keywords: ["베이비", "신생아", "수딩"] },
+  { id: "sanmo-35", bannerId: "promo-sanmo-35", title: "산모 케어 특가", eyebrow: "산모케어 할인", min: 10, max: 35, keywords: ["산모", "회복", "티", "로브", "필로우"] },
+  { id: "new-20", bannerId: "promo-new-20", title: "신상품 할인", eyebrow: "신규 입점 브랜드 기획전", min: 10, max: 25, keywords: ["신상품", "신규"] },
+] as const;
+
+export const dealPageIds = dealFilters.map((deal) => deal.id);
+export const brandPageIds = mallBrands.map((brand) => brand.id);
 
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
   const [{ data: session }, content] = await Promise.all([
@@ -103,6 +113,62 @@ function productsForDiscountBand(products: Product[], min: number, max: number) 
   });
 }
 
+function searchableProductText(product: Product, content?: StorefrontContent) {
+  const profile = profileFor(product, content);
+  return [
+    product.name,
+    product.brand,
+    product.category,
+    product.subtitle,
+    ...(product.tags ?? []),
+    ...(product.badges ?? []),
+    profile.brand,
+    profile.displayName,
+    profile.subtitle,
+    profile.category,
+    ...profile.tags,
+    ...profile.badges,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function productsForDeal(products: Product[], dealId: string, content?: StorefrontContent) {
+  const deal = dealFilters.find((candidate) => candidate.id === dealId) ?? dealFilters[0];
+
+  return sortByNormalPriceDiscount(products).filter((product) => {
+    const rate = discountRate(product);
+    if (rate < deal.min || rate > deal.max) return false;
+
+    if (!("keywords" in deal)) return true;
+
+    const searchable = searchableProductText(product, content);
+    return deal.keywords.some((keyword) => searchable.includes(keyword));
+  });
+}
+
+function dealHrefForBanner(bannerId: string) {
+  const deal = dealFilters.find((candidate) => candidate.bannerId === bannerId);
+  return deal ? `/tablet/products/deals/${deal.id}/` : SHOP_HOME_HREF;
+}
+
+function brandHref(brandId: string) {
+  return `/tablet/products/brands/${brandId}/`;
+}
+
+function brandForId(brandId: string, content?: StorefrontContent): MallBrand | undefined {
+  return content?.brands.find((brand) => brand.id === brandId) ?? mallBrands.find((brand) => brand.id === brandId);
+}
+
+function productsForBrand(products: Product[], brand: MallBrand | undefined, content?: StorefrontContent) {
+  if (!brand) return [];
+
+  return sortByNormalPriceDiscount(products).filter((product) => {
+    const profile = profileFor(product, content);
+    return profile.brand === brand.name || product.brand === brand.name || searchableProductText(product, content).includes(brand.name);
+  });
+}
+
 function profileFor(product: Product, content?: StorefrontContent): MallProductProfile {
   return (
     content?.productProfiles.find((profile) => profile.productId === product.id) ?? {
@@ -151,17 +217,11 @@ function HeroBanner({ content }: { content: StorefrontContent }) {
 
   return (
     <section className="overflow-hidden rounded-md border border-white/10 bg-black">
-      <Link href={heroBanner.href} className="block">
+      <HardNavigateLink href={heroBanner.href || SHOP_HOME_HREF} className="block" ariaLabel={heroBanner.title}>
         <div className="relative min-h-[420px]">
           <img src={heroBanner.imageUrl} alt={heroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-          <div className="relative flex min-h-[420px] flex-col justify-end p-5 md:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">{heroBanner.eyebrow}</p>
-            <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight md:text-6xl">{heroBanner.title}</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">{heroBanner.subtitle}</p>
-          </div>
         </div>
-      </Link>
+      </HardNavigateLink>
     </section>
   );
 }
@@ -170,17 +230,16 @@ function PromoBannerGrid({ content }: { content: StorefrontContent }) {
   return (
     <section className="grid gap-4 md:grid-cols-2">
       {content.promoBanners.map((banner) => (
-        <Link key={banner.id} href={banner.href} className="group overflow-hidden rounded-md border border-white/15 bg-white/20 backdrop-blur-md">
+        <HardNavigateLink
+          key={banner.id}
+          href={dealHrefForBanner(banner.id)}
+          className="group overflow-hidden rounded-md border border-white/15 bg-white/20 backdrop-blur-md"
+          ariaLabel={`${banner.title} 상품 보기`}
+        >
           <div className="relative min-h-40">
             <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]" />
-            <div className="absolute inset-0 bg-black/15" />
-            <div className="relative p-5 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.18em]">{banner.eyebrow}</p>
-              <h3 className="mt-3 text-3xl font-black">{banner.title}</h3>
-              <p className="mt-2 text-sm font-semibold">{banner.subtitle}</p>
-            </div>
           </div>
-        </Link>
+        </HardNavigateLink>
       ))}
     </section>
   );
@@ -222,12 +281,17 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {content.brands.map((brand) => (
-          <article key={brand.id} className="rounded-md bg-white/35 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md">
+          <HardNavigateLink
+            key={brand.id}
+            href={brandHref(brand.id)}
+            className="rounded-md bg-white/35 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md transition hover:bg-white/60 active:scale-[0.99]"
+            ariaLabel={`${brand.name} 상품 보기`}
+          >
             <div className="flex h-16 items-center justify-center">
               <img src={brand.logoUrl} alt={brand.name} className="max-h-12 max-w-full object-contain" />
             </div>
             <p className="mt-2 text-xs font-bold text-slate-500">{brand.category}</p>
-          </article>
+          </HardNavigateLink>
         ))}
       </div>
     </section>
@@ -296,6 +360,38 @@ function ProductRail({
   );
 }
 
+function FilteredProductCollection({
+  title,
+  eyebrow,
+  products,
+  content,
+}: {
+  title: string;
+  eyebrow: string;
+  products: Product[];
+  content?: StorefrontContent;
+}) {
+  return (
+    <section className="grid gap-5">
+      <div className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">{eyebrow}</p>
+        <h2 className="mt-2 text-3xl font-black">{title}</h2>
+      </div>
+      {products.length ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {products.map((product) => (
+            <ProductCard key={`${title}-${product.id}`} product={product} content={content} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border border-white/25 bg-white/35 p-8 text-center text-slate-950 shadow-sm backdrop-blur-xl">
+          <p className="text-lg font-black">현재 표시할 상품이 없습니다.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function DiscountBandRails({ products, content }: { products: Product[]; content?: StorefrontContent }) {
   return (
     <>
@@ -349,6 +445,35 @@ export async function TabletProductsPage() {
         <BrandGrid content={context.content} />
         <DiscountBandRails products={products} content={context.content} />
       </div>
+    </StoreShell>
+  );
+}
+
+export async function TabletDealProductsPage({ dealId }: { dealId: string }) {
+  const context = await getContext();
+  const products = await getApprovedProducts();
+  const deal = dealFilters.find((candidate) => candidate.id === dealId) ?? dealFilters[0];
+
+  return (
+    <StoreShell title={deal.title} subtitle={deal.eyebrow} context={context}>
+      <FilteredProductCollection title={deal.title} eyebrow={deal.eyebrow} products={productsForDeal(products, deal.id, context.content)} content={context.content} />
+    </StoreShell>
+  );
+}
+
+export async function TabletBrandProductsPage({ brandId }: { brandId: string }) {
+  const context = await getContext();
+  const products = await getApprovedProducts();
+  const brand = brandForId(brandId, context.content);
+
+  return (
+    <StoreShell title={brand?.name ?? "브랜드 상품"} subtitle="브랜드관" context={context}>
+      <FilteredProductCollection
+        title={brand ? `${brand.name} 상품` : "브랜드 상품"}
+        eyebrow={brand?.category ?? "브랜드관"}
+        products={productsForBrand(products, brand, context.content)}
+        content={context.content}
+      />
     </StoreShell>
   );
 }

@@ -39,3 +39,22 @@ Do not commit real values. `.env.local.example` and `functions/.env.example` con
 - `PG_SECRET_KEY` and `PG_WEBHOOK_SECRET` must never be exposed to browser code.
 - Production keys must not be placed in `.env.local.example`, docs, screenshots, reports, or commit messages.
 - First test must use PG sandbox/test mode only.
+# 2026-05-25 Required PG Env Slots
+
+Public browser/Cloudflare values:
+- `NEXT_PUBLIC_PG_PROVIDER`
+- `NEXT_PUBLIC_PG_CLIENT_KEY`
+- `NEXT_PUBLIC_PG_CHANNEL_KEY`
+- `NEXT_PUBLIC_PG_MERCHANT_ID`
+- `NEXT_PUBLIC_PAYMENT_SUCCESS_URL`
+- `NEXT_PUBLIC_PAYMENT_FAIL_URL`
+- `NEXT_PUBLIC_PAYMENT_API_BASE_URL`
+
+Server-only Functions values:
+- `PG_SECRET_KEY`
+- `PG_MERCHANT_ID`
+- `PG_CHANNEL_KEY`
+- `PG_WEBHOOK_SECRET`
+- `PAYMENT_WEBHOOK_URL`
+
+Never commit actual values. Server-only values must not be exposed to static export pages.

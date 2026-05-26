@@ -17,6 +17,8 @@ const requiredRoutes = [
   "/orders/guest/[orderNo]",
   "/admin/dashboard",
   "/admin/payments",
+  "/admin/permissions",
+  "/company/onboarding",
   "/company/products/new",
   "/company/products/preview",
   "/nursery/dashboard",

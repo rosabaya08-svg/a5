@@ -360,3 +360,15 @@
 1. Confirm the deployed sidebar no longer shows `Dashboard`, `CMS`, `new`, `Mock/Test Beta`, or English mode labels.
 2. Keep `components/layout/navigation.ts` as the only place for admin/company/nursery menu label changes.
 3. Run a separate Korean copy cleanup for non-menu body text when the UI structure is approved.
+## 2026-05-25 PG-ready next tasks after backend beta gate
+
+1. Collect official PG docs and keys.
+2. Register public PG browser keys in Cloudflare Pages and server PG secrets in Firebase Functions/Secret Manager only.
+3. Implement provider-specific adapter in the prepared PG slot.
+4. Keep Functions amount recalculation, QR validation, product snapshot, inventory movement, and audit log transaction path intact.
+5. Add webhook signature verification and idempotency.
+6. Smoke the new `/admin/permissions` and `/company/onboarding` routes.
+7. Convert remaining admin/company/nursery mock aggregate summaries to Firestore read models.
+8. Review remaining `<img>` lint warnings after Storage/image policy is finalized.
+9. Keep production refund/settlement/Alimtalk/delivery/external inventory blocked.
+10. Confirm Cloudflare automatic deployment after GitHub push.

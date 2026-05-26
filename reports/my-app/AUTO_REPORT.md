@@ -793,3 +793,14 @@
 - Replaced legacy menu arrays with the central Korean navigation source so old English menu labels do not reappear.
 - Firebase/PG behavior unchanged.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd run check:no-secrets`.
+## 2026-05-25 Firebase commerce backend beta / PG-ready gate
+
+- Fixed release blockers: `refunded` order status and root ESLint functions build-output ignore.
+- Added Functions server surface: `paymentsStatus`, PG adapter slot, order number helper, transaction helper.
+- Added RBAC implementation prep: `types/authClaims.ts`, `functions/src/auth/**`, `/admin/permissions`.
+- Added enterprise onboarding/compliance UI: `/company/onboarding`, seller disclosure, certification upload mock, return policy, legal checklist.
+- Updated Firestore rules so client write is blocked for order/payment/inventory/audit ledgers; Functions Admin SDK remains the write path.
+- Added QA scripts: `check:firestore-products`, `check:release:ready`.
+- Firestore active products read verified: 4 active products.
+- Validation passed: env check, no-secrets, route check, release-ready check, lint, root build, functions build.
+- Real PG, refund, settlement, Alimtalk, delivery tracking, external inventory, and deploy remain blocked.

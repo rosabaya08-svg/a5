@@ -488,3 +488,19 @@
 | Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
 | Build | `npm.cmd run build` passed and generated 93 static routes |
 | Secret check | `npm.cmd run check:no-secrets` passed |
+## 27. 2026-05-25 Firebase commerce backend beta / PG-ready gate
+
+| Item | Result |
+| --- | --- |
+| Build/lint blocker fix | Added `refunded` order status and confirmed `functions/lib/**` is excluded from root ESLint |
+| Functions | Added `paymentsStatus`, PG provider adapter slot, order number helper, and server transaction plan helper |
+| Auth/RBAC | Added A5 Custom Claims types and Functions skeletons for claim verification, setting claims, and admin invite/password reset flow |
+| Rules | Tightened client write policy for orders, order_items, payments, payment_events, inventory_movements, and audit_logs so Functions Admin SDK is the server write path |
+| Company compliance | Added seller disclosure, certification evidence, legal checklist, return policy, and product compliance UI components |
+| Admin operations | Added `/admin/permissions` and product approval compliance summary |
+| Company onboarding | Added `/company/onboarding` route and sidebar link |
+| PG readiness | Rebuilt payment config with public/server env separation and added missing PG/payment URL placeholders to `.env.local.example` |
+| QA scripts | Added `check:firestore-products` and `check:release:ready` scripts |
+| Firestore live smoke | `npm.cmd run check:firestore-products` passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea |
+| Validation | `npm.cmd run check:env`, `npm.cmd run check:no-secrets`, `node scripts/check-routes.mjs`, `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd --prefix functions run build` passed |
+| Remaining boundary | Real PG approval/cancel/refund/settlement, Alimtalk, delivery tracking, external inventory API, and firebase deploy remain blocked |

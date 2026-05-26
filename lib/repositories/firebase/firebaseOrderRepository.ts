@@ -56,6 +56,7 @@ function asOrderStatus(value: unknown): OrderStatus {
     "refund_reviewed",
     "refund_approved_mock",
     "refund_rejected",
+    "refunded",
   ];
 
   return allowed.includes(value as OrderStatus) ? (value as OrderStatus) : "pending_payment";

@@ -62,3 +62,26 @@ storage
 ## 6. 현재 금지
 
 Storage Rules 파일 생성, Firebase Storage SDK 연결, bucket 설정, 실제 파일 업로드, Storage Blaze 업그레이드 지시는 금지한다. 상품 이미지/GIF는 mock placeholder 상태를 유지한다.
+# 2026-05-25 Storage Beta Update
+
+Storage bucket is initialized for `a5-closed-mall`.
+
+Beta upload candidates:
+- `company-documents/{company_id}/business-registration/*`
+- `company-documents/{company_id}/bankbook/*`
+- `product-media/{company_id}/{product_id}/images/*`
+- `product-media/{company_id}/{product_id}/videos/*`
+- `cms-media/{owner_id}/banners/*`
+- `cms-media/{owner_id}/videos/*`
+
+Current code policy:
+- Product/customer screens may read placeholder/media URLs.
+- Actual `uploadBytes` production behavior remains blocked until upload validation, file size, MIME type, malware scan, and approval workflow are confirmed.
+
+Deploy command candidate only:
+
+```powershell
+firebase.cmd deploy --only storage:rules
+```
+
+Do not run storage rules deploy automatically in this phase.

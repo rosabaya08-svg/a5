@@ -208,3 +208,15 @@
 1. After deployment, visually confirm `/admin/dashboard`, `/admin/marketing/banners`, `/company/dashboard`, and `/nursery/dashboard` show Korean-only sidebar menu labels.
 2. Keep future sidebar badges Korean-only unless the term is a fixed product or technical identifier.
 3. If page body copy is also required to be fully Korean, handle that as a separate content cleanup pass.
+## 2026-05-25 PG-ready next tasks after backend beta gate
+
+1. Receive PG provider official sandbox docs, client key, MID/channel key, server secret, webhook secret, success/fail URL rules, and cancel/refund docs.
+2. Put browser-safe `NEXT_PUBLIC_PG_*` values into Cloudflare Pages only.
+3. Put `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, merchant id, and channel key into Firebase Functions runtime/Secret Manager only.
+4. Replace `functions/src/payments/providerAdapter.ts` skeleton with the selected Toss/PortOne/KCP/NICE adapter after official docs are reviewed.
+5. Keep `paymentsConfirm` server amount recalculation and Firestore transaction writes unchanged while swapping mock approval for provider confirm.
+6. Implement webhook signature verification and duplicate event guard before any real payment state transition.
+7. Deploy Firestore rules only after owner confirmation with `firebase.cmd deploy --only firestore:rules`.
+8. Visually smoke `/admin/permissions`, `/company/onboarding`, `/company/products/new`, `/q/SANHO701/checkout`, and `/orders/guest/A5-20260519-001`.
+9. Convert remaining admin/company/nursery aggregate widgets from mock summaries to Firestore read models.
+10. Keep refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked until policies and official keys are approved.

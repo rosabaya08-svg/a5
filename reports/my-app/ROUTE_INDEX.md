@@ -90,3 +90,7 @@ This is the route index for `localhost:3000` in the `my-app` worktree. Customer 
 - External inventory API: blocker
 - Storage: held because Spark plan blocks usage
 - Deployment: not production
+## 2026-05-25 Added PG/Firebase readiness routes
+
+- `/admin/permissions`: Firebase Auth Custom Claims and admin invite/password reset planning UI.
+- `/company/onboarding`: company onboarding, seller disclosure, document upload mock, and account activation gate.

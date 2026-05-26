@@ -20,6 +20,7 @@ export type OrderStatus =
   | "refund_reviewed"
   | "refund_approved_mock"
   | "refund_rejected"
+  | "refunded"
   | "cancelled";
 
 export type PaymentStatus =
@@ -73,6 +74,7 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   refund_reviewed: "환불 검토",
   refund_approved_mock: "mock 환불 승인",
   refund_rejected: "환불 반려",
+  refunded: "환불 완료",
   cancelled: "취소",
 };
 
@@ -115,6 +117,7 @@ export const statusToneMap: Record<
   refund_reviewed: "purple",
   refund_approved_mock: "green",
   refund_rejected: "red",
+  refunded: "green",
   ready: "neutral",
   approved_mock: "green",
   failed_mock: "red",

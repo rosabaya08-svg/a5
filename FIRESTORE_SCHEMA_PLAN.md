@@ -259,3 +259,33 @@ Firestore에서는 문서 간 일관성을 위해 snake_case를 기본으로 둔
 | `nursery_external_mappings` | A4 연동용 외부 ID 매핑 | 설계만 |
 
 실결제 전에는 서버가 `qr_payment_sessions.items` snapshot을 기준으로 주문금액을 재계산하고, 클라이언트가 보낸 금액은 참고값으로만 사용한다.
+# 2026-05-25 Schema Implementation Update
+
+Server-owned transaction collections:
+- `payment_intents`
+- `orders`
+- `order_items`
+- `payments`
+- `payment_events`
+- `inventory_movements`
+- `qr_payment_sessions`
+- `audit_logs`
+
+Client write policy:
+- Client direct write is blocked for order/payment/inventory/audit ledgers.
+- Firebase Functions Admin SDK is the only intended beta write path for payment confirmation.
+
+Foundation seed coverage:
+- `companies`
+- `nurseries`
+- `rooms`
+- `tablets`
+- `product_options`
+- `qr_payment_sessions`
+- `marketing_banners`
+- `marketing_videos`
+- `product_detail_pages`
+- `home_sections`
+- `tablet_home_configs`
+- `media_assets`
+- `audit_logs`

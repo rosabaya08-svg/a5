@@ -31,4 +31,3 @@ export function TopBar({ title, subtitle, scopeLabel, surface = "light" }: TopBa
     </header>
   );
 }
-

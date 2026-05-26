@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
+import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
@@ -274,6 +276,8 @@ export function AdminProductsPage() {
 
   return (
     <AdminShell title="상품 승인" subtitle="승인 대기 상품과 가격비교 표시값을 검토합니다.">
+      <ComplianceSummaryPanel />
+      <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["전체", "승인대기", "승인완료", "재고부족"]} />
       <DataTable
         columns={["상품", "입점사", "카테고리", "상태", "폐쇄몰가", "재고"]}
@@ -390,6 +394,20 @@ export function AdminAuditLogsPage() {
             log.message,
           ],
         }))}
+      />
+    </AdminShell>
+  );
+}
+
+export function AdminPermissionsPage() {
+  return (
+    <AdminShell title="권한/계정 발급" subtitle="Firebase Auth 초대, Custom Claims, 역할별 접근 범위를 운영자가 검토합니다.">
+      <AdminInvitePanel />
+      <div className="mt-4" />
+      <ConfirmBox
+        title="실제 계정 대량 생성 금지"
+        description="이 화면은 운영 설계와 초대 흐름을 표시합니다. 대량 사용자 생성, 평문 비밀번호 저장, Secret Key 노출은 금지합니다."
+        confirmLabel="SUPER_ADMIN 승인 필요"
       />
     </AdminShell>
   );

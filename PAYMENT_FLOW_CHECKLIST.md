@@ -67,3 +67,15 @@
 - Confirm API request/response mapping.
 - Webhook signature algorithm.
 - Cancel/refund API policy.
+# 2026-05-25 Payment Flow Gate
+
+- [x] Client checkout has PG readiness panel and mock fallback.
+- [x] Functions `paymentsReady` recalculates amount.
+- [x] Functions `paymentsConfirm` keeps real PG disabled and writes Firestore transaction in mock mode.
+- [x] Functions `paymentsStatus` endpoint skeleton exists.
+- [x] PG provider adapter slot exists without SDK import.
+- [x] Firestore rules block direct client writes to payment/order ledgers.
+- [ ] Real PG SDK/API selected.
+- [ ] PG test keys inserted into safe runtime locations.
+- [ ] Real webhook signature verification implemented.
+- [ ] Real cancel/refund policy approved.

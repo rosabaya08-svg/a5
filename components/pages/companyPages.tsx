@@ -3,8 +3,13 @@ import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/AdminSidebar";
 import { companyNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
+import { CertificationEvidenceUploader } from "@/components/company/CertificationEvidenceUploader";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
+import { LegalNoticeChecklist } from "@/components/company/LegalNoticeChecklist";
+import { ProductComplianceForm } from "@/components/company/ProductComplianceForm";
+import { ReturnPolicyForm } from "@/components/company/ReturnPolicyForm";
+import { SellerDisclosureForm } from "@/components/company/SellerDisclosureForm";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mockApi } from "@/lib/mock/mockApi";
@@ -188,6 +193,16 @@ export function CompanyProductNewPage() {
   return (
     <CompanyShell title="상품 등록 초안" subtitle="실제 저장 없이 등록 폼 구조와 필수 입력 항목만 표시합니다.">
       <CompanyOnboardingPanel />
+      <div className="mt-4" />
+      <SellerDisclosureForm />
+      <div className="mt-4" />
+      <LegalNoticeChecklist />
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <ProductComplianceForm />
+        <CertificationEvidenceUploader />
+      </div>
+      <div className="mt-4" />
+      <ReturnPolicyForm />
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_420px]">
         <ProductCompliancePanel />
         <ProductPreviewGate />
@@ -210,6 +225,24 @@ export function CompanyProductNewPage() {
           </label>
         ))}
       </div>
+    </CompanyShell>
+  );
+}
+
+export function CompanyOnboardingRequirementsPage() {
+  return (
+    <CompanyShell title="입점 신청/서류 준비" subtitle="사업자등록증, 통장 사본, 담당자 연락처, CS/반품지 정보를 승인 전 점검합니다.">
+      <CompanyOnboardingPanel />
+      <div className="mt-4" />
+      <SellerDisclosureForm />
+      <div className="mt-4" />
+      <CertificationEvidenceUploader />
+      <div className="mt-4" />
+      <ConfirmBox
+        title="입점 승인 전 운영 확인"
+        description="Firebase Auth 계정 발급, Custom Claims 부여, 사업자등록증/통장 사본 검수 전에는 실제 판매와 정산 지급이 차단됩니다."
+        confirmLabel="운영자 승인 필요"
+      />
     </CompanyShell>
   );
 }

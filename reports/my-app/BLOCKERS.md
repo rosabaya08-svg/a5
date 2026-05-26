@@ -197,3 +197,12 @@
 - Admin/company/nursery dashboards still need final aggregate read-model conversion, but CMS/foundation records are seeded and beta writable in Firestore.
 - App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA domain coverage are verified.
 - Production refund, settlement, payout, Alimtalk, delivery tracking, and external inventory integrations remain blocked.
+## 2026-05-25 remaining blockers after Firebase commerce backend beta gate
+
+- Real PG provider docs, sandbox keys, webhook signature spec, cancel/refund API, and settlement policy are still required.
+- Server secrets must be entered only in Firebase Functions runtime/Secret Manager.
+- Real PG, refund, settlement payout, Alimtalk, delivery tracking, and external inventory API calls remain blocked.
+- Firestore/Storage deploy commands are documented but not executed in this phase.
+- App Check enforcement remains OFF pending Cloudflare custom domain/reCAPTCHA verification.
+- Storage upload validation and media governance are still required before production upload.
+- `<img>` warnings are still present but not build-blocking.

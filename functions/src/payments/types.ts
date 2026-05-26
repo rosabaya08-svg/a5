@@ -90,6 +90,18 @@ export type PaymentCancelRequest = {
   requestedBy: "SUPER_ADMIN" | "COMPANY_ADMIN" | "CUSTOMER_GUEST";
 };
 
+export type PaymentStatusResponse = {
+  ok: boolean;
+  source: "firebase_functions";
+  paymentIntentId?: string;
+  orderNo?: string;
+  status?: string;
+  amount?: number;
+  currency?: Currency;
+  provider?: PaymentProviderId;
+  message: string;
+};
+
 export type ServerPaymentIntent = {
   id: string;
   qrSessionId: string;
@@ -112,6 +124,7 @@ export type PaymentServerError = {
 export type HttpRequestLike = {
   method?: string;
   body?: unknown;
+  query?: Record<string, unknown>;
   get?: (name: string) => string | undefined;
 };
 

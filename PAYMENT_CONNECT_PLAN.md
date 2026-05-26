@@ -79,3 +79,20 @@ The browser must never trust its own amount. The server must:
 - Settlement payout and refund hold automation.
 - Production Functions deploy.
 - Legal wording and PG terms confirmation.
+# 2026-05-25 PG-Ready Update
+
+Current ready points:
+- Frontend payment config reads only public `NEXT_PUBLIC_PG_*` values.
+- Server secrets are reserved for Firebase Functions runtime or Secret Manager.
+- Functions contain ready/confirm/webhook/cancel/status endpoints.
+- `paymentsConfirm` performs Firestore transaction writes in mock mode and keeps real PG approval disabled.
+- `functions/src/payments/providerAdapter.ts` defines the PG adapter slot without importing any PG SDK.
+
+PG key insertion flow:
+1. Add public keys to Cloudflare Pages and local env, never to git.
+2. Add server keys to Functions runtime/Secret Manager only.
+3. Implement the selected provider adapter from official docs.
+4. Keep server amount recalculation before real confirm.
+5. Validate webhook signature before status transitions.
+
+Do not implement real refund or settlement payout before separate approval.

@@ -78,3 +78,18 @@ Latest local result on 2026-05-25:
 - Alimtalk sending
 - Delivery tracking
 - External inventory sync
+# 2026-05-25 Cloudflare/Firebase Handoff
+
+Cloudflare Pages:
+- GitHub push to `feat/mock-ui-progress-capture-20260520` triggers automatic deployment.
+- Public Firebase and PG browser values must be configured in Cloudflare environment variables.
+- Server PG secrets must not be configured in Cloudflare Pages for static export.
+
+Firebase:
+- Firestore products read is live.
+- Functions payment endpoints are the server payment path.
+- Firestore/Storage deploy commands are documented but not run in this phase.
+
+After push:
+- Check Cloudflare Deployments.
+- Smoke `/products`, `/tablet/products`, `/q/SANHO701`, `/q/SANHO701/checkout`, `/admin/permissions`, `/company/onboarding`.

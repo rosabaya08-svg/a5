@@ -161,3 +161,25 @@ Custom Claims 설정은 클라이언트에서 하지 않는다. Cloud Functions 
 | `TABLET_DEVICE` | `role`, `nursery_id`, `room_id`, `tablet_id` |
 
 고객/보호자는 Auth 계정을 만들지 않고 QR token, 주문번호, 휴대폰 hash 기반 비회원 흐름을 유지한다.
+# 2026-05-25 Implementation Update
+
+Repo additions:
+- `types/authClaims.ts`
+- `functions/src/auth/verifyClaims.ts`
+- `functions/src/auth/setCustomClaims.ts`
+- `functions/src/auth/inviteAdminUser.ts`
+- `components/admin/AdminInvitePanel.tsx`
+- `app/admin/permissions/page.tsx`
+
+Claim structure:
+- `role`: `SUPER_ADMIN | COMPANY_ADMIN | NURSERY_ADMIN | TABLET_DEVICE | CUSTOMER_GUEST | seed_admin`
+- `company_id`: company admin scope.
+- `nursery_id`: nursery admin and tablet scope.
+- `room_id`: tablet room scope.
+- `tablet_id`: tablet device scope.
+- `seed_admin`: initial seed/admin write helper flag.
+
+Account rule:
+- Do not store plain passwords.
+- Invite/reset links are the intended Firebase Auth flow.
+- Bulk user creation remains blocked until owner review.

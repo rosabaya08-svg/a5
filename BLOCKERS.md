@@ -91,3 +91,12 @@
 - Alimtalk, delivery tracking, and external inventory integrations remain blocked until official accounts/API keys are issued.
 - Firebase App Check enforcement remains OFF until Cloudflare custom domain and reCAPTCHA coverage are verified.
 - `firebase-functions` deploys, but Firebase CLI warns the package is not the newest available version; review before production payment launch.
+## 2026-05-25 remaining blockers after Firebase commerce backend beta gate
+
+- Real PG provider docs and sandbox keys are still required before real approval/cancel/webhook implementation.
+- `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, provider credentials, and any reCAPTCHA secret must never be committed; they belong in Firebase Functions runtime/Secret Manager.
+- Real PG approval, cancel, refund, settlement payout, Alimtalk, delivery tracking, and external inventory API calls remain blocked.
+- Firestore rules deploy was not run in this phase; candidate command is documented only.
+- App Check enforcement remains OFF until Cloudflare domain and localhost behavior are verified.
+- Storage upload production behavior still needs file type, size, malware scan, approval workflow, and retention policy.
+- Remaining `<img>` lint warnings are non-blocking but should be resolved after final image/Storage strategy is approved.

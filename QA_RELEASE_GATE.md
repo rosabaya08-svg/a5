@@ -71,3 +71,23 @@ The release gate checks:
 - Real PG approval/cancel/refund call
 - Firebase deploy or Cloudflare production deploy without approval
 - Firestore write rules/IAM not approved for payment/order paths
+# 2026-05-25 Release Gate Update
+
+Run before push:
+1. `npm run check:env`
+2. `npm run check:no-secrets`
+3. `node scripts/check-routes.mjs`
+4. `npm run check:release:ready`
+5. `npm run lint`
+6. `npm run build`
+7. `npm --prefix functions run build`
+
+Optional live read smoke:
+- `npm run check:firestore-products`
+
+Hard blockers:
+- `.env.local` tracked in git.
+- service account/private key files.
+- PG secret values in repo.
+- Real PG/refund/settlement/Alimtalk/delivery/external inventory calls.
+- Firebase deploy commands in this phase.

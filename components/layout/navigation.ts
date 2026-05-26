@@ -7,11 +7,12 @@ export type NavItem = {
 export const adminNavItems: NavItem[] = [
   { href: "/admin/dashboard", label: "대시보드" },
   { href: "/admin/companies", label: "입점사" },
+  { href: "/admin/permissions", label: "권한/계정", badge: "신규" },
   { href: "/admin/nurseries", label: "조리원" },
   { href: "/admin/rooms", label: "객실" },
   { href: "/admin/tablets", label: "태블릿" },
   { href: "/admin/products", label: "상품 승인" },
-  { href: "/admin/marketing/banners", label: "배너/광고", badge: "콘텐츠" },
+  { href: "/admin/marketing/banners", label: "배너/광고", badge: "CMS" },
   { href: "/admin/marketing/videos", label: "영상/GIF" },
   { href: "/admin/home-editor", label: "홈 편집" },
   { href: "/admin/brands", label: "브랜드관" },
@@ -24,6 +25,7 @@ export const adminNavItems: NavItem[] = [
 
 export const companyNavItems: NavItem[] = [
   { href: "/company/dashboard", label: "대시보드" },
+  { href: "/company/onboarding", label: "입점 신청", badge: "필수" },
   { href: "/company/products", label: "상품" },
   { href: "/company/products/new", label: "상품 등록" },
   { href: "/company/products/preview", label: "상세 미리보기", badge: "신규" },
@@ -46,4 +48,3 @@ export const nurseryNavItems: NavItem[] = [
   { href: "/nursery/qr-history", label: "QR 이력" },
   { href: "/nursery/orders", label: "주문 이력" },
 ];
-

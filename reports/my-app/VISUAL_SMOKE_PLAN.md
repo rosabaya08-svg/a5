@@ -138,3 +138,10 @@ This checklist is for manual browser review on `localhost:3000`. It must be run 
 - TypeScript validation is deferred until manual `npm run build`.
 - ESLint validation is deferred until manual `npm run lint`.
 - Git staging/commit is deferred until manual review.
+## 2026-05-25 Added smoke checks
+
+1. Open `/admin/permissions` and verify role cards for `SUPER_ADMIN`, `COMPANY_ADMIN`, `NURSERY_ADMIN`, `TABLET_DEVICE`, and `seed_admin`.
+2. Open `/company/onboarding` and verify seller disclosure, document upload mock, and activation blocker copy.
+3. Open `/company/products/new` and verify legal checklist, KC/certification summary, seller disclosure, upload mock, return policy, and approval gate.
+4. Open `/admin/products` and verify compliance/KC red flag summary appears above the approval table.
+5. Open `/q/SANHO701/checkout` and verify PG readiness panel still says real payment is blocked until provider keys are supplied.

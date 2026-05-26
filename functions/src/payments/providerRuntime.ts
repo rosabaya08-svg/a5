@@ -7,7 +7,7 @@ export type PgServerReadiness = {
   message: string;
 };
 
-const requiredServerKeys = ["PG_PROVIDER", "PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET"] as const;
+const requiredServerKeys = ["PG_PROVIDER", "PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
 
 function readEnv(name: string): string {
   return process.env[name]?.trim() ?? "";

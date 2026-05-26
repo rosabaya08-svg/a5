@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
+import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
 import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
 import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
 import {
@@ -45,7 +46,7 @@ function AdminShell({
       sectionTitle="최고관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="최고관리자 / 모의"
+      scopeLabel="최고관리자"
       navItems={adminNavItems}
       accent="admin"
     >
@@ -205,6 +206,8 @@ export function AdminDashboardPage() {
 export function AdminCompaniesPage() {
   return (
     <AdminShell title="입점사 관리" subtitle="기업 승인, 인피니 MID, 수수료율, 정산 차단 상태를 확인합니다.">
+      <CompanySignupRequestsPanel />
+      <div className="mt-4" />
       <AccountProvisioningPanel />
       <div className="mt-4" />
       <CompanyApprovalQueuePanel />

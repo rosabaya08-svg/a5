@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
 import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
 import { saveLiveShopDocument } from "@/lib/firebase/liveShopRepository";
@@ -34,11 +35,37 @@ type LiveOrder = {
   status: "paid" | "ready_for_pickup";
 };
 
-const cartKey = "a5-live-cart";
-const lastQrKey = "a5-live-last-qr";
+const cartKeyBase = "a5-live-cart";
+const lastQrKeyBase = "a5-live-last-qr";
 const qrPrefix = "a5-live-qr:";
 const orderPrefix = "a5-live-order:";
 const memoryStore = new Map<string, string>();
+
+function readTabletScope() {
+  const session = readTabletRoomSession();
+  return session ? `${session.nurseryId}:${session.roomId}:${session.tabletId}` : "unassigned";
+}
+
+function scopedKey(base: string) {
+  return `${base}:${readTabletScope()}`;
+}
+
+function currentCartKey() {
+  return scopedKey(cartKeyBase);
+}
+
+function currentLastQrKey() {
+  return scopedKey(lastQrKeyBase);
+}
+
+function currentCartId(companyId?: string) {
+  const scope = readTabletScope().replaceAll(":", "-");
+  return companyId ? `cart:${scope}:${companyId}` : `cart:${scope}`;
+}
+
+function makeQrImageUrl(targetUrl: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(targetUrl)}`;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -61,7 +88,7 @@ function makeOrderNo() {
 }
 
 function readLastQrSession(fallbackSession: QrPaymentSession) {
-  const code = readText(lastQrKey);
+  const code = readText(currentLastQrKey());
   return code ? readJson<QrPaymentSession>(`${qrPrefix}${code}`, fallbackSession) : fallbackSession;
 }
 
@@ -165,9 +192,14 @@ function toSnapshot(item: CartLine): CartItemSnapshot {
 }
 
 function persistCart(items: CartLine[]) {
-  const stored = writeJson(cartKey, items);
-  void saveLiveShopDocument("carts", "tablet-active-cart", {
-    cart_id: "tablet-active-cart",
+  const tabletSession = readTabletRoomSession();
+  const cartId = currentCartId();
+  const stored = writeJson(currentCartKey(), items);
+  void saveLiveShopDocument("carts", cartId, {
+    cart_id: cartId,
+    nursery_id: tabletSession?.nurseryId,
+    room_id: tabletSession?.roomId,
+    tablet_id: tabletSession?.tabletId,
     items: items.map(toSnapshot),
     total_amount: cartTotal(items),
     source: "tablet",
@@ -190,7 +222,7 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
 
   useEffect(() => {
     const sync = () => {
-      const stored = readJson<CartLine[]>(cartKey, []);
+      const stored = readJson<CartLine[]>(currentCartKey(), []);
       if (stored.length > 0) {
         setItems(stored);
         return;
@@ -198,7 +230,7 @@ function useCart(fallbackItems: CartItemSnapshot[] = []) {
 
       setItems(fallback);
       if (fallback.length > 0) {
-        writeJson(cartKey, fallback);
+        writeJson(currentCartKey(), fallback);
       }
     };
 
@@ -245,7 +277,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
   const unitPrice = product.price + (selected?.priceDelta ?? 0);
 
   async function addToCart() {
-    const current = readJson<CartLine[]>(cartKey, []);
+    const current = readJson<CartLine[]>(currentCartKey(), []);
     const optionName = selected?.name ?? "기본 옵션";
     const lineId = `${product.id}:${optionName}`;
     const existing = current.find((item) => `${item.productId}:${item.optionName}` === lineId);
@@ -340,6 +372,13 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
   }
 
   async function createQr(group: CompanyPaymentGroup<IndexedCartLine>) {
+    const tabletSession = readTabletRoomSession();
+
+    if (!tabletSession) {
+      setMessage("객실 선택 후 결제 QR을 생성할 수 있습니다.");
+      return;
+    }
+
     if (items.length === 0) {
       setMessage("장바구니가 비어 있습니다.");
       return;
@@ -368,10 +407,10 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       shortCode: code,
       type: "purchase",
       status: "active",
-      nurseryId: "nursery-gangnam-01",
-      roomId: "room-701",
-      tabletId: "tablet-701-a",
-      cartId: `tablet-active-cart-${group.companyId}`,
+      nurseryId: tabletSession.nurseryId,
+      roomId: tabletSession.roomId,
+      tabletId: tabletSession.tabletId,
+      cartId: currentCartId(group.companyId),
       createdAt,
       expiresAt,
       deliveryMethod: "pickup",
@@ -390,7 +429,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     });
     const liveSession = backend.ok ? backend.session : session;
     const savedSession = writeJson(`${qrPrefix}${liveSession.shortCode}`, liveSession);
-    const savedPointer = writeText(lastQrKey, liveSession.shortCode);
+    const savedPointer = writeText(currentLastQrKey(), liveSession.shortCode);
 
     if (!savedSession || !savedPointer) {
       setMessage("결제 진입 정보를 브라우저 저장소에 저장하지 못했습니다. 브라우저 저장소 권한을 확인해 주세요.");
@@ -400,7 +439,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     setMessage(
       backend.ok
         ? `${group.companyName} 결제 QR을 생성했습니다. 결제 완료 후 남은 업체 QR을 이어서 만들 수 있습니다.`
-        : `서버 결제 진입 생성 실패: ${backend.error}. ${group.companyName} 개발용 로컬 결제 화면으로 이동합니다.`,
+        : `결제 진입을 생성하지 못했습니다: ${backend.error}. 잠시 후 다시 시도해 주세요.`,
     );
     window.location.assign(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
 
@@ -522,15 +561,19 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
 
 export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPaymentSession }) {
   const [session, setSession] = useState<QrPaymentSession>(() => readLastQrSession(fallbackSession));
+  const [origin, setOrigin] = useState("");
   const sessionGroup = groupCartItemsByCompany(session.items, mockCompanies)[0];
+  const checkoutUrl = `${origin || "https://a5-closed-mall.pages.dev"}/q/live?code=${encodeURIComponent(session.shortCode)}`;
 
   useEffect(() => {
     const sync = () => setSession(readLastQrSession(fallbackSession));
+    const originTimer = window.setTimeout(() => setOrigin(window.location.origin), 0);
 
     window.addEventListener("a5-cart-change", sync);
     window.addEventListener("storage", sync);
 
     return () => {
+      window.clearTimeout(originTimer);
       window.removeEventListener("a5-cart-change", sync);
       window.removeEventListener("storage", sync);
     };
@@ -539,16 +582,11 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
   return (
     <section className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[420px_1fr]">
       <div className="rounded-md bg-white/45 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-slate-100">
-          <div>
-            <p className="text-xs font-black uppercase text-slate-500">short code</p>
-            <p className="mt-2 text-4xl font-black">{session.shortCode}</p>
-          </div>
+        <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-white">
+          <img src={makeQrImageUrl(checkoutUrl)} alt="결제 QR" className="h-[260px] w-[260px]" />
         </div>
+        <p className="mt-3 text-sm font-black text-slate-700">휴대폰 카메라로 QR을 스캔하세요.</p>
         <p className="mt-4 text-sm font-bold text-rose-600">만료 {new Date(session.expiresAt).toLocaleString("ko-KR")}</p>
-        <Link href={`/q/live?code=${encodeURIComponent(session.shortCode)}`} className="mt-4 inline-flex rounded-md bg-slate-950 px-5 py-3 text-sm font-black text-white">
-          고객 모바일 화면 열기
-        </Link>
       </div>
       <div className="grid gap-3">
         <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
@@ -624,7 +662,7 @@ export function LiveQrCheckoutPage() {
 
     const savedSession = writeJson(`${qrPrefix}${paidSession.shortCode}`, paidSession);
     const savedOrder = writeJson(`${orderPrefix}${orderNo}`, order);
-    const currentCart = readJson<CartLine[]>(cartKey, []);
+    const currentCart = readJson<CartLine[]>(currentCartKey(), []);
     const remainingCart = removePaidItemsFromCart(currentCart, paidSession.items);
     const remainingStored = persistCart(remainingCart).stored;
 
@@ -773,7 +811,7 @@ export function LiveGuestOrderPage() {
           <strong className="text-2xl text-rose-600">{formatCurrency(order.qrSession.totalAmount)}</strong>
         </div>
         <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
-          주문 생성 완료. Firebase env가 있으면 Firestore `orders`, `order_items`에도 저장됩니다.
+          주문 접수가 완료되었습니다. 주문번호로 배송 상태와 취소/환불 문의를 확인할 수 있습니다.
         </p>
         {remainingHint || remainingGroups.length > 0 ? (
           <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">

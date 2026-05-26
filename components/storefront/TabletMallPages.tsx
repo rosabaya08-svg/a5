@@ -2,7 +2,8 @@ import Link from "next/link";
 import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
 import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
-import { TabletContextBadge, TabletFirstLoginGate } from "@/components/tablet/TabletAccessFlow";
+import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
+import { staticProductIds } from "@/data/staticSmokeRoutes";
 import type { MallProductProfile } from "@/data/mockShopContent";
 import {
   getLiveApprovedProducts,
@@ -38,7 +39,7 @@ async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
 }
 
 async function getApprovedProducts() {
-  return (await getLiveApprovedProducts()).data;
+  return (await getLiveApprovedProducts()).data.filter((product) => staticProductIds.includes(product.id));
 }
 
 async function getProduct(productId: string) {
@@ -100,27 +101,28 @@ function profileFor(product: Product, content?: StorefrontContent): MallProductP
 
 function StoreShell({ children }: { title?: string; subtitle?: string; context: StoreContext; children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-transparent text-white">
-      <TabletFirstLoginGate />
-      <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
-          <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
-            <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
-            <span>
-              <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
-              <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
-            </span>
-          </Link>
-          <nav className="flex shrink-0 items-center">
-            <CartStatusBadge />
-          </nav>
-          <TabletContextBadge />
-        </div>
-      </header>
+    <TabletAccessGate>
+      <main className="min-h-screen bg-transparent text-white">
+        <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
+            <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
+              <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
+              <span>
+                <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
+                <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
+              </span>
+            </Link>
+            <nav className="flex shrink-0 items-center">
+              <CartStatusBadge />
+            </nav>
+            <TabletContextBadge />
+          </div>
+        </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">{children}</div>
-      <FloatingHistoryButtons />
-    </main>
+        <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">{children}</div>
+        <FloatingHistoryButtons />
+      </main>
+    </TabletAccessGate>
   );
 }
 

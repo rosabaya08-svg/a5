@@ -10,10 +10,12 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
+import { useSearchParams } from "next/navigation";
 import { getFirebaseAuthClient, getFirebaseRuntimeStatus } from "@/lib/firebase/client";
+import { portalHomePaths, portalSessionKeys } from "@/lib/auth/session";
 
 const superAdminEmail = "rosabaya08@gmail.com";
-const sessionKey = "a5.super-admin.session";
+const sessionKey = portalSessionKeys.admin;
 
 type LoginState = "idle" | "checking" | "ready" | "signed_in" | "blocked" | "error";
 
@@ -28,6 +30,7 @@ function isSuperAdmin(user: User | null) {
 function buildSession(user: User) {
   return {
     role: "SUPER_ADMIN",
+    accountId: user.uid,
     provider: "google",
     email: normalizeEmail(user.email),
     displayName: user.displayName ?? "A5 최고관리자",
@@ -37,15 +40,24 @@ function buildSession(user: User) {
   };
 }
 
+function friendlyLoginMessage(message: string) {
+  if (message.includes("api-key-not-valid") || message.includes("API key not valid")) {
+    return "관리자 Google 로그인 설정이 완료되지 않았습니다. 운영자에게 문의해 주세요.";
+  }
+
+  return message;
+}
+
 export function SuperAdminGoogleLogin() {
+  const params = useSearchParams();
   const runtime = useMemo(() => getFirebaseRuntimeStatus(), []);
   const [state, setState] = useState<LoginState>(() => (runtime.configured ? "checking" : "error"));
   const [message, setMessage] = useState(() =>
-    runtime.configured
-      ? "Firebase Google 로그인 상태를 확인하고 있습니다."
-      : `Firebase 공개 환경변수가 부족합니다: ${runtime.missing.join(", ") || "unknown"}`,
+    runtime.configured ? "Google 계정 상태를 확인하고 있습니다." : "관리자 Google 로그인 설정 확인이 필요합니다.",
   );
   const [signedInEmail, setSignedInEmail] = useState("");
+
+  const nextPath = params.get("next") || portalHomePaths.admin;
 
   const persistIfAllowed = useCallback(async (user: User) => {
     const auth = getFirebaseAuthClient();
@@ -58,13 +70,13 @@ export function SuperAdminGoogleLogin() {
         await signOut(auth);
       }
       setState("blocked");
-      setMessage(`허용되지 않은 Google 계정입니다. 최고관리자 마스터 계정은 ${superAdminEmail} 입니다.`);
+      setMessage(`허용되지 않은 Google 계정입니다. 최고관리자 계정은 ${superAdminEmail} 입니다.`);
       return;
     }
 
     window.localStorage.setItem(sessionKey, JSON.stringify(buildSession(user)));
     setState("signed_in");
-    setMessage("최고관리자 마스터 계정 인증이 완료되었습니다.");
+    setMessage("최고관리자 인증이 완료되었습니다.");
   }, []);
 
   useEffect(() => {
@@ -84,14 +96,14 @@ export function SuperAdminGoogleLogin() {
       })
       .catch((error: unknown) => {
         setState("error");
-        setMessage(error instanceof Error ? error.message : "Google redirect 로그인 결과 확인에 실패했습니다.");
+        setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인 결과 확인에 실패했습니다."));
       });
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         setSignedInEmail("");
         setState("ready");
-        setMessage("마스터 Google 계정으로 로그인할 수 있습니다.");
+        setMessage("최고관리자 Google 계정으로 로그인해 주세요.");
         return;
       }
 
@@ -106,7 +118,7 @@ export function SuperAdminGoogleLogin() {
 
     if (!auth) {
       setState("error");
-      setMessage("Firebase Auth 초기화가 필요합니다. NEXT_PUBLIC_FIREBASE_* 값을 확인하세요.");
+      setMessage("관리자 Google 로그인 설정이 완료되지 않았습니다. 운영자에게 문의해 주세요.");
       return;
     }
 
@@ -128,12 +140,12 @@ export function SuperAdminGoogleLogin() {
       }
 
       setState("error");
-      setMessage(error instanceof Error ? error.message : "Google 로그인에 실패했습니다.");
+      setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인에 실패했습니다."));
     }
   }
 
   function goToDashboard() {
-    window.location.href = "/admin/dashboard";
+    window.location.assign(nextPath);
   }
 
   async function handleLogout() {
@@ -146,88 +158,73 @@ export function SuperAdminGoogleLogin() {
 
     setSignedInEmail("");
     setState("ready");
-    setMessage("로그아웃되었습니다. 마스터 계정으로 다시 로그인할 수 있습니다.");
+    setMessage("로그아웃되었습니다.");
   }
 
   const disabled = state === "checking" || !runtime.configured;
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-md border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">SUPER ADMIN</p>
-          <h1 className="mt-3 text-4xl font-black">최고관리자 Google 로그인</h1>
+      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <aside className="rounded-md border border-white/15 bg-white/10 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">MASTER ACCOUNT</p>
+          <h1 className="mt-4 text-4xl font-black">최고관리자 Google 로그인</h1>
           <p className="mt-4 text-sm leading-6 text-slate-300">
-            A5 폐쇄몰 운영 콘솔은 마스터 Google 계정만 최고관리자로 진입합니다. 현재 지정된 마스터 계정은{" "}
-            <span className="font-black text-white">{superAdminEmail}</span> 입니다.
+            A5 운영 콘솔은 지정된 마스터 Google 계정으로만 접근할 수 있습니다.
           </p>
-          <div className="mt-6 grid gap-3 text-sm">
+          <div className="mt-6 grid gap-3">
             <div className="rounded-md bg-white/10 p-4">
-              <p className="font-black text-white">로그인 방식</p>
-              <p className="mt-1 text-slate-300">Firebase Authentication Google provider</p>
+              <p className="text-sm font-black">허용 계정</p>
+              <p className="mt-1 text-sm text-slate-300">{superAdminEmail}</p>
             </div>
             <div className="rounded-md bg-white/10 p-4">
-              <p className="font-black text-white">권한 기준</p>
-              <p className="mt-1 text-slate-300">email == {superAdminEmail}</p>
-            </div>
-            <div className="rounded-md border border-amber-300/40 bg-amber-300/10 p-4 text-amber-100">
-              Firebase Console에서 Google 로그인 provider가 활성화되어 있어야 실제 로그인이 동작합니다. 이 화면은 secret을 저장하지 않습니다.
+              <p className="text-sm font-black">접근 기준</p>
+              <p className="mt-1 text-sm text-slate-300">마스터 계정 인증 완료 후 최고관리자 콘솔로 이동합니다.</p>
             </div>
           </div>
-        </div>
+        </aside>
 
-        <section className="rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">A5 closed mall</p>
-              <h2 className="mt-2 text-2xl font-black">마스터 계정 확인</h2>
-            </div>
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">Firebase Auth</span>
-          </div>
-
+        <section className="rounded-md bg-white p-6 text-slate-950 shadow-xl">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">A5 CLOSED MALL</p>
+          <h2 className="mt-3 text-3xl font-black">마스터 계정 확인</h2>
           <div className="mt-6 grid gap-3">
             <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-black text-slate-500">허용 계정</p>
-              <p className="mt-1 break-words text-lg font-black text-slate-950">{superAdminEmail}</p>
+              <p className="mt-2 text-xl font-black">{superAdminEmail}</p>
             </div>
             <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-black text-slate-500">현재 로그인 계정</p>
-              <p className="mt-1 break-words text-lg font-black text-slate-950">{signedInEmail || "로그인 전"}</p>
+              <p className="mt-2 text-xl font-black">{signedInEmail || "로그인 전"}</p>
             </div>
+            {message ? (
+              <p className={`rounded-md p-3 text-sm font-bold ${state === "error" || state === "blocked" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>
+                {message}
+              </p>
+            ) : null}
           </div>
-
-          <div
-            className={`mt-4 rounded-md border p-3 text-sm font-bold ${
-              state === "signed_in"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : state === "blocked" || state === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-blue-200 bg-blue-50 text-blue-800"
-            }`}
-          >
-            {message}
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             <button
               type="button"
-              onClick={handleGoogleLogin}
               disabled={disabled}
-              className="h-12 rounded-md bg-slate-950 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={() => void handleGoogleLogin()}
+              className="rounded-md bg-slate-950 px-4 py-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Google로 로그인
             </button>
             <button
               type="button"
-              onClick={goToDashboard}
               disabled={state !== "signed_in"}
-              className="h-12 rounded-md bg-rose-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-rose-200"
+              onClick={goToDashboard}
+              className="rounded-md bg-rose-500 px-4 py-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-rose-200"
             >
               최고관리자 콘솔 열기
             </button>
           </div>
-
-          <button type="button" onClick={handleLogout} className="mt-3 h-11 w-full rounded-md border border-slate-200 text-sm font-black text-slate-700">
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            className="mt-3 w-full rounded-md border border-slate-200 px-4 py-3 text-sm font-black text-slate-900"
+          >
             현재 Google 세션 로그아웃
           </button>
         </section>

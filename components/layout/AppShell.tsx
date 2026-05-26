@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { AdminSidebar, type NavItem } from "@/components/layout/AdminSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
@@ -30,10 +31,11 @@ export function AppShell({
       : accent === "company"
         ? "기업 관리자"
         : accent === "nursery"
-          ? "산후조리원 관리자"
+          ? "조리원 관리자"
           : sectionTitle;
+  const guardedRole = accent === "admin" || accent === "company" || accent === "nursery" ? accent : null;
 
-  return (
+  const shell = (
     <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-[#f6f7f9] text-slate-950"}`}>
       <div className="flex min-h-screen">
         <AdminSidebar title={sidebarTitle} navItems={navItems} accent={accent} surface={surface} />
@@ -44,4 +46,6 @@ export function AppShell({
       </div>
     </div>
   );
+
+  return guardedRole ? <RoleGuard role={guardedRole}>{shell}</RoleGuard> : shell;
 }

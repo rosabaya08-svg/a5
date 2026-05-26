@@ -37,7 +37,7 @@ export function AdminSidebar({
   return (
     <aside className={`sticky top-0 hidden h-screen w-[280px] shrink-0 flex-col overflow-hidden border-r lg:flex ${isDark ? "border-white/10 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-950"}`}>
       <div className={`shrink-0 border-l-4 px-5 py-5 ${accentClasses[accent]}`}>
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">모의/테스트 베타</p>
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">A5 CLOSED MALL</p>
         <h1 className="mt-2 text-lg font-black">{title}</h1>
       </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3" aria-label={`${title} 메뉴`}>
@@ -68,9 +68,6 @@ export function AdminSidebar({
           );
         })}
       </nav>
-      <div className={`shrink-0 border-t p-4 text-xs leading-5 ${isDark ? "border-white/10 text-slate-400" : "border-slate-200 text-slate-500"}`}>
-        실제 결제, 운영 환불, 정산 지급, 배송조회, 외부 재고 API는 차단된 모의/테스트 베타입니다.
-      </div>
     </aside>
   );
 }

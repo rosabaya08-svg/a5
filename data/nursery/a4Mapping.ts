@@ -2,11 +2,11 @@ import type { NurseryExternalMapping, NurseryRoomSelection } from "@/types/nurse
 
 export const nurseryExternalMappings: NurseryExternalMapping[] = [
   {
-    nurseryId: "nursery-gangnam-01",
-    externalNurseryId: "A4-NURSERY-GANGNAM-01",
-    businessRegistrationNo: "123-45-67890",
-    registeredAddress: "서울 강남구 테헤란로 701",
-    roomCount: 24,
+    nurseryId: "nursery-test-1004",
+    externalNurseryId: "signage-partner-1004",
+    businessRegistrationNo: "1004-1004-1004",
+    registeredAddress: "서울시 강남구 테스트로 1004",
+    roomCount: 2,
     a4SyncStatus: "planned",
   },
 ];
@@ -15,17 +15,17 @@ export const nurseryRoomSelections: NurseryRoomSelection[] = [
   {
     roomId: "room-701",
     roomNumber: "701",
-    externalRoomId: "A4-ROOM-701",
+    externalRoomId: "signage-room-701",
     activeTabletId: "tablet-701-a",
-    externalTabletId: "A4-TABLET-701-A",
+    externalTabletId: "signage-tablet-701-a",
     pickupEnabled: true,
   },
   {
     roomId: "room-702",
     roomNumber: "702",
-    externalRoomId: "A4-ROOM-702",
+    externalRoomId: "signage-room-702",
     activeTabletId: "tablet-702-a",
-    externalTabletId: "A4-TABLET-702-A",
+    externalTabletId: "signage-tablet-702-a",
     pickupEnabled: true,
   },
 ];

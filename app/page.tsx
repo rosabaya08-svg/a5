@@ -1,197 +1,61 @@
 import Link from "next/link";
 
-const safetyBadges = ["파이어베이스 베타 연결", "파이어스토어 상품 준비", "PG 모듈 대기", "운영 결제 아님"];
-
-const primaryCards = [
+const entryCards = [
   {
-    href: "/admin/dashboard",
+    href: "/admin",
+    eyebrow: "SUPER ADMIN",
     title: "최고관리자",
-    description: "입점사, 조리원, QR, 정산, 감사 로그를 확인하는 모의 관리자 영역입니다.",
+    description: "입점사, 조리원, 상품 승인, 주문, 결제, 정산, 외부 연동을 관리합니다.",
   },
   {
-    href: "/company/dashboard",
+    href: "/company",
+    eyebrow: "COMPANY",
     title: "기업 관리자",
-    description: "상품, 재고, 주문, 매출, 입금 예정 상태를 확인하는 모의 기업 영역입니다.",
+    description: "상품 등록, 주문 처리, 재고, 배송, 매출과 입금 예정 내역을 확인합니다.",
   },
   {
-    href: "/nursery/dashboard",
+    href: "/nursery",
+    eyebrow: "NURSERY",
     title: "조리원 관리자",
-    description: "객실, 태블릿, 현장수령, QR 이력을 확인하는 모의 조리원 영역입니다.",
+    description: "객실, 태블릿, QR 이력, 현장수령, 주문 이력을 조리원 기준으로 확인합니다.",
   },
   {
-    href: "/tablet/products",
+    href: "/tablet",
+    eyebrow: "TABLET",
     title: "태블릿 폐쇄몰",
-    description: "상품 탐색, 장바구니, QR 생성 흐름을 확인하는 태블릿 모의 화면입니다.",
-  },
-  {
-    href: "/q/SANHO701",
-    title: "고객 QR",
-    description: "비회원 QR 랜딩과 결제 확인 모의 흐름을 확인하는 고객 모바일 화면입니다.",
+    description: "객실에 고정된 태블릿에서 상품을 담고 고객 결제 QR을 생성합니다.",
   },
   {
     href: "/orders/guest",
+    eyebrow: "ORDER",
     title: "비회원 주문조회",
-    description: "주문번호 기반 모의 주문조회와 주문 상세 상태를 확인합니다.",
+    description: "주문번호와 휴대폰 정보로 주문 상태를 확인합니다.",
   },
 ];
-
-const launcherCards = [
-  {
-    href: "/products",
-    title: "고객 상품 목록 별칭",
-    description: "404가 발생하던 /products를 /tablet/products와 같은 고객 상품 목록으로 연결했습니다.",
-  },
-  {
-    href: "/mock-ui/status",
-    title: "통합 진행 상태 대시보드",
-    description: "작업 폴더 경로 상태, 404 기록, 파일 그룹, 차단 항목, 다음 작업을 한 화면에서 봅니다.",
-  },
-  {
-    href: "/mock-ui",
-    title: "모의 UI 허브",
-    description: "생성된 미리보기 경로를 모아보는 모의/테스트 베타 허브입니다.",
-  },
-  {
-    href: "/mock-ui/smoke",
-    title: "화면 점검 체크리스트",
-    description: "브라우저에서 어떤 순서로 눌러볼지 확인하는 수동 체크리스트입니다.",
-  },
-  {
-    href: "/mock-ui/merge",
-    title: "병합 인수인계",
-    description: "다른 작업 폴더 결과를 기준 브랜치에 합치기 전 확인할 항목입니다.",
-  },
-  {
-    href: "/tablet/products",
-    title: "태블릿 상품 목록",
-    description: "폐쇄몰 상품 카드, 가격 비교, 재고/수령 상태를 확인합니다.",
-  },
-  {
-    href: "/tablet/cart",
-    title: "태블릿 장바구니",
-    description: "수량, 옵션, 수령방식, 합계금액, QR 생성 진입을 확인합니다.",
-  },
-  {
-    href: "/tablet/qr",
-    title: "태블릿 QR 생성",
-    description: "QR short code, 만료 안내, 모바일 결제 진입 링크를 확인합니다.",
-  },
-  {
-    href: "/q/SANHO701",
-    title: "고객 QR 랜딩",
-    description: "고객이 모바일에서 보는 QR 결제 진입 화면입니다.",
-  },
-  {
-    href: "/q/SANHO701/checkout",
-    title: "고객 결제 확인 모의 화면",
-    description: "실제 PG 없이 결제 전 확인 흐름만 확인합니다.",
-  },
-  {
-    href: "/orders/guest",
-    title: "비회원 주문조회 입력",
-    description: "주문번호/휴대폰번호 모의 입력 UI를 확인합니다.",
-  },
-  {
-    href: "/orders/guest/A5-20260519-001",
-    title: "비회원 주문조회 상세",
-    description: "비회원 주문 상세 모의 결과를 확인합니다.",
-  },
-  {
-    href: "/company/dashboard",
-    title: "기업 대시보드",
-    description: "입점사 상품/주문/재고/매출 모의 운영 화면으로 이동합니다.",
-  },
-  {
-    href: "/company/products",
-    title: "기업 상품 관리",
-    description: "기업 관리자의 상품 목록과 승인 상태 모의 화면을 확인합니다.",
-  },
-  {
-    href: "/nursery/dashboard",
-    title: "조리원 대시보드",
-    description: "조리원 객실/태블릿/현장수령 모의 운영 화면으로 이동합니다.",
-  },
-  {
-    href: "/nursery/rooms",
-    title: "조리원 객실 관리",
-    description: "객실 목록과 태블릿 연결 상태 모의 화면을 확인합니다.",
-  },
-];
-
-function SafetyBadges() {
-  return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      {safetyBadges.map((badge) => (
-        <span
-          key={badge}
-          className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200"
-        >
-          {badge}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function LauncherCard({ href, title, description }: { href: string; title: string; description: string }) {
-  return (
-    <Link
-      href={href}
-      className="rounded-md bg-white p-5 text-slate-950 transition hover:-translate-y-0.5 hover:shadow-xl"
-    >
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{href}</p>
-      <h2 className="mt-2 text-xl font-black">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
-      <SafetyBadges />
-    </Link>
-  );
-}
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <div className="mx-auto grid max-w-7xl gap-7">
-        <section className="rounded-md border border-white/10 bg-white/5 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">모의/테스트 베타</p>
-          <h1 className="mt-3 text-4xl font-black leading-tight">
-            산후조리원 폐쇄몰 기반 QR 결제 쇼핑몰 모의/테스트 베타
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-            실제 Firebase, PG, 알림톡, 배송조회, 외부 재고 API 연결 없이 문서 기반 모의 데이터와
-            미리보기 화면으로 진행 상황을 확인하는 개발용 베타입니다.
+    <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+      <section className="mx-auto max-w-6xl">
+        <div className="max-w-3xl">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">A5 CLOSED MALL</p>
+          <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">산후조리원 객실 기반 QR 결제 폐쇄몰</h1>
+          <p className="mt-5 text-base leading-7 text-slate-300">
+            역할에 맞는 로그인 후 상품, 주문, 객실, 태블릿, 정산, 외부 연동 업무를 진행합니다.
           </p>
-          <SafetyBadges />
-        </section>
+        </div>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {primaryCards.map((card) => (
-            <LauncherCard key={card.href} {...card} />
-          ))}
-        </section>
-
-        <section className="rounded-md border border-white/10 bg-white/5 p-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">로컬 실행 화면</p>
-              <h2 className="mt-2 text-3xl font-black">자동 생성 결과 확인</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                localhost:3000에서 바로 눌러 확인할 수 있는 모의/테스트 베타 경로 목록입니다.
-              </p>
-            </div>
-            <Link
-              href="/mock-ui/status"
-              className="rounded-md bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950"
-            >
-              진행 상태 보기
+        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {entryCards.map((card) => (
+            <Link key={card.href} href={card.href} className="rounded-md bg-white p-5 text-slate-950 shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{card.eyebrow}</p>
+              <h2 className="mt-3 text-2xl font-black">{card.title}</h2>
+              <p className="mt-3 min-h-16 text-sm leading-6 text-slate-600">{card.description}</p>
+              <span className="mt-5 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">이동</span>
             </Link>
-          </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {launcherCards.map((card) => (
-              <LauncherCard key={card.href} {...card} />
-            ))}
-          </div>
-        </section>
-      </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

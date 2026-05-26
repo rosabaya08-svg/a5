@@ -672,3 +672,21 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
 | Boundaries | No Firebase deploy, no real PG/refund/settlement payout, no real Alimtalk/delivery/external inventory API call |
+
+## 39. 2026-05-26 Firebase/Cloudflare release gates
+
+| Item | Result |
+| --- | --- |
+| Scope | Updated QA/debug/release gate scripts and handoff checklists for Firebase beta and Cloudflare automatic deployment review |
+| Scripts | `check:env` now reports required Firebase keys plus non-blocking PG/payment handoff keys; `check:routes` now includes company/nursery operation routes; `check:release` now runs env, secret, route, release-ready, lint, build, and Functions build gates |
+| Documents | Updated `QA_RELEASE_GATE.md`, `CLOUD_DEPLOY_CHECKLIST.md`, and `FIREBASE_RELEASE_CHECKLIST.md` with current branch, route smoke list, Firebase state, forbidden secrets, and PG handoff boundaries |
+| Env check | `npm.cmd run check:env` passed; PG browser keys are still missing but marked non-blocking until official PG sandbox keys arrive |
+| Secret check | `npm.cmd run check:no-secrets` passed; `.env.local` exists locally but is not tracked, and `serviceAccountKey.json` is absent |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+| Release-ready check | `node scripts/check-release-ready.mjs` passed |
+| Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Firestore smoke | `npm.cmd run check:firestore-products` passed with 4 active products |
+| Integrated gate | `npm.cmd run check:release` passed; Firestore backend emitted local `EACCES/UNAVAILABLE` warnings during static generation, but fallback preserved successful build |
+| Boundaries | No Firebase deploy, no Cloudflare API deploy, no real PG/refund/settlement payout, no secret/service account files |

@@ -18,10 +18,18 @@ const requiredRoutes = [
   "/admin/dashboard",
   "/admin/payments",
   "/admin/permissions",
+  "/company/dashboard",
   "/company/onboarding",
+  "/company/orders",
+  "/company/inventory",
   "/company/products/new",
   "/company/products/preview",
   "/nursery/dashboard",
+  "/nursery/rooms",
+  "/nursery/tablets",
+  "/nursery/qr-history",
+  "/nursery/orders",
+  "/nursery/pickups",
   "/mock-ui/status",
 ];
 

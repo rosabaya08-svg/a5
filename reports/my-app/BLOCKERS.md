@@ -263,3 +263,10 @@
 - External inventory API synchronization is not called; inventory movement rows only show Firestore/mock repository data.
 - A4 linkage fields are prepared as candidate external ids, but no A4 API call or cross-project write is active.
 - Real PG cancel/refund, Alimtalk, delivery tracking, and external inventory API integrations remain blocked.
+
+## 2026-05-26 Release gate blockers
+
+- `NEXT_PUBLIC_PAYMENT_API_BASE_URL`, `NEXT_PUBLIC_PG_PROVIDER`, `NEXT_PUBLIC_PG_CLIENT_KEY`, `NEXT_PUBLIC_PAYMENT_SUCCESS_URL`, and `NEXT_PUBLIC_PAYMENT_FAIL_URL` are still missing locally and remain non-blocking until official PG sandbox keys arrive.
+- Real PG server secrets must be stored only in Firebase Functions runtime or Secret Manager.
+- Cloudflare deployment must be visually smoked after GitHub push; this task does not call Cloudflare deploy APIs.
+- Existing `<img>` lint warnings remain warnings only until Storage/image optimization policy is finalized.

@@ -446,3 +446,12 @@
 6. Promote `pickup_events` from derived order preview to server-written collection after Functions/audit policy is approved.
 7. Keep settlement payout as preview-only until PG settlement/refund-hold/tax policy is finalized.
 8. Keep Alimtalk, delivery tracking, and external inventory API integrations blocked until official keys/docs arrive.
+
+## 2026-05-26 Release gate next tasks
+
+1. Confirm Cloudflare Pages deployment for the latest commit on `feat/mock-ui-progress-capture-20260520`.
+2. Browser-smoke `/products`, `/tablet/products`, `/q/SANHO701/checkout`, `/company/dashboard`, `/nursery/dashboard`, and `/mock-ui/status` on the Cloudflare domain.
+3. Enter PG browser-safe env keys in Cloudflare only after official sandbox keys arrive.
+4. Enter PG server-only secrets in Firebase Functions runtime or Secret Manager only.
+5. Use `npm run check:release` before future GitHub pushes.
+6. Review existing `<img>` warnings after Storage/image governance is finalized.

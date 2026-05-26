@@ -17,10 +17,16 @@ const requiredFiles = [
   "types/authClaims.ts",
   "types/compliance.ts",
   "data/legalCompliance.ts",
+  "components/company/CompanyFirebaseOperations.tsx",
+  "components/nursery/NurseryFirebaseOperations.tsx",
   "scripts/check-env.mjs",
   "scripts/check-no-secrets.mjs",
   "scripts/check-routes.mjs",
   "scripts/check-firestore-products.mjs",
+  "scripts/check-release-ready.mjs",
+  "QA_RELEASE_GATE.md",
+  "CLOUD_DEPLOY_CHECKLIST.md",
+  "FIREBASE_RELEASE_CHECKLIST.md",
 ];
 
 const blockedFiles = [".env.local", ".env.production", "serviceAccountKey.json", "firebase-service-account.json"];

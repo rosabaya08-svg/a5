@@ -1,95 +1,107 @@
 # Cloud Deploy Checklist
 
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 
 ## Scope
 
-This checklist is for Cloudflare Pages, Firebase, and PG transition readiness. It is not a deploy instruction and does not approve production release.
+This checklist covers Cloudflare Pages automatic deployment review for the A5 closed mall Firebase beta.
+
+GitHub push to `feat/mock-ui-progress-capture-20260520` can trigger Cloudflare Pages. This checklist does not approve manual Cloudflare API deploys, Firebase deploys, or production payment activation.
 
 ## Cloudflare Pages
 
 - Build command: `npm run build`
 - Static output directory: `out`
-- Confirm `next.config.ts` uses static export settings.
-- Confirm `/products` alias route exists.
-- Confirm customer routes render with mock fallback if Firestore is unavailable.
+- Next static export is configured in `next.config.ts`.
+- Production branch: `feat/mock-ui-progress-capture-20260520`
+- Custom domain candidate: `mall.signage-ai-a5.co.kr`
+- Public Firebase env values must be configured in Cloudflare Pages.
+- Public PG browser values can be configured only after the PG company provides official sandbox keys.
+- Server PG secrets must never be configured in Cloudflare Pages for static export.
 
-## Firebase
+## Cloudflare Environment Variables
 
-- Firebase project: `a5-closed-mall`
-- Products read path exists with mock fallback.
-- Orders, payments, QR sessions, inventory, and audit writes remain blocked.
-- `firebase.json` and `.firebaserc` are not created in this project phase.
-- Functions v2 payment skeleton exists but is not deployed.
+Required:
 
-## PG
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_DATA_SOURCE=firebase`
 
-- PG provider keys are not committed.
-- PG real approval/cancel/refund is blocked.
-- Functions server skeleton exists for:
-  - `paymentsReady`
-  - `paymentsConfirm`
-  - `paymentsWebhook`
-  - `paymentsCancel`
-- Server confirm must recalculate amount before any real PG confirm.
+Recommended before PG browser smoke:
 
-## QA Commands
+- `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY`
+- `NEXT_PUBLIC_PAYMENT_API_BASE_URL`
+- `NEXT_PUBLIC_PG_PROVIDER`
+- `NEXT_PUBLIC_PG_CLIENT_KEY`
+- `NEXT_PUBLIC_PAYMENT_SUCCESS_URL`
+- `NEXT_PUBLIC_PAYMENT_FAIL_URL`
+
+Forbidden in Cloudflare Pages:
+
+- `PG_SECRET_KEY`
+- `PG_WEBHOOK_SECRET`
+- Firebase Admin private key
+- Service account JSON
+- Alimtalk, delivery, external inventory secret keys
+
+## Firebase Beta State
+
+- Project: `a5-closed-mall`
+- Firestore products read is live with mock fallback.
+- Company/nursery operation screens are Firestore-first read with mock fallback.
+- Functions payment endpoints are the PG-ready server path.
+- Real PG calls remain blocked until official provider code and secrets are added server-side.
+- Firestore/Storage rules files exist in repo; deploy requires explicit owner review.
+
+## Required Local Commands Before Push
 
 ```powershell
 npm.cmd run check:env
 npm.cmd run check:no-secrets
 node scripts/check-routes.mjs
+npm.cmd run lint
 npm.cmd run build
+npm.cmd --prefix functions run build
 ```
 
-Latest local result on 2026-05-25:
-
-- env check: passed
-- no-secret check: passed
-- route check: passed, 69 page routes found
-- build: passed, 96 static routes generated
-- Firestore backend network warning appeared in the local sandbox, but mock fallback preserved build success
-
-## Route Smoke List
+## Browser Smoke After Cloudflare Deploy
 
 - `/`
 - `/mock-ui/status`
 - `/products`
 - `/tablet/products`
+- `/tablet/products/product-care-kit`
 - `/tablet/cart`
 - `/tablet/qr`
 - `/q/SANHO701`
 - `/q/SANHO701/checkout`
-- `/orders/guest`
 - `/orders/guest/A5-20260519-001`
 - `/admin/dashboard`
 - `/admin/payments`
+- `/admin/permissions`
+- `/company/dashboard`
+- `/company/products`
+- `/company/orders`
+- `/company/inventory`
 - `/company/products/new`
 - `/company/products/preview`
 - `/nursery/dashboard`
+- `/nursery/rooms`
+- `/nursery/tablets`
+- `/nursery/qr-history`
+- `/nursery/orders`
+- `/nursery/pickups`
 
 ## Not Approved Yet
 
-- Firebase deploy
-- Cloudflare production domain switch
-- PG real payment
-- PG cancel/refund
+- Firebase deploy from this task
+- Real PG approval/cancel/refund
 - Settlement payout
 - Alimtalk sending
 - Delivery tracking
 - External inventory sync
-# 2026-05-25 Cloudflare/Firebase Handoff
-
-Cloudflare Pages:
-- GitHub push to `feat/mock-ui-progress-capture-20260520` triggers automatic deployment.
-- Public Firebase and PG browser values must be configured in Cloudflare environment variables.
-- Server PG secrets must not be configured in Cloudflare Pages for static export.
-
-Firebase:
-- Firestore products read is live.
-- Functions payment endpoints are the server payment path.
-- Firestore/Storage deploy commands are documented but not run in this phase.
-
-After push:
-- Check Cloudflare Deployments.
-- Smoke `/products`, `/tablet/products`, `/q/SANHO701`, `/q/SANHO701/checkout`, `/admin/permissions`, `/company/onboarding`.
+- Storage production upload flow

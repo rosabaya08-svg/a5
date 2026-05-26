@@ -911,3 +911,15 @@
 - Expanded inventory repositories with `listInventoryMovements` so company inventory views are scoped by `company_id`.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs`.
 - Boundaries preserved: no Firebase deploy, no real PG/refund/settlement payout, no real Alimtalk/delivery/external inventory API call.
+
+## 2026-05-26 Firebase/Cloudflare release gates
+
+- Updated QA/debug/release scripts for Firebase beta and Cloudflare automatic deployment handoff.
+- `check:env` now reports required public Firebase keys and non-blocking PG/payment handoff keys without printing values.
+- `check:routes` now includes company/nursery operation routes in the required smoke list.
+- `check:release` now runs env, no-secret, route, release-ready, lint, root build, and Functions build gates.
+- Updated `QA_RELEASE_GATE.md`, `CLOUD_DEPLOY_CHECKLIST.md`, and `FIREBASE_RELEASE_CHECKLIST.md`.
+- Validation passed: `npm.cmd run check:env`, `npm.cmd run check:no-secrets`, `node scripts/check-routes.mjs`, `node scripts/check-release-ready.mjs`, `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd --prefix functions run build`.
+- Firestore products smoke passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea.
+- Integrated `npm.cmd run check:release` passed; local static generation emitted Firestore `EACCES/UNAVAILABLE` warnings, but the repository fallback path preserved the successful build.
+- Boundaries preserved: no Firebase deploy, no Cloudflare API deploy, no real PG/refund/settlement payout, no secret/service account files.

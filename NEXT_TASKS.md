@@ -320,3 +320,12 @@
 7. Implement `pickup_events` server-write documents after Functions/audit policy is approved; current pickup panel is derived from scoped orders.
 8. Keep settlement payout as preview-only until PG settlement, refund hold, tax invoice, and payout approval policy are finalized.
 9. Keep real Alimtalk, delivery tracking, and external inventory API calls blocked until official keys/docs are approved.
+
+## 2026-05-26 Release gate next tasks
+
+1. Check Cloudflare Pages deployment for the latest pushed commit and confirm the build uses output directory `out`.
+2. Smoke the Cloudflare domain for `/products`, `/tablet/products`, `/q/SANHO701/checkout`, `/company/dashboard`, `/nursery/dashboard`, and `/mock-ui/status`.
+3. Add PG browser env keys only after the PG company provides official sandbox values.
+4. Add PG server secrets only to Firebase Functions runtime or Secret Manager, never to Git or Cloudflare Pages.
+5. Keep `npm run check:release` as the pre-push local gate for future changes.
+6. Review the 12 existing `<img>` warnings after final Storage/image optimization policy is approved.

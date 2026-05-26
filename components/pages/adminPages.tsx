@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { A5PublicApiDocsPanel } from "@/components/admin/A5PublicApiDocsPanel";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
 import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
@@ -508,6 +509,17 @@ export function AdminIntegrationsPage() {
       subtitle="사방넷, 네이버 커머스API, 카페24, 쿠팡, WMS, ERP를 A5 표준 주문/물류 모델과 연결합니다."
     >
       <ExternalIntegrationCenterPanel />
+    </AdminShell>
+  );
+}
+
+export function AdminPublicApiDocsPage() {
+  return (
+    <AdminShell
+      title="A5 공개 API 문서"
+      subtitle="기업 개발자가 자기 플랫폼에 A5 주문내역 상세 실시간 연동 API를 붙일 수 있도록 공유 문서를 내려받습니다."
+    >
+      <A5PublicApiDocsPanel />
     </AdminShell>
   );
 }

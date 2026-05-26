@@ -54,7 +54,10 @@ export const adminNavItems: NavSection[] = [
   },
   {
     title: "외부 연동",
-    items: [{ href: "/admin/integrations", label: "외부 연동 센터" }],
+    items: [
+      { href: "/admin/integrations", label: "외부 연동 센터" },
+      { href: "/admin/public-api-docs", label: "A5 공개 API 문서" },
+    ],
   },
   {
     title: "시스템/감사",

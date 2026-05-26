@@ -22,11 +22,11 @@ export default function MockStorefrontPage() {
         <section className="grid gap-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Recommended</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Closed mall product cards</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">추천 상품</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">폐쇄몰 상품 카드</h2>
             </div>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-              Static mock data
+              정적 모의 데이터
             </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -41,4 +41,3 @@ export default function MockStorefrontPage() {
     </main>
   );
 }
-

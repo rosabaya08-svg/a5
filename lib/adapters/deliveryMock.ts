@@ -15,9 +15,9 @@ export function trackDeliveryMock(request: DeliveryMockRequest): DeliveryMockRes
     orderNo: request.orderNo,
     status: "in_transit",
     history: [
-      `${request.carrierName} ${request.invoiceNo} mock invoice entered`,
-      "Mock hub scan",
-      "Mock delivery in progress",
+      `${request.carrierName} ${request.invoiceNo} 모의 송장 입력`,
+      "모의 허브 스캔",
+      "모의 배송 진행 중",
     ],
   };
 }
@@ -26,6 +26,6 @@ export function completePickupMock(orderNo: string): DeliveryMockResult {
   return {
     orderNo,
     status: "delivered",
-    history: ["Mock pickup ready", "Mock pickup completed at nursery desk"],
+    history: ["모의 현장수령 준비", "조리원 데스크 모의 수령 완료"],
   };
 }

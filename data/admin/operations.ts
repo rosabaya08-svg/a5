@@ -87,7 +87,7 @@ export const adminContentSlots: AdminContentSlot[] = [
     startAt: "2026-05-25T00:00:00+09:00",
     endAt: "2026-06-30T23:59:59+09:00",
     status: "scheduled",
-    reviewNote: "메인 배너 이미지와 링크를 최고관리자가 검토하는 mock 슬롯",
+    reviewNote: "메인 배너 이미지와 링크를 최고관리자가 검토하는 모의 슬롯",
   },
   {
     id: "content-video-care",
@@ -102,7 +102,7 @@ export const adminContentSlots: AdminContentSlot[] = [
     startAt: "2026-05-25T00:00:00+09:00",
     endAt: "2026-06-10T23:59:59+09:00",
     status: "pending_approval",
-    reviewNote: "Storage 업로드 정책 확정 전 영상 파일은 placeholder",
+    reviewNote: "Storage 업로드 정책 확정 전 영상 파일은 임시 소재",
   },
   {
     id: "content-popup-kc",
@@ -163,7 +163,7 @@ export const paymentMonitorItems: PaymentMonitorItem[] = [
     amount: 147000,
     customerMasked: "010-****-0000",
     lastEventAt: "2026-05-26T13:12:00+09:00",
-    risk: "mock provider 승인. 실제 PG 승인 아님",
+    risk: "모의 결제사 승인. 실제 PG 승인 아님",
   },
   {
     id: "pay-monitor-002",
@@ -218,7 +218,7 @@ export const adminAuditOperations: AdminAuditOperation[] = [
   {
     id: "audit-admin-001",
     actorRole: "SUPER_ADMIN",
-    actorName: "운영자 mock",
+    actorName: "모의 운영자",
     action: "company_approval_review",
     target: "companies/company-sanho-care",
     message: "입점사 승인 검토 화면에서 서류와 통신판매업 신고번호를 확인함",
@@ -229,7 +229,7 @@ export const adminAuditOperations: AdminAuditOperation[] = [
   {
     id: "audit-admin-002",
     actorRole: "SUPER_ADMIN",
-    actorName: "운영자 mock",
+    actorName: "모의 운영자",
     action: "product_red_flag",
     target: "products/product-warmer-draft",
     message: "미인증 전기용품 red flag로 상품 승인 요청을 차단함",
@@ -243,7 +243,7 @@ export const adminAuditOperations: AdminAuditOperation[] = [
     actorName: "payment-functions",
     action: "mock_payment_confirm",
     target: "payments/pi_qr-sanho701_26231",
-    message: "mock 결제 승인 후 order/payment/inventory/audit transaction 기록",
+    message: "모의 결제 승인 후 order/payment/inventory/audit transaction 기록",
     severity: "info",
     createdAt: "2026-05-26T13:31:00+09:00",
     repositoryPath: "audit_logs/audit-admin-003",
@@ -257,7 +257,7 @@ export const repositoryConnectionItems: RepositoryConnectionItem[] = [
     firestoreCollection: "companies",
     currentMode: "repository_ready",
     writePolicy: "SUPER_ADMIN_required",
-    note: "승인/반려 write는 SUPER_ADMIN Custom Claim과 audit log가 필요합니다.",
+    note: "승인/반려 쓰기는 SUPER_ADMIN 권한 클레임과 감사 로그가 필요합니다.",
   },
   {
     id: "repo-products",

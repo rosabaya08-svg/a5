@@ -14,7 +14,7 @@ export function ComplianceSummaryPanel() {
     { label: "판매자 정보", value: `${sellerDisclosureFields.length}개 필수`, tone: "blue" },
     { label: "상품 고시", value: `${productNoticeFields.length}개 필수`, tone: "blue" },
     { label: "반품/교환/AS/배송", value: `${deliveryReturnFields.length}개 필수`, tone: "amber" },
-    { label: "금지상품 guard", value: `${restrictedProductItems.length}개 차단`, tone: "red" },
+    { label: "금지상품 차단", value: `${restrictedProductItems.length}개 차단`, tone: "red" },
     { label: "KC/인증", value: `${certificationChecklist.length}개 점검`, tone: "amber" },
   ];
 
@@ -22,7 +22,7 @@ export function ComplianceSummaryPanel() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-red-600">approval gate</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-red-600">승인 게이트</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">상품 승인 법적 고지 / KC 검토 요약</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             최고관리자는 상품 승인 전 판매자 정보, 통신판매업 신고번호, 상품 고시, 반품/교환/AS/배송 고지, 금지상품 여부, KC 인증번호와 증빙을 함께 확인합니다.
@@ -44,7 +44,7 @@ export function ComplianceSummaryPanel() {
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-md border border-red-200 bg-red-50 p-3">
-          <h3 className="font-black text-red-950">red flag 목록</h3>
+          <h3 className="font-black text-red-950">위험 표시 목록</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {restrictedProductItems.map((item) => (
               <div key={item.id} className="rounded-md bg-white p-3 text-sm text-red-950">

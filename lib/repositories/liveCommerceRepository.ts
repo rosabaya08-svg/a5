@@ -18,7 +18,7 @@ export type LiveRead<T> = {
 };
 
 export function productSourceLabel(source: LiveReadSource) {
-  return source === "Firestore" ? "Firebase products" : "mock fallback";
+  return source === "Firestore" ? "Firebase 상품" : "모의 대체 데이터";
 }
 
 export async function getLiveQrSessionByShortCode(shortCode: string): Promise<LiveRead<QrPaymentSession>> {
@@ -39,7 +39,7 @@ export async function getLiveApprovedProducts(): Promise<LiveRead<Product[]>> {
   return readRepositoryWithSource(
     () => firebaseRepositories.products.listApprovedProducts(),
     () => mockRepositories.products.listApprovedProducts(),
-    { fallbackOnEmpty: true, emptyReason: "Firestore products returned empty." },
+    { fallbackOnEmpty: true, emptyReason: "Firestore 상품 결과가 비어 있습니다." },
   );
 }
 
@@ -204,7 +204,7 @@ export async function getLiveNurseryPickupEvents(nurseryId: string): Promise<Liv
         sourceCollection: "orders",
       })),
     source: orders.source,
-    reason: orders.reason ?? "pickup_events collection is prepared as a server-write collection; preview is derived from scoped orders.",
+    reason: orders.reason ?? "pickup_events 컬렉션은 서버 쓰기 전용으로 준비되어 있어, 미리보기는 범위가 제한된 주문에서 파생합니다.",
   };
 }
 

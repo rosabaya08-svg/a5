@@ -2,17 +2,17 @@ import type { ManualChecklistItem } from "@/types/mockQaView";
 import { RiskStatusBadge } from "@/components/ui/RiskStatusBadge";
 
 const stateLabels: Record<ManualChecklistItem["state"], string> = {
-  todo: "Todo",
-  blocked: "Blocked in unattended mode",
-  manual_only: "Manual only",
+  todo: "할 일",
+  blocked: "무인 모드 차단",
+  manual_only: "수동 확인",
 };
 
 export function MockManualChecklist({ items }: { items: ManualChecklistItem[] }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Manual checklist</p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">Next working day checks</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">수동 체크리스트</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">다음 근무일 확인 항목</h2>
       </div>
       <div className="mt-4 grid gap-3">
         {items.map((item) => (
@@ -40,4 +40,3 @@ export function MockManualChecklist({ items }: { items: ManualChecklistItem[] })
     </section>
   );
 }
-

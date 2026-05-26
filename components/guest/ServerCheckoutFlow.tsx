@@ -134,7 +134,7 @@ async function postPaymentFunction<T>(url: string, payload: Record<string, unkno
       ok: false,
       error: {
         code: "PAYMENT_ENDPOINT_MISSING",
-        message: "NEXT_PUBLIC_PAYMENT_API_BASE_URL is missing. Firebase Functions endpoint is not configured.",
+        message: "NEXT_PUBLIC_PAYMENT_API_BASE_URL이 누락되었습니다. Firebase Functions 결제 주소가 설정되지 않았습니다.",
       },
     };
   }
@@ -153,7 +153,7 @@ async function postPaymentFunction<T>(url: string, payload: Record<string, unkno
     if (!response.ok || data.ok === false) {
       return {
         ok: false,
-        error: normalizeApiError(data.error, `Payment server returned HTTP ${response.status}.`),
+        error: normalizeApiError(data.error, `결제 서버가 HTTP ${response.status}를 반환했습니다.`),
       };
     }
 
@@ -163,7 +163,7 @@ async function postPaymentFunction<T>(url: string, payload: Record<string, unkno
       ok: false,
       error: {
         code: "PAYMENT_FUNCTION_FETCH_FAILED",
-        message: error instanceof Error ? error.message : "Payment function request failed.",
+        message: error instanceof Error ? error.message : "결제 함수 요청이 실패했습니다.",
       },
     };
   }
@@ -175,7 +175,7 @@ async function getPaymentStatus(url: string, params: { paymentIntentId?: string;
       ok: false,
       error: {
         code: "PAYMENT_STATUS_ENDPOINT_MISSING",
-        message: "Payment status endpoint is not configured.",
+        message: "결제 상태 조회 주소가 설정되지 않았습니다.",
       },
     };
   }
@@ -189,7 +189,7 @@ async function getPaymentStatus(url: string, params: { paymentIntentId?: string;
       ok: false,
       error: {
         code: "PAYMENT_STATUS_QUERY_MISSING",
-        message: "paymentIntentId or orderNo is required for status lookup.",
+        message: "상태 조회에는 paymentIntentId 또는 orderNo가 필요합니다.",
       },
     };
   }
@@ -206,7 +206,7 @@ async function getPaymentStatus(url: string, params: { paymentIntentId?: string;
     if (!response.ok || data.ok === false) {
       return {
         ok: false,
-        error: normalizeApiError(data.error, `Payment status returned HTTP ${response.status}.`),
+        error: normalizeApiError(data.error, `결제 상태 조회가 HTTP ${response.status}를 반환했습니다.`),
       };
     }
 
@@ -216,7 +216,7 @@ async function getPaymentStatus(url: string, params: { paymentIntentId?: string;
       ok: false,
       error: {
         code: "PAYMENT_STATUS_FETCH_FAILED",
-        message: error instanceof Error ? error.message : "Payment status request failed.",
+        message: error instanceof Error ? error.message : "결제 상태 조회 요청이 실패했습니다.",
       },
     };
   }
@@ -443,23 +443,23 @@ export function ServerCheckoutFlow({
 
   const flowStates = [
     {
-      label: "Step 1",
+      label: "1단계",
       title: "QR 세션 검증",
       body: `${session.id} / ${session.shortCode} 기준으로 active, 만료, 중복 사용 여부를 서버에서 확인합니다.`,
       state: activeQr ? ("ready" as const) : ("blocked" as const),
     },
     {
-      label: "Step 2",
+      label: "2단계",
       title: "서버 금액 재계산",
       body: "클라이언트 금액을 신뢰하지 않고 Firestore products 가격과 수량으로 다시 계산합니다.",
       state: ready ? ("done" as const) : ("ready" as const),
     },
     {
-      label: "Step 3",
-      title: providerIsMock ? "mock 승인 + transaction write" : "PG 결제창 연결 준비",
+      label: "3단계",
+      title: providerIsMock ? "모의 승인 + transaction 기록" : "PG 결제창 연결 준비",
       body: providerIsMock
-        ? "mock provider일 때만 confirm까지 이어지며 orders/payments/order_items/inventory/audit log write 구조를 탑니다."
-        : "실제 PG SDK/API 호출은 아직 금지되어 있으며 provider adapter와 key 수령 후 연결합니다.",
+        ? "모의 결제사일 때만 confirm까지 이어지며 orders/payments/order_items/inventory/audit log 기록 구조를 탑니다."
+        : "실제 PG SDK/API 호출은 아직 금지되어 있으며 PG사 어댑터와 키 수령 후 연결합니다.",
       state: confirm ? ("done" as const) : providerIsMock ? ("ready" as const) : ("blocked" as const),
     },
   ];
@@ -469,7 +469,7 @@ export function ServerCheckoutFlow({
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-600">server payment flow</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-600">서버 결제 흐름</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">서버 검증 후 결제 진행</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               이 화면은 Firebase Functions 결제 서버 계층으로 ready/confirm을 호출합니다. 실제 PG 승인, 취소, 환불, 정산은 아직 호출하지 않습니다.
@@ -481,7 +481,7 @@ export function ServerCheckoutFlow({
             <span className="rounded-full bg-red-100 px-3 py-1 text-red-800">실결제 아님</span>
           </div>
         </div>
-        {fallbackReason ? <p className="mt-3 rounded-md bg-amber-50 p-3 text-xs font-bold text-amber-900">Fallback reason: {fallbackReason}</p> : null}
+        {fallbackReason ? <p className="mt-3 rounded-md bg-amber-50 p-3 text-xs font-bold text-amber-900">대체 표시 사유: {fallbackReason}</p> : null}
       </section>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -536,7 +536,7 @@ export function ServerCheckoutFlow({
             disabled={Boolean(pending) || !ready || !providerIsMock}
             className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {pending === "confirm" ? "mock 승인 처리 중" : "2. mock confirm 실행"}
+            {pending === "confirm" ? "모의 승인 처리 중" : "2. 모의 승인 실행"}
           </button>
           <button
             type="button"
@@ -548,7 +548,7 @@ export function ServerCheckoutFlow({
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          실제 PG provider가 선택되면 이 영역은 PG 결제창 호출 직전 상태까지 표시합니다. 공식 SDK import와 승인 호출은 별도 승인 전까지 차단합니다.
+            실제 PG 결제사가 선택되면 이 영역은 PG 결제창 호출 직전 상태까지 표시합니다. 공식 모듈 불러오기와 승인 호출은 별도 승인 전까지 차단합니다.
         </p>
       </section>
 
@@ -596,10 +596,10 @@ export function ServerCheckoutFlow({
       <section className="rounded-md border border-blue-100 bg-blue-50 p-4 text-blue-950">
         <h3 className="font-black">PG 결제창 준비 상태</h3>
         <p className="mt-2 text-sm leading-6">
-          Provider: {bridge.provider} / Browser module: {bridge.moduleLoaded ? "loaded" : "not loaded"} / ready endpoint: {pgPayload.readyEndpoint || "missing"}
+          PG사: {bridge.provider} / 브라우저 모듈: {bridge.moduleLoaded ? "로드됨" : "미로드"} / 결제 준비 주소: {pgPayload.readyEndpoint || "미입력"}
         </p>
         <p className="mt-2 text-xs leading-5">
-          실제 결제창 호출은 provider 공식 모듈과 키 검수 이후에만 열립니다. 현재 confirm은 Firebase Functions mock provider로만 진행됩니다.
+          실제 결제창 호출은 결제사 공식 모듈과 키 검수 이후에만 열립니다. 현재 승인은 Firebase Functions 모의 결제사로만 진행됩니다.
         </p>
       </section>
 
@@ -669,20 +669,20 @@ export function PaymentStatusPanel({
   const headline = mode === "success" ? "결제 상태 확인" : mode === "failed" ? "실패 원인 확인" : "QR 결제 상태";
   const body =
     mode === "success"
-      ? "mock confirm 이후 Firebase Functions payment status를 조회합니다."
+      ? "모의 승인 이후 Firebase Functions 결제 상태를 조회합니다."
       : mode === "failed"
         ? "만료, 금액불일치, 재고부족, 중복 결제 등 서버 차단 사유를 고객에게 안내합니다."
-        : "paymentIntentId 또는 order_no 기준으로 결제 상태를 조회합니다.";
+    : "결제 의도 ID 또는 주문번호 기준으로 결제 상태를 조회합니다.";
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-700">payment status</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-700">결제 상태</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">{headline}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
         </div>
-        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{endpoints.ready ? "Functions endpoint ready" : "endpoint missing"}</span>
+        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{endpoints.ready ? "결제 함수 주소 준비" : "결제 함수 주소 누락"}</span>
       </div>
 
       <div className="mt-4 grid gap-2 text-sm md:grid-cols-4">
@@ -708,7 +708,7 @@ export function PaymentStatusPanel({
         <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
           <strong>{status.message}</strong>
           <p className="mt-1">
-            provider {status.provider ?? "-"} / amount {status.amount ? formatCurrency(status.amount) : "-"} / source {status.source}
+            PG사 {status.provider ?? "-"} / 금액 {status.amount ? formatCurrency(status.amount) : "-"} / 출처 {status.source}
           </p>
         </div>
       ) : null}

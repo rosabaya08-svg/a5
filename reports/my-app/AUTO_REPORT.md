@@ -945,3 +945,15 @@
 - Deployed only Firestore/Storage rules to `a5-closed-mall` with `firebase.cmd deploy --only firestore:rules,storage`.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets`.
 - Boundaries preserved: no Functions deploy, no Hosting deploy, no PG call, no order/payment ledger write, no refund/settlement execution, no secret/service account files.
+
+## 2026-05-26 UI Korean localization pass
+
+- 사용자에게 보이는 영어/혼합 문구를 한글 중심으로 정리했습니다.
+- 대상: 홈 런처, mock-ui 허브, 상태 대시보드, 고객 QR/checkout/주문조회, 태블릿 쇼핑 화면, 관리자/기업/조리원 콘솔, Firebase CMS, PG 설정 패널, 공통 UI 컴포넌트.
+- `mock`은 화면 표기에서 `모의`, `Provider`는 `결제사`, `endpoint`는 `엔드포인트`, `preview`는 `미리보기`, `approved mock`은 `모의 승인`, `mock TID`는 `모의 거래번호`로 정리했습니다.
+- 라우트, env key, Firebase 컬렉션명, provider id, TypeScript 타입명은 실제 기능 식별자라 유지했습니다.
+- Validation passed: `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings.
+- Build passed: `npm.cmd run build` generated 100 static pages.
+- Functions build passed: `npm.cmd --prefix functions run build`.
+- Route check passed: `node scripts/check-routes.mjs` found 76 page routes.
+- Boundaries preserved: no secret/service account changes, no real PG/refund/settlement, no Alimtalk/delivery/external inventory API calls.

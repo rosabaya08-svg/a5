@@ -27,7 +27,7 @@ type StoreContext = {
   content: StorefrontContent;
 };
 
-type ProductReadSource = "Firebase products" | "mock fallback";
+type ProductReadSource = "Firebase 상품" | "모의 대체 데이터";
 
 type ProductListRead = {
   products: Product[];
@@ -88,15 +88,15 @@ function profileFor(product: Product, content?: StorefrontContent): MallProductP
       productId: product.id,
       brand: product.brand ?? "A5 Partner",
       displayName: product.name,
-      subtitle: product.subtitle ?? "폐쇄몰 전용 mock 상품",
+      subtitle: product.subtitle ?? "폐쇄몰 전용 모의 상품",
       category: product.category,
       imageUrl: product.imageUrl ?? "/file.svg",
       gallery: product.gallery ?? [product.imageUrl ?? "/file.svg"],
-      badges: product.badges ?? ["mock 상품"],
+      badges: product.badges ?? ["모의 상품"],
       tags: product.tags ?? [product.category],
-      review: product.reviewSummary ?? { rating: 4.5, count: 12, highlight: "mock 후기 준비 중" },
+      review: product.reviewSummary ?? { rating: 4.5, count: 12, highlight: "모의 후기 준비 중" },
       detailTabs: product.detailSections ?? [
-        { title: "상품 상세", body: "상세페이지 본문 영역을 예약한 mock 상품입니다." },
+        { title: "상품 상세", body: "상세페이지 본문 영역을 예약한 모의 상품입니다." },
         { title: "배송/수령", body: "실제 배송조회나 현장수령 처리는 연결하지 않습니다." },
         { title: "교환/반품", body: "운영 환불/PG 취소 정책 승인 전까지 안내만 표시합니다." },
       ],
@@ -131,7 +131,7 @@ function SafetyBadges() {
 }
 
 function DataSourceBadge({ source, reason }: { source: ProductReadSource; reason?: string }) {
-  const isFirebase = source === "Firebase products";
+  const isFirebase = source === "Firebase 상품";
 
   return (
     <div className="grid justify-items-start gap-1 md:justify-items-end">
@@ -145,10 +145,10 @@ function DataSourceBadge({ source, reason }: { source: ProductReadSource; reason
 
 function productDevRows(product: Product, source: ProductReadSource) {
   return [
-    ["product id", product.id],
-    ["status", product.firebaseStatus ?? product.status],
-    ["source", source === "Firebase products" ? product.source ?? "firestore" : "mockProducts"],
-    ["seeded_at", product.seededAt ?? (source === "Firebase products" ? "not provided" : "mock seed")],
+    ["상품 ID", product.id],
+    ["상태", product.firebaseStatus ?? product.status],
+    ["데이터 출처", source === "Firebase 상품" ? product.source ?? "firestore" : "mockProducts"],
+    ["시드 시각", product.seededAt ?? (source === "Firebase 상품" ? "미제공" : "모의 시드")],
   ];
 }
 
@@ -173,7 +173,7 @@ function ProductDevPanel({
           </div>
         ))}
       </div>
-      {reason ? <p className="mt-2 border-t border-slate-200 pt-2 leading-4 text-amber-700">read note: {reason}</p> : null}
+      {reason ? <p className="mt-2 border-t border-slate-200 pt-2 leading-4 text-amber-700">읽기 참고: {reason}</p> : null}
     </div>
   );
 }
@@ -185,17 +185,17 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
     <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">developer read diagnostic</p>
-          <h2 className="mt-1 text-xl font-black">Firestore products read status</h2>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">개발자 읽기 진단</p>
+          <h2 className="mt-1 text-xl font-black">파이어스토어 상품 읽기 상태</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            /products, /tablet/products, /tablet/products/[id] use Firestore products first and keep mockProducts as a safe fallback.
+            /products, /tablet/products, /tablet/products/[id]는 Firestore 상품을 먼저 읽고, 실패하면 안전하게 모의 상품으로 대체합니다.
           </p>
         </div>
         <DataSourceBadge source={source} reason={reason} />
       </div>
       <div className="mt-4 rounded-md bg-white/55 p-3 text-xs font-bold text-slate-600 ring-1 ring-white/40">
-        <p className="mb-1">NEXT_PUBLIC_DATA_SOURCE: {requestedSource || "unset"}</p>
-        {reason ? <p>Last fallback reason: {reason}</p> : <p>No Firestore read failure captured in this render.</p>}
+        <p className="mb-1">데이터 소스 환경값: {requestedSource || "미설정"}</p>
+        {reason ? <p>마지막 대체 표시 사유: {reason}</p> : <p>이번 렌더링에서 파이어스토어 읽기 실패가 감지되지 않았습니다.</p>}
       </div>
     </section>
   );
@@ -206,7 +206,7 @@ function ContextStrip({ context }: { context: StoreContext }) {
   const items = [
     { label: "조리원", value: nursery?.name ?? session.nurseryId, helper: room?.name ?? session.roomId },
     { label: "QR 세션", value: session.shortCode, helper: `만료 ${formatDateTime(session.expiresAt)}` },
-    { label: "결제 상태", value: "mock only", helper: "실제 PG/Firebase 호출 없음" },
+  { label: "결제 상태", value: "실결제 없음", helper: "실제 PG/Firebase 호출 없음" },
   ];
 
   return (
@@ -226,7 +226,7 @@ function StoreShell({
   title,
   subtitle,
   context,
-  dataSource = "mock fallback",
+  dataSource = "모의 대체 데이터",
   dataSourceNote,
   children,
 }: {
@@ -246,7 +246,7 @@ function StoreShell({
             <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
             <span>
               <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
-              <span className="block text-[11px] font-bold text-rose-600">Exclusive Membership Only</span>
+              <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
             </span>
           </Link>
           <nav className="hidden flex-wrap gap-2 md:flex">
@@ -266,7 +266,7 @@ function StoreShell({
           <div className="bg-slate-950/85 px-4 py-4 text-white backdrop-blur-md md:px-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-300">closed mall tablet</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-300">폐쇄몰 태블릿</p>
                 <h1 className="mt-2 text-3xl font-black md:text-5xl">{title}</h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{subtitle}</p>
               </div>
@@ -335,28 +335,28 @@ function VideoAdStrip() {
         <div className="grid gap-0 md:grid-cols-[1fr_280px]">
           <div className="grid aspect-video place-items-center bg-slate-950 text-center text-white">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">video / gif ad placeholder</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">영상/GIF 광고 영역</p>
               <h2 className="mt-2 text-3xl font-black">산모케어 브랜드 영상</h2>
-              <p className="mt-2 text-sm text-slate-300">Storage 연결 전까지 mock 소재만 표시</p>
+              <p className="mt-2 text-sm text-slate-300">Storage 연결 전까지 모의 소재만 표시</p>
             </div>
           </div>
           <div className="p-5">
             <p className="text-xs font-black text-rose-600">광고 승인대기</p>
             <h3 className="mt-2 text-2xl font-black">태블릿 홈 영상 슬롯</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              최고관리자에서 노출 기간, 대상 조리원, 클릭 링크를 검수하고 기업 Admin에서 소재를 제출하는 구조를 예약했습니다.
+              최고관리자에서 노출 기간, 대상 조리원, 클릭 링크를 검수하고 기업 관리자가 소재를 제출하는 구조를 예약했습니다.
             </p>
             <Link href="/admin/marketing/videos" className="mt-4 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
-              영상 관리 mock
+              영상 관리 모의 화면
             </Link>
           </div>
         </div>
       </article>
       <article className="rounded-md border border-white/10 bg-gradient-to-br from-rose-100 to-amber-100 p-5 text-slate-950">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">closed mall notice</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">폐쇄몰 안내</p>
         <h3 className="mt-2 text-3xl font-black">조리원 객실 전용 특가</h3>
         <p className="mt-3 text-sm leading-6 text-slate-700">
-          QR은 객실과 태블릿 출처를 기록하고, 고객은 비회원 모바일 결제 화면으로 이동합니다. 현재는 PG mock 상태입니다.
+          QR은 객실과 태블릿 출처를 기록하고, 고객은 비회원 모바일 결제 화면으로 이동합니다. 현재는 PG 모의 상태입니다.
         </p>
       </article>
     </section>
@@ -368,11 +368,11 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Official brand partners</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">공식 입점 브랜드</p>
           <h2 className="mt-2 text-2xl font-black">브랜드관</h2>
         </div>
         <Link href="/admin/brands" className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-950 shadow-sm backdrop-blur-md">
-          브랜드 관리 mock
+          브랜드 관리 모의 화면
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
@@ -419,7 +419,7 @@ function CatalogControls({ content }: { content: StorefrontContent }) {
           </span>
         ))}
       </div>
-      <p className="mt-3 text-xs leading-5 text-slate-500">검색/필터/정렬은 화면 mock입니다. 실제 인덱스, Firestore query, 외부 재고 API는 연결하지 않습니다.</p>
+      <p className="mt-3 text-xs leading-5 text-slate-500">검색/필터/정렬은 화면 모의 기능입니다. 실제 인덱스, Firestore query, 외부 재고 API는 연결하지 않습니다.</p>
     </section>
   );
 }
@@ -428,7 +428,7 @@ function ProductCard({ product, source, content }: { product: Product; source?: 
   const profile = profileFor(product, content);
   const stock = stockLabel(product.stock);
   const rate = discountRate(product);
-  const readSource = source ?? (product.source ? "Firebase products" : "mock fallback");
+  const readSource = source ?? (product.source ? "Firebase 상품" : "모의 대체 데이터");
 
   return (
     <Link href={`/tablet/products/${product.id}`} className="group overflow-hidden rounded-md bg-white/88 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/95 hover:shadow-2xl">
@@ -445,7 +445,7 @@ function ProductCard({ product, source, content }: { product: Product; source?: 
         <div>
           <p className="text-xs text-slate-400 line-through">정상가 {formatCurrency(product.comparison.listPrice)}</p>
           <p className="mt-1 text-2xl font-black text-rose-600">{formatCurrency(product.comparison.closedMallPrice)}</p>
-          <p className="text-xs font-bold text-slate-500">최저가 대비 {formatCurrency(product.comparison.platformLowestPrice - product.comparison.closedMallPrice)} 절감 mock</p>
+          <p className="text-xs font-bold text-slate-500">최저가 대비 {formatCurrency(product.comparison.platformLowestPrice - product.comparison.closedMallPrice)} 절감 모의 표시</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
@@ -516,8 +516,8 @@ function PriceComparePanel({ product }: { product: Product }) {
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-slate-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">price comparison layer</p>
-          <h3 className="mt-1 text-xl font-black">실제 AI가 아닌 가격 비교 mock</h3>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">가격 비교 레이어</p>
+          <h3 className="mt-1 text-xl font-black">실제 AI가 아닌 가격 비교 모의 레이어</h3>
         </div>
         <span className="rounded-full bg-white/85 px-3 py-1 text-sm font-black text-emerald-900 shadow-sm backdrop-blur-md">{discountRate(product)}% 절감</span>
       </div>
@@ -614,7 +614,7 @@ export async function TabletProductsPage() {
   return (
     <StoreShell
       title="폐쇄몰 쇼핑 홈"
-      subtitle="mommy-a5 배포 쇼핑몰 느낌에 맞춰 배너, 브랜드, 상품 카드, 검색/필터/정렬을 mock으로 배치했습니다."
+      subtitle="mommy-a5 배포 쇼핑몰 느낌에 맞춰 배너, 브랜드, 상품 카드, 검색/필터/정렬을 모의 기능으로 배치했습니다."
       context={context}
       dataSource={source}
       dataSourceNote={reason}
@@ -625,13 +625,13 @@ export async function TabletProductsPage() {
         <VideoAdStrip />
         <BrandGrid content={context.content} />
         <CatalogControls content={context.content} />
-        <ProductRail title="베이비 베스트 핫딜" eyebrow="Baby best hot deal" products={products.slice(0, 4)} />
-        <ProductRail title="산모 회복 케어" eyebrow="Sanmo care special" products={products.filter((product) => profileFor(product).category.includes("산모")).slice(0, 4)} />
-        <ProductRail title="신상품/기획전" eyebrow="New arrivals and exhibition" products={products.slice(-4)} />
+        <ProductRail title="베이비 베스트 핫딜" eyebrow="베이비 특가" products={products.slice(0, 4)} />
+        <ProductRail title="산모 회복 케어" eyebrow="산모 케어 특가" products={products.filter((product) => profileFor(product).category.includes("산모")).slice(0, 4)} />
+        <ProductRail title="신상품/기획전" eyebrow="신상품과 기획전" products={products.slice(-4)} />
         <div className="rounded-md border border-white/30 bg-white/78 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">cart shortcut</p>
+              <p className="text-xs font-black uppercase text-slate-500">장바구니 바로가기</p>
               <h2 className="mt-1 text-xl font-black">선택한 상품은 장바구니에서 QR로 전환됩니다.</h2>
             </div>
             <Link href="/tablet/cart" className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white">장바구니 보기</Link>
@@ -672,7 +672,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
             </div>
             <div className="mt-5 rounded-md bg-slate-50 p-4">
               <p className="text-sm font-black">리뷰 요약</p>
-              <p className="mt-1 text-sm text-slate-600">{profile.review.rating.toFixed(1)}점 / {profile.review.count}개 mock 후기 · {profile.review.highlight}</p>
+              <p className="mt-1 text-sm text-slate-600">{profile.review.rating.toFixed(1)}점 / {profile.review.count}개 모의 후기 · {profile.review.highlight}</p>
             </div>
           </div>
 
@@ -707,13 +707,13 @@ export async function TabletQrPage() {
   const { session } = context;
 
   return (
-    <StoreShell title="구매 QR 생성" subtitle="고객 또는 보호자가 모바일에서 결제 진입 화면으로 넘어가는 QR mock입니다." context={context}>
+    <StoreShell title="구매 QR 생성" subtitle="고객 또는 보호자가 모바일에서 결제 진입 화면으로 넘어가는 QR 모의 흐름입니다." context={context}>
       <LiveQrSessionPanel fallbackSession={session} />
       <div className="hidden">
         <section className="rounded-md bg-white/82 p-6 text-center text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="mx-auto grid h-72 w-72 place-items-center rounded-md border-[14px] border-slate-950 bg-slate-100">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">short code</p>
+              <p className="text-xs font-black uppercase text-slate-500">QR 코드</p>
               <p className="mt-2 text-4xl font-black">{session.shortCode}</p>
             </div>
           </div>
@@ -726,7 +726,7 @@ export async function TabletQrPage() {
           ))}
           <div className="rounded-md bg-white/82 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
             <div className="flex justify-between text-lg">
-              <span className="font-black">결제 예정 mock</span>
+              <span className="font-black">결제 예정</span>
               <strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong>
             </div>
             <p className="mt-2 text-sm text-slate-600">실제 PG 승인, Firebase write, 알림톡 발송은 실행하지 않습니다.</p>
@@ -741,7 +741,7 @@ export async function TabletAskPage() {
   const context = await getContext("ASKMOM88");
 
   return (
-    <StoreShell title="조르기 QR" subtitle="보호자에게 전달하는 결제 요청 QR mock입니다. 회원가입 없이 QR 랜딩으로 진입합니다." context={context}>
+    <StoreShell title="조르기 QR" subtitle="보호자에게 전달하는 결제 요청 QR 모의 흐름입니다. 회원가입 없이 QR 랜딩으로 진입합니다." context={context}>
       <div className="mx-auto max-w-4xl">
         <SummaryPanel session={context.session} ask />
       </div>

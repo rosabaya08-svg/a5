@@ -25,12 +25,12 @@ function SourceBadge({ read }: { read: Pick<LiveRead<unknown>, "source" | "reaso
           isFirebase ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"
         }`}
       >
-        {isFirebase ? "Firebase schema read" : "mock fallback"}
+        {isFirebase ? "Firebase 스키마 읽기" : "모의 대체 데이터"}
       </span>
       <p className="mt-2 leading-5">
         {isFirebase
           ? "Firestore를 우선 읽고 있습니다. 화면 write는 아직 SUPER_ADMIN/서버 계층 승인 후 열립니다."
-          : read.reason ?? "Firestore 결과가 비어 있거나 권한/env 문제로 mock fallback을 표시합니다."}
+          : read.reason ?? "Firestore 결과가 비어 있거나 권한/env 문제로 모의 대체 데이터를 표시합니다."}
       </p>
     </div>
   );
@@ -41,7 +41,7 @@ function ScopeCard({ companyId }: { companyId: string }) {
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Firebase company scope</p>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Firebase 기업 권한 범위</p>
           <h2 className="mt-1 text-lg font-black">기업 운영 데이터는 company_id 범위로만 표시</h2>
           <p className="mt-2 text-sm leading-6">
             상품, 주문 항목, 재고 이동, 정산 예정 금액은 모두 <strong>{companyId}</strong> 기준으로 읽습니다.
@@ -113,10 +113,10 @@ function SettlementPreviewCard({ read }: { read: LiveRead<CompanySettlementPrevi
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">company_id scoped payout preview</p>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">company_id 기준 입금 예정 미리보기</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">정산 예정 금액</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            실제 정산 지급은 금지되어 있으며, 현재는 Firestore/mock order_items 기준으로만 예상 금액을 계산합니다.
+            실제 정산 지급은 금지되어 있으며, 현재는 Firestore/모의 order_items 기준으로만 예상 금액을 계산합니다.
           </p>
         </div>
         <SourceBadge read={read} />
@@ -229,7 +229,7 @@ export function CompanyProductRegistrationFlowPanel() {
     <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">product create / preview readiness</p>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">상품 등록 / 미리보기 준비</p>
           <h2 className="mt-1 text-lg font-black">상품 등록은 법적 고지와 미리보기를 통과한 뒤 승인 요청</h2>
           <p className="mt-2 text-sm leading-6">
             사업자/CS/반품지, KC 인증, 금지상품 체크, 상세페이지 미리보기 값을 Firestore schema에 맞춰 받을 준비가

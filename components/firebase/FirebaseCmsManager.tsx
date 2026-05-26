@@ -104,6 +104,33 @@ const defaultScope = {
   tabletId: "tablet-701-a",
 };
 
+const cmsCollectionLabels: Record<CmsCollectionName, string> = {
+  marketing_banners: "광고 배너",
+  marketing_videos: "영상/GIF",
+  brands: "브랜드 로고",
+  product_detail_pages: "상품 상세페이지",
+  home_sections: "홈 디자인 섹션",
+  tablet_home_configs: "태블릿 노출 설정",
+  media_assets: "미디어 자산",
+};
+
+const cmsStatusLabels: Record<string, string> = {
+  draft: "초안",
+  pending_approval: "승인 대기",
+  approved: "승인 완료",
+  scheduled: "예약 노출",
+  live: "노출 중",
+  paused: "일시 중지",
+  rejected: "반려",
+  uploaded: "업로드 완료",
+};
+
+const themeModeLabels: Record<string, string> = {
+  light: "밝은 모드",
+  dark: "어두운 모드",
+  system: "시스템 설정",
+};
+
 function valueOf(record: CmsRecord, key: string) {
   const value = record[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
@@ -232,7 +259,7 @@ export function FirebaseCmsManager({
     event.preventDefault();
 
     if (!runtime.configured) {
-      setMessage(`Missing Firebase env: ${runtime.missing.join(", ")}`);
+      setMessage(`Firebase 환경변수 누락: ${runtime.missing.join(", ")}`);
       return;
     }
 
@@ -316,7 +343,7 @@ export function FirebaseCmsManager({
     <section className="my-5 rounded-md border border-slate-200 bg-white p-4 text-slate-950 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase text-slate-500">Firebase live CMS</p>
+          <p className="text-xs font-black uppercase text-slate-500">파이어베이스 실시간 CMS</p>
           <h2 className="mt-1 text-2xl font-black">a5 폐쇄몰 디자인/콘텐츠 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
             배너, 브랜드 로고, 영상/GIF, 상세페이지, 홈 섹션을 Firestore와 Firebase Storage에 바로 등록/수정합니다.
@@ -412,7 +439,7 @@ export function FirebaseCmsManager({
                 >
                   {["draft", "pending_approval", "approved", "scheduled", "live", "paused", "rejected"].map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {cmsStatusLabels[item] ?? item}
                     </option>
                   ))}
                 </select>
@@ -453,7 +480,7 @@ export function FirebaseCmsManager({
                   value={form.productId}
                   onChange={(event) => updateForm("productId", event.target.value)}
                   className="rounded-md border border-slate-200 px-3 py-2"
-                  placeholder="product-care-kit"
+                  placeholder="예: product-care-kit"
                 />
               </label>
               <label className="grid gap-1 text-sm font-bold">
@@ -465,7 +492,7 @@ export function FirebaseCmsManager({
                 >
                   {["light", "dark", "system"].map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {themeModeLabels[item] ?? item}
                     </option>
                   ))}
                 </select>
@@ -494,7 +521,7 @@ export function FirebaseCmsManager({
                 disabled={saving || !runtime.configured}
                 className="rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {saving ? "저장 중..." : form.id ? "Firebase 수정" : "Firebase 등록"}
+                {saving ? "저장 중..." : form.id ? "파이어베이스 수정" : "파이어베이스 등록"}
               </button>
               <button
                 type="button"
@@ -513,8 +540,8 @@ export function FirebaseCmsManager({
         <div className="rounded-md border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">Firebase 등록 목록</p>
-              <h3 className="text-lg font-black">{active.collection}</h3>
+              <p className="text-xs font-black uppercase text-slate-500">파이어베이스 등록 목록</p>
+              <h3 className="text-lg font-black">{cmsCollectionLabels[active.collection]}</h3>
             </div>
             <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
               {records[active.collection].length}
@@ -532,14 +559,14 @@ export function FirebaseCmsManager({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-black uppercase text-slate-400">{record.id}</p>
-                      <h4 className="mt-1 font-black">{valueOf(record, "title") || "Untitled"}</h4>
+                      <h4 className="mt-1 font-black">{valueOf(record, "title") || "제목 없음"}</h4>
                       <p className="mt-1 text-sm text-slate-600">
                         {valueOf(record, "placement") || valueOf(record, "scope_type")} /{" "}
                         {valueOf(record, "target") || valueOf(record, "scope_id")}
                       </p>
                     </div>
                     <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-800">
-                      {valueOf(record, "approval_status") || valueOf(record, "status") || "draft"}
+                      {cmsStatusLabels[valueOf(record, "approval_status") || valueOf(record, "status")] ?? "초안"}
                     </span>
                   </div>
                   {typeof record.asset_url === "string" ? (
@@ -565,7 +592,7 @@ export function FirebaseCmsManager({
                         disabled={!runtime.configured}
                         className="rounded-md bg-white px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-200 disabled:opacity-50"
                       >
-                        {status}
+                        {cmsStatusLabels[status]}
                       </button>
                     ))}
                   </div>

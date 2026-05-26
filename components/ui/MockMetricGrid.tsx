@@ -2,12 +2,12 @@ import type { OperationMetric } from "@/types/mockOperationsView";
 import { RiskStatusBadge } from "@/components/ui/RiskStatusBadge";
 
 const trackLabels: Record<OperationMetric["track"], string> = {
-  admin: "Admin",
-  company: "Company",
-  nursery: "Nursery",
-  tablet_qr: "Tablet/QR",
-  firebase_contract: "Firebase contract",
-  qa: "QA",
+  admin: "최고관리자",
+  company: "기업 관리자",
+  nursery: "조리원 관리자",
+  tablet_qr: "태블릿/QR",
+  firebase_contract: "파이어베이스 계약",
+  qa: "품질 점검",
 };
 
 export function MockMetricGrid({ metrics }: { metrics: OperationMetric[] }) {
@@ -35,4 +35,3 @@ export function MockMetricGrid({ metrics }: { metrics: OperationMetric[] }) {
     </section>
   );
 }
-

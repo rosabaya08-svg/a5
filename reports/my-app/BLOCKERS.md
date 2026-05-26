@@ -286,3 +286,11 @@
 - Storage upload is enabled only for public storefront/ad/product media; private business documents, bank documents, settlement files, and audit exports remain blocked.
 - Malware scanning, moderation workflow, retention policy, and asset deletion governance are not implemented yet.
 - PG, order/payment ledger writes, refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
+## 2026-05-26 한글화 이후 유지 차단
+
+- 라우트, env key, Firebase 컬렉션명, provider id, TypeScript 타입명은 실제 기능 식별자라 한글화하지 않는다.
+- 화면 한글화는 완료했지만 Cloudflare 배포본에서 브라우저 육안 점검이 필요하다.
+- `<img>` lint 경고 12개는 기능 차단은 아니며, 이미지 최적화/Storage 정책 확정 후 처리한다.
+- 실제 PG 승인/취소/환불, 정산 지급, 알림톡 발송, 배송조회, 외부 재고 API 호출은 계속 차단한다.
+- secret, service account, private key, `.env.local` 값은 Git에 포함하면 안 된다.

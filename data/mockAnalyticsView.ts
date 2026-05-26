@@ -3,34 +3,34 @@ import type { AnalyticsTile, RiskDistributionItem, SettlementPreviewItem } from 
 export const analyticsTiles: AnalyticsTile[] = [
   {
     id: "tile-orders",
-    label: "Mock orders",
+    label: "모의 주문",
     value: "38",
-    trendLabel: "+12 today",
-    helper: "Includes paid, pending, failed, pickup, and refund request mock states.",
+    trendLabel: "오늘 +12",
+    helper: "결제 완료, 대기, 실패, 현장수령, 환불 요청 모의 상태를 포함합니다.",
     riskStatuses: ["mock_only"],
   },
   {
     id: "tile-qr",
-    label: "QR sessions",
+    label: "QR 세션",
     value: "51",
-    trendLabel: "8 expired",
-    helper: "Static state counts for active, paid, expired, and cancelled sessions.",
+    trendLabel: "만료 8건",
+    helper: "활성, 결제 완료, 만료, 취소 세션의 정적 상태 집계입니다.",
     riskStatuses: ["mock_only", "expired"],
   },
   {
     id: "tile-sales",
-    label: "Mock gross sales",
-    value: "KRW 4.8M",
-    trendLabel: "Preview only",
-    helper: "Not accounting data. Do not use for real payout or settlement.",
+    label: "모의 총매출",
+    value: "480만원",
+    trendLabel: "미리보기 전용",
+    helper: "회계 데이터가 아니며 실제 입금 또는 정산에 사용하면 안 됩니다.",
     riskStatuses: ["settlement_hold", "mock_only"],
   },
   {
     id: "tile-risk",
-    label: "Integration blockers",
+    label: "연동 차단 항목",
     value: "5",
-    trendLabel: "All blocked",
-    helper: "Firebase, PG, Storage, Alimtalk, and delivery tracking remain closed.",
+    trendLabel: "전부 차단",
+    helper: "Firebase, PG, Storage, 알림톡, 배송조회가 차단 상태로 남아 있습니다.",
     riskStatuses: ["blocked", "integration_pending"],
   },
 ];
@@ -38,28 +38,28 @@ export const analyticsTiles: AnalyticsTile[] = [
 export const riskDistributionItems: RiskDistributionItem[] = [
   {
     id: "risk-mock-only",
-    label: "Mock only",
+    label: "모의 전용",
     count: 42,
     percentage: 52,
     riskStatuses: ["mock_only"],
   },
   {
     id: "risk-integration",
-    label: "Integration pending",
+    label: "연동 대기",
     count: 18,
     percentage: 22,
     riskStatuses: ["integration_pending"],
   },
   {
     id: "risk-inventory",
-    label: "Low inventory",
+    label: "재고 부족",
     count: 7,
     percentage: 9,
     riskStatuses: ["inventory_low"],
   },
   {
     id: "risk-blocked",
-    label: "Blocked",
+    label: "차단",
     count: 14,
     percentage: 17,
     riskStatuses: ["blocked"],
@@ -69,7 +69,7 @@ export const riskDistributionItems: RiskDistributionItem[] = [
 export const settlementPreviewItems: SettlementPreviewItem[] = [
   {
     id: "settlement-preview-001",
-    companyName: "A5 Care Supplies",
+    companyName: "A5 케어 서플라이",
     period: "2026-05-W3",
     grossAmount: 1840000,
     commissionAmount: 184000,
@@ -80,7 +80,7 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
   },
   {
     id: "settlement-preview-002",
-    companyName: "Recovery Gift Co.",
+    companyName: "회복 선물 상사",
     period: "2026-05-W3",
     grossAmount: 960000,
     commissionAmount: 96000,
@@ -91,7 +91,7 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
   },
   {
     id: "settlement-preview-003",
-    companyName: "External Inventory Partner",
+    companyName: "외부 재고 파트너",
     period: "2026-05-W3",
     grossAmount: 420000,
     commissionAmount: 42000,
@@ -101,4 +101,3 @@ export const settlementPreviewItems: SettlementPreviewItem[] = [
     riskStatuses: ["blocked", "integration_pending"],
   },
 ];
-

@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 
 type ThemeMode = "light" | "dark" | "system";
 const themeModes: ThemeMode[] = ["light", "dark", "system"];
+const themeModeLabels: Record<ThemeMode, string> = {
+  light: "밝은 모드",
+  dark: "어두운 모드",
+  system: "시스템",
+};
 
 function readThemeMode(): ThemeMode {
   if (typeof window === "undefined") {
@@ -39,11 +44,11 @@ export function ThemeModeToggle() {
           onClick={() => {
             setMode(item);
           }}
-          className={`rounded px-3 py-1.5 capitalize transition ${
+          className={`rounded px-3 py-1.5 transition ${
             mode === item ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-100"
           }`}
         >
-          {item}
+          {themeModeLabels[item]}
         </button>
       ))}
     </div>

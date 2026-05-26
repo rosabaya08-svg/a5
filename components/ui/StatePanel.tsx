@@ -10,12 +10,12 @@ const toneClasses: Record<MockUiTone, string> = {
 };
 
 const kindLabels: Record<MockUiState["kind"], string> = {
-  empty: "Empty state",
-  error: "Error state",
-  blocked: "Blocked",
-  expired: "Expired",
-  pending: "Pending",
-  ready: "Ready",
+  empty: "빈 상태",
+  error: "오류 상태",
+  blocked: "차단",
+  expired: "만료",
+  pending: "대기",
+  ready: "준비 완료",
 };
 
 type StatePanelProps = {
@@ -49,4 +49,3 @@ export function StatePanel({ state, footer }: StatePanelProps) {
     </section>
   );
 }
-

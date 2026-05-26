@@ -51,15 +51,15 @@ function AdminOperationMap() {
   const items = [
     { title: "폐쇄몰 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 모의 콘텐츠 관리로 편성", href: "/admin/home-editor" },
     { title: "광고 소재 승인", body: "이미지, 영상, GIF 등록 위치와 승인/반려 상태를 운영자가 검토", href: "/admin/marketing/banners" },
-    { title: "기업 관리자 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/Custom Claims로 설계", href: "/admin/companies" },
-    { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 confirm endpoint 없이는 실결제 차단", href: "/admin/payments" },
+    { title: "기업 관리자 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/권한 클레임으로 설계", href: "/admin/companies" },
+    { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 승인 엔드포인트 없이는 실결제 차단", href: "/admin/payments" },
   ];
 
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <Link key={item.title} href={item.href} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <p className="text-xs font-black uppercase text-blue-600">operation control</p>
+          <p className="text-xs font-black uppercase text-blue-600">운영 제어</p>
           <h3 className="mt-2 text-lg font-black text-slate-950">{item.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
         </Link>
@@ -70,8 +70,8 @@ function AdminOperationMap() {
 
 function AccountProvisioningPanel() {
   const rows = [
-    ["초대 방식", "Firebase Auth 이메일 초대 또는 password reset link"],
-    ["권한 claim", "role, company_id, nursery_id, room_id, tablet_id"],
+    ["초대 방식", "Firebase Auth 이메일 초대 또는 비밀번호 재설정 링크"],
+    ["권한 클레임", "role, company_id, nursery_id, room_id, tablet_id"],
     ["금지", "관리자가 임시 비밀번호를 평문 저장하거나 전달하는 방식"],
     ["운영 전 확인", "대표 승인, 계정 회수 정책, 2단계 인증 권고"],
   ];
@@ -110,7 +110,7 @@ function PgReadinessPanel() {
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-md bg-white p-3">
-          <p className="text-xs font-black text-slate-500">Provider</p>
+          <p className="text-xs font-black text-slate-500">결제사</p>
           <p className="mt-1 font-black text-slate-950">{readiness.provider}</p>
         </div>
         <div className="rounded-md bg-white p-3">
@@ -130,7 +130,7 @@ export function AdminIndexPage() {
   return (
     <AdminShell
       title="운영 콘솔"
-      subtitle="산후조리원 폐쇄몰 베타의 mock 운영 지표와 차단 항목을 확인합니다."
+      subtitle="산후조리원 폐쇄몰 베타의 모의 운영 지표와 차단 항목을 확인합니다."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.adminMetrics().map((metric) => (
@@ -172,7 +172,7 @@ export function AdminDashboardPage() {
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
         <section>
-          <FilterBar title="최근 주문" filters={["오늘", "mock 결제", "QR 출처 포함"]} />
+          <FilterBar title="최근 주문" filters={["오늘", "모의 결제", "QR 출처 포함"]} />
           <DataTable
             columns={["주문번호", "고객", "상태", "금액", "생성"]}
             rows={orders.map((order) => ({
@@ -354,7 +354,7 @@ export function AdminPaymentsPage() {
       />
       <div className="mt-4">
         <DataTable
-          columns={["주문번호", "상태", "금액", "mock TID", "승인시각"]}
+          columns={["주문번호", "상태", "금액", "모의 거래번호", "승인시각"]}
           rows={mockApi.payments().map((payment) => ({
             id: payment.id,
             cells: [
@@ -375,7 +375,7 @@ export function AdminSettlementsPage() {
   const companies = mockApi.companies();
 
   return (
-    <AdminShell title="정산 검산" subtitle="order_items 기준 mock 정산을 확인하며 실제 지급은 차단합니다.">
+    <AdminShell title="정산 검산" subtitle="order_items 기준 모의 정산을 확인하며 실제 지급은 차단합니다.">
       <ConfirmBox
         title="정산 지급 실행 금지"
         description="이 화면은 정산 계산 초안과 검산 상태만 표시합니다. 지급 완료 처리는 사람 승인 전까지 만들지 않습니다."
@@ -426,7 +426,7 @@ export function AdminAuditLogsPage() {
 
 export function AdminPermissionsPage() {
   return (
-    <AdminShell title="권한/계정 발급" subtitle="Firebase Auth 초대, Custom Claims, 역할별 접근 범위를 운영자가 검토합니다.">
+    <AdminShell title="권한/계정 발급" subtitle="Firebase Auth 초대, 권한 클레임, 역할별 접근 범위를 운영자가 검토합니다.">
       <AdminInvitePanel />
       <div className="mt-4" />
       <ConfirmBox

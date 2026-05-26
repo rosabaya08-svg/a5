@@ -10,15 +10,15 @@ const toneClasses: Record<MockMallProduct["tone"], string> = {
 };
 
 const fulfillmentLabels: Record<MockMallProduct["fulfillment"], string> = {
-  delivery: "Delivery",
-  pickup: "Pickup",
-  both: "Delivery / pickup",
+  delivery: "택배",
+  pickup: "현장수령",
+  both: "택배/현장수령",
 };
 
 const stockLabels: Record<MockMallProduct["stockState"], string> = {
-  in_stock: "In stock",
-  low_stock: "Low stock",
-  sold_out: "Sold out",
+  in_stock: "재고 있음",
+  low_stock: "재고 부족",
+  sold_out: "품절",
 };
 
 function krw(value: number) {
@@ -48,10 +48,10 @@ export function MockMallProductCard({ product }: { product: MockMallProduct }) {
           <p className="mt-1 text-sm text-slate-500">{fulfillmentLabels[product.fulfillment]}</p>
         </div>
         <div>
-          <p className="text-sm text-slate-400 line-through">List {krw(product.listPrice)}</p>
+          <p className="text-sm text-slate-400 line-through">정상가 {krw(product.listPrice)}</p>
           <p className="text-2xl font-black text-red-600">{krw(product.closedMallPrice)}</p>
           <p className="text-xs font-semibold text-emerald-700">
-            Saves {krw(product.platformLowestPrice - product.closedMallPrice)} vs. mock lowest price
+            비교가 대비 {krw(product.platformLowestPrice - product.closedMallPrice)} 절약
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -66,4 +66,3 @@ export function MockMallProductCard({ product }: { product: MockMallProduct }) {
     </article>
   );
 }
-

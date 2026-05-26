@@ -2,18 +2,18 @@ import type { MergeTrackItem } from "@/types/mockQaView";
 import { RiskStatusBadge } from "@/components/ui/RiskStatusBadge";
 
 const stateLabels: Record<MergeTrackItem["state"], string> = {
-  waiting: "Waiting",
-  ready_for_review: "Ready for review",
-  conflict_risk: "Conflict risk",
-  blocked: "Blocked",
+  waiting: "대기",
+  ready_for_review: "검토 가능",
+  conflict_risk: "충돌 위험",
+  blocked: "차단",
 };
 
 export function MockMergePlanBoard({ tracks }: { tracks: MergeTrackItem[] }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Merge plan</p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">Worktree review order</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">병합 계획</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">작업 폴더 검토 순서</h2>
       </div>
       <div className="mt-4 grid gap-3">
         {tracks
@@ -24,7 +24,7 @@ export function MockMergePlanBoard({ tracks }: { tracks: MergeTrackItem[] }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-                    Order {track.mergeOrder} / {track.folder}
+                    순서 {track.mergeOrder} / {track.folder}
                   </p>
                   <h3 className="mt-1 text-lg font-black text-slate-950">{track.track}</h3>
                   <p className="mt-1 text-sm leading-6 text-slate-600">{track.notes}</p>
@@ -51,4 +51,3 @@ export function MockMergePlanBoard({ tracks }: { tracks: MergeTrackItem[] }) {
     </section>
   );
 }
-

@@ -68,15 +68,15 @@ export const mockQrSessionCards: MockQrSessionCard[] = [
 export const mockOrderTimeline: MockTimelineStep[] = [
   {
     id: "created",
-    label: "Order created",
-    description: "Cart snapshot and QR session are captured in mock data.",
+    label: "주문 생성",
+    description: "장바구니 스냅샷과 QR 세션을 모의 데이터로 기록합니다.",
     state: "done",
     at: "2026-05-20 20:15",
   },
   {
     id: "paid",
-    label: "Mock payment approved",
-    description: "No PG request is sent. The state only previews payment success UI.",
+    label: "모의 결제 승인",
+    description: "PG 요청은 전송하지 않고 결제 성공 UI만 미리 보여줍니다.",
     state: "done",
     at: "2026-05-20 20:18",
   },
@@ -93,4 +93,3 @@ export const mockOrderTimeline: MockTimelineStep[] = [
     state: "blocked",
   },
 ];
-

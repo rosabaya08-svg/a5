@@ -95,7 +95,7 @@ export const mockProducts: Product[] = [
     name: "산모 영양 간식 세트",
     category: "식품",
     brand: "베이비락",
-    subtitle: "조리원 간식 추천 구성과 식품 고지 mock",
+    subtitle: "조리원 간식 추천 구성과 식품 고지 모의 데이터",
     status: "pending_approval",
     price: 42000,
     stock: 46,

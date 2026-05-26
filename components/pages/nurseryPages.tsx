@@ -61,7 +61,7 @@ function NurseryIdentityPanel() {
 
   return (
     <section className="rounded-md border border-rose-200 bg-rose-50 p-4 text-rose-950">
-      <h2 className="text-lg font-black">조리원 계정/사업자 기준 mock</h2>
+      <h2 className="text-lg font-black">조리원 계정/사업자 기준 모의 화면</h2>
       <p className="mt-2 text-sm leading-6">
         조리원 계정은 사업자등록증 기준으로 묶고, 로그인 후 객실 선택과 태블릿 연결을 통해 QR 출처를 고정해야 합니다.
       </p>
@@ -84,7 +84,7 @@ function RoomSelectionMock() {
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black text-slate-950">로그인 후 객실 선택 mock</h2>
+          <h2 className="text-lg font-black text-slate-950">로그인 후 객실 선택 모의 화면</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             운영에서는 조리원 계정 로그인 후 객실을 선택해야 태블릿/QR/주문 출처가 고정됩니다.
           </p>
@@ -126,7 +126,7 @@ export function NurseryDashboardPage() {
       <div className="mt-4">
         <ConfirmBox
           title="태블릿 전용 폐쇄몰"
-          description="일반 브라우저 직접 접속 차단은 운영 인증 설계 이후 구현하며, 현재는 mock UI만 제공합니다."
+          description="일반 브라우저 직접 접속 차단은 운영 인증 설계 이후 구현하며, 현재는 모의 UI만 제공합니다."
           confirmLabel="설계 필요"
         />
       </div>
@@ -178,7 +178,7 @@ export function NurseryTabletsPage() {
               tablet.roomId,
               tablet.status,
               formatDateTime(tablet.lastSeenAt),
-              "폐쇄몰 mock",
+              "폐쇄몰 모의",
             ],
           }))}
       />

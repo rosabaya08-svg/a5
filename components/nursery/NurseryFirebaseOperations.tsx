@@ -24,12 +24,12 @@ function SourceBadge({ read }: { read: Pick<LiveRead<unknown>, "source" | "reaso
           isFirebase ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
         }`}
       >
-        {isFirebase ? "Firebase schema read" : "mock fallback"}
+        {isFirebase ? "Firebase 스키마 읽기" : "모의 대체 데이터"}
       </span>
       <p className="mt-2 leading-5">
         {isFirebase
           ? "nursery_id 범위로 Firestore를 우선 읽고 있습니다."
-          : read.reason ?? "Firestore 결과가 비어 있거나 권한/env 문제로 mock fallback을 표시합니다."}
+          : read.reason ?? "Firestore 결과가 비어 있거나 권한/env 문제로 모의 대체 데이터를 표시합니다."}
       </p>
     </div>
   );

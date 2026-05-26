@@ -473,3 +473,12 @@
 4. Connect storefront sections to prioritize Firestore CMS records over fallback banner/brand content.
 5. Add audit log writes and SUPER_ADMIN/COMPANY_ADMIN custom-claim checks before production CMS writes.
 6. Keep private business documents, bank documents, PG, order/payment ledgers, refund, settlement payout, Alimtalk, delivery tracking, and external inventory blocked.
+
+## 2026-05-26 한글화 후 다음 작업
+
+1. Cloudflare 자동 배포 완료 후 주요 화면에서 한글 표기 상태를 육안으로 점검한다.
+2. `/admin/marketing/banners`, `/admin/brands`, `/company/products/new`, `/tablet/products`, `/q/SANHO701/checkout`, `/orders/guest/A5-20260519-001` 순서로 메뉴/배지/버튼/테이블 컬럼을 확인한다.
+3. 화면에 남은 영어가 기능 식별자인지 사용자 문구인지 구분하고, 사용자 문구만 추가 한글화한다.
+4. `Firebase`, `Cloudflare`, `PG`, `Functions`, env key, route, collection id는 운영 식별자이므로 그대로 유지한다.
+5. `<img>` 경고 12개는 이미지 최적화/Storage 정책 확정 후 처리한다.
+6. 실제 PG 승인/환불/정산, 알림톡, 배송조회, 외부 재고 API는 계속 차단한다.

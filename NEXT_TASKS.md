@@ -348,3 +348,12 @@
 5. Add server-side audit logs for CMS create/update/status changes before production opening.
 6. Replace beta guarded browser writes with SUPER_ADMIN/COMPANY_ADMIN custom-claim writes before public production use.
 7. Keep PG, order/payment write ledgers, refund, settlement payout, Alimtalk, delivery tracking, external inventory, private business documents, and bank document uploads blocked.
+
+## 2026-05-26 한글화 후 다음 작업
+
+1. Cloudflare 자동 배포가 완료되면 `/`, `/products`, `/tablet/products`, `/q/SANHO701/checkout`, `/admin/dashboard`, `/admin/marketing/banners`, `/company/products/new`, `/nursery/dashboard`, `/mock-ui/status`를 브라우저에서 확인한다.
+2. 메뉴, 버튼, 배지, 폼 placeholder, 테이블 컬럼에 남은 사용자 노출 영어가 있는지 실제 화면 기준으로 추가 점검한다.
+3. 코드 식별자, env key, Firebase 컬렉션명, 라우트는 기능 값이므로 한글화하지 않는다.
+4. 기존 `<img>` lint 경고 12개는 이미지 최적화 정책 확정 후 `next/image` 전환 여부를 결정한다.
+5. PG 공식 문서와 키를 받은 뒤에도 secret은 Firebase Functions runtime 또는 Secret Manager에만 입력하고 Git/Cloudflare 공개 환경변수에는 넣지 않는다.
+6. 실제 결제, 환불, 정산 지급, 알림톡, 배송조회, 외부 재고 API는 계속 차단한다.

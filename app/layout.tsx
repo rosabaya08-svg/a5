@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sanho Closed Mall Beta",
-  description: "Mock/test beta for a nursery tablet closed mall.",
+  title: "산호 폐쇄몰 베타",
+  description: "산후조리원 태블릿 폐쇄몰 베타입니다.",
 };
 
 export default function RootLayout({

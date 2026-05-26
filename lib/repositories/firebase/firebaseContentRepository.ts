@@ -18,7 +18,7 @@ function mapMarketingSlot(collectionName: "marketing_banners" | "marketing_video
 
   return {
     id,
-    title: asString(data.title, isVideo ? "Video CMS item" : "Banner CMS item"),
+    title: asString(data.title, isVideo ? "영상 CMS 항목" : "배너 CMS 항목"),
     placement: asString(data.placement, isVideo ? "home_video_strip" : "shopping_home_top"),
     target: asString(data.target, "all_nurseries"),
     period: `${asString(data.visible_from, "start unset")} ~ ${asString(data.visible_to, "end unset")}`,
@@ -59,11 +59,11 @@ async function readMarketingSlots(type?: "banner" | "video") {
 
 export const firebaseContentRepository: ContentRepository = {
   async getStorefrontContent() {
-    return repositoryError("NOT_IMPLEMENTED", "Firestore storefront content composition is not fully mapped yet. Using mock content fallback.");
+    return repositoryError("NOT_IMPLEMENTED", "Firestore 쇼핑몰 콘텐츠 조합은 아직 완전히 매핑되지 않았습니다. 모의 콘텐츠 대체 데이터를 사용합니다.");
   },
 
   async getProductProfileById(productId) {
-    return repositoryError("NOT_IMPLEMENTED", "Firestore product detail profile is not fully mapped yet. Using mock content fallback.", productId);
+    return repositoryError("NOT_IMPLEMENTED", "Firestore 상품 상세 프로필은 아직 완전히 매핑되지 않았습니다. 모의 콘텐츠 대체 데이터를 사용합니다.", productId);
   },
 
   async listMarketingSlots(filters) {

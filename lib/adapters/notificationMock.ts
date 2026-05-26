@@ -25,6 +25,6 @@ export function failNotificationMock(templateCode: string): NotificationMockResu
   return {
     id: `notification-failed-${templateCode}`,
     status: "failed_mock",
-    message: "Mock failure only. Kakao Alimtalk sender/template approval remains blocked.",
+    message: "모의 실패만 처리됩니다. 카카오 알림톡 발신자/템플릿 승인은 차단 상태입니다.",
   };
 }

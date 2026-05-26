@@ -13,7 +13,7 @@ export function CertificationEvidenceUploader() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.12em] text-purple-600">storage beta</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">인증/서류 업로드 mock</h2>
+          <h2 className="mt-1 text-lg font-black text-slate-950">인증/서류 업로드 모의 화면</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Firebase Storage 경로와 증빙 상태만 준비합니다. 실제 uploadBytes, 바이러스 검사, 파일 보관 정책은 별도 승인 후 연결합니다.
           </p>
@@ -26,7 +26,7 @@ export function CertificationEvidenceUploader() {
           <div key={slot.label} className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
             <p className="font-bold text-slate-900">{slot.label}</p>
             <p className="mt-2 break-words text-xs leading-5 text-slate-500">예정 경로: storage/{slot.path}</p>
-            <p className="mt-3 rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700">mock uploaded</p>
+            <p className="mt-3 rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700">모의 업로드 완료</p>
           </div>
         ))}
       </div>

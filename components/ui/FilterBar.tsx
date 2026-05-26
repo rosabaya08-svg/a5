@@ -10,7 +10,7 @@ type FilterBarProps = {
 export function FilterBar({
   title,
   filters,
-  searchPlaceholder = "검색어 mock",
+  searchPlaceholder = "검색어 입력",
   sortOptions = ["최신순", "상태순", "위험순"],
   resultCount,
   mode = "compact",
@@ -21,7 +21,7 @@ export function FilterBar({
         <div>
           <p className="text-sm font-black text-slate-900">{title}</p>
           {typeof resultCount === "number" ? (
-            <p className="mt-1 text-xs font-semibold text-slate-500">{resultCount}개 mock 결과</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{resultCount}개 모의 결과</p>
           ) : null}
         </div>
         {mode === "toolbar" ? (

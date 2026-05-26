@@ -76,7 +76,7 @@ function CompanyOnboardingPanel() {
 
   return (
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-      <h2 className="text-lg font-black">입점 신청 자료 업로드 mock</h2>
+      <h2 className="text-lg font-black">입점 신청 자료 업로드 모의 화면</h2>
       <p className="mt-2 text-sm leading-6">
         실제 Storage 업로드는 Blaze와 보안 규칙 승인 전까지 차단합니다. 현재는 필요한 서류와 입력 항목을 기업 미팅에서 확인할 수 있게 표시합니다.
       </p>
@@ -97,7 +97,7 @@ function ProductCompliancePanel() {
     "반품, 파손, 교환, AS 책임 주체와 고객 연락처를 상품 상세에 노출",
     "식품/유아용품/화장품 등 카테고리별 법정 표시사항 검토",
     "승인 요청 전 모바일/태블릿 미리보기 확인",
-    "외부 재고 API는 실제 호출 금지, 외부 상품 코드만 mock 저장",
+    "외부 재고 API는 실제 호출 금지, 외부 상품 코드만 모의 저장",
   ];
 
   return (
@@ -225,7 +225,7 @@ export function CompanyProductNewPage() {
       <ConfirmBox
         title="저장 동작 없음"
         description="이 화면은 모의/테스트 베타용 UI입니다. 이미지 업로드, Firebase Storage, 상품 저장 서버 동작은 아직 만들지 않습니다."
-        confirmLabel="mock form"
+        confirmLabel="모의 입력 양식"
       />
       <div className="mt-4 grid gap-4 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-2">
         {["상품명", "카테고리", "폐쇄몰 가격", "플랫폼 최저가", "외부 상품 코드", "배송/수령 방식"].map((label) => (
@@ -233,7 +233,7 @@ export function CompanyProductNewPage() {
             {label}
             <input
               readOnly
-              value="mock 입력 대기"
+              value="모의 입력 대기"
               className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal text-slate-500"
             />
           </label>
@@ -310,7 +310,7 @@ export function CompanyInventoryPage() {
               product.name,
               product.stock,
               product.externalProductCode ?? "미등록",
-              "mock adapter",
+              "모의 어댑터",
               product.stock < 10 ? "재고 부족" : "정상",
             ],
           }))}
@@ -321,7 +321,7 @@ export function CompanyInventoryPage() {
 
 export function CompanyDeliveriesPage() {
   return (
-    <CompanyShell title="배송/현장수령" subtitle="송장 입력과 현장수령 처리는 mock 상태로만 표시합니다.">
+    <CompanyShell title="배송/현장수령" subtitle="송장 입력과 현장수령 처리는 모의 상태로만 표시합니다.">
       <DataTable
         columns={["주문상세", "상품", "수량", "상태", "정산 기준액"]}
         rows={mockApi
@@ -364,7 +364,7 @@ export function CompanySalesPage() {
 
 export function CompanyPayoutsPage() {
   return (
-    <CompanyShell title="입금 현황" subtitle="mock 정산 상태와 지급 차단 여부를 확인합니다.">
+    <CompanyShell title="입금 현황" subtitle="모의 정산 상태와 지급 차단 여부를 확인합니다.">
       <CompanySettlementPreviewPanel companyId={companyId} />
       <div className="mt-4" />
       <DataTable

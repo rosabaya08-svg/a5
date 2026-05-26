@@ -81,7 +81,7 @@ export function AdminInvitePanel() {
       <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase text-blue-600">Firebase Auth Custom Claims</p>
+            <p className="text-xs font-black uppercase text-blue-600">파이어베이스 권한 클레임</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">관리자 계정 발급 및 권한 설계</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
               A5 폐쇄몰은 비밀번호를 운영자가 평문으로 만들거나 전달하지 않습니다. 계정 발급은 Firebase Auth 초대 또는
@@ -122,7 +122,7 @@ export function AdminInvitePanel() {
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase text-slate-500">invite flow</p>
+          <p className="text-xs font-black uppercase text-slate-500">초대 흐름</p>
           <h3 className="mt-1 text-lg font-black text-slate-950">계정 발급 절차</h3>
           <ol className="mt-4 space-y-3">
             {inviteFlow.map((item, index) => (
@@ -137,7 +137,7 @@ export function AdminInvitePanel() {
         </section>
 
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase text-slate-500">scope examples</p>
+          <p className="text-xs font-black uppercase text-slate-500">권한 범위 예시</p>
           <h3 className="mt-1 text-lg font-black text-slate-950">필수 claim 예시</h3>
           <div className="mt-4 space-y-3">
             {scopeExamples.map((item) => (

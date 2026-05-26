@@ -76,7 +76,7 @@ function mapProduct(documentId: string, data: DocumentData): Product {
     nurseryId: asString(data.nursery_id ?? data.nurseryId, ""),
     name: asString(data.title ?? data.name, "Untitled Firebase product"),
     brand: asString(data.brand, "A5 Partner"),
-    subtitle: asString(data.subtitle, "Firebase products collection beta item"),
+    subtitle: asString(data.subtitle, "Firebase products 컬렉션 베타 상품"),
     category: asString(data.category, "uncategorized"),
     status: "approved",
     price: closedMallPrice,
@@ -124,7 +124,7 @@ async function readActiveProducts(filters?: ProductListFilters) {
   const db = getFirebaseDb();
 
   if (!db) {
-    return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing. Using mock fallback.");
+    return repositoryError("EXTERNAL_BLOCKED", "Firebase 웹 설정이 누락되어 모의 대체 데이터를 사용합니다.");
   }
 
   try {
@@ -136,7 +136,7 @@ async function readActiveProducts(filters?: ProductListFilters) {
     return repositoryOk(products);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Firestore product read error.";
-    return repositoryError("EXTERNAL_BLOCKED", `Firestore products read failed. Using mock fallback. ${message}`);
+    return repositoryError("EXTERNAL_BLOCKED", `Firestore 상품 읽기에 실패하여 모의 대체 데이터를 사용합니다. ${message}`);
   }
 }
 
@@ -153,26 +153,26 @@ export const firebaseProductRepository: ProductRepository = {
     const db = getFirebaseDb();
 
     if (!db) {
-      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing. Using mock fallback.", productId);
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase 웹 설정이 누락되어 모의 대체 데이터를 사용합니다.", productId);
     }
 
     try {
       const snapshot = await getDoc(doc(db, productCollection, productId));
 
       if (!snapshot.exists()) {
-        return repositoryError("NOT_FOUND", "Firebase product not found. Using mock fallback.", productId);
+        return repositoryError("NOT_FOUND", "Firebase 상품을 찾지 못해 모의 대체 데이터를 사용합니다.", productId);
       }
 
       const product = mapProduct(snapshot.id, snapshot.data());
 
       if (snapshot.data().status !== "active") {
-        return repositoryError("NOT_FOUND", "Firebase product is not active. Using mock fallback.", productId);
+        return repositoryError("NOT_FOUND", "Firebase 상품이 활성 상태가 아니어서 모의 대체 데이터를 사용합니다.", productId);
       }
 
       return repositoryOk(product);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Firestore product read error.";
-      return repositoryError("EXTERNAL_BLOCKED", `Firestore product read failed. Using mock fallback. ${message}`, productId);
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore 상품 읽기에 실패하여 모의 대체 데이터를 사용합니다. ${message}`, productId);
     }
   },
 
@@ -180,7 +180,7 @@ export const firebaseProductRepository: ProductRepository = {
     const db = getFirebaseDb();
 
     if (!db) {
-      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing. Using mock fallback.", productId);
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase 웹 설정이 누락되어 모의 대체 데이터를 사용합니다.", productId);
     }
 
     try {
@@ -188,7 +188,7 @@ export const firebaseProductRepository: ProductRepository = {
       return repositoryOk<ProductOption[]>(snapshot.docs.map((item) => mapProductOption(item.id, item.data())));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Firestore product options read error.";
-      return repositoryError("EXTERNAL_BLOCKED", `Firestore product options read failed. Using mock fallback. ${message}`, productId);
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore 상품 옵션 읽기에 실패하여 모의 대체 데이터를 사용합니다. ${message}`, productId);
     }
   },
 

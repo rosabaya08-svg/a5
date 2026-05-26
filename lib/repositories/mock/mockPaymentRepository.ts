@@ -18,7 +18,7 @@ export const mockPaymentRepository: PaymentRepository = {
     const payment = mockPayments.find((item) => item.id === paymentId);
 
     if (!payment) {
-      return repositoryError("NOT_FOUND", "Payment not found", paymentId);
+      return repositoryError("NOT_FOUND", "결제 정보를 찾을 수 없습니다.", paymentId);
     }
 
     return repositoryOk({
@@ -34,7 +34,7 @@ export const mockPaymentRepository: PaymentRepository = {
     const payment = mockPayments.find((item) => item.id === paymentId);
 
     if (!payment) {
-      return repositoryError("NOT_FOUND", "Payment not found", paymentId);
+      return repositoryError("NOT_FOUND", "결제 정보를 찾을 수 없습니다.", paymentId);
     }
 
     return repositoryOk({ ...payment, status: "failed_mock" });

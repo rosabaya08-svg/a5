@@ -18,7 +18,7 @@ type DataTableProps = {
 export function DataTable({
   columns,
   rows,
-  emptyMessage = "표시할 mock 데이터가 없습니다.",
+  emptyMessage = "표시할 모의 데이터가 없습니다.",
   isLoading = false,
   errorMessage,
   sortLabel,
@@ -34,7 +34,7 @@ export function DataTable({
       )}
       {errorMessage ? (
         <div className="m-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-          <p className="font-black">오류 상태 mock</p>
+          <p className="font-black">오류 상태 모의 화면</p>
           <p className="mt-1 leading-6">{errorMessage}</p>
         </div>
       ) : isLoading ? (

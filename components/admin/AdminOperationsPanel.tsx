@@ -16,8 +16,8 @@ import type { AdminApprovalStatus } from "@/types/admin";
 
 const approvalLabel: Record<AdminApprovalStatus, string> = {
   pending_review: "검토 대기",
-  approved_mock: "승인 mock",
-  rejected_mock: "반려 mock",
+  approved_mock: "모의 승인",
+  rejected_mock: "모의 반려",
   needs_fix: "수정 요청",
   blocked: "차단",
 };
@@ -28,6 +28,16 @@ const approvalTone: Record<AdminApprovalStatus, string> = {
   rejected_mock: "bg-red-100 text-red-800 ring-red-200",
   needs_fix: "bg-violet-100 text-violet-800 ring-violet-200",
   blocked: "bg-red-100 text-red-800 ring-red-200",
+};
+
+const paymentProviderLabel: Record<string, string> = {
+  mock: "모의 결제사",
+};
+
+const paymentStatusLabel: Record<string, string> = {
+  approved_mock: "모의 승인",
+  failed_mock: "모의 실패",
+  webhook_pending: "웹훅 대기",
 };
 
 function Pill({ children, tone = "slate" }: { children: ReactNode; tone?: "slate" | "blue" | "amber" | "red" | "green" | "purple" }) {
@@ -52,12 +62,12 @@ function SuperAdminWriteGate() {
     <section className="rounded-md border border-red-200 bg-red-50 p-4 text-red-950">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black">SUPER_ADMIN claim 필요</h2>
+          <h2 className="text-lg font-black">최고관리자 권한 필요</h2>
           <p className="mt-2 text-sm leading-6">
-            승인/반려, 콘텐츠 published 전환, 결제/주문 강제 상태 변경은 실제 write가 아닙니다. 운영 write는 `SUPER_ADMIN` Custom Claim, audit log, 서버 검증 후에만 허용해야 합니다.
+            승인/반려, 콘텐츠 공개 전환, 결제/주문 강제 상태 변경은 실제 쓰기가 아닙니다. 운영 쓰기는 최고관리자 권한 클레임, 감사 로그, 서버 검증 후에만 허용해야 합니다.
           </p>
         </div>
-        <Pill tone="red">client direct write 금지</Pill>
+        <Pill tone="red">브라우저 직접 쓰기 금지</Pill>
       </div>
     </section>
   );
@@ -131,7 +141,7 @@ export function ProductApprovalQueuePanel() {
         searchPlaceholder="상품명, 입점사, KC 인증번호"
       />
       <DataTable
-        columns={["상품", "법적 고지/KC", "red flag", "상태", "저장 경로", "작업"]}
+        columns={["상품", "법적 고지/KC", "위험 표시", "상태", "저장 경로", "작업"]}
         rows={productApprovalQueue.map((product) => ({
           id: product.id,
           cells: [
@@ -151,7 +161,7 @@ export function ProductApprovalQueuePanel() {
               {product.complianceSummary.prohibitedFlags.length ? (
                 product.complianceSummary.prohibitedFlags.map((flag) => <Pill key={flag} tone="red">{flag}</Pill>)
               ) : (
-                <Pill tone="green">red flag 없음</Pill>
+                <Pill tone="green">위험 표시 없음</Pill>
               )}
             </div>,
             <ApprovalStatusBadge key="status" status={product.status} />,
@@ -218,13 +228,13 @@ export function PaymentMonitorPanel() {
     <section>
       <FilterBar
         title="결제 모니터"
-        filters={["전체", "mock 승인", "webhook 대기", "실패", "수동 검토"]}
+        filters={["전체", "모의 승인", "웹훅 대기", "실패", "수동 검토"]}
         mode="toolbar"
         resultCount={paymentMonitorItems.length}
         searchPlaceholder="주문번호, paymentIntentId"
       />
       <DataTable
-        columns={["주문/결제", "provider", "상태", "금액", "고객", "최근 이벤트", "위험"]}
+        columns={["주문/결제", "PG사", "상태", "금액", "고객", "최근 이벤트", "위험"]}
         rows={paymentMonitorItems.map((item) => ({
           id: item.id,
           cells: [
@@ -232,8 +242,8 @@ export function PaymentMonitorPanel() {
               <Link href={`/orders/guest/${item.orderNo}`} className="font-black text-blue-700">{item.orderNo}</Link>
               <p className="mt-1 text-xs text-slate-500">{item.paymentIntentId}</p>
             </div>,
-            <Pill key="provider" tone={item.provider === "mock" ? "slate" : "blue"}>{item.provider}</Pill>,
-            <Pill key="status" tone={item.status === "approved_mock" ? "green" : item.status === "failed_mock" ? "red" : "amber"}>{item.status}</Pill>,
+            <Pill key="provider" tone={item.provider === "mock" ? "slate" : "blue"}>{paymentProviderLabel[item.provider] ?? item.provider}</Pill>,
+            <Pill key="status" tone={item.status === "approved_mock" ? "green" : item.status === "failed_mock" ? "red" : "amber"}>{paymentStatusLabel[item.status] ?? item.status}</Pill>,
             formatCurrency(item.amount),
             item.customerMasked,
             formatDateTime(item.lastEventAt),
@@ -291,7 +301,7 @@ export function AuditLogViewerPanel() {
         searchPlaceholder="actor, action, target"
       />
       <DataTable
-        columns={["시각", "actor", "action", "target", "severity", "메시지", "경로"]}
+        columns={["시각", "행위자", "작업", "대상", "심각도", "메시지", "경로"]}
         rows={adminAuditOperations.map((log) => ({
           id: log.id,
           cells: [
@@ -317,13 +327,13 @@ export function RepositoryConnectionPanel() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">repository contract</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">저장소 계약</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">Firestore repository 연결 가능 구조</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             관리자 화면은 Firestore repository로 읽을 수 있는 구조를 전제로 하며, write는 SUPER_ADMIN claim 또는 Functions 전용으로 제한합니다.
           </p>
         </div>
-        <Pill tone="red">SUPER_ADMIN write gate</Pill>
+        <Pill tone="red">최고관리자 쓰기 게이트</Pill>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {repositoryConnectionItems.map((item) => (

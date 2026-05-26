@@ -88,12 +88,12 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
       candidate: "mock",
       ready: true,
       mode: "mock",
-      label: "mock/test beta 결제 흐름",
+      label: "모의/테스트 베타 결제 흐름",
       missingKeys,
       publicKeys: summary.publicKeys,
       serverKeys: summary.serverKeys,
-      blockers: ["PG provider 미선택", "PG 공식 문서/키 미수령", "실제 승인/취소/환불 호출 금지"],
-      handoff: ["Use mock provider until a real PG provider is selected.", "Keep server amount recalculation before confirm."],
+      blockers: ["PG 결제사 미선택", "PG 공식 문서/키 미수령", "실제 승인/취소/환불 호출 금지"],
+      handoff: ["실제 PG사가 선택될 때까지 모의 결제사를 유지합니다.", "승인 전 서버 금액 재계산을 유지합니다."],
     };
   }
 
@@ -103,12 +103,12 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
       candidate: "unknown",
       ready: false,
       mode: "blocked",
-      label: "지원 후보가 아닌 PG provider",
+    label: "지원 후보가 아닌 PG 결제사",
       missingKeys,
       publicKeys: summary.publicKeys,
       serverKeys: summary.serverKeys,
-      blockers: ["NEXT_PUBLIC_PG_PROVIDER must be one of toss, portone, kcp, nice."],
-      handoff: ["Confirm provider name with the PG company before implementing adapter internals."],
+      blockers: ["NEXT_PUBLIC_PG_PROVIDER는 toss, portone, kcp, nice 중 하나여야 합니다."],
+    handoff: ["어댑터 내부 구현 전 PG사와 결제사 이름을 확인합니다."],
     };
   }
 
@@ -117,19 +117,19 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
     candidate: summary.candidate,
     ready: summary.isContractReady,
     mode: summary.isContractReady ? "contract_ready" : "keys_missing",
-    label: summary.isContractReady ? "PG adapter slot ready for official module" : "PG key or endpoint values missing",
+    label: summary.isContractReady ? "공식 모듈 연결용 PG 어댑터 슬롯 준비" : "PG 키 또는 엔드포인트 값 누락",
     missingKeys,
     publicKeys: summary.publicKeys,
     serverKeys: summary.serverKeys,
     blockers: [
-      "Actual PG SDK/API import is still prohibited until official docs are reviewed.",
-      "PG_SECRET_KEY and PG_WEBHOOK_SECRET must stay in Functions runtime or Secret Manager.",
-      "Real cancel/refund/settlement remains blocked.",
+      "공식 문서 검토 전까지 실제 PG SDK/API import는 금지입니다.",
+      "PG_SECRET_KEY와 PG_WEBHOOK_SECRET은 Functions runtime 또는 Secret Manager에만 보관해야 합니다.",
+      "실제 취소/환불/정산은 계속 차단됩니다.",
     ],
     handoff: [
-      `Implement the ${summary.candidate} adapter branch only after official sandbox docs arrive.`,
-      "Keep browser keys in Cloudflare Pages only.",
-      "Keep server secrets out of static export and Git.",
+      `공식 sandbox 문서 수령 후에만 ${summary.candidate} 어댑터 분기를 구현합니다.`,
+      "브라우저 공개 키는 Cloudflare Pages에만 둡니다.",
+      "서버 비밀값은 static export와 Git에서 제외합니다.",
     ],
   };
 }

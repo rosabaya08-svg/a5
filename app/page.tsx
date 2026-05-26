@@ -1,65 +1,65 @@
 import Link from "next/link";
 
-const safetyBadges = ["Firebase beta live", "Firestore commerce ready", "PG module pending", "No production payment"];
+const safetyBadges = ["파이어베이스 베타 연결", "파이어스토어 상품 준비", "PG 모듈 대기", "운영 결제 아님"];
 
 const primaryCards = [
   {
     href: "/admin/dashboard",
     title: "최고관리자",
-    description: "입점사, 조리원, QR, 정산, 감사 로그를 확인하는 mock 관리자 영역입니다.",
+    description: "입점사, 조리원, QR, 정산, 감사 로그를 확인하는 모의 관리자 영역입니다.",
   },
   {
     href: "/company/dashboard",
-    title: "기업 Admin",
-    description: "상품, 재고, 주문, 매출, 입금 예정 상태를 확인하는 mock 기업 영역입니다.",
+    title: "기업 관리자",
+    description: "상품, 재고, 주문, 매출, 입금 예정 상태를 확인하는 모의 기업 영역입니다.",
   },
   {
     href: "/nursery/dashboard",
-    title: "조리원 Admin",
-    description: "객실, 태블릿, 현장수령, QR 이력을 확인하는 mock 조리원 영역입니다.",
+    title: "조리원 관리자",
+    description: "객실, 태블릿, 현장수령, QR 이력을 확인하는 모의 조리원 영역입니다.",
   },
   {
     href: "/tablet/products",
     title: "태블릿 폐쇄몰",
-    description: "상품 탐색, 장바구니, QR 생성 흐름을 확인하는 태블릿 mock 화면입니다.",
+    description: "상품 탐색, 장바구니, QR 생성 흐름을 확인하는 태블릿 모의 화면입니다.",
   },
   {
     href: "/q/SANHO701",
     title: "고객 QR",
-    description: "비회원 QR 랜딩과 checkout mock 흐름을 확인하는 고객 모바일 화면입니다.",
+    description: "비회원 QR 랜딩과 결제 확인 모의 흐름을 확인하는 고객 모바일 화면입니다.",
   },
   {
     href: "/orders/guest",
     title: "비회원 주문조회",
-    description: "주문번호 기반 mock 주문조회와 주문 상세 상태를 확인합니다.",
+    description: "주문번호 기반 모의 주문조회와 주문 상세 상태를 확인합니다.",
   },
 ];
 
 const launcherCards = [
   {
     href: "/products",
-    title: "고객 상품 목록 alias",
+    title: "고객 상품 목록 별칭",
     description: "404가 발생하던 /products를 /tablet/products와 같은 고객 상품 목록으로 연결했습니다.",
   },
   {
     href: "/mock-ui/status",
     title: "통합 진행 상태 대시보드",
-    description: "worktree route 상태, 404 기록, 파일 그룹, blockers, next tasks를 한 화면에서 봅니다.",
+    description: "작업 폴더 경로 상태, 404 기록, 파일 그룹, 차단 항목, 다음 작업을 한 화면에서 봅니다.",
   },
   {
     href: "/mock-ui",
-    title: "mock UI hub",
-    description: "생성된 preview route를 모아보는 mock/test beta 허브입니다.",
+    title: "모의 UI 허브",
+    description: "생성된 미리보기 경로를 모아보는 모의/테스트 베타 허브입니다.",
   },
   {
     href: "/mock-ui/smoke",
-    title: "visual smoke checklist",
+    title: "화면 점검 체크리스트",
     description: "브라우저에서 어떤 순서로 눌러볼지 확인하는 수동 체크리스트입니다.",
   },
   {
     href: "/mock-ui/merge",
-    title: "merge handoff",
-    description: "다른 worktree 결과를 main에 합치기 전 확인할 항목입니다.",
+    title: "병합 인수인계",
+    description: "다른 작업 폴더 결과를 기준 브랜치에 합치기 전 확인할 항목입니다.",
   },
   {
     href: "/tablet/products",
@@ -83,38 +83,38 @@ const launcherCards = [
   },
   {
     href: "/q/SANHO701/checkout",
-    title: "고객 checkout mock",
+    title: "고객 결제 확인 모의 화면",
     description: "실제 PG 없이 결제 전 확인 흐름만 확인합니다.",
   },
   {
     href: "/orders/guest",
     title: "비회원 주문조회 입력",
-    description: "주문번호/휴대폰번호 mock 입력 UI를 확인합니다.",
+    description: "주문번호/휴대폰번호 모의 입력 UI를 확인합니다.",
   },
   {
     href: "/orders/guest/A5-20260519-001",
     title: "비회원 주문조회 상세",
-    description: "비회원 주문 상세 mock 결과를 확인합니다.",
+    description: "비회원 주문 상세 모의 결과를 확인합니다.",
   },
   {
     href: "/company/dashboard",
-    title: "기업 dashboard",
-    description: "입점사 상품/주문/재고/매출 mock 운영 화면으로 이동합니다.",
+    title: "기업 대시보드",
+    description: "입점사 상품/주문/재고/매출 모의 운영 화면으로 이동합니다.",
   },
   {
     href: "/company/products",
     title: "기업 상품 관리",
-    description: "기업 Admin의 상품 목록과 승인 상태 mock 화면을 확인합니다.",
+    description: "기업 관리자의 상품 목록과 승인 상태 모의 화면을 확인합니다.",
   },
   {
     href: "/nursery/dashboard",
-    title: "조리원 dashboard",
-    description: "조리원 객실/태블릿/현장수령 mock 운영 화면으로 이동합니다.",
+    title: "조리원 대시보드",
+    description: "조리원 객실/태블릿/현장수령 모의 운영 화면으로 이동합니다.",
   },
   {
     href: "/nursery/rooms",
     title: "조리원 객실 관리",
-    description: "객실 목록과 태블릿 연결 상태 mock 화면을 확인합니다.",
+    description: "객실 목록과 태블릿 연결 상태 모의 화면을 확인합니다.",
   },
 ];
 
@@ -152,13 +152,13 @@ export default function Home() {
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <div className="mx-auto grid max-w-7xl gap-7">
         <section className="rounded-md border border-white/10 bg-white/5 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">Mock/Test Beta</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">모의/테스트 베타</p>
           <h1 className="mt-3 text-4xl font-black leading-tight">
-            산후조리원 폐쇄몰 기반 QR 결제 쇼핑몰 mock/test beta
+            산후조리원 폐쇄몰 기반 QR 결제 쇼핑몰 모의/테스트 베타
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-            실제 Firebase, PG, 알림톡, 배송조회, 외부 재고 API 연결 없이 문서 기반 mock 데이터와
-            preview 화면으로 진행 상황을 확인하는 개발용 베타입니다.
+            실제 Firebase, PG, 알림톡, 배송조회, 외부 재고 API 연결 없이 문서 기반 모의 데이터와
+            미리보기 화면으로 진행 상황을 확인하는 개발용 베타입니다.
           </p>
           <SafetyBadges />
         </section>
@@ -172,10 +172,10 @@ export default function Home() {
         <section className="rounded-md border border-white/10 bg-white/5 p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">Local launcher</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">로컬 실행 화면</p>
               <h2 className="mt-2 text-3xl font-black">자동 생성 결과 확인</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                localhost:3000에서 바로 눌러 확인할 수 있는 mock/test beta route index입니다.
+                localhost:3000에서 바로 눌러 확인할 수 있는 모의/테스트 베타 경로 목록입니다.
               </p>
             </div>
             <Link

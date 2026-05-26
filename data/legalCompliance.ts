@@ -53,7 +53,7 @@ export const certificationChecklist: LegalComplianceItem[] = [
   { id: "kc-target", title: "KC 인증 대상 여부", description: "전기용품, 생활용품, 어린이제품 등 안전관리 대상 여부를 먼저 선택합니다.", riskLevel: "required", lawReviewRequired: true },
   { id: "kc-number", title: "KC 인증번호", description: "인증 대상이면 KC 인증번호 또는 신고/확인번호 입력이 필요합니다.", riskLevel: "required", lawReviewRequired: true },
   { id: "cert-type", title: "안전인증/안전확인/공급자적합성 구분", description: "상품군별 인증 구분과 증빙 파일을 같이 관리합니다.", riskLevel: "required", lawReviewRequired: true },
-  { id: "evidence", title: "인증서류 업로드 mock", description: "현재는 Storage 경로와 상태만 표시하며 실제 uploadBytes는 별도 승인 전까지 차단합니다.", riskLevel: "warning", lawReviewRequired: true },
+  { id: "evidence", title: "인증서류 업로드 모의 화면", description: "현재는 Storage 경로와 상태만 표시하며 실제 uploadBytes는 별도 승인 전까지 차단합니다.", riskLevel: "warning", lawReviewRequired: true },
 ];
 
 export const legalReviewSources = [
@@ -105,7 +105,7 @@ export function evaluateComplianceGate(state: ProductComplianceState): Complianc
   }
 
   if (state.certification.evidenceUploadRequired && !state.certification.evidenceUploaded) {
-    blockers.push("인증 대상 상품은 증빙 파일 업로드 mock 상태가 필요합니다.");
+    blockers.push("인증 대상 상품은 증빙 파일 업로드 모의 상태가 필요합니다.");
   }
 
   if (state.expertReviewRequired) warnings.push("최종 법률 판단은 전문가 검토 후 확정해야 합니다.");

@@ -28,13 +28,13 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     role === "company"
       ? {
           title: "기업 어드민 로그인",
-          eyebrow: "Company Admin",
+          eyebrow: "기업 관리자",
           helper: "입점사는 사업자등록번호와 베타 기본 비밀번호로 데모 화면에 진입합니다.",
           next: "/company/dashboard",
         }
       : {
           title: "산후조리원 어드민 로그인",
-          eyebrow: "Nursery Admin",
+          eyebrow: "조리원 관리자",
           helper: "산후조리원은 사업자등록번호와 베타 기본 비밀번호로 객실/태블릿/주문 운영 화면에 진입합니다.",
           next: "/nursery/dashboard",
         };
@@ -89,7 +89,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">A5 closed mall beta</p>
               <h2 className="mt-2 text-2xl font-black">사업자 계정 확인</h2>
             </div>
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-900">mock/test beta</span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-900">모의/테스트 베타</span>
           </div>
 
           <div className="mt-6 grid gap-4">

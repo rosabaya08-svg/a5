@@ -32,7 +32,7 @@ function currentCandidate(): PaymentProviderCandidate {
 export const pgProviderSkeleton: PaymentProvider = {
   id: "pg_skeleton",
   candidate: "unknown",
-  displayName: "PG Provider Adapter Slot",
+  displayName: "PG 결제사 어댑터 슬롯",
   capabilities: {
     createPaymentIntent: true,
     requestPayment: true,

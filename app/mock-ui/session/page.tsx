@@ -8,11 +8,11 @@ export default function MockSessionPage() {
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-950 md:px-8">
       <div className="mx-auto grid max-w-7xl gap-5">
         <header className="rounded-md border border-slate-200 bg-white p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Session preview</p>
-          <h1 className="mt-2 text-3xl font-black">QR session lifecycle and device source</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">세션 미리보기</p>
+          <h1 className="mt-2 text-3xl font-black">QR 세션 생명주기와 태블릿 출처</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            Static preview for tablet source tracking, one-time QR handoff, expiration, and mock payment result
-            states. No live session, Firebase document, or PG transaction is created.
+            태블릿 출처 추적, 1회용 QR 전달, 만료, 모의 결제 결과 상태를 정적으로 미리봅니다.
+            실제 세션, Firebase 문서, PG 거래는 생성하지 않습니다.
           </p>
         </header>
 
@@ -26,4 +26,3 @@ export default function MockSessionPage() {
     </main>
   );
 }
-

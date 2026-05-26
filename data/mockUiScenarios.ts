@@ -10,26 +10,26 @@ export const mockEmptyStates: MockUiState[] = [
   {
     id: "empty-products",
     kind: "empty",
-    title: "No products match this filter",
+    title: "조건에 맞는 상품이 없습니다",
     description:
-      "The closed mall can show a calm empty state while keeping the category and price filters available.",
+      "폐쇄몰은 카테고리와 가격 필터를 유지하면서 차분한 빈 상태를 보여줄 수 있습니다.",
     tone: "neutral",
-    action: { label: "Reset filters", description: "Return to all mock products." },
+    action: { label: "필터 초기화", description: "전체 모의 상품으로 돌아갑니다." },
   },
   {
     id: "empty-orders",
     kind: "empty",
-    title: "No guest orders found",
+    title: "비회원 주문을 찾을 수 없습니다",
     description:
-      "The guest order lookup should explain that order number and masked phone must match the mock record.",
+      "비회원 주문조회는 주문번호와 휴대폰번호가 모의 기록과 일치해야 한다고 안내해야 합니다.",
     tone: "info",
   },
   {
     id: "empty-qr",
     kind: "empty",
-    title: "No active QR session",
+    title: "활성 QR 세션이 없습니다",
     description:
-      "The tablet can guide staff to rebuild a mock cart before generating a new QR payment entry.",
+      "태블릿은 새 QR 결제 진입을 만들기 전에 모의 장바구니를 다시 구성하도록 안내할 수 있습니다.",
     tone: "warning",
   },
 ];
@@ -38,107 +38,106 @@ export const mockErrorStates: MockUiState[] = [
   {
     id: "expired-qr",
     kind: "expired",
-    title: "QR session expired",
+    title: "QR 세션이 만료되었습니다",
     description:
-      "The payment entry is closed in mock mode. A new QR session must be generated from the tablet cart.",
+      "결제 진입이 모의 모드에서 닫혔습니다. 태블릿 장바구니에서 새 QR 세션을 생성해야 합니다.",
     tone: "danger",
-    action: { label: "Generate a new mock QR" },
+    action: { label: "새 모의 QR 생성" },
   },
   {
     id: "payment-failed",
     kind: "error",
-    title: "Mock payment failed",
+    title: "모의 결제가 실패했습니다",
     description:
-      "No PG call was made. This state is used only to test retry and support messaging before live integration.",
+      "PG 호출은 실행되지 않았습니다. 이 상태는 실연동 전 재시도와 고객 안내 문구를 점검하기 위한 용도입니다.",
     tone: "danger",
   },
   {
     id: "integration-blocked",
     kind: "blocked",
-    title: "Live integration is blocked",
+    title: "실연동이 차단되어 있습니다",
     description:
-      "Firebase, PG, Alimtalk, delivery tracking, and external inventory APIs remain disabled until separate approval.",
+      "별도 승인 전까지 Firebase, PG, 알림톡, 배송조회, 외부 재고 API는 비활성 상태입니다.",
     tone: "warning",
   },
 ];
 
 export const riskStatusLabels: Record<RiskStatus, string> = {
-  needs_review: "Needs review",
-  blocked: "Blocked",
-  expired: "Expired",
-  payment_failed: "Payment failed",
-  settlement_hold: "Settlement hold",
-  inventory_low: "Low inventory",
-  integration_pending: "Integration pending",
-  mock_only: "Mock only",
+  needs_review: "검토 필요",
+  blocked: "차단",
+  expired: "만료",
+  payment_failed: "결제 실패",
+  settlement_hold: "정산 보류",
+  inventory_low: "재고 부족",
+  integration_pending: "연동 대기",
+  mock_only: "모의 전용",
 };
 
 export const commerceFilterGroups: FilterGroup[] = [
   {
     id: "category",
-    label: "Category",
+    label: "카테고리",
     options: [
-      { label: "All", value: "all" },
-      { label: "Care", value: "care", count: 8 },
-      { label: "Gift", value: "gift", count: 6 },
-      { label: "Recovery", value: "recovery", count: 5 },
+      { label: "전체", value: "all" },
+      { label: "케어", value: "care", count: 8 },
+      { label: "선물", value: "gift", count: 6 },
+      { label: "회복", value: "recovery", count: 5 },
     ],
   },
   {
     id: "fulfillment",
-    label: "Fulfillment",
+    label: "수령 방식",
     options: [
-      { label: "All", value: "all" },
-      { label: "Delivery", value: "delivery", count: 14 },
-      { label: "Pickup", value: "pickup", count: 7 },
+      { label: "전체", value: "all" },
+      { label: "택배배송", value: "delivery", count: 14 },
+      { label: "현장수령", value: "pickup", count: 7 },
     ],
   },
   {
     id: "risk",
-    label: "State",
+    label: "상태",
     options: [
-      { label: "In stock", value: "in_stock", count: 16 },
-      { label: "Low inventory", value: "inventory_low", count: 3 },
-      { label: "Mock only", value: "mock_only", count: 21 },
+      { label: "재고 있음", value: "in_stock", count: 16 },
+      { label: "재고 부족", value: "inventory_low", count: 3 },
+      { label: "모의 전용", value: "mock_only", count: 21 },
     ],
   },
 ];
 
 export const commerceSortOptions: SortOption[] = [
-  { label: "Recommended", value: "recommended", description: "Default closed mall ordering." },
-  { label: "Discount high to low", value: "discount_desc" },
-  { label: "Price low to high", value: "price_asc" },
-  { label: "Newest mock item", value: "created_desc" },
+  { label: "추천순", value: "recommended", description: "폐쇄몰 기본 노출 순서입니다." },
+  { label: "할인율 높은순", value: "discount_desc" },
+  { label: "낮은 가격순", value: "price_asc" },
+  { label: "최신 모의 상품순", value: "created_desc" },
 ];
 
 export const productDetailMockSections: DetailSection[] = [
   {
     id: "price",
-    title: "Price comparison layer",
-    description: "A mock-only comparison block that does not call an AI or external price API.",
+    title: "가격 비교 레이어",
+    description: "AI 또는 외부 가격 API를 호출하지 않는 모의 전용 비교 블록입니다.",
     fields: [
-      { label: "List price", value: "KRW 158,000" },
-      { label: "Closed mall price", value: "KRW 119,000" },
-      { label: "Displayed discount", value: "25%" },
+      { label: "정상가", value: "158,000원" },
+      { label: "폐쇄몰가", value: "119,000원" },
+      { label: "표시 할인율", value: "25%" },
     ],
   },
   {
     id: "fulfillment",
-    title: "Fulfillment options",
+    title: "수령 방식",
     fields: [
-      { label: "Delivery", value: "Available" },
-      { label: "Nursery pickup", value: "Available for selected rooms" },
-      { label: "Stock state", value: "Low inventory mock" },
+      { label: "택배배송", value: "가능" },
+      { label: "조리원 현장수령", value: "선택 객실 가능" },
+      { label: "재고 상태", value: "재고 부족 모의 상태" },
     ],
   },
   {
     id: "integration",
-    title: "Live integration boundary",
+    title: "실연동 차단선",
     fields: [
-      { label: "Firebase", value: "Not connected" },
-      { label: "PG", value: "Mock only" },
-      { label: "External inventory", value: "Not connected" },
+      { label: "Firebase", value: "미연결" },
+      { label: "PG", value: "모의 전용" },
+      { label: "외부 재고", value: "미연결" },
     ],
   },
 ];
-

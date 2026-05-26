@@ -38,7 +38,7 @@ export const mockInventoryRepository: InventoryRepository = {
         companyId: product?.companyId,
         type: "external_sync" as const,
         quantity: option.stock,
-        reason: "mock company scoped inventory read",
+        reason: "기업 범위 재고 모의 조회",
         sourceId: product?.externalProductCode,
         createdAt: new Date("2026-05-20T09:00:00.000Z").toISOString(),
         createdBy: "mock-repository",
@@ -66,11 +66,11 @@ export const mockInventoryRepository: InventoryRepository = {
   },
 
   async reserveStock(optionId, quantity, sourceId) {
-    return repositoryOk(buildMovement("reserve", optionId, quantity, "mock reserve", sourceId));
+    return repositoryOk(buildMovement("reserve", optionId, quantity, "모의 예약", sourceId));
   },
 
   async deductStock(optionId, quantity, orderId) {
-    return repositoryOk(buildMovement("deduct", optionId, quantity, "mock deduct", orderId));
+    return repositoryOk(buildMovement("deduct", optionId, quantity, "모의 차감", orderId));
   },
 
   async restoreStock(optionId, quantity, reason) {

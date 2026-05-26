@@ -82,7 +82,7 @@ function mapOrder(documentId: string, data: DocumentData): Order {
     qrSessionId: asString(data.qrSessionId ?? data.qr_session_id),
     nurseryId: asString(data.nurseryId ?? data.nursery_id),
     roomId: asString(data.roomId ?? data.room_id),
-    customerName: asString(data.customerName ?? data.customer_name, "Guest"),
+    customerName: asString(data.customerName ?? data.customer_name, "비회원 고객"),
     customerPhoneMasked: asString(data.customerPhoneMasked ?? data.customer_phone_masked, "010-****-0000"),
     status: asOrderStatus(data.status),
     deliveryMethod: asDeliveryMethod(data.deliveryMethod ?? data.delivery_method),

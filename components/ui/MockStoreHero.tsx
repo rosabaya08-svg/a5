@@ -17,16 +17,16 @@ export function MockStoreHero({ banner }: { banner: StorefrontBanner }) {
         </div>
         <div className="grid gap-3 rounded-md bg-white p-4 text-slate-950">
           <div className="rounded-md bg-emerald-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-800">Nursery</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-800">조리원</p>
             <p className="mt-1 text-xl font-black">{banner.nurseryName}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md bg-slate-50 p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Room</p>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">객실</p>
               <p className="mt-1 font-black">{banner.roomName}</p>
             </div>
             <div className="rounded-md bg-red-50 p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-red-700">Expires</p>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-red-700">만료</p>
               <p className="mt-1 font-black">{banner.expiresAt}</p>
             </div>
           </div>
@@ -35,4 +35,3 @@ export function MockStoreHero({ banner }: { banner: StorefrontBanner }) {
     </header>
   );
 }
-

@@ -97,8 +97,8 @@ export function getPgBridgeStatus(): PgBridgeStatus {
     missing,
     scriptUrl: publicPgEnv.scriptUrl,
     message: moduleLoaded
-      ? "PG browser module is loaded. Real request remains gated by server confirm."
-      : "PG browser module is not loaded yet. Add the provider script/module after PG confirmation.",
+      ? "PG 브라우저 모듈이 로드되었습니다. 실제 요청은 서버 승인 단계에서 계속 차단됩니다."
+      : "PG 브라우저 모듈이 아직 로드되지 않았습니다. PG사 확정 후 공식 스크립트/모듈을 추가해야 합니다.",
   };
 }
 
@@ -107,7 +107,7 @@ export async function requestPgModulePayment(payload: PgCheckoutPayload) {
     return {
       ok: false,
       status: "module_missing",
-      message: "PG browser module is not loaded. Current checkout must stay on mock flow.",
+      message: "PG 브라우저 모듈이 로드되지 않았습니다. 현재 결제는 모의 흐름으로 유지해야 합니다.",
     };
   }
 

@@ -14,11 +14,11 @@ export default function MockOperationsPage() {
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-950 md:px-8">
       <div className="mx-auto grid max-w-7xl gap-5">
         <header className="rounded-md bg-white p-5 ring-1 ring-slate-200">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Operations preview</p>
-          <h1 className="mt-2 text-3xl font-black">Mock operations board</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">운영 미리보기</p>
+          <h1 className="mt-2 text-3xl font-black">모의 운영 보드</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            Review-only board for approvals, integration gates, and future smoke routes. This preview does
-            not run git, build, lint, Firebase, PG, deployment, or external API commands.
+            승인 대기열, 연동 차단선, 향후 화면 점검 경로를 검토하는 보드입니다.
+            이 미리보기는 git, 빌드, 린트, Firebase, PG, 배포, 외부 API 명령을 실행하지 않습니다.
           </p>
         </header>
 
@@ -34,4 +34,3 @@ export default function MockOperationsPage() {
     </main>
   );
 }
-

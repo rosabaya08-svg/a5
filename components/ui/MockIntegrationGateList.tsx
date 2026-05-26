@@ -2,18 +2,18 @@ import type { IntegrationGate } from "@/types/mockOperationsView";
 import { RiskStatusBadge } from "@/components/ui/RiskStatusBadge";
 
 const stateLabels: Record<IntegrationGate["currentState"], string> = {
-  blocked: "Blocked",
-  mock_ready: "Mock ready",
-  docs_needed: "Docs needed",
-  approval_needed: "Approval needed",
+  blocked: "차단",
+  mock_ready: "모의 준비 완료",
+  docs_needed: "문서 필요",
+  approval_needed: "승인 필요",
 };
 
 export function MockIntegrationGateList({ gates }: { gates: IntegrationGate[] }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Integration gates</p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">Live connection blockers</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">연동 게이트</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">실연동 차단 항목</h2>
       </div>
       <div className="mt-4 grid gap-3">
         {gates.map((gate) => (
@@ -41,4 +41,3 @@ export function MockIntegrationGateList({ gates }: { gates: IntegrationGate[] })
     </section>
   );
 }
-

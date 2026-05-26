@@ -19,7 +19,7 @@ export function syncExternalInventoryMock(
     provider: "external_luxury_inventory_mock",
     stock: Math.max(0, request.currentStock - 1),
     syncedAt: new Date("2026-05-19T16:45:00+09:00").toISOString(),
-    message: "Mock stock sync only. No external inventory API was called.",
+    message: "모의 재고 동기화만 처리됩니다. 외부 재고 API는 호출되지 않았습니다.",
   };
 }
 

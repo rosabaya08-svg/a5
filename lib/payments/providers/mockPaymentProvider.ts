@@ -8,7 +8,7 @@ function isoNow() {
 export const mockPaymentProvider: PaymentProvider = {
   id: "mock",
   candidate: "mock",
-  displayName: "A5 Mock Payment",
+  displayName: "A5 모의 결제",
   capabilities: {
     createPaymentIntent: true,
     requestPayment: true,
@@ -25,12 +25,12 @@ export const mockPaymentProvider: PaymentProvider = {
       candidate: "mock",
       ready: true,
       mode: "mock",
-      label: "mock/test beta 결제 흐름",
+      label: "모의/테스트 베타 결제 흐름",
       missingKeys: [],
       publicKeys: [],
       serverKeys: [],
       blockers: ["실제 PG 승인, 취소, 환불, 정산은 실행하지 않음"],
-      handoff: ["PG provider 확정 전까지 mock provider를 유지합니다."],
+      handoff: ["PG 결제사 확정 전까지 모의 결제사를 유지합니다."],
     };
   },
 
@@ -44,7 +44,7 @@ export const mockPaymentProvider: PaymentProvider = {
       createdAt: isoNow(),
       expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       serverRecalculationRequired: true,
-      message: "Mock intent only. Server must recalculate amount before real PG confirm.",
+      message: "모의 결제 의도만 생성됩니다. 실제 PG 승인 전에는 서버에서 금액을 반드시 재계산해야 합니다.",
     };
   },
 
@@ -57,7 +57,7 @@ export const mockPaymentProvider: PaymentProvider = {
       transactionId: `MOCK-REQ-${intent.orderNo}`,
       realPgCalled: false,
       adapterAction: "requestPayment",
-      message: "Mock payment request prepared. No PG module was opened.",
+      message: "모의 결제 요청이 준비되었습니다. 실제 PG 모듈은 열리지 않았습니다.",
     };
   },
 
@@ -71,7 +71,7 @@ export const mockPaymentProvider: PaymentProvider = {
       transactionId: `MOCK-TID-${intent.orderNo}`,
       realPgCalled: false,
       adapterAction: "confirmPayment",
-      message: "Mock approval only. No money movement occurred.",
+      message: "모의 승인만 처리되었습니다. 실제 금전 이동은 발생하지 않았습니다.",
     };
   },
 
@@ -85,7 +85,7 @@ export const mockPaymentProvider: PaymentProvider = {
       paymentKey: event.paymentKey,
       realPgCalled: false,
       adapterAction: "handleWebhook",
-      message: "Mock webhook accepted for contract testing only.",
+      message: "계약 테스트용 모의 웹훅만 수락되었습니다.",
     };
   },
 
@@ -98,7 +98,7 @@ export const mockPaymentProvider: PaymentProvider = {
       transactionId: `MOCK-CANCEL-${input.orderNo}`,
       realPgCalled: false,
       adapterAction: "cancelPayment",
-      message: "Mock cancellation only. Real PG cancellation is blocked.",
+      message: "모의 취소만 처리되었습니다. 실제 PG 취소는 차단되어 있습니다.",
     };
   },
 
@@ -111,7 +111,7 @@ export const mockPaymentProvider: PaymentProvider = {
       transactionId: `MOCK-REFUND-BLOCKED-${input.orderNo}`,
       realPgCalled: false,
       adapterAction: "refundPayment",
-      message: "Refund is blocked until PG policy, settlement hold, and approval flow are confirmed.",
+      message: "PG 정책, 정산 보류, 승인 흐름이 확정될 때까지 환불은 차단됩니다.",
     };
   },
 };

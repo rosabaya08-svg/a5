@@ -40,7 +40,7 @@ export function ProductComplianceForm() {
           <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">product compliance</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">상품 등록 준수사항</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            금지상품, KC 인증 대상 여부, KC 인증번호, 증빙 업로드 mock, 법적 고지 입력 완료 여부를 승인 요청 전에 점검합니다.
+          금지상품, KC 인증 대상 여부, KC 인증번호, 증빙 업로드 모의 상태, 법적 고지 입력 완료 여부를 승인 요청 전에 점검합니다.
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-black ${gate.approvalRequestEnabled ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-red-50 text-red-700 ring-1 ring-red-200"}`}>
@@ -130,7 +130,7 @@ export function ProductComplianceForm() {
                   }))
                 }
               />
-              인증서류 업로드 mock 완료
+              인증서류 업로드 모의 완료
             </label>
           </div>
           <div className="mt-3 grid gap-2">
@@ -145,7 +145,7 @@ export function ProductComplianceForm() {
       </div>
 
       <section className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
-        <h3 className="font-black text-blue-950">상품 고시 입력 mock</h3>
+        <h3 className="font-black text-blue-950">상품 고시 입력 모의 화면</h3>
         <p className="mt-1 text-xs leading-5 text-blue-800">상품명, 모델명, 제조사/수입사, 제조국, 제조연월/사용기한, 품질보증, A/S 연락처를 승인 요청 전 고정합니다.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {productNoticeFields.map((field) => (
@@ -156,7 +156,7 @@ export function ProductComplianceForm() {
               </span>
               <input
                 readOnly
-                value="상품 상세 고시 입력값 mock"
+                value="상품 상세 고시 입력값 모의 데이터"
                 className="rounded-md border border-blue-100 bg-white px-3 py-2 text-sm font-normal text-slate-700"
               />
               <span className="text-xs font-normal leading-5 text-blue-700">{field.helper}</span>
@@ -209,7 +209,7 @@ export function ProductComplianceForm() {
             disabled={!gate.approvalRequestEnabled}
             className="mt-3 w-full rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            관리자 승인 요청 mock
+            관리자 승인 요청 모의 실행
           </button>
         </section>
       </div>

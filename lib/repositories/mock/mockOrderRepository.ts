@@ -18,7 +18,7 @@ export const mockOrderRepository: OrderRepository = {
     const order = mockOrders.find((item) => item.orderNo === orderNo);
 
     if (!order) {
-      return repositoryError("NOT_FOUND", "Order not found", orderNo);
+      return repositoryError("NOT_FOUND", "주문 정보를 찾을 수 없습니다.", orderNo);
     }
 
     const items = mockOrderItems.filter((item) => order.itemIds.includes(item.id));

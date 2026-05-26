@@ -723,3 +723,18 @@
 | Route check | `node scripts/check-routes.mjs` passed with 76 page routes |
 | Security | `npm.cmd run check:no-secrets` passed; `.env.local` remains ignored/untracked and no service account key exists |
 | Boundaries | PG, orders, payments, refunds, settlements, Alimtalk, delivery tracking, external inventory, and private document uploads remain blocked |
+
+## 42. 2026-05-26 화면 한글화 정리
+
+| 항목 | 결과 |
+| --- | --- |
+| 범위 | 홈, mock-ui, 고객 QR/주문, 태블릿 쇼핑, 관리자, 기업, 조리원, Firebase CMS, PG 설정, 공통 UI의 사용자 노출 문구를 한글 중심으로 정리 |
+| 메뉴/배지 | `Admin`, `mock`, `Provider`, `endpoint`, `preview`, `approved mock`, `mock TID` 등 화면에 보이던 영어/혼합 표기를 `관리자`, `모의`, `결제사`, `엔드포인트`, `미리보기`, `모의 승인`, `모의 거래번호`로 교체 |
+| 고객 화면 | QR 랜딩, checkout, 성공/실패/만료/상태, 비회원 주문조회/환불 요청 문구를 한글화하고 데이터 소스 표시는 `파이어스토어`/`모의 대체 데이터`로 표시 |
+| 관리자/기업 화면 | 배너/영상/브랜드/기획전/CMS, 기업 상품 등록/법적 고지/증빙, PG 설정, 운영 모니터 문구를 한글화 |
+| 남긴 영문 | 라우트, 컬렉션 ID, env key, provider id, 코드 식별자는 기능상 필요한 값이므로 유지 |
+| Lint | `npm.cmd run lint` 통과, 오류 0개, 기존 `<img>` 경고 12개 |
+| Build | `npm.cmd run build` 통과, 100개 정적 페이지 생성 |
+| Functions build | `npm.cmd --prefix functions run build` 통과 |
+| Route check | `node scripts/check-routes.mjs` 통과, 76개 page route 확인 |
+| Boundaries | 실제 PG 승인/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. `.env.local`/secret/service account 변경 없음 |

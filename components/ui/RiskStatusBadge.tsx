@@ -12,14 +12,14 @@ const riskToneClasses: Record<RiskStatus, string> = {
 };
 
 const riskLabels: Record<RiskStatus, string> = {
-  needs_review: "Needs review",
-  blocked: "Blocked",
-  expired: "Expired",
-  payment_failed: "Payment failed",
-  settlement_hold: "Settlement hold",
-  inventory_low: "Low inventory",
-  integration_pending: "Integration pending",
-  mock_only: "Mock only",
+  needs_review: "검토 필요",
+  blocked: "차단",
+  expired: "만료",
+  payment_failed: "결제 실패",
+  settlement_hold: "정산 보류",
+  inventory_low: "재고 부족",
+  integration_pending: "연동 대기",
+  mock_only: "모의 전용",
 };
 
 type RiskStatusBadgeProps = {
@@ -36,4 +36,3 @@ export function RiskStatusBadge({ status, label }: RiskStatusBadgeProps) {
     </span>
   );
 }
-

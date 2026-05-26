@@ -12,11 +12,11 @@ export function MockOrderTimeline({ steps }: { steps: MockTimelineStep[] }) {
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Order state</p>
-          <h3 className="mt-1 text-lg font-black text-slate-950">Mock fulfillment timeline</h3>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">주문 상태</p>
+          <h3 className="mt-1 text-lg font-black text-slate-950">수령/배송 진행 타임라인</h3>
         </div>
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
-          No live API calls
+          실제 외부 API 호출 없음
         </span>
       </div>
       <ol className="mt-4 grid gap-3">
@@ -35,4 +35,3 @@ export function MockOrderTimeline({ steps }: { steps: MockTimelineStep[] }) {
     </section>
   );
 }
-

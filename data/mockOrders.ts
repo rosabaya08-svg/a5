@@ -132,7 +132,7 @@ export const mockAuditLogs: AuditLog[] = [
     actorName: "운영자",
     action: "approve",
     target: "product-care-kit",
-    message: "상품 승인 mock 기록",
+    message: "상품 승인 모의 기록",
     createdAt: "2026-05-19T09:30:00+09:00",
   },
   {

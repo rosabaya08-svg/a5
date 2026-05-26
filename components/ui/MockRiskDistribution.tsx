@@ -5,8 +5,8 @@ export function MockRiskDistribution({ items }: { items: RiskDistributionItem[] 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Risk distribution</p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">Mock-only status mix</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">위험 분포</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">상태별 차단 현황</h2>
       </div>
       <div className="mt-4 grid gap-3">
         {items.map((item) => (
@@ -14,7 +14,7 @@ export function MockRiskDistribution({ items }: { items: RiskDistributionItem[] 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-black text-slate-950">{item.label}</h3>
-                <p className="mt-1 text-sm text-slate-600">{item.count} mock records</p>
+                <p className="mt-1 text-sm text-slate-600">{item.count}건</p>
               </div>
               <p className="text-2xl font-black text-slate-950">{item.percentage}%</p>
             </div>
@@ -32,4 +32,3 @@ export function MockRiskDistribution({ items }: { items: RiskDistributionItem[] 
     </section>
   );
 }
-

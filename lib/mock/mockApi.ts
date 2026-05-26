@@ -51,7 +51,7 @@ export const mockApi = {
 
     return [
       { label: "입점사 모의 매출", value: formatCurrency(sales), helper: "order_items 기준", tone: "green" },
-      { label: "예상 입금", value: formatCurrency(payout), helper: "실지급 아님", tone: "blue" },
+      { label: "예상 입금", value: formatCurrency(payout), helper: "인피니 7% 공제 / 실지급 아님", tone: "blue" },
       { label: "상품 수", value: formatNumber(products.length), helper: "승인/대기 포함", tone: "neutral" },
       {
         label: "재고 부족",

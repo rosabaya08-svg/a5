@@ -998,3 +998,9 @@
 - Routed tablet cart QR creation toward Firebase Functions `qrCreate` and removed browser direct QR write on server success.
 - Added server QR validation for tablet scope, room/nursery relation, products, options, inventory, amount mismatch, and short-code collision.
 - Verification passed: lint, Next build, Functions build, route check, and no-secret check.
+## 2026-05-26 company Excel export update
+- Verification passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets`.
+- Company admin now has Excel-compatible CSV export for orders and products.
+- The order export includes A5 required supplier-operation fields: `입점사ID`, `공급사명`, `정산상태`.
+- Added invoice upload template CSV download for manual Sabangnet/shipping workflow preparation.
+- No Sabangnet API, real shipping API, or secret credential was connected.

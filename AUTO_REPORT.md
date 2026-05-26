@@ -795,3 +795,10 @@
 - Verification: `npm --prefix functions run build` passed.
 - Verification: `node scripts/check-routes.mjs` passed with 76 routes.
 - Verification: `npm run check:no-secrets` passed; `.env.local` remains untracked.
+## 2026-05-26 company Excel export update
+- Verification: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets` passed.
+- Added company admin Excel-compatible CSV download panel.
+- Added order export fields for Sabangnet manual upload preparation: order, buyer, receiver, product, payment, delivery, company, supplier, settlement.
+- Added product export fields for product mapping: A5 product code, Sabangnet product code, prices, options, stock, supplier.
+- Added invoice upload template CSV download as a manual operation bridge.
+- No Sabangnet API, shipping API, PG settlement, or external credential was connected.

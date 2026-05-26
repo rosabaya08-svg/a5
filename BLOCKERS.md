@@ -137,3 +137,8 @@
 - Real PG approval/cancel/refund/settlement remains blocked.
 - Alimtalk, delivery tracking, and external inventory API calls remain blocked.
 - Company price policy UI is implemented, but legal/commerce policy review is still required before production enforcement.
+## 2026-05-26 Sabangnet blockers
+- Sabangnet Mini free plan order Excel upload support is not officially confirmed.
+- Official Sabangnet order upload template is not attached yet.
+- Actual Sabangnet API credentials are not available and were not connected.
+- Invoice upload parsing and bulk order status mutation need the confirmed template before production use.

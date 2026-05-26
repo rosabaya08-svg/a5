@@ -518,3 +518,9 @@
 3. Connect checkout to `paymentsReady` before inserting PG provider module.
 4. Confirm seed data for companies, nurseries, rooms, tablets, products, and product options is complete.
 5. Continue removing remaining mock-only browser writes from checkout/order after backend payment transaction endpoints are deployed.
+## 2026-05-26 Sabangnet manual integration next tasks
+1. Confirm Sabangnet Mini order Excel upload support.
+2. Obtain the official Sabangnet Excel template.
+3. Match A5 CSV header order and field names to the official template.
+4. Add invoice CSV upload parsing.
+5. Add company order bulk status update.

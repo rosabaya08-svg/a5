@@ -4,6 +4,12 @@ import type { NavItem } from "@/components/layout/AdminSidebar";
 import { companyNavItems } from "@/components/layout/navigation";
 import { ConfirmBox } from "@/components/ui/ConfirmBox";
 import { CertificationEvidenceUploader } from "@/components/company/CertificationEvidenceUploader";
+import { CompanyPgReadOnlyPanel } from "@/components/company/CompanyPgReadOnlyPanel";
+import {
+  CompanyExcelExportPanel,
+  type CompanyExcelOrderRow,
+  type CompanyExcelProductRow,
+} from "@/components/company/CompanyExcelExportPanel";
 import {
   CompanyFirestoreProductsPanel,
   CompanyInventoryMovementsPanel,
@@ -22,10 +28,93 @@ import { ReturnPolicyForm } from "@/components/company/ReturnPolicyForm";
 import { SellerDisclosureForm } from "@/components/company/SellerDisclosureForm";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  A5_PLATFORM_FEE_RATE,
+  calculateInfinySettlement,
+  INFINY_PG_FEE_RATE,
+  INFINY_TOTAL_FEE_RATE,
+} from "@/lib/payments/infinySettlementPolicy";
 import { mockApi } from "@/lib/mock/mockApi";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 
 const companyId = "company-sanho-care";
+
+function companyNameFor(targetCompanyId: string) {
+  return mockApi.companies().find((company) => company.id === targetCompanyId)?.name ?? targetCompanyId;
+}
+
+function settlementStatusFor(targetCompanyId: string) {
+  return mockApi.settlements().find((settlement) => settlement.companyId === targetCompanyId)?.status ?? "draft";
+}
+
+function companyOrderExcelRows(targetCompanyId: string): CompanyExcelOrderRow[] {
+  const companyItems = mockApi.orderItems().filter((item) => item.companyId === targetCompanyId);
+  const supplierName = companyNameFor(targetCompanyId);
+  const settlementStatus = settlementStatusFor(targetCompanyId);
+
+  return companyItems.map((item) => {
+    const order = mockApi.orders().find((candidate) => candidate.id === item.orderId);
+    const payment = order ? mockApi.payments().find((candidate) => candidate.orderId === order.id) : undefined;
+    const product = mockApi.products().find((candidate) => candidate.name === item.productName || candidate.companyId === item.companyId);
+    const productAmount = item.unitPrice * item.quantity;
+
+    return {
+      orderNo: order?.orderNo ?? item.orderId,
+      orderedAt: order?.createdAt ?? "",
+      paidAt: order?.paidAt ?? payment?.approvedAt ?? "",
+      orderStatus: order?.status ?? item.deliveryStatus,
+      buyerName: order?.customerName ?? "",
+      buyerPhone: order?.customerPhoneMasked ?? "",
+      buyerEmail: "",
+      receiverName: order?.customerName ?? "",
+      receiverPhone: order?.customerPhoneMasked ?? "",
+      postalCode: "",
+      address: "",
+      addressDetail: order ? `${order.nurseryId} / ${order.roomId}` : "",
+      productCode: product?.externalProductCode ?? product?.id ?? item.id,
+      productName: item.productName,
+      optionName: item.optionName,
+      quantity: item.quantity,
+      salePrice: item.unitPrice,
+      productAmount,
+      shippingFee: 0,
+      totalPaidAmount: order?.totalAmount ?? productAmount,
+      paymentMethod: payment ? "PG mock" : "결제대기",
+      carrier: "",
+      invoiceNo: "",
+      deliveryMemo: order?.deliveryMethod === "pickup" ? "현장수령" : "택배배송",
+      companyId: targetCompanyId,
+      supplierName,
+      settlementStatus,
+    };
+  });
+}
+
+function companyProductExcelRows(targetCompanyId: string): CompanyExcelProductRow[] {
+  const supplierName = companyNameFor(targetCompanyId);
+
+  return mockApi
+    .products()
+    .filter((product) => product.companyId === targetCompanyId)
+    .flatMap((product) => {
+      const options = mockApi.productOptions().filter((option) => option.productId === product.id);
+      const rows = options.length > 0 ? options : [{ id: `${product.id}-default`, name: "기본", stock: product.stock }];
+
+      return rows.map((option) => ({
+        a5ProductCode: product.id,
+        sabangnetProductCode: product.externalProductCode ?? "",
+        productName: product.name,
+        optionName: option.name,
+        normalPrice: product.comparison.listPrice,
+        platformLowestPrice: product.comparison.platformLowestPrice,
+        closedMallPrice: product.comparison.closedMallPrice,
+        stock: option.stock,
+        status: product.status,
+        companyId: targetCompanyId,
+        supplierName,
+      }));
+    });
+}
 
 export const legacyCompanyNavItems: NavItem[] = [
   { href: "/company/dashboard", label: "대시보드" },
@@ -145,6 +234,8 @@ export function CompanyDashboardPage() {
     <CompanyShell title="기업 대시보드" subtitle="상품, 주문, 재고, 입금 예정 금액을 입점사 기준으로 확인합니다.">
       <CompanyOnboardingPanel />
       <div className="mt-4" />
+      <CompanyPgReadOnlyPanel companyId={companyId} />
+      <div className="mt-4" />
       <CompanyOperationsOverview companyId={companyId} />
       <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -174,10 +265,13 @@ export function CompanyDashboardPage() {
 
 export function CompanyProductsPage() {
   const options = mockApi.productOptions();
+  const productExcelRows = companyProductExcelRows(companyId);
 
   return (
     <CompanyShell title="상품 관리" subtitle="상품 승인 상태와 옵션 재고를 확인합니다.">
       <ProductPreviewGate />
+      <div className="mt-4" />
+      <CompanyExcelExportPanel orderRows={companyOrderExcelRows(companyId)} productRows={productExcelRows} />
       <div className="mt-4" />
       <CompanyFirestoreProductsPanel companyId={companyId} />
       <div className="mt-4" />
@@ -216,6 +310,8 @@ export function CompanyProductNewPage() {
   return (
     <CompanyShell title="기업 상품 등록" subtitle="입점사 상품을 분류, 가격, 인증, 고시, 미리보기, 승인 요청 gate 기준으로 관리합니다.">
       <CompanyOnboardingPanel />
+      <div className="mt-4" />
+      <CompanyPgReadOnlyPanel companyId={companyId} />
       <div className="mt-4" />
       <CompanyProductRegistrationFlowPanel />
       <div className="mt-4" />
@@ -277,6 +373,8 @@ export function CompanyOnboardingRequirementsPage() {
 }
 
 export function CompanyOrdersPage() {
+  const orderExcelRows = companyOrderExcelRows(companyId);
+  const productExcelRows = companyProductExcelRows(companyId);
   const companyOrderIds = mockApi
     .orderItems()
     .filter((item) => item.companyId === companyId)
@@ -285,6 +383,8 @@ export function CompanyOrdersPage() {
   return (
     <CompanyShell title="주문 관리" subtitle="입점사에 배정된 order_items 기준 주문만 확인합니다.">
       <CompanyOrderItemsPanel companyId={companyId} />
+      <div className="mt-4" />
+      <CompanyExcelExportPanel orderRows={orderExcelRows} productRows={productExcelRows} />
       <div className="mt-4" />
       <DataTable
         columns={["주문번호", "고객", "상태", "수령", "금액", "생성"]}
@@ -359,7 +459,9 @@ export function CompanyDeliveriesPage() {
 
 export function CompanySalesPage() {
   return (
-    <CompanyShell title="매출 현황" subtitle="orders 총액이 아니라 입점사 order_items 기준으로 표시합니다.">
+    <CompanyShell title="매출 현황" subtitle="기업별 MID와 인피니 정산 정책을 기준으로 매출을 조회합니다.">
+      <CompanyPgReadOnlyPanel companyId={companyId} />
+      <div className="mt-4" />
       <CompanySettlementPreviewPanel companyId={companyId} />
       <div className="mt-4" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -369,8 +471,8 @@ export function CompanySalesPage() {
       </div>
       <div className="mt-4">
         <ConfirmBox
-          title="정산 기준 안내"
-          description="매출과 입금 예정액은 상품별 order_items snapshot을 기준으로 계산해야 하며, 운영 지급은 이 화면에서 처리하지 않습니다."
+          title="인피니 정산 기준 안내"
+          description={`매출과 입금 예정액은 상품별 order_items snapshot 기준입니다. 인피니 ${formatPercent(INFINY_PG_FEE_RATE)} + 우리 주문 수수료 ${formatPercent(A5_PLATFORM_FEE_RATE)} = 총 ${formatPercent(INFINY_TOTAL_FEE_RATE)} 공제 후 정산되며, 우리 시스템 지급 실행은 차단합니다.`}
         />
       </div>
     </CompanyShell>
@@ -379,25 +481,32 @@ export function CompanySalesPage() {
 
 export function CompanyPayoutsPage() {
   return (
-    <CompanyShell title="입금 현황" subtitle="모의 정산 상태와 지급 차단 여부를 확인합니다.">
+    <CompanyShell title="인피니 입금 현황" subtitle="PG사, MID, 수수료 공제, 지급 차단 상태를 읽기 전용으로 확인합니다.">
+      <CompanyPgReadOnlyPanel companyId={companyId} />
+      <div className="mt-4" />
       <CompanySettlementPreviewPanel companyId={companyId} />
       <div className="mt-4" />
       <DataTable
-        columns={["기간", "상태", "총액", "수수료", "보류", "예상입금"]}
+        columns={["기간", "상태", "총액", "인피니 2.5%", "A5 4.5%", "보류", "인피니 예상입금"]}
         rows={mockApi
           .settlements()
           .filter((settlement) => settlement.companyId === companyId)
-          .map((settlement) => ({
-            id: settlement.id,
-            cells: [
-              settlement.period,
-              <StatusBadge key="status" status={settlement.status} />,
-              formatCurrency(settlement.grossAmount),
-              formatCurrency(settlement.commissionAmount),
-              formatCurrency(settlement.refundHoldAmount),
-              formatCurrency(settlement.payoutAmount),
-            ],
-          }))}
+          .map((settlement) => {
+            const fees = calculateInfinySettlement(settlement.grossAmount);
+
+            return {
+              id: settlement.id,
+              cells: [
+                settlement.period,
+                <StatusBadge key="status" status={settlement.status} />,
+                formatCurrency(settlement.grossAmount),
+                formatCurrency(fees.pgFeeAmount),
+                formatCurrency(fees.platformFeeAmount),
+                formatCurrency(settlement.refundHoldAmount),
+                formatCurrency(settlement.payoutAmount),
+              ],
+            };
+          })}
       />
     </CompanyShell>
   );

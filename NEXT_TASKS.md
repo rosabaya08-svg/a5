@@ -394,3 +394,10 @@
 4. Confirm Firestore `product_options` seed has option ids used by cart items.
 5. Replace remaining local checkout/order write fallback after server payment transaction API is deployed.
 6. Apply the same Korean-only UI cleanup to any remaining admin/company labels that still show English.
+## 2026-05-26 Sabangnet manual integration next tasks
+1. Confirm whether Sabangnet Mini supports order Excel upload on the selected plan.
+2. Obtain the official Sabangnet order upload sample template.
+3. Rename/reorder A5 CSV headers to match the official template.
+4. Add invoice CSV upload parsing and order status update after the template is confirmed.
+5. Add bulk status change flow: paid -> preparing shipment -> shipped -> delivered.
+6. Add product-code mapping screen for A5 product id and Sabangnet product code.

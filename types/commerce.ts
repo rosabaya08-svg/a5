@@ -30,6 +30,25 @@ export type PriceComparison = {
   closedMallPrice: number;
 };
 
+export type PgProvider = "mock" | "infiny" | "toss" | "portone" | "kcp" | "nice";
+export type PgMerchantStatus = "not_applied" | "in_review" | "mid_issued" | "active" | "blocked";
+export type SettlementOwner = "infiny" | "platform" | "manual";
+
+export type CompanyPgProfile = {
+  provider: PgProvider;
+  providerLabel: string;
+  merchantId?: string;
+  merchantIdMasked: string;
+  merchantStatus: PgMerchantStatus;
+  adminManaged: boolean;
+  companyEditable: boolean;
+  pgFeeRate: number;
+  platformFeeRate: number;
+  totalFeeRate: number;
+  settlementOwner: SettlementOwner;
+  settlementExecutionBlocked: boolean;
+};
+
 export type Company = {
   id: string;
   name: string;
@@ -39,6 +58,7 @@ export type Company = {
   productCount: number;
   pendingProductCount: number;
   settlementBlocked: boolean;
+  pgProfile?: CompanyPgProfile;
 };
 
 export type Nursery = {

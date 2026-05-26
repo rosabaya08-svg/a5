@@ -299,3 +299,7 @@
 - PG official module, test MID/channel key/client key/secret key/webhook secret are still pending.
 - Real PG approval, cancel, refund, settlement payout, Alimtalk, delivery tracking, and external inventory calls are blocked.
 - Storage upload remains beta-only; production media upload policy still needs final rule review.
+## 2026-05-26 Sabangnet blockers
+- Official Sabangnet/Sabangnet Mini Excel upload template is still needed.
+- Free plan upload support remains unconfirmed.
+- Actual Sabangnet API integration is blocked until API contract, account, and credentials are available.

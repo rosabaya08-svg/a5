@@ -233,25 +233,28 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
 
 function ProductCard({ product, content }: { product: Product; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
+  const productHref = `/tablet/products/${product.id}/`;
   const rate = discountRate(product);
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
-      <Link href={`/tablet/products/${product.id}`} className="block" aria-label={`${profile.displayName} 상세 보기`}>
+      <Link href={productHref} className="block" aria-label={`${profile.displayName} 상세 보기`}>
         <div className="relative aspect-[4/5] bg-slate-100">
           <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
           <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
         </div>
       </Link>
       <div className="grid gap-3 p-4">
-        <Link href={`/tablet/products/${product.id}`} className="block">
+        <Link href={productHref} className="block">
           <p className="text-xs font-black text-rose-600">{profile.brand}</p>
           <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
         </Link>
         <ProductPriceSummary product={product} productName={profile.displayName} />
-        <Link href={`/tablet/products/${product.id}`} className="rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
-          주문하러가기
-        </Link>
+        <form action={productHref}>
+          <button type="submit" className="w-full rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
+            상품 둘러보기
+          </button>
+        </form>
       </div>
     </article>
   );

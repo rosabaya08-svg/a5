@@ -231,7 +231,7 @@ export function PgGatewaySettingsPanel() {
             <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 PG / 기업별 MID 관리</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
               인피니에서 기업별 MID, client key, channel key, webhook URL, 공식 모듈 정보를 받으면 이 화면에 입력합니다. 실결제는 장바구니
-              상품의 기업 ID로 `companies/{companyId}`의 활성 MID를 조회한 뒤 진행합니다.
+              상품의 기업 ID로 companies 문서의 활성 MID를 조회한 뒤 진행합니다.
             </p>
           </div>
           <span className={`rounded-full px-3 py-1 text-xs font-black ${readiness.ready ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>

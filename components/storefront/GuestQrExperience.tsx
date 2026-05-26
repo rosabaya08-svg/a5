@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QrReceiverForm } from "@/components/storefront/QrReceiverForm";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mockCompanies } from "@/data/mockCompanies";
 import { COMPANY_GROUP_PURCHASE_MESSAGE, groupCartItemsByCompany } from "@/lib/payments/companyPaymentGroups";
@@ -128,30 +129,7 @@ function MobileOrderSummary({ session, content }: { session: QrPaymentSession; c
 }
 
 function CheckoutForm({ session }: { session: QrPaymentSession }) {
-  const rows = [
-    ["결제자 이름", ""],
-    ["휴대폰번호", ""],
-    ["수령자 이름", ""],
-    ["수령 방식", session.deliveryMethod === "pickup" ? "현장수령" : "택배배송"],
-  ];
-
-  return (
-    <section className="rounded-md bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-black">결제 정보</h2>
-      <div className="mt-3 grid gap-3">
-        {rows.map(([label, value]) => (
-          <label key={label} className="grid gap-1 text-sm font-bold text-slate-700">
-            {label}
-            <input defaultValue={value} className="rounded-md border border-slate-200 px-3 py-3 text-base font-semibold text-slate-700" />
-          </label>
-        ))}
-      </div>
-      <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-        <input type="checkbox" className="h-4 w-4" />
-        주문 및 개인정보 처리 안내에 동의합니다.
-      </label>
-    </section>
-  );
+  return <QrReceiverForm session={session} />;
 }
 
 function OrderTimeline({ order }: { order: Order }) {

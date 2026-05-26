@@ -3,18 +3,26 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  QrReceiverForm,
+  initialQrReceiverFormValue,
+  isQrReceiverFormComplete,
+  maskCustomerPhone,
+  type QrReceiverFormValue,
+} from "@/components/storefront/QrReceiverForm";
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
 import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
-import { saveLiveShopDocument } from "@/lib/firebase/liveShopRepository";
+import { readLiveShopQrSessionByShortCode, saveLiveShopDocument } from "@/lib/firebase/liveShopRepository";
 import {
   COMPANY_GROUP_PURCHASE_MESSAGE,
   groupCartItemsByCompany,
   removePaidItemsFromCart,
   type CompanyPaymentGroup,
 } from "@/lib/payments/companyPaymentGroups";
+import { resolveQrPickupLocation, withResolvedQrPickupLocation } from "@/lib/qr/pickupLocation";
 import { formatCurrency } from "@/lib/utils/format";
-import type { CartItemSnapshot, Product, ProductOption, QrPaymentSession } from "@/types/commerce";
+import type { CartItemSnapshot, Product, ProductOption, QrPaymentSession, QrPickupLocation } from "@/types/commerce";
 
 type CartLine = CartItemSnapshot & {
   productImage?: string;
@@ -30,6 +38,7 @@ type LiveOrder = {
   qrSession: QrPaymentSession;
   customerName: string;
   customerPhoneMasked: string;
+  receiver?: QrReceiverFormValue;
   createdAt: string;
   paidAt: string;
   status: "paid" | "ready_for_pickup";
@@ -64,6 +73,19 @@ function currentCartId(companyId?: string) {
   return companyId ? `cart:${scope}:${companyId}` : `cart:${scope}`;
 }
 
+function pickupLocationForTablet(): QrPickupLocation | undefined {
+  const tabletSession = readTabletRoomSession();
+  if (!tabletSession) return undefined;
+
+  return resolveQrPickupLocation({
+    nurseryId: tabletSession.nurseryId,
+    nurseryName: tabletSession.businessName,
+    nurseryAddress: tabletSession.registeredAddress,
+    roomId: tabletSession.roomId,
+    roomName: tabletSession.roomName,
+  });
+}
+
 function makeQrImageUrl(targetUrl: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(targetUrl)}`;
 }
@@ -90,11 +112,12 @@ function makeOrderNo() {
 
 function readLastQrSession(fallbackSession: QrPaymentSession) {
   const code = readText(currentLastQrKey());
-  return code ? readJson<QrPaymentSession>(`${qrPrefix}${code}`, fallbackSession) : fallbackSession;
+  return withResolvedQrPickupLocation(code ? readJson<QrPaymentSession>(`${qrPrefix}${code}`, fallbackSession) : fallbackSession);
 }
 
 function readQrCheckoutSession(code: string) {
-  return code ? readJson<QrPaymentSession | null>(`${qrPrefix}${code}`, null) : null;
+  const session = code ? readJson<QrPaymentSession | null>(`${qrPrefix}${code}`, null) : null;
+  return session ? withResolvedQrPickupLocation(session) : null;
 }
 
 function readLiveOrder(orderNo: string) {
@@ -482,6 +505,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     const code = makeShortCode();
     const createdAt = nowIso();
     const expiresAt = addHoursIso(createdAt, 3);
+    const pickupLocation = pickupLocationForTablet();
     const session: QrPaymentSession = {
       id: `qr-${code}`,
       shortCode: code,
@@ -496,6 +520,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       deliveryMethod: "pickup",
       totalAmount: group.totalAmount,
       items: groupItems.map(toSnapshot),
+      pickupLocation,
     };
 
     const backend = await createBackendQrSession({
@@ -504,10 +529,11 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       roomId: session.roomId,
       tabletId: session.tabletId,
       deliveryMethod: session.deliveryMethod,
+      pickupLocation,
       items: session.items,
       totalAmountHint: session.totalAmount,
     });
-    const liveSession = backend.ok ? backend.session : session;
+    const liveSession = backend.ok ? { ...backend.session, pickupLocation: backend.session.pickupLocation ?? pickupLocation } : session;
     const savedSession = writeJson(`${qrPrefix}${liveSession.shortCode}`, liveSession);
     const savedPointer = writeText(currentLastQrKey(), liveSession.shortCode);
 
@@ -519,14 +545,13 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     setMessage(`${group.companyName} 결제 QR을 생성했습니다. QR 화면으로 이동합니다.`);
     window.location.assign("/tablet/qr");
 
-    if (!backend.ok) {
-      void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
-        ...liveSession,
-        short_code: liveSession.shortCode,
-        total_amount: liveSession.totalAmount,
-        source: "local_fallback_only",
-      });
-    }
+    void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
+      ...liveSession,
+      short_code: liveSession.shortCode,
+      total_amount: liveSession.totalAmount,
+      pickup_location: liveSession.pickupLocation,
+      source: backend.ok ? "backend_plus_storefront_context" : "local_fallback_only",
+    });
   }
 
   return (
@@ -688,6 +713,14 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
             <strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong>
           </div>
         </div>
+        {session.pickupLocation ? (
+          <div className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+            <p className="text-xs font-black text-slate-500">현장 받기 자동 입력 주소</p>
+            <p className="mt-1 font-black">{session.pickupLocation.nurseryName}</p>
+            <p className="mt-1 text-sm font-bold text-slate-700">{session.pickupLocation.nurseryAddress}</p>
+            <p className="mt-1 text-sm font-bold text-rose-600">{session.pickupLocation.roomName}</p>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -698,42 +731,105 @@ export function LiveQrCheckoutPage() {
   const params = useSearchParams();
   const code = params.get("code") ?? "";
   const [session, setSession] = useState<QrPaymentSession | null>(() => readQrCheckoutSession(code));
+  const [receiver, setReceiver] = useState<QrReceiverFormValue | null>(() => {
+    const initialSession = readQrCheckoutSession(code);
+    return initialSession ? initialQrReceiverFormValue(initialSession) : null;
+  });
+  const [isLoadingSession, setIsLoadingSession] = useState(Boolean(code));
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const sync = () => setSession(readQrCheckoutSession(code));
+    let cancelled = false;
+
+    function sync() {
+      const localSession = readQrCheckoutSession(code);
+      if (localSession) setSession(localSession);
+    }
+
+    async function syncFromFirestore() {
+      if (!code) {
+        setIsLoadingSession(false);
+        return;
+      }
+
+      setIsLoadingSession(true);
+      const remoteSession = await readLiveShopQrSessionByShortCode(code);
+
+      if (!cancelled && remoteSession) {
+        writeJson(`${qrPrefix}${remoteSession.shortCode}`, remoteSession);
+        setSession(remoteSession);
+      }
+
+      if (!cancelled) setIsLoadingSession(false);
+    }
+
+    sync();
+    void syncFromFirestore();
 
     window.addEventListener("a5-cart-change", sync);
     window.addEventListener("storage", sync);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("a5-cart-change", sync);
       window.removeEventListener("storage", sync);
     };
   }, [code]);
 
+  useEffect(() => {
+    if (session) setReceiver(initialQrReceiverFormValue(session));
+  }, [session?.id]);
+
   async function pay() {
     if (!session) return;
+    if (!receiver || !isQrReceiverFormComplete(receiver)) {
+      setMessage("고객성명, 연락처, 주소를 입력하고 개인정보 처리 안내에 동의해 주세요.");
+      return;
+    }
+
+    const customerName = receiver.customerName.trim();
+    const customerPhoneMasked = maskCustomerPhone(receiver.customerPhone);
+    const checkoutSession: QrPaymentSession = {
+      ...session,
+      deliveryMethod: receiver.deliveryMethod,
+    };
 
     const backend = await approveBackendMockPayment({
       shortCode: session.shortCode,
-      customerName: "비회원 고객",
-      customerPhoneMasked: "010-****-0000",
+      customerName,
+      customerPhoneMasked,
     });
     const paidAt = nowIso();
-    const fallbackPaidSession: QrPaymentSession = { ...session, status: "paid" };
+    const fallbackPaidSession: QrPaymentSession = { ...checkoutSession, status: "paid" };
     const fallbackOrder: LiveOrder = {
       orderNo: makeOrderNo(),
       qrSession: fallbackPaidSession,
-      customerName: "비회원 고객",
-      customerPhoneMasked: "010-****-0000",
+      customerName,
+      customerPhoneMasked,
+      receiver,
       createdAt: paidAt,
       paidAt,
       status: "paid",
     };
-    const order: LiveOrder = backend.ok ? backend.order : fallbackOrder;
+    const order: LiveOrder = backend.ok
+      ? {
+          ...backend.order,
+          qrSession: {
+            ...backend.order.qrSession,
+            deliveryMethod: receiver.deliveryMethod,
+            pickupLocation: backend.order.qrSession.pickupLocation ?? session.pickupLocation,
+          },
+          customerName,
+          customerPhoneMasked,
+          receiver,
+        }
+      : fallbackOrder;
     const orderNo = order.orderNo;
-    const paidSession = order.qrSession;
+    const paidSession = {
+      ...order.qrSession,
+      deliveryMethod: receiver.deliveryMethod,
+      pickupLocation: order.qrSession.pickupLocation ?? session.pickupLocation,
+    };
 
     const savedSession = writeJson(`${qrPrefix}${paidSession.shortCode}`, paidSession);
     const savedOrder = writeJson(`${orderPrefix}${orderNo}`, order);
@@ -763,6 +859,7 @@ export function LiveQrCheckoutPage() {
         ...paidSession,
         short_code: paidSession.shortCode,
         total_amount: paidSession.totalAmount,
+        pickup_location: paidSession.pickupLocation,
       }),
       saveLiveShopDocument("orders", orderNo, {
         order_no: orderNo,
@@ -771,6 +868,17 @@ export function LiveQrCheckoutPage() {
         customer_name: order.customerName,
         customer_phone_masked: order.customerPhoneMasked,
         status: order.status,
+        delivery_method: receiver.deliveryMethod,
+        receiver_address: receiver.address,
+        receiver_address_detail: receiver.addressDetail,
+        receiver: {
+          name: customerName,
+          phone_masked: customerPhoneMasked,
+          delivery_method: receiver.deliveryMethod,
+          address: receiver.address,
+          address_detail: receiver.addressDetail,
+        },
+        pickup_location: paidSession.pickupLocation,
         total_amount: paidSession.totalAmount,
         items: paidSession.items,
         paid_at: paidAt,
@@ -783,6 +891,17 @@ export function LiveQrCheckoutPage() {
         }),
       ),
     ]);
+  }
+
+  if (!session && isLoadingSession) {
+    return (
+      <main className="min-h-screen bg-[#f5f1eb] p-4 text-slate-950">
+        <section className="mx-auto max-w-md rounded-md bg-white p-5">
+          <h1 className="text-2xl font-black">QR 정보를 불러오는 중입니다</h1>
+          <p className="mt-2 text-sm font-bold text-slate-600">산후조리원 주소와 객실번호를 확인하고 있습니다.</p>
+        </section>
+      </main>
+    );
   }
 
   if (!session) {
@@ -819,6 +938,9 @@ export function LiveQrCheckoutPage() {
         <div className="mt-4 flex justify-between border-t border-slate-100 pt-4">
           <span className="font-black">총 결제금액</span>
           <strong className="text-2xl text-rose-600">{formatCurrency(session.totalAmount)}</strong>
+        </div>
+        <div className="mt-4">
+          <QrReceiverForm session={session} onChange={setReceiver} />
         </div>
         <button
           type="button"
@@ -872,6 +994,13 @@ export function LiveGuestOrderPage() {
         <p className="text-xs font-black uppercase text-rose-600">live guest order</p>
         <h1 className="mt-2 text-3xl font-black">{order.orderNo}</h1>
         <p className="mt-2 text-sm text-slate-600">{order.customerName} / {order.customerPhoneMasked}</p>
+        {order.receiver ? (
+          <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm font-bold leading-6 text-slate-700">
+            <p>{order.receiver.deliveryMethod === "pickup" ? "현장 받기" : "원하는 곳으로 받기"}</p>
+            <p>{order.receiver.address}</p>
+            {order.receiver.addressDetail ? <p>{order.receiver.addressDetail}</p> : null}
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-3">
           {order.qrSession.items.map((item) => (
             <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-slate-50 p-3">

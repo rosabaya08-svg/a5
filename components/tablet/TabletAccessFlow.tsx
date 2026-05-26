@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { tabletNurseryAccess } from "@/data/accessCredentials";
-import { nurseryRoomSelections } from "@/data/nursery/a4Mapping";
+import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
 import { normalizeBusinessNo } from "@/lib/auth/session";
 
 const loginKey = "a5.tablet.login";
@@ -13,6 +13,7 @@ export type TabletRoomSession = {
   nurseryId: string;
   businessNo: string;
   businessName: string;
+  registeredAddress?: string;
   roomId: string;
   roomName: string;
   tabletId: string;
@@ -288,11 +289,13 @@ export function TabletRoomSetupPage() {
     event.preventDefault();
     const room = rooms.find((item) => item.roomId === selectedRoomId) ?? rooms[0];
     if (!room) return;
+    const nurseryMapping = nurseryExternalMappings.find((item) => item.nurseryId === tabletNurseryAccess.nurseryId);
 
     const session: TabletRoomSession = {
       nurseryId: tabletNurseryAccess.nurseryId,
       businessNo: tabletNurseryAccess.businessNo,
       businessName: tabletNurseryAccess.businessName,
+      registeredAddress: nurseryMapping?.registeredAddress,
       roomId: room.roomId,
       roomName: `${room.roomNumber}호`,
       tabletId: room.activeTabletId ?? tabletNurseryAccess.defaultTabletId,

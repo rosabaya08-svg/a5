@@ -1,4 +1,4 @@
-import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession } from "@/types/commerce";
+import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrPickupLocation } from "@/types/commerce";
 
 export type BackendResult<T> =
   | {
@@ -29,6 +29,7 @@ type CreateQrSessionResponse = {
   totalAmount: number;
   paymentUrl: string;
   customerUrl: string;
+  pickupLocation?: QrPickupLocation;
   source: "firebase_functions_qr_create";
   message: string;
 };
@@ -110,6 +111,7 @@ export async function createBackendQrSession(input: {
   deliveryMethod: DeliveryMethod;
   items: CartItemSnapshot[];
   totalAmountHint: number;
+  pickupLocation?: QrPickupLocation;
 }) {
   const result = await postBackend<CreateQrSessionResponse>("/qr/create", {
     cartId: input.cartId,
@@ -117,6 +119,7 @@ export async function createBackendQrSession(input: {
     roomId: input.roomId,
     tabletId: input.tabletId,
     deliveryMethod: input.deliveryMethod,
+    pickupLocation: input.pickupLocation,
     items: input.items,
     clientAmount: input.totalAmountHint,
   });
@@ -138,6 +141,7 @@ export async function createBackendQrSession(input: {
     deliveryMethod: input.deliveryMethod,
     totalAmount: result.data.totalAmount,
     items: input.items,
+    pickupLocation: result.data.pickupLocation ?? input.pickupLocation,
   };
 
   return { ok: true as const, session, customerUrl: result.data.customerUrl, paymentUrl: result.data.paymentUrl };

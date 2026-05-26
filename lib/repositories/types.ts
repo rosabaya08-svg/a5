@@ -10,6 +10,7 @@ import type {
   Payment,
   Product,
   ProductOption,
+  QrPickupLocation,
   QrPaymentSession,
   QrSessionType,
   Room,
@@ -111,6 +112,7 @@ export type QrSessionDraftInput = {
   deliveryMethod: DeliveryMethod;
   expiresAt: string;
   createdAt?: string;
+  pickupLocation?: QrPickupLocation;
 };
 
 export type CreateOrderFromQrInput = {

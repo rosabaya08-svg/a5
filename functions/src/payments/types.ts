@@ -104,6 +104,12 @@ export type QrCreateRequest = {
   roomId: string;
   tabletId: string;
   deliveryMethod?: "pickup" | "delivery";
+  pickupLocation?: {
+    nurseryName?: string;
+    nurseryAddress?: string;
+    roomId?: string;
+    roomName?: string;
+  };
   expiresInMinutes?: number;
   clientAmount?: number;
   currency?: Currency;

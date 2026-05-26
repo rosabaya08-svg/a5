@@ -53,6 +53,7 @@ export const mockQrSessionRepository: QrSessionRepository = {
       deliveryMethod: input.deliveryMethod,
       totalAmount,
       items: input.items,
+      pickupLocation: input.pickupLocation,
     });
   },
 

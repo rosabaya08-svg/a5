@@ -12,9 +12,10 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
+import { withResolvedQrPickupLocation } from "@/lib/qr/pickupLocation";
 import type { QrSessionDraftInput, QrSessionRepository, RepositoryActor } from "@/lib/repositories/types";
 import { assertNeverStatus, repositoryError, repositoryOk } from "@/lib/repositories/types";
-import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrSessionType } from "@/types/commerce";
+import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrPickupLocation, QrSessionType } from "@/types/commerce";
 import type { QrSessionStatus } from "@/types/status";
 
 const collectionName = "qr_payment_sessions";
@@ -74,6 +75,24 @@ function asCartItems(value: unknown): CartItemSnapshot[] {
     .filter((item) => item.productId && item.productName && item.quantity > 0);
 }
 
+function asPickupLocation(data: DocumentData): QrPickupLocation | undefined {
+  const raw = data.pickupLocation ?? data.pickup_location;
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const nurseryName = asString(value.nurseryName ?? value.nursery_name ?? data.nurseryName ?? data.nursery_name);
+  const nurseryAddress = asString(value.nurseryAddress ?? value.nursery_address ?? data.nurseryAddress ?? data.nursery_address);
+  const roomId = asString(value.roomId ?? value.room_id ?? data.roomId ?? data.room_id);
+  const roomName = asString(value.roomName ?? value.room_name ?? data.roomName ?? data.room_name);
+
+  if (!nurseryAddress || !roomName) return undefined;
+
+  return {
+    nurseryName,
+    nurseryAddress,
+    roomId,
+    roomName,
+  };
+}
+
 function totalAmount(items: CartItemSnapshot[]) {
   return items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 }
@@ -87,7 +106,7 @@ function makeShortCode() {
 function mapQrSession(documentId: string, data: DocumentData): QrPaymentSession {
   const items = asCartItems(data.items ?? data.items_snapshot ?? data.itemsSnapshot);
 
-  return {
+  return withResolvedQrPickupLocation({
     id: asString(data.id ?? data.qr_session_id ?? data.qrSessionId, documentId),
     shortCode: asString(data.shortCode ?? data.short_code, documentId),
     type: asQrType(data.type),
@@ -101,7 +120,8 @@ function mapQrSession(documentId: string, data: DocumentData): QrPaymentSession 
     deliveryMethod: asDeliveryMethod(data.deliveryMethod ?? data.delivery_method),
     totalAmount: asNumber(data.totalAmount ?? data.total_amount ?? data.total_amount_snapshot ?? data.totalAmountSnapshot, totalAmount(items)),
     items,
-  };
+    pickupLocation: asPickupLocation(data),
+  });
 }
 
 function toFirestorePayload(session: QrPaymentSession) {
@@ -129,6 +149,15 @@ function toFirestorePayload(session: QrPaymentSession) {
     totalAmount: session.totalAmount,
     total_amount: session.totalAmount,
     total_amount_snapshot: session.totalAmount,
+    pickupLocation: session.pickupLocation ?? null,
+    pickup_location: session.pickupLocation
+      ? {
+          nursery_name: session.pickupLocation.nurseryName,
+          nursery_address: session.pickupLocation.nurseryAddress,
+          room_id: session.pickupLocation.roomId,
+          room_name: session.pickupLocation.roomName,
+        }
+      : null,
     items: session.items,
     items_snapshot: session.items.map((item) => ({
       product_id: item.productId,
@@ -229,6 +258,7 @@ export const firebaseQrSessionRepository: QrSessionRepository = {
       deliveryMethod: input.deliveryMethod,
       totalAmount: totalAmount(input.items),
       items: input.items,
+      pickupLocation: input.pickupLocation,
     };
 
     try {

@@ -177,6 +177,7 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
     const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
     const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
     const deliveryMethod = body.deliveryMethod === "delivery" ? "delivery" : "pickup";
+    const pickupLocation = normalizePickupLocation(body.pickupLocation, { nurseryId, roomId });
     const auditRef = db.collection("audit_logs").doc();
     const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
 
@@ -194,6 +195,8 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
         delivery_method: deliveryMethod,
         items_snapshot: pricedItems.map(toSnapshotItem),
         total_amount_snapshot: totalAmount,
+        pickup_location: pickupLocation,
+        pickupLocation,
         currency: body.currency ?? "KRW",
         expires_at: expiresAt,
         guest_read_enabled: true,
@@ -234,6 +237,7 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
       status: "active",
       expiresAt,
       totalAmount,
+      pickupLocation,
       paymentUrl,
       customerUrl,
       source: "firebase_functions_qr_create",
@@ -589,6 +593,27 @@ function toSnapshotItem(item: ReturnType<typeof normalizeCartItems>[number]) {
     company_id: item.companyId,
     line_amount: item.unitPrice * item.quantity,
     source: "firestore_products",
+  };
+}
+
+function normalizePickupLocation(value: unknown, fallback: { nurseryId: string; roomId: string }) {
+  const data = asRecord(value);
+  const nurseryName = fieldString(data, "nurseryName", "nursery_name") ?? fallback.nurseryId;
+  const nurseryAddress = fieldString(data, "nurseryAddress", "nursery_address") ?? "";
+  const roomId = fieldString(data, "roomId", "room_id") ?? fallback.roomId;
+  const roomName = fieldString(data, "roomName", "room_name") ?? fallback.roomId;
+
+  if (!nurseryAddress || !roomName) return null;
+
+  return {
+    nurseryName,
+    nursery_name: nurseryName,
+    nurseryAddress,
+    nursery_address: nurseryAddress,
+    roomId,
+    room_id: roomId,
+    roomName,
+    room_name: roomName,
   };
 }
 

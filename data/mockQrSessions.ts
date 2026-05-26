@@ -14,6 +14,12 @@ export const mockQrSessions: QrPaymentSession[] = [
     expiresAt: "2026-05-19T18:12:00+09:00",
     deliveryMethod: "pickup",
     totalAmount: 127000,
+    pickupLocation: {
+      nurseryName: "A5 테스트 산후조리원",
+      nurseryAddress: "서울시 강남구 테스트로 1004",
+      roomId: "room-701",
+      roomName: "701호",
+    },
     items: [
       {
         productId: "product-care-kit",

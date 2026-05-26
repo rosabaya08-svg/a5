@@ -144,6 +144,13 @@ export type CartItemSnapshot = {
   companyId: string;
 };
 
+export type QrPickupLocation = {
+  nurseryName: string;
+  nurseryAddress: string;
+  roomId: string;
+  roomName: string;
+};
+
 export type QrPaymentSession = {
   id: string;
   shortCode: string;
@@ -158,6 +165,7 @@ export type QrPaymentSession = {
   items: CartItemSnapshot[];
   deliveryMethod: DeliveryMethod;
   totalAmount: number;
+  pickupLocation?: QrPickupLocation;
 };
 
 export type OrderItem = {

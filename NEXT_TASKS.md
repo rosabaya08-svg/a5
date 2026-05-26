@@ -234,3 +234,13 @@
 3. Open `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-bag`, and `/tablet/products/product-tea`.
 4. Confirm developer diagnostics show `NEXT_PUBLIC_DATA_SOURCE: firebase`.
 5. If Cloudflare shows `mock fallback`, check `NEXT_PUBLIC_DATA_SOURCE` and all `NEXT_PUBLIC_FIREBASE_*` environment variables.
+
+## 2026-05-26 Firestore foundation seed next tasks
+
+1. Run `npm run seed:firestore:foundation:dry-run` before every foundation seed change.
+2. When the seed account is ready, run `npm run seed:firestore:foundation` with `FIREBASE_SEED_EMAIL` and `FIREBASE_SEED_PASSWORD` provided only through the shell or local untracked `.env.local`.
+3. Verify Firestore Console contains `companies`, `nurseries`, `rooms`, `tablets`, `product_options`, `qr_payment_sessions`, `marketing_banners`, `marketing_videos`, `home_sections`, `tablet_home_configs`, `media_assets`, and `audit_logs`.
+4. Confirm each seeded document has `status`, `created_at`, `updated_at`, and the expected scope fields.
+5. Replace beta `guest_write_enabled` seed compatibility with Custom Claims/Functions write paths before production.
+6. Connect admin/company/nursery read-model pages to the seeded foundation collections.
+7. Keep real PG confirm/cancel/refund/settlement, Alimtalk, delivery tracking, and external inventory API blocked until official keys and policies are approved.

@@ -14,6 +14,7 @@
     "check:release": "node scripts/check-env.mjs && node scripts/check-no-secrets.mjs && node scripts/check-routes.mjs && npm run build",
     "seed:firestore:products": "node scripts/seed-firestore-products.mjs",
     "seed:firestore:foundation": "node scripts/seed-firestore-foundation.mjs",
+    "seed:firestore:foundation:dry-run": "node scripts/seed-firestore-foundation.mjs --dry-run",
     "seed:firestore:commerce": "node scripts/seed-firestore-commerce.mjs",
     "build:functions": "npm --prefix functions run build"
   },

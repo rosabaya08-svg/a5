@@ -532,3 +532,18 @@
 | Build | `npm.cmd run build` passed and generated 95 static pages |
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 page routes |
+
+## 30. 2026-05-26 Firestore foundation seed expansion
+
+| Item | Result |
+| --- | --- |
+| Scope | Added the foundation seed layer for non-product A5 closed mall operating collections |
+| Seed script | `scripts/seed-firestore-foundation.mjs` now validates and seeds companies, nurseries, rooms, tablets, product_options, qr_payment_sessions, marketing_banners, marketing_videos, home_sections, tablet_home_configs, media_assets, and audit_logs |
+| Auth boundary | Actual seed requires `FIREBASE_SEED_EMAIL` and `FIREBASE_SEED_PASSWORD`; no service account key or Admin private key is used |
+| Dry run | `npm.cmd run seed:firestore:foundation:dry-run` passed with 29 documents across 12 required collections and no Firebase write |
+| Required fields | All seed records include `status`, `created_at`, `updated_at`, `seeded_at`, `source`, `demo_read_enabled`, and beta `guest_write_enabled` |
+| Relationship fields | `company_id`, `nursery_id`, `room_id`, and `tablet_id` relationships are validated where required |
+| Docs | `FIRESTORE_FOUNDATION_SEED_PLAN.md` and `FIRESTORE_SCHEMA_PLAN.md` were updated with collection scope, relationship map, dry-run, and actual seed instructions |
+| Lint | `npm.cmd run lint` passed with 0 errors and the existing 12 `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Boundary | No `.env.local` modification, no service account key, no Firebase deploy, and no real PG/API call |

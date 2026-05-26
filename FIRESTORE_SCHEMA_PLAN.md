@@ -289,3 +289,51 @@ Foundation seed coverage:
 - `tablet_home_configs`
 - `media_assets`
 - `audit_logs`
+
+# 2026-05-26 Foundation Seed Expansion
+
+The foundation seed script now targets the core shopping mall operating collections required before PG module insertion. This is still a beta seed path and does not perform real PG, refund, settlement, Alimtalk, delivery tracking, external inventory API, or Firebase deploy work.
+
+## Seeded Operating Collections
+
+| Collection | Required fields | Relationship rule |
+| --- | --- | --- |
+| `companies` | `company_id`, `status`, `approval_status`, `commission_rate`, `cs_phone`, `cs_email` | Seller scope for products, options, CMS, order items, and settlement views |
+| `nurseries` | `nursery_id`, `status`, `business_address`, `room_count`, `external_nursery_id` | Nursery scope for rooms, tablets, QR sessions, and A4 mapping |
+| `rooms` | `nursery_id`, `room_id`, `room_number`, `status`, `external_room_id` | Room origin for tablets and QR sessions |
+| `tablets` | `nursery_id`, `room_id`, `tablet_id`, `status`, `external_tablet_id` | Tablet origin for tablet home config and QR sessions |
+| `product_options` | `company_id`, `product_id`, `option_id`, `status`, `price_delta`, `stock`, `reserved_stock` | Option stock belongs to one product and one company |
+| `qr_payment_sessions` | `qr_session_id`, `short_code`, `nursery_id`, `room_id`, `tablet_id`, `items_snapshot`, `total_amount_snapshot`, `status` | Guest QR entry is scoped to nursery, room, and tablet |
+| `marketing_banners` | `company_id`, `placement`, `target`, `status`, `approval_status`, `asset_url`, `media_asset_id` | CMS banner belongs to a company and may target all or selected nurseries |
+| `marketing_videos` | `company_id`, `placement`, `target`, `status`, `approval_status`, `media_asset_id` | Video/GIF placeholder belongs to a company |
+| `home_sections` | `section_id`, `placement`, `status`, `display_order`, `banner_ids`, `product_ids` | Storefront section composes banners and products |
+| `tablet_home_configs` | `nursery_id`, `room_id`, `tablet_id`, `status`, `section_ids`, `banner_ids`, `qr_short_code` | Tablet home view is scoped to one device context |
+| `media_assets` | `owner_type`, `owner_id`, `asset_type`, `status`, `storage_path`, `approval_status` | Storage/CMS metadata; actual upload remains separately guarded |
+| `audit_logs` | `actor_role`, `action`, `target_collection`, `target_id`, `status`, `risk_level` | Operations audit trail |
+
+All foundation seed records include:
+- `created_at`
+- `updated_at`
+- `seeded_at`
+- `source: foundation_seed`
+- `demo_read_enabled: true`
+- `guest_write_enabled: true`
+
+`guest_write_enabled` is a beta seed compatibility field only. Production rules must replace it with Custom Claims and Functions/Admin SDK write paths.
+
+## Foundation Seed Validation
+
+`scripts/seed-firestore-foundation.mjs` validates:
+1. All 12 required collections are represented.
+2. Every document has `status`, `created_at`, and `updated_at`.
+3. Scope collections include `company_id`, `nursery_id`, `room_id`, and `tablet_id` where required.
+4. `--dry-run` performs validation without Firebase login or Firestore writes.
+
+## PG Readiness Boundary
+
+The foundation seed only prepares catalog, CMS, room/tablet, QR, and audit baseline records. Real payment confirmation still requires:
+1. PG provider adapter implementation.
+2. Functions Secret Manager values.
+3. Webhook signature verification.
+4. Server-side amount recalculation.
+5. Firestore transaction writes for `orders`, `order_items`, `payments`, `payment_events`, `inventory_movements`, and `audit_logs`.

@@ -43,6 +43,7 @@ const publicPgEnv = {
   environment: process.env.NEXT_PUBLIC_PG_ENVIRONMENT?.trim() || "test",
   clientKey: process.env.NEXT_PUBLIC_PG_CLIENT_KEY?.trim() ?? "",
   channelKey: process.env.NEXT_PUBLIC_PG_CHANNEL_KEY?.trim() ?? "",
+  merchantId: process.env.NEXT_PUBLIC_PG_MERCHANT_ID?.trim() ?? "",
   scriptUrl: process.env.NEXT_PUBLIC_PG_SCRIPT_URL?.trim() ?? "",
   successUrl: process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL?.trim() ?? "",
   failUrl: process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL?.trim() ?? "",
@@ -55,6 +56,7 @@ export function buildPgCheckoutPayload(input: {
   customerName: string;
   customerPhoneMasked: string;
   qrSessionId: string;
+  merchantId?: string;
 }): PgCheckoutPayload {
   const endpoints = getPaymentEndpointReadiness();
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -64,7 +66,7 @@ export function buildPgCheckoutPayload(input: {
     environment: publicPgEnv.environment === "production" ? "production" : "test",
     clientKey: publicPgEnv.clientKey,
     channelKey: publicPgEnv.channelKey,
-    merchantId: "",
+    merchantId: input.merchantId || publicPgEnv.merchantId,
     orderNo: input.orderNo,
     orderName: input.orderName,
     amount: input.amount,

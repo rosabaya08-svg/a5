@@ -61,7 +61,7 @@ export default function Home() {
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
       <section className="mx-auto max-w-6xl">
         <div className="max-w-3xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">A5 HOT DEAL</p>
+          <p className="text-xs font-black tracking-[0.18em] text-rose-300">with.commerce</p>
           <h1 className="mt-4 text-4xl font-black leading-tight md:text-6xl">산후조리원 객실 기반 QR 결제 핫딜</h1>
           <p className="mt-5 text-base leading-7 text-slate-300">
             역할에 맞는 로그인 후 상품, 주문, 객실, 태블릿, 정산, 외부 연동 업무를 진행합니다.

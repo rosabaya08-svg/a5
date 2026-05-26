@@ -17,7 +17,13 @@ type RoleGuardProps = {
 function isValidSession(role: PortalRole, session: PortalSession | null) {
   if (!session) return false;
   if (role === "admin") return session.role === "SUPER_ADMIN" || session.role === "admin";
-  return session.role === role;
+  if (session.role !== role) return false;
+
+  if (role === "company" || role === "nursery") {
+    return Boolean(session.termsAcceptedAt && session.privacyAcceptedAt && session.marketingConsentAt);
+  }
+
+  return true;
 }
 
 export function RoleGuard({ role, children }: RoleGuardProps) {

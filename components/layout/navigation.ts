@@ -48,7 +48,7 @@ export const adminNavItems: NavSection[] = [
     items: [
       { href: "/admin/orders", label: "주문 관리" },
       { href: "/admin/payments", label: "결제 관리" },
-      { href: "/admin/pg-settings", label: "PG 설정" },
+      { href: "/admin/pg-settings", label: "인피니 PG 설정" },
       { href: "/admin/settlements", label: "정산 검토" },
     ],
   },
@@ -78,7 +78,7 @@ export const companyNavItems: NavSection[] = [
     items: [
       { href: "/company/products", label: "상품 목록" },
       { href: "/company/products/new", label: "상품 등록" },
-      { href: "/company/products/preview", label: "상품 등록 미리보기" },
+      { href: "/company/products/preview", label: "상품 상세 미리보기" },
     ],
   },
   {
@@ -92,6 +92,10 @@ export const companyNavItems: NavSection[] = [
   {
     title: "엑셀 연동",
     items: [{ href: "/company/excel", label: "사방넷 엑셀 다운로드" }],
+  },
+  {
+    title: "API 연동",
+    items: [{ href: "/company/api-integration", label: "API 요청/다운로드" }],
   },
   {
     title: "배송/수령",

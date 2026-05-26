@@ -4,7 +4,7 @@ Updated: 2026-05-26
 
 ## Goal
 
-Prepare beta-safe Firebase Storage rules for the A5 closed mall while enabling storefront CMS media registration/editing for the live beta.
+Prepare beta-safe Firebase Storage rules for the with.commerce while enabling storefront CMS media registration/editing for the live beta.
 
 Storage is initialized for `a5-closed-mall`. CMS upload is enabled only for closed-mall visual assets; private business documents, payout files, settlement files, and audit exports remain blocked.
 

@@ -28,6 +28,15 @@ type ReadyResponse = {
   ok: true;
   provider: string;
   pgReady: boolean;
+  merchantProfile?: {
+    companyId: string;
+    companyName: string;
+    provider: string;
+    merchantId?: string;
+    merchantIdMasked: string;
+    merchantStatus: string;
+    paymentReady: boolean;
+  };
   paymentIntentId: string;
   orderNoCandidate: string;
   qrSessionId: string;
@@ -42,6 +51,7 @@ type ConfirmResponse = {
   ok: true;
   provider: string;
   pgReady: boolean;
+  merchantProfile?: ReadyResponse["merchantProfile"];
   approval: {
     status: "approved_mock";
     mockTid: string;
@@ -310,6 +320,9 @@ function DeveloperPayloadPanel({
     ["expires_at", session.expiresAt],
     ["payment_intent_id", ready?.paymentIntentId ?? "-"],
     ["order_no", confirm?.orderNo ?? ready?.orderNoCandidate ?? "-"],
+    ["company_id", ready?.merchantProfile?.companyId ?? "-"],
+    ["merchant_id", ready?.merchantProfile?.merchantIdMasked ?? "-"],
+    ["merchant_status", ready?.merchantProfile?.merchantStatus ?? "-"],
     ["server_amount", ready?.recalculatedAmount ? formatCurrency(ready.recalculatedAmount) : "-"],
     ["last_error", error ? `${error.code}: ${error.message}` : "-"],
   ];
@@ -416,20 +429,21 @@ export function ServerCheckoutFlow({
   const activeQr = session.status === "active" && !expired;
   const providerIsMock = readiness.provider === "mock";
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
-  const pgPolicyBlocked = !providerIsMock && (merchantAnalysis.requiresSplitSettlementApi || !merchantAnalysis.allCompaniesHaveMid);
+  const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
   const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked;
 
   const pgPayload = useMemo(
     () =>
       buildPgCheckoutPayload({
         orderNo: ready?.orderNoCandidate ?? `A5-${session.shortCode}`,
-        orderName: `A5 closed mall ${session.shortCode}`,
+        orderName: `with.commerce ${session.shortCode}`,
         amount: ready?.recalculatedAmount ?? session.totalAmount,
         customerName: "비회원 고객",
         customerPhoneMasked: "010-****-0000",
         qrSessionId: session.id,
+        merchantId: ready?.merchantProfile?.merchantId,
       }),
-    [ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
+    [ready?.merchantProfile?.merchantId, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
   );
 
   async function runReady(clientAmount = session.totalAmount, intent: "ready" | "amount-test" = "ready") {
@@ -666,10 +680,11 @@ export function ServerCheckoutFlow({
       <PgIntegrationPanel
         amount={ready?.recalculatedAmount ?? session.totalAmount}
         orderNo={ready?.orderNoCandidate ?? `A5-${session.shortCode}`}
-        orderName={`A5 closed mall ${session.shortCode}`}
+        orderName={`with.commerce ${session.shortCode}`}
         customerName="비회원 고객"
         customerPhoneMasked="010-****-0000"
         qrSessionId={session.id}
+        merchantId={ready?.merchantProfile?.merchantId}
       />
 
       <section className="rounded-md border border-blue-100 bg-blue-50 p-4 text-blue-950">

@@ -109,6 +109,8 @@ const cmsCollectionLabels: Record<CmsCollectionName, string> = {
   marketing_videos: "영상/GIF",
   brands: "브랜드 로고",
   product_detail_pages: "상품 상세페이지",
+  company_api_integration_requests: "기업 API 연동 요청",
+  nursery_auto_signup_profiles: "산후조리원 자동 가입",
   home_sections: "홈 디자인 섹션",
   tablet_home_configs: "태블릿 노출 설정",
   media_assets: "미디어 자산",
@@ -205,6 +207,8 @@ export function FirebaseCmsManager({
     marketing_videos: [],
     brands: [],
     product_detail_pages: [],
+    company_api_integration_requests: [],
+    nursery_auto_signup_profiles: [],
     home_sections: [],
     tablet_home_configs: [],
     media_assets: [],
@@ -344,7 +348,7 @@ export function FirebaseCmsManager({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase text-slate-500">파이어베이스 실시간 CMS</p>
-          <h2 className="mt-1 text-2xl font-black">a5 산후조리원 핫딜 디자인/콘텐츠 등록</h2>
+          <h2 className="mt-1 text-2xl font-black">with.commerce 디자인/콘텐츠 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
             배너, 브랜드 로고, 영상/GIF, 상세페이지, 홈 섹션을 Firestore와 Firebase Storage에 바로 등록/수정합니다.
             PG, 주문, 정산, 외부 API는 서버 승인 로직 완료 전까지 차단됩니다.

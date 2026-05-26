@@ -2,7 +2,7 @@
 
 ## Scope
 
-This plan covers the first foundation seed for A5 closed mall operations after the `products` collection seed.
+This plan covers the first foundation seed for with.commerce operations after the `products` collection seed.
 
 Seed script:
 - `scripts/seed-firestore-foundation.mjs`

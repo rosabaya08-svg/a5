@@ -4,7 +4,7 @@ Last updated: 2026-05-25
 
 ## Purpose
 
-Firebase Functions v2 is the preferred first server runtime for A5 closed mall payment confirm, QR one-time-use control, order snapshot creation, inventory reservation, and webhook verification.
+Firebase Functions v2 is the preferred first server runtime for with.commerce payment confirm, QR one-time-use control, order snapshot creation, inventory reservation, and webhook verification.
 
 The current server runtime is deployed and mock-provider-only. It writes beta Firestore payment/order snapshots and is structured so PG keys and provider adapter code can be inserted without changing the checkout UI.
 

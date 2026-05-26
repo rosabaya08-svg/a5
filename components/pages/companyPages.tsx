@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { CompanyApiIntegrationPanel } from "@/components/company/CompanyApiIntegrationPanel";
 import {
   CompanyExcelExportPanel,
   type CompanyExcelOrderRow,
   type CompanyExcelProductRow,
 } from "@/components/company/CompanyExcelExportPanel";
+import { CompanyConsentSummary } from "@/components/company/CompanyConsentSummary";
+import { CompanyPgReadOnlyPanel } from "@/components/company/CompanyPgReadOnlyPanel";
+import { CompanyProductRegistrationWorkspace } from "@/components/company/CompanyProductRegistrationWorkspace";
 import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
@@ -14,6 +18,7 @@ import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 const companyId = "company-test-1004";
+const companyName = "테스트 기업";
 
 function CompanyShell({
   title,
@@ -43,8 +48,9 @@ function CompanyNoticePanel() {
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
       <h2 className="text-lg font-black">입점사 운영 기준</h2>
       <p className="mt-2 text-sm leading-6">
-        상품, 주문, 재고, 정산 정보는 로그인한 기업 범위로만 표시됩니다. 상품은 승인 완료 후 조리원 객실 상품 목록에 노출됩니다.
+        상품, 주문, 재고, 정산 정보는 로그인한 기업 범위로만 표시합니다. 상품은 최고관리자 승인 후 조리원/태블릿 폐쇄몰에 노출됩니다.
       </p>
+      <CompanyConsentSummary />
     </section>
   );
 }
@@ -92,12 +98,12 @@ function companyExcelOrderRows(): CompanyExcelOrderRow[] {
       productAmount: item.unitPrice * item.quantity,
       shippingFee: 0,
       totalPaidAmount: order?.totalAmount ?? item.unitPrice * item.quantity,
-      paymentMethod: "A5 결제",
+      paymentMethod: "with.commerce 결제",
       carrier: isPickup ? "현장수령" : "",
       invoiceNo: "",
       deliveryMemo: isPickup ? "조리원 데스크 수령" : "",
       companyId,
-      supplierName: "A5 테스트 기업",
+      supplierName: companyName,
       settlementStatus: "입금 예정",
     };
   });
@@ -115,7 +121,7 @@ function companyExcelProductRows(): CompanyExcelProductRow[] {
     stock: product.stock,
     status: product.status,
     companyId,
-    supplierName: "A5 테스트 기업",
+    supplierName: companyName,
   }));
 }
 
@@ -130,6 +136,17 @@ export function CompanyDashboardPage() {
   return (
     <CompanyShell title="기업 대시보드" subtitle="상품, 주문, 재고, 입금 예정 상태를 확인합니다.">
       <CompanyNoticePanel />
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Link href="/company/products/new" className="rounded-md bg-emerald-600 px-4 py-3 text-sm font-black text-white">
+          상품 등록
+        </Link>
+        <Link href="/company/api-integration" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
+          API 연동 요청
+        </Link>
+      </div>
+      <div className="mt-4">
+        <CompanyPgReadOnlyPanel companyId={companyId} />
+      </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.companyMetrics(companyId).map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -183,7 +200,7 @@ export function CompanyProductsPage() {
       </div>
       <FilterBar title="상품 필터" filters={["전체", "임시저장", "승인요청", "승인완료", "반려", "판매중지"]} resultCount={products.length} mode="toolbar" />
       <DataTable
-        columns={["상품", "카테고리", "상태", "산후조리원 핫딜가", "옵션", "외부코드", "재고"]}
+        columns={["상품", "카테고리", "상태", "폐쇄몰가", "옵션", "외부코드", "재고"]}
         rows={products.map((product) => ({
           id: product.id,
           cells: [
@@ -203,50 +220,9 @@ export function CompanyProductsPage() {
 }
 
 export function CompanyProductNewPage() {
-  const fields = [
-    ["상품명", "상품명을 입력하세요"],
-    ["브랜드", "브랜드명을 입력하세요"],
-    ["카테고리", "카테고리를 선택하세요"],
-    ["SKU / 옵션", "옵션명, SKU, 재고를 입력하세요"],
-    ["정상가", "정상가를 입력하세요"],
-    ["플랫폼 최저가", "비교 기준 금액을 입력하세요"],
-    ["산후조리원 핫딜가", "판매 금액을 입력하세요"],
-    ["배송/수령 방식", "택배배송 또는 현장수령"],
-    ["반품/교환/AS", "고객 안내 기준을 입력하세요"],
-  ];
-
   return (
-    <CompanyShell title="상품 등록" subtitle="상품 정보를 작성한 뒤 임시 저장하거나 승인 요청을 보냅니다.">
-      <form className="grid gap-4 rounded-md border border-slate-200 bg-white p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          {fields.map(([label, placeholder]) => (
-            <label key={label} className="grid gap-2 text-sm font-bold text-slate-700">
-              {label}
-              <input className="rounded-md border border-slate-200 px-3 py-3 text-sm" placeholder={placeholder} />
-            </label>
-          ))}
-        </div>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          상세 설명
-          <textarea className="min-h-36 rounded-md border border-slate-200 px-3 py-3 text-sm" placeholder="상품 상세, 고시정보, 사용 주의사항을 입력하세요." />
-        </label>
-        <div className="grid gap-4 md:grid-cols-3">
-          {["상품 이미지", "KC 인증/증빙", "상품 영상/GIF"].map((label) => (
-            <label key={label} className="grid gap-2 rounded-md border border-dashed border-slate-300 p-4 text-sm font-bold text-slate-700">
-              {label}
-              <input type="file" className="text-xs" />
-            </label>
-          ))}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" className="rounded-md border border-slate-200 px-4 py-3 text-sm font-black text-slate-800">
-            임시 저장
-          </button>
-          <button type="button" className="rounded-md bg-emerald-600 px-4 py-3 text-sm font-black text-white">
-            승인 요청
-          </button>
-        </div>
-      </form>
+    <CompanyShell title="상품 등록" subtitle="카테고리, 상세페이지, 옵션 조합 SKU, 가격, 재고, 고시정보를 작성하고 승인 요청을 보냅니다.">
+      <CompanyProductRegistrationWorkspace companyId={companyId} />
     </CompanyShell>
   );
 }
@@ -286,8 +262,16 @@ export function CompanyOrdersPage() {
 
 export function CompanyExcelIntegrationPage() {
   return (
-    <CompanyShell title="사방넷 엑셀 다운로드" subtitle="API 연동 전 주문, 상품, 송장 양식을 엑셀 호환 CSV로 내려받습니다.">
+    <CompanyShell title="사방넷 엑셀 다운로드" subtitle="API 연동 전 주문, 상품, 송장 양식을 사방넷/ERP 호환 CSV로 내려받습니다.">
       <CompanyExcelExportPanel orderRows={companyExcelOrderRows()} productRows={companyExcelProductRows()} />
+    </CompanyShell>
+  );
+}
+
+export function CompanyApiIntegrationPage() {
+  return (
+    <CompanyShell title="API 요청/다운로드" subtitle="기업 ERP, WMS, 사방넷, 자체 프로그램에서 주문 API 배포를 요청하고 승인 후 연동 문서를 내려받습니다.">
+      <CompanyApiIntegrationPanel companyId={companyId} companyName={companyName} />
     </CompanyShell>
   );
 }

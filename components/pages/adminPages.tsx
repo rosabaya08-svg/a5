@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { A5PublicApiDocsPanel } from "@/components/admin/A5PublicApiDocsPanel";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
+import { AdminApiIntegrationRequestsPanel } from "@/components/admin/AdminApiIntegrationRequestsPanel";
+import { AdminProductDraftRequestsPanel } from "@/components/admin/AdminProductDraftRequestsPanel";
 import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
 import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
 import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
@@ -426,6 +428,8 @@ export function AdminProductsPage() {
     <AdminShell title="상품 승인" subtitle="승인 대기 상품과 가격비교 표시값을 검토합니다.">
       <ComplianceSummaryPanel />
       <div className="mt-4" />
+      <AdminProductDraftRequestsPanel />
+      <div className="mt-4" />
       <ProductApprovalQueuePanel />
       <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["전체", "승인대기", "승인완료", "재고부족"]} />
@@ -519,6 +523,8 @@ export function AdminPublicApiDocsPage() {
       title="A5 공개 API 문서"
       subtitle="기업 개발자가 자기 플랫폼에 A5 주문내역 상세 실시간 연동 API를 붙일 수 있도록 공유 문서를 내려받습니다."
     >
+      <AdminApiIntegrationRequestsPanel />
+      <div className="mt-4" />
       <A5PublicApiDocsPanel />
     </AdminShell>
   );

@@ -10,7 +10,7 @@ import { formatPercent } from "@/lib/utils/format";
 import type { PgMerchantStatus } from "@/types/commerce";
 
 const statusLabels: Record<PgMerchantStatus, string> = {
-  not_applied: "가입 전",
+  not_applied: "신청 전",
   in_review: "인피니 심사 중",
   mid_issued: "MID 발급",
   active: "운영 가능",
@@ -20,18 +20,21 @@ const statusLabels: Record<PgMerchantStatus, string> = {
 export function CompanyPgReadOnlyPanel({ companyId }: { companyId: string }) {
   const company = mockCompanies.find((item) => item.id === companyId);
   const profile = getCompanyPgProfile(companyId, mockCompanies);
+  const ready = profile.merchantStatus === "active";
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">PG 가맹점 정보</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">PG merchant status</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">{company?.name ?? companyId} 인피니 PG 상태</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            기업 어드민은 PG사와 MID 발급 상태만 확인합니다. MID 등록과 변경은 최고관리자 전용입니다.
+            결제 승인에 필요한 MID와 PG 설정은 최고관리자가 관리합니다. 기업 어드민에서는 운영 가능 여부와 정산 기준만 확인합니다.
           </p>
         </div>
-        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">읽기 전용</span>
+        <span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>
+          {ready ? "운영 가능" : "연동 대기"}
+        </span>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         {[
@@ -46,9 +49,9 @@ export function CompanyPgReadOnlyPanel({ companyId }: { companyId: string }) {
           </div>
         ))}
       </div>
-      <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-900">
-        정산 지급은 우리 시스템에서 실행하지 않습니다. 인피니가 결제 수수료 {formatPercent(INFINY_PG_FEE_RATE)}와
-        주문 수수료 {formatPercent(A5_PLATFORM_FEE_RATE)}를 합산해 총 {formatPercent(INFINY_TOTAL_FEE_RATE)} 공제 후 정산합니다.
+      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        인피니 PG 수수료 {formatPercent(INFINY_PG_FEE_RATE)}와 A5 주문 수수료 {formatPercent(A5_PLATFORM_FEE_RATE)}를 합산해 총 {formatPercent(INFINY_TOTAL_FEE_RATE)} 기준으로 정산 예정액을 계산합니다.
+        실제 지급 실행 버튼은 기업 어드민에 제공하지 않습니다.
       </div>
     </section>
   );

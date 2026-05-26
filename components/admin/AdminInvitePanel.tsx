@@ -84,7 +84,7 @@ export function AdminInvitePanel() {
             <p className="text-xs font-black uppercase text-blue-600">파이어베이스 권한 클레임</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">관리자 계정 발급 및 권한 설계</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-              A5 산후조리원 핫딜은 비밀번호를 운영자가 평문으로 만들거나 전달하지 않습니다. 계정 발급은 Firebase Auth 초대 또는
+              with.commerce는 비밀번호를 운영자가 평문으로 만들거나 전달하지 않습니다. 계정 발급은 Firebase Auth 초대 또는
               비밀번호 재설정 링크를 사용하고, 실제 접근 범위는 Custom Claims의 role과 scope로 제한합니다.
             </p>
           </div>

@@ -10,6 +10,16 @@ export type PgServerReadinessSnapshot = {
   message: string;
 };
 
+export type CompanyMerchantProfile = {
+  companyId: string;
+  companyName: string;
+  provider: PaymentProviderId;
+  merchantId?: string;
+  merchantIdMasked: string;
+  merchantStatus: "not_applied" | "in_review" | "mid_issued" | "active" | "blocked";
+  paymentReady: boolean;
+};
+
 export type CartItemInput = {
   productId: string;
   optionId?: string;
@@ -42,6 +52,7 @@ export type PaymentReadyResponse = {
   qrSessionId: string;
   recalculatedAmount: number;
   currency: Currency;
+  merchantProfile: CompanyMerchantProfile;
   expiresAt: string;
   firestoreTransactionPlan: string[];
   message: string;
@@ -69,6 +80,7 @@ export type PaymentConfirmResponse = {
   approval: MockPgApproval;
   orderNo: string;
   recalculatedAmount: number;
+  merchantProfile?: CompanyMerchantProfile;
   firestoreTransactionPlan: string[];
   message: string;
 };
@@ -157,6 +169,9 @@ export type ServerPaymentIntent = {
   amount: number;
   currency: Currency;
   provider: PaymentProviderId;
+  companyId: string;
+  merchantId?: string;
+  merchantStatus?: CompanyMerchantProfile["merchantStatus"];
   status: "ready_mock" | "confirmed_mock" | "cancel_blocked";
   createdAt: string;
   expiresAt: string;

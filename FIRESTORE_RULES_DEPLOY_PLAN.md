@@ -4,7 +4,7 @@ Updated: 2026-05-26
 
 ## Goal
 
-Prepare beta-safe Firestore rules for the A5 closed mall and record the live beta deploy state.
+Prepare beta-safe Firestore rules for the with.commerce and record the live beta deploy state.
 
 The current rule file is designed around these boundaries:
 

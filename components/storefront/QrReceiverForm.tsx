@@ -53,10 +53,6 @@ export function QrReceiverForm({
   const [value, setValue] = useState<QrReceiverFormValue>(initialValue);
 
   useEffect(() => {
-    setValue(initialValue);
-  }, [initialValue]);
-
-  useEffect(() => {
     onChange?.(value);
   }, [onChange, value]);
 

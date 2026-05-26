@@ -1,4 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
@@ -27,3 +28,4 @@ export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);
 export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReserveHandler);
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
+export const a4NurseryAutoSignup = onRequest(paymentFunctionOptions, a4NurseryAutoSignupHandler);

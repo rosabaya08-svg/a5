@@ -1,4 +1,4 @@
-# A5 Closed Mall Capability Map
+# with.commerce Capability Map
 
 Last updated: 2026-05-25
 
@@ -15,7 +15,7 @@ Last updated: 2026-05-25
 ## Required Before Enterprise Meeting Demo
 
 - Show PG readiness as a clear contract: env slots, provider interface, confirm/webhook/cancel/refund boundaries.
-- Show customer checkout as “PG module ready, currently mock only”.
+- Show customer checkout as ?�PG module ready, currently mock only??
 - Show admin ability to manage storefront banners, video/GIF placeholders, brand logos, exhibitions, and company admin invitation.
 - Show company onboarding: business license, bankbook copy, CS contact, address, product legal notices, detail preview, and ad material submission.
 - Show nursery onboarding: business license identity, registered address, room count, room selection, A4 external mapping fields.

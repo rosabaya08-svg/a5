@@ -7,7 +7,7 @@ export type PgServerReadiness = {
   message: string;
 };
 
-const requiredServerKeys = ["PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
+const requiredServerKeys = ["PG_SECRET_KEY", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
 
 function readEnv(name: string): string {
   return process.env[name]?.trim() ?? "";
@@ -34,6 +34,7 @@ export function getPgAdapterHandoffPlan(): string[] {
   return [
     "Create a provider adapter from the PG official SDK/API documentation.",
     "Call provider.ready or payment prepare only after server amount recalculation.",
+    "Resolve the active company merchantId from companies/{companyId}; do not rely on one global MID for seller payments.",
     "Call provider.confirm with PG_SECRET_KEY only inside Firebase Functions or another server runtime.",
     "Verify webhook signatures with PG_WEBHOOK_SECRET before any Firestore status transition.",
     "Keep cancel/refund behind manual approval and settlement hold rules.",

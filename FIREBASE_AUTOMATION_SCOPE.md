@@ -9,7 +9,7 @@ Updated: 2026-05-25
 - Storage rules source creation and deployment
 - Firebase Web SDK client initialization
 - Firestore product read integration with mock fallback
-- Firestore CMS/content collection names aligned to A5 closed mall rules
+- Firestore CMS/content collection names aligned to with.commerce rules
 - Firebase Storage upload helper for CMS image/video beta uploads
 - Firestore foundation seed script source
 - Firestore product seed script source

@@ -190,7 +190,7 @@ export function SuperAdminGoogleLogin() {
         </aside>
 
         <section className="rounded-md bg-white p-6 text-slate-950 shadow-xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">A5 CLOSED MALL</p>
+          <p className="text-xs font-black tracking-[0.18em] text-slate-500">with.commerce</p>
           <h2 className="mt-3 text-3xl font-black">마스터 계정 확인</h2>
           <div className="mt-6 grid gap-3">
             <div className="rounded-md border border-slate-200 bg-slate-50 p-4">

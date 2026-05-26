@@ -4,7 +4,7 @@ Last updated: 2026-05-26
 
 ## Purpose
 
-This gate verifies that the A5 closed mall Firebase beta is safe to push to GitHub and hand off to Cloudflare automatic deployment review.
+This gate verifies that the with.commerce Firebase beta is safe to push to GitHub and hand off to Cloudflare automatic deployment review.
 
 The gate does not deploy Firebase, does not deploy Cloudflare directly, does not print secrets, and does not execute real PG approval, refund, settlement payout, Alimtalk, delivery tracking, or external inventory calls.
 

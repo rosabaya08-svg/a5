@@ -13,7 +13,6 @@ export const optionalPublicPgKeys = ["NEXT_PUBLIC_PG_CHANNEL_KEY"] as const;
 
 export const requiredServerPgKeys = [
   "PG_SECRET_KEY",
-  "PG_MERCHANT_ID",
   "PG_CHANNEL_KEY",
   "PG_WEBHOOK_SECRET",
   "PAYMENT_WEBHOOK_URL",

@@ -15,14 +15,18 @@ import {
   readObjectBody,
   requirePost,
   sendJson,
+  type CompanyMerchantProfile,
   type HttpRequestLike,
   type HttpResponseLike,
   type PaymentConfirmRequest,
   type PaymentConfirmResponse,
+  type PaymentProviderId,
   type ServerPricedItem,
 } from "./types";
 
 const INFINY_TOTAL_FEE_RATE = 7;
+const allowedMerchantStatuses: CompanyMerchantProfile["merchantStatus"][] = ["not_applied", "in_review", "mid_issued", "active", "blocked"];
+const providerIds: PaymentProviderId[] = ["mock", "pg_contract", "infiny", "toss", "portone", "kcp", "nice"];
 
 function calculateInfinySettlementAmount(lineAmount: number) {
   return Math.max(lineAmount - Math.round(lineAmount * (INFINY_TOTAL_FEE_RATE / 100)), 0);
@@ -82,6 +86,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   let recalculatedAmount = 0;
   let approvedAt = "";
   let approval;
+  let merchantProfile: CompanyMerchantProfile | undefined;
 
   try {
     const db = getAdminDb();
@@ -159,6 +164,29 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       if (companyIds.size > 1) {
         throw new Error(`COMPANY_GROUP_REQUIRED:${JSON.stringify({ companyIds: [...companyIds] })}`);
       }
+      const companyId = [...companyIds][0] ?? "";
+      const intentCompanyId = String(intentSnapshot.get("company_id") ?? intentSnapshot.get("companyId") ?? "");
+      const merchantId = optionalString(intentSnapshot.get("merchant_id") ?? intentSnapshot.get("merchantId"));
+      const merchantStatus = asMerchantStatus(intentSnapshot.get("merchant_status") ?? intentSnapshot.get("merchantStatus"));
+      const merchantProvider = asPaymentProviderId(intentSnapshot.get("pg_provider") ?? intentSnapshot.get("provider") ?? "infiny");
+
+      if (intentCompanyId && intentCompanyId !== companyId) {
+        throw new Error(`PAYMENT_INTENT_COMPANY_MISMATCH:${JSON.stringify({ intentCompanyId, companyId })}`);
+      }
+
+      if (pgReadiness.provider !== "mock" && (!merchantId || merchantStatus !== "active")) {
+        throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus })}`);
+      }
+
+      merchantProfile = {
+        companyId,
+        companyName: String(intentSnapshot.get("company_name") ?? companyId),
+        provider: merchantProvider,
+        merchantId,
+        merchantIdMasked: maskMerchantId(merchantId),
+        merchantStatus,
+        paymentReady: Boolean(merchantId && merchantStatus === "active"),
+      };
 
       recalculatedAmount = calculateItemsAmount(pricedItems);
       const amountAssertion = assertAmount(body.clientAmount ?? asNumber(intentSnapshot.get("recalculated_amount"), NaN), recalculatedAmount);
@@ -171,6 +199,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         paymentIntentId,
         orderNo,
         amount: recalculatedAmount,
+        companyId,
+        merchantId,
       });
 
       if (!providerResult.ok) {
@@ -201,6 +231,11 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           order_id: orderNo,
           order_no: orderNo,
           qr_session_id: qrSessionId,
+          company_id: merchantProfile!.companyId,
+          pg_provider: merchantProfile!.provider,
+          merchant_id: merchantProfile!.merchantId ?? null,
+          merchant_id_masked: merchantProfile!.merchantIdMasked,
+          merchant_status: merchantProfile!.merchantStatus,
           status: "approved_mock",
           amount: recalculatedAmount,
           currency: "KRW",
@@ -250,6 +285,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           items_snapshot: pricedItems.map(toSnapshotItem),
           payment_id: paymentIntentId,
           mock_tid: approval.mockTid,
+          company_id: merchantProfile!.companyId,
+          pg_provider: merchantProfile!.provider,
+          merchant_id: merchantProfile!.merchantId ?? null,
           source: "firebase_functions_mock_confirm",
           guest_lookup_enabled: true,
           demo_read_enabled: true,
@@ -336,9 +374,12 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           order_id: orderNo,
           order_no: orderNo,
           qr_session_id: qrSessionId,
+          company_id: merchantProfile!.companyId,
           status: "approved_mock",
           amount: recalculatedAmount,
           message: approval.message,
+          pg_provider: merchantProfile!.provider,
+          merchant_id: merchantProfile!.merchantId ?? null,
           idempotency_key: `${paymentIntentId}-approved-mock`,
           source: "firebase_functions_mock_confirm",
           demo_read_enabled: true,
@@ -403,6 +444,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
     approval: approval!,
     orderNo,
     recalculatedAmount,
+    merchantProfile: merchantProfile!,
     firestoreTransactionPlan: [
       ...getPaymentConfirmTransactionPlan(),
       ...getPgAdapterHandoffPlan(),
@@ -454,6 +496,8 @@ function errorStatus(code: string): number {
   if (code === "OUT_OF_STOCK") return 409;
   if (code === "AMOUNT_MISMATCH") return 409;
   if (code === "COMPANY_GROUP_REQUIRED") return 409;
+  if (code === "PAYMENT_INTENT_COMPANY_MISMATCH") return 409;
+  if (code === "PAYMENT_INTENT_MID_REQUIRED") return 409;
   if (code.endsWith("NOT_FOUND")) return 404;
   return 503;
 }
@@ -470,7 +514,30 @@ function errorMessage(code: string, detail: string): string {
     OUT_OF_STOCK: `Product is out of stock: ${detail}.`,
     AMOUNT_MISMATCH: "Client amount does not match server recalculated amount.",
     COMPANY_GROUP_REQUIRED: "One payment QR can contain items from only one company/MID. Create the next company QR after this payment.",
+    PAYMENT_INTENT_COMPANY_MISMATCH: "Payment intent company does not match the recalculated cart company.",
+    PAYMENT_INTENT_MID_REQUIRED: "Company MID is missing or not active for real PG confirm.",
   };
 
   return messages[code] ?? detail;
+}
+
+function maskMerchantId(merchantId?: string): string {
+  if (!merchantId) return "MID 발급 대기";
+  if (merchantId.length <= 8) return merchantId;
+  return `${merchantId.slice(0, 4)}-${"*".repeat(Math.max(merchantId.length - 9, 4))}-${merchantId.slice(-4)}`;
+}
+
+function asPaymentProviderId(value: unknown): PaymentProviderId {
+  return providerIds.includes(value as PaymentProviderId) ? (value as PaymentProviderId) : "infiny";
+}
+
+function asMerchantStatus(value: unknown): CompanyMerchantProfile["merchantStatus"] {
+  return allowedMerchantStatuses.includes(value as CompanyMerchantProfile["merchantStatus"])
+    ? (value as CompanyMerchantProfile["merchantStatus"])
+    : "not_applied";
+}
+
+function optionalString(value: unknown): string | undefined {
+  const text = String(value ?? "").trim();
+  return text ? text : undefined;
 }

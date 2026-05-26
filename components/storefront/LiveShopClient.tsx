@@ -927,10 +927,6 @@ export function LiveQrCheckoutPage() {
     };
   }, [code]);
 
-  useEffect(() => {
-    if (session) setReceiver(initialQrReceiverFormValue(session));
-  }, [session?.id]);
-
   async function pay() {
     if (!session) return;
     if (!receiver || !isQrReceiverFormComplete(receiver)) {
@@ -1145,7 +1141,7 @@ export function LiveQrCheckoutPage() {
           <strong className="text-2xl text-rose-600">{formatCurrency(session.totalAmount)}</strong>
         </div>
         <div className="mt-4">
-          <QrReceiverForm session={session} onChange={setReceiver} />
+          <QrReceiverForm key={session.id} session={session} onChange={setReceiver} />
         </div>
         <button
           type="button"

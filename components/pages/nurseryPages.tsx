@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { A4RoomImportPanel } from "@/components/nursery/A4RoomImportPanel";
+import { NurseryConsentSummary } from "@/components/nursery/NurseryConsentSummary";
 import { nurseryNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -64,6 +65,7 @@ function NurseryIdentityPanel() {
           </div>
         ))}
       </div>
+      <NurseryConsentSummary />
     </section>
   );
 }

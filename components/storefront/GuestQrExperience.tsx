@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
 import { QrReceiverForm } from "@/components/storefront/QrReceiverForm";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mockCompanies } from "@/data/mockCompanies";
@@ -26,7 +27,7 @@ function GuestFrame({
       <div className="mx-auto max-w-md md:max-w-4xl">
         <header className="overflow-hidden rounded-md bg-slate-950 text-white shadow-xl">
           <div className="p-5 md:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-300">A5 CLOSED MALL</p>
+            <p className="text-xs font-black tracking-[0.16em] text-rose-300">with.commerce</p>
             <h1 className="mt-2 text-3xl font-black md:text-5xl">{title}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{subtitle}</p>
           </div>
@@ -206,9 +207,7 @@ export async function QrCheckoutPage({ code }: { code: string }) {
       <div className="grid gap-4">
         <MobileOrderSummary session={session} content={content} />
         <CheckoutForm session={session} />
-        <Link href={`/q/${session.shortCode}/loading`} className="rounded-md bg-rose-600 px-4 py-4 text-center text-base font-black text-white">
-          결제 진행
-        </Link>
+        <ServerCheckoutFlow session={session} dataSource="qr_checkout" />
       </div>
     </GuestFrame>
   );

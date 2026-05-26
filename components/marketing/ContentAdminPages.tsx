@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
+import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import type { NavSection } from "@/components/layout/AdminSidebar";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { mockApi } from "@/lib/mock/mockApi";
-import { formatCurrency } from "@/lib/utils/format";
 
 export const legacyAdminMarketingNav: NavSection[] = adminNavItems;
 export const legacyCompanyContentNav: NavSection[] = companyNavItems;
@@ -125,29 +125,9 @@ export function AdminExhibitionsPage() {
 }
 
 export async function CompanyProductPreviewPage() {
-  const product = mockApi.products()[0];
-
   return (
     <CompanyContentShell title="상품 등록 미리보기" subtitle="승인 요청 전 고객에게 보일 상품 상세 구성을 확인합니다.">
-      <section className="rounded-md border border-slate-200 bg-white p-5">
-        <p className="text-xs font-black text-emerald-700">{product.brand ?? "A5 Partner"}</p>
-        <h2 className="mt-2 text-3xl font-black text-slate-950">{product.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{product.subtitle}</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">산후조리원 핫딜가</p>
-            <p className="mt-1 text-xl font-black text-rose-600">{formatCurrency(product.price)}</p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">재고</p>
-            <p className="mt-1 text-xl font-black text-slate-950">{product.stock}</p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">상태</p>
-            <p className="mt-1 text-xl font-black text-slate-950">{product.status}</p>
-          </div>
-        </div>
-      </section>
+      <CompanyProductDraftPreview />
     </CompanyContentShell>
   );
 }

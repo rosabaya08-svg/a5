@@ -4,7 +4,7 @@ Last updated: 2026-05-26
 
 ## Scope
 
-This checklist covers Cloudflare Pages automatic deployment review for the A5 closed mall Firebase beta.
+This checklist covers Cloudflare Pages automatic deployment review for the with.commerce Firebase beta.
 
 GitHub push to `feat/mock-ui-progress-capture-20260520` can trigger Cloudflare Pages. This checklist does not approve manual Cloudflare API deploys, Firebase deploys, or production payment activation.
 

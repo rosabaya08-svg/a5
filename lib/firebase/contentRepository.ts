@@ -14,6 +14,8 @@ export type CmsCollectionName =
   | "marketing_videos"
   | "brands"
   | "product_detail_pages"
+  | "company_api_integration_requests"
+  | "nursery_auto_signup_profiles"
   | "home_sections"
   | "tablet_home_configs"
   | "media_assets";

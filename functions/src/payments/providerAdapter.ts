@@ -43,6 +43,8 @@ export type ProviderConfirmInput = {
   paymentIntentId: string;
   orderNo: string;
   amount: number;
+  companyId?: string;
+  merchantId?: string;
   providerPaymentKey?: string;
 };
 
@@ -137,6 +139,18 @@ export async function requestProviderPayment(input: ProviderRequestInput): Promi
 export async function confirmPaymentWithConfiguredProvider(input: ProviderConfirmInput): Promise<ProviderConfirmResult> {
   const readiness = getPgServerReadiness();
   const candidate = resolveProviderCandidate(readiness.provider);
+  const rawProvider = readiness.provider.trim().toLowerCase();
+
+  if (rawProvider !== "mock" && candidate === "unknown") {
+    return blocked("confirmPayment", `Unknown PG provider ${readiness.provider}. No PG API was called.`);
+  }
+
+  if (candidate !== "unknown") {
+    return blocked(
+      "confirmPayment",
+      `Real ${candidate} confirm is not implemented yet. Company MID ${input.merchantId ?? "missing"} was resolved, but no PG API was called.`,
+    );
+  }
 
   return {
     ok: true,
@@ -149,7 +163,7 @@ export async function confirmPaymentWithConfiguredProvider(input: ProviderConfir
       mockTid: `MOCK-FN-${input.orderNo}`,
       approvedAt: new Date().toISOString(),
       message: readiness.readyForAdapter
-        ? `${candidate} keys appear ready, but provider adapter is still mock-only. No real PG API was used.`
+        ? `${candidate} keys and MID ${input.merchantId ?? "missing"} appear ready, but provider adapter is still mock-only. No real PG API was used.`
         : "Mock approval only. No PG secret or real API was used.",
     },
   };

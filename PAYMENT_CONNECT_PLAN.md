@@ -4,7 +4,7 @@ Last updated: 2026-05-25
 
 ## Today Goal
 
-A5 closed mall must be ready so the PG company's module, test MID/client key/secret key, and webhook rule can be inserted without redesigning checkout.
+with.commerce must be ready so the PG company's module, test MID/client key/secret key, and webhook rule can be inserted without redesigning checkout.
 
 Real approval, cancel, refund, settlement payout, Alimtalk, delivery tracking, and external inventory sync are still blocked.
 

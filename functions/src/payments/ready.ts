@@ -14,13 +14,18 @@ import {
   requirePost,
   sendJson,
   type CartItemInput,
+  type CompanyMerchantProfile,
   type HttpRequestLike,
   type HttpResponseLike,
   type PaymentReadyRequest,
   type PaymentReadyResponse,
+  type PaymentProviderId,
   type ServerPaymentIntent,
   type ServerPricedItem,
 } from "./types";
+
+const allowedMerchantStatuses: CompanyMerchantProfile["merchantStatus"][] = ["not_applied", "in_review", "mid_issued", "active", "blocked"];
+const providerIds: PaymentProviderId[] = ["mock", "pg_contract", "infiny", "toss", "portone", "kcp", "nice"];
 
 export async function paymentsReadyHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
@@ -111,6 +116,26 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     });
     return;
   }
+  const companyId = [...companyIds][0] ?? "";
+  const pgReadiness = getPgServerReadiness();
+  const merchantProfile = await readCompanyMerchantProfile(companyId);
+
+  if (pgReadiness.provider !== "mock" && !merchantProfile.paymentReady) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "PAYMENT_READY_COMPANY_MID_REQUIRED",
+        message: "This company does not have an active Infiny MID. Register and activate the company MID before real payment.",
+        httpStatus: 409,
+        details: {
+          companyId,
+          merchantStatus: merchantProfile.merchantStatus,
+          merchantIdMasked: merchantProfile.merchantIdMasked,
+        },
+      },
+    });
+    return;
+  }
 
   const recalculatedAmount = calculateItemsAmount(pricedItems);
   const amountAssertion = assertAmount(body.clientAmount ?? qrValidation.session?.totalAmountSnapshot, recalculatedAmount);
@@ -121,7 +146,6 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   }
 
   const now = new Date();
-  const pgReadiness = getPgServerReadiness();
   const paymentIntent: ServerPaymentIntent = {
     id: makePaymentIntentId(qrSessionId, now),
     qrSessionId,
@@ -129,6 +153,9 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     amount: recalculatedAmount,
     currency: "KRW",
     provider: "mock",
+    companyId,
+    merchantId: merchantProfile.merchantId,
+    merchantStatus: merchantProfile.merchantStatus,
     status: "ready_mock",
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
@@ -153,7 +180,14 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           room_id: body.roomId ?? qrValidation.session?.roomId ?? null,
           tablet_id: body.tabletId ?? qrValidation.session?.tabletId ?? null,
           provider: "mock",
-          pg_ready: pgReadiness.readyForAdapter,
+          pg_provider: merchantProfile.provider,
+          company_id: merchantProfile.companyId,
+          company_name: merchantProfile.companyName,
+          merchant_id: merchantProfile.merchantId ?? null,
+          merchant_id_masked: merchantProfile.merchantIdMasked,
+          merchant_status: merchantProfile.merchantStatus,
+          merchant_payment_ready: merchantProfile.paymentReady,
+          pg_ready: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
           source: "firebase_functions_mock_ready",
           demo_read_enabled: true,
           guest_lookup_enabled: true,
@@ -192,13 +226,14 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const result: PaymentReadyResponse = {
     ok: true,
     provider: "mock",
-    pgReady: pgReadiness.readyForAdapter,
+    pgReady: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
     pgReadiness,
     paymentIntentId: paymentIntent.id,
     orderNoCandidate: paymentIntent.orderNoCandidate,
     qrSessionId,
     recalculatedAmount,
     currency: "KRW",
+    merchantProfile,
     expiresAt: paymentIntent.expiresAt,
     firestoreTransactionPlan: [...getPaymentReadyTransactionPlan(), ...getPgAdapterHandoffPlan()],
     message: pgReadiness.readyForAdapter
@@ -207,6 +242,71 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   };
 
   sendJson(response, 200, result);
+}
+
+async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMerchantProfile> {
+  const fallback: CompanyMerchantProfile = {
+    companyId,
+    companyName: companyId || "unknown company",
+    provider: "infiny",
+    merchantIdMasked: "MID 발급 대기",
+    merchantStatus: "not_applied",
+    paymentReady: false,
+  };
+
+  if (!companyId) return fallback;
+
+  const snapshot = await getAdminDb().collection("companies").doc(companyId).get();
+  if (!snapshot.exists) return fallback;
+
+  const data = snapshot.data() ?? {};
+  const pgProfile = asRecord(data.pg_profile ?? data.pgProfile);
+  const merchantId = optionalString(
+    data.infiny_mid ??
+      data.pg_merchant_id ??
+      data.merchantId ??
+      pgProfile.infiny_mid ??
+      pgProfile.pg_merchant_id ??
+      pgProfile.merchantId,
+  );
+  const merchantStatus = asMerchantStatus(
+    data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus ?? pgProfile.merchantStatus,
+  );
+
+  return {
+    companyId: String(data.company_id ?? data.companyId ?? companyId),
+    companyName: String(data.name ?? data.company_name ?? companyId),
+    provider: asPaymentProviderId(data.pg_provider ?? pgProfile.provider ?? "infiny"),
+    merchantId,
+    merchantIdMasked: maskMerchantId(merchantId),
+    merchantStatus,
+    paymentReady: Boolean(merchantId && merchantStatus === "active"),
+  };
+}
+
+function maskMerchantId(merchantId?: string): string {
+  if (!merchantId) return "MID 발급 대기";
+  if (merchantId.length <= 8) return merchantId;
+  return `${merchantId.slice(0, 4)}-${"*".repeat(Math.max(merchantId.length - 9, 4))}-${merchantId.slice(-4)}`;
+}
+
+function asPaymentProviderId(value: unknown): PaymentProviderId {
+  return providerIds.includes(value as PaymentProviderId) ? (value as PaymentProviderId) : "infiny";
+}
+
+function asMerchantStatus(value: unknown): CompanyMerchantProfile["merchantStatus"] {
+  return allowedMerchantStatuses.includes(value as CompanyMerchantProfile["merchantStatus"])
+    ? (value as CompanyMerchantProfile["merchantStatus"])
+    : "not_applied";
+}
+
+function optionalString(value: unknown): string | undefined {
+  const text = String(value ?? "").trim();
+  return text ? text : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 async function readServerPricedItems(items: CartItemInput[]): Promise<ServerPricedItem[]> {

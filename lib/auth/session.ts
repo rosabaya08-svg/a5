@@ -12,6 +12,9 @@ export type PortalSession = {
   tabletId?: string;
   signedInAt: string;
   firstLoginCompletedAt?: string;
+  termsAcceptedAt?: string;
+  privacyAcceptedAt?: string;
+  marketingConsentAt?: string;
 };
 
 export const portalSessionKeys: Record<PortalRole, string> = {

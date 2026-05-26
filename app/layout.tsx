@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "A5 산후조리원 핫딜",
+  title: "with.commerce",
   description: "산후조리원 태블릿 핫딜입니다.",
 };
 

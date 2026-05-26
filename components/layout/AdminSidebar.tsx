@@ -35,7 +35,7 @@ export function AdminSidebar({
   const pathname = usePathname();
 
   return (
-    <aside className={`sticky top-0 hidden h-screen w-[280px] shrink-0 flex-col overflow-hidden border-r lg:flex ${isDark ? "border-white/10 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-950"}`}>
+    <aside className={`sticky top-0 flex h-screen w-[232px] shrink-0 flex-col overflow-hidden border-r md:w-[280px] ${isDark ? "border-white/10 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-950"}`}>
       <div className={`shrink-0 border-l-4 px-5 py-5 ${accentClasses[accent]}`}>
         <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">A5 CLOSED MALL</p>
         <h1 className="mt-2 text-lg font-black">{title}</h1>

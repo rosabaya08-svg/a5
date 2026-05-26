@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
+import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { staticProductIds } from "@/data/staticSmokeRoutes";
@@ -55,27 +56,29 @@ function discountRate(product: Product) {
   return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
-function platformDeal(product: Product) {
-  const { platformLowestPrice, closedMallPrice } = product.comparison;
-  const savings = Math.max(0, platformLowestPrice - closedMallPrice);
-  const rate = platformLowestPrice > 0 ? Math.round((savings / platformLowestPrice) * 100) : 0;
+function normalDeal(product: Product) {
+  const { listPrice, closedMallPrice } = product.comparison;
+  const savings = Math.max(0, listPrice - closedMallPrice);
+  const rate = listPrice > 0 ? Math.round((savings / listPrice) * 100) : 0;
   return { savings, rate };
 }
 
-function AiPriceSummary({ product, large = false, defaultOpen = true }: { product: Product; large?: boolean; defaultOpen?: boolean }) {
-  const deal = platformDeal(product);
+function ProductPriceSummary({ product, productName, large = false }: { product: Product; productName: string; large?: boolean }) {
+  const deal = normalDeal(product);
+  const { listPrice, closedMallPrice, platformLowestPrice } = product.comparison;
 
   return (
-    <details className="group rounded-md bg-white/35 p-3" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center justify-center rounded-md border border-rose-600 px-4 py-3 text-sm font-black text-rose-600 transition hover:bg-rose-50 [&::-webkit-details-marker]:hidden">
-        AI 분석
-      </summary>
-      <div className="mt-3 grid gap-2 rounded-md bg-white/40 p-3">
-        <p className="text-sm font-black text-slate-500">플랫폼 최저가 대비</p>
-        <p className={`${large ? "text-4xl" : "text-xl"} font-black text-rose-600`}>폐쇄몰 {formatCurrency(deal.savings)} 저렴함</p>
-        <p className={`${large ? "text-xl" : "text-sm"} font-black text-emerald-700`}>{deal.rate}% 추가 할인된 금액</p>
+    <div className="grid gap-3 rounded-md bg-white/35 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-black text-slate-500">
+          정상가 <span className="line-through">{formatCurrency(listPrice)}</span>
+        </p>
+        <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{deal.rate}% 할인</span>
       </div>
-    </details>
+      <p className={`${large ? "text-4xl" : "text-2xl"} font-black text-rose-600`}>폐쇄몰가 {formatCurrency(closedMallPrice)}</p>
+      <p className={`${large ? "text-lg" : "text-sm"} font-black text-slate-600`}>정상가 대비 {formatCurrency(deal.savings)} 할인</p>
+      <PriceAnalysisButton productName={productName} closedMallPrice={closedMallPrice} platformLowestPrice={platformLowestPrice} />
+    </div>
   );
 }
 
@@ -245,7 +248,10 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
           <p className="text-xs font-black text-rose-600">{profile.brand}</p>
           <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
         </Link>
-        <AiPriceSummary product={product} />
+        <ProductPriceSummary product={product} productName={profile.displayName} />
+        <Link href={`/tablet/products/${product.id}`} className="rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
+          주문하러가기
+        </Link>
       </div>
     </article>
   );
@@ -353,7 +359,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
             <p className="text-sm font-black text-rose-600">{profile.brand}</p>
             <h2 className="mt-2 text-4xl font-black">{profile.displayName}</h2>
             <div className="mt-5">
-              <AiPriceSummary product={product} large />
+              <ProductPriceSummary product={product} productName={profile.displayName} large />
             </div>
           </div>
 

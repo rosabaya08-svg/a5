@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
 import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
@@ -25,7 +26,7 @@ type StoreContext = {
   content: StorefrontContent;
 };
 
-const SHOP_HOME_HREF = "/tablet/products";
+const SHOP_HOME_HREF = "/tablet/products/";
 
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
   const [{ data: session }, content] = await Promise.all([
@@ -126,13 +127,13 @@ function StoreShell({ children }: { title?: string; subtitle?: string; context: 
       <main className="min-h-screen bg-transparent text-white">
         <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
-            <Link href={SHOP_HOME_HREF} prefetch className="flex items-center gap-3" aria-label="한산연몰 첫페이지로 이동">
+            <HardNavigateLink href={SHOP_HOME_HREF} className="flex items-center gap-3" ariaLabel="한산연몰 첫페이지로 이동">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
               <span>
                 <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
                 <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 산후조리원 핫딜</span>
               </span>
-            </Link>
+            </HardNavigateLink>
             <TabletContextBadge />
           </div>
         </header>
@@ -240,16 +241,15 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
-      <Link
+      <HardNavigateLink
         href={productHref}
-        prefetch
         className="relative block aspect-[4/5] cursor-pointer overflow-hidden bg-slate-100 touch-manipulation focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/60"
-        aria-label={`${profile.displayName} 상세페이지로 이동`}
+        ariaLabel={`${profile.displayName} 상세페이지로 이동`}
         title={`${profile.displayName} 상세페이지`}
       >
         <img src={profile.imageUrl} alt={profile.displayName} draggable={false} className="pointer-events-none h-full w-full object-cover transition group-hover:scale-[1.03]" />
         <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
-      </Link>
+      </HardNavigateLink>
       <div className="grid gap-3 p-4">
         <Link href={productHref} className="block">
           <p className="text-xs font-black text-rose-600">{profile.brand}</p>

@@ -22,3 +22,21 @@ export function appendAuditLogSkeleton(log: AuditLogDraft): { plannedPath: strin
     writeBlocked: true,
   };
 }
+
+export function toAuditLogDocument(log: AuditLogDraft): Record<string, unknown> {
+  return {
+    actor: log.actor,
+    actorRole: "SYSTEM",
+    actor_role: "SYSTEM",
+    actorName: "Firebase Functions payment server",
+    actor_name: "Firebase Functions payment server",
+    action: log.action,
+    target: log.target,
+    severity: log.severity,
+    message: log.message,
+    source: "firebase_functions_payment_backend",
+    demo_read_enabled: true,
+    createdAt: log.createdAt,
+    created_at: log.createdAt,
+  };
+}

@@ -1,9 +1,13 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { inventoryReleaseHandler } from "./inventory/releaseInventory";
+import { inventoryReserveHandler } from "./inventory/reserveInventory";
+import { ordersCreateHandler } from "./orders/createOrderSnapshot";
 import { paymentsCancelHandler } from "./payments/cancel";
 import { paymentsConfirmHandler } from "./payments/confirm";
 import { paymentsReadyHandler } from "./payments/ready";
 import { paymentsStatusHandler } from "./payments/status";
 import { paymentsWebhookHandler } from "./payments/webhook";
+import { qrCreateHandler, qrExpireHandler } from "./qr/validateQrSession";
 
 const paymentFunctionOptions = {
   region: "asia-northeast3",
@@ -16,3 +20,8 @@ export const paymentsConfirm = onRequest(paymentFunctionOptions, paymentsConfirm
 export const paymentsWebhook = onRequest(paymentFunctionOptions, paymentsWebhookHandler);
 export const paymentsCancel = onRequest(paymentFunctionOptions, paymentsCancelHandler);
 export const paymentsStatus = onRequest(paymentFunctionOptions, paymentsStatusHandler);
+export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
+export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
+export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);
+export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReserveHandler);
+export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);

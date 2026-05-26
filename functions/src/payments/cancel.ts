@@ -1,5 +1,5 @@
 import { releaseInventorySkeleton } from "../inventory/releaseInventory";
-import { appendAuditLogSkeleton, createAuditLogDraft } from "../utils/auditLog";
+import { appendAuditLogSkeleton, createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
 import { getAdminDb } from "../firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -42,10 +42,11 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
     }),
   );
 
-  await getAdminDb()
-    .collection("cancel_requests")
-    .doc(`${orderNo}-${Date.now()}`)
-    .set({
+  const db = getAdminDb();
+  const cancelRequestId = `${orderNo}-${Date.now()}`;
+
+  await db.runTransaction(async (transaction) => {
+    transaction.set(db.collection("cancel_requests").doc(cancelRequestId), {
       order_no: orderNo,
       payment_key: body.paymentKey ?? null,
       amount: body.amount ?? null,
@@ -58,6 +59,19 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
       created_at: new Date().toISOString(),
       updated_at: FieldValue.serverTimestamp(),
     });
+
+    transaction.set(db.collection("audit_logs").doc(), {
+      ...toAuditLogDocument(
+        createAuditLogDraft({
+          action: "payment_cancel_request",
+          target: orderNo,
+          severity: "blocked",
+          message: "Real PG cancel/refund is blocked; manual review request recorded.",
+        }),
+      ),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+  });
 
   sendJson(response, 200, {
     ok: false,

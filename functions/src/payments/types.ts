@@ -12,6 +12,7 @@ export type PgServerReadinessSnapshot = {
 
 export type CartItemInput = {
   productId: string;
+  optionId?: string;
   productName: string;
   optionName: string;
   unitPrice: number;
@@ -80,6 +81,46 @@ export type PaymentWebhookRequest = {
   paymentKey?: string;
   transactionId?: string;
   amount?: number;
+};
+
+export type ServerPricedItem = CartItemInput & {
+  status: string;
+  inventory: number;
+  reservedInventory: number;
+  availableInventory: number;
+  source: "firestore_products";
+};
+
+export type OrderCreateRequest = PaymentReadyRequest & {
+  payerName?: string;
+  payerPhoneMasked?: string;
+  deliveryMethod?: "pickup" | "delivery";
+};
+
+export type QrCreateRequest = {
+  cartId?: string;
+  shortCode?: string;
+  nurseryId: string;
+  roomId: string;
+  tabletId: string;
+  expiresInMinutes?: number;
+  clientAmount?: number;
+  currency?: Currency;
+  items: CartItemInput[];
+};
+
+export type QrExpireRequest = {
+  qrSessionId: string;
+  reason?: string;
+};
+
+export type InventoryRequest = {
+  reservationId?: string;
+  qrSessionId?: string;
+  orderNo?: string;
+  paymentIntentId?: string;
+  reason?: string;
+  items: CartItemInput[];
 };
 
 export type PaymentCancelRequest = {
@@ -162,12 +203,13 @@ export function normalizeCartItems(value: unknown): CartItemInput[] {
     .map((item) => {
       const candidate = typeof item === "object" && item !== null ? (item as Partial<CartItemInput>) : {};
       return {
-        productId: String(candidate.productId ?? ""),
-        productName: String(candidate.productName ?? ""),
-        optionName: String(candidate.optionName ?? "default"),
-        unitPrice: Number(candidate.unitPrice ?? 0),
+        productId: String(candidate.productId ?? (candidate as { product_id?: unknown }).product_id ?? ""),
+        optionId: optionalString(candidate.optionId ?? (candidate as { option_id?: unknown }).option_id),
+        productName: String(candidate.productName ?? (candidate as { product_name?: unknown }).product_name ?? ""),
+        optionName: String(candidate.optionName ?? (candidate as { option_name?: unknown }).option_name ?? "default"),
+        unitPrice: Number(candidate.unitPrice ?? (candidate as { unit_price?: unknown }).unit_price ?? 0),
         quantity: Number(candidate.quantity ?? 0),
-        companyId: String(candidate.companyId ?? ""),
+        companyId: String(candidate.companyId ?? (candidate as { company_id?: unknown }).company_id ?? ""),
       };
     })
     .filter((item) => item.productId && item.productName && item.unitPrice >= 0 && item.quantity > 0);
@@ -184,4 +226,17 @@ export function makeOrderNo(now = new Date()): string {
 
 export function makePaymentIntentId(qrSessionId: string, now = new Date()): string {
   return `pi_${qrSessionId}_${now.getTime()}`;
+}
+
+export function makeQrSessionId(shortCode: string, now = new Date()): string {
+  return `qr_${shortCode}_${now.getTime()}`;
+}
+
+export function makeShortCode(prefix = "A5", now = new Date()): string {
+  return `${prefix}${String(now.getTime()).slice(-6)}`;
+}
+
+function optionalString(value: unknown): string | undefined {
+  const text = String(value ?? "").trim();
+  return text ? text : undefined;
 }

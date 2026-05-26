@@ -845,3 +845,13 @@
 - Updated `AUTH_CLAIMS_PLAN.md` with the implementation skeleton and remaining blocked items.
 - Validation passed: `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets`.
 - Boundaries preserved: no `.env.local` commit, no service account/private key, no Firebase deploy, no real PG/refund/settlement execution.
+
+## 2026-05-26 Firebase payment transaction backend
+
+- Added PG-ready Functions exports: `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, `paymentsCancel`, `paymentsStatus`, `ordersCreate`, `qrCreate`, `qrExpire`, `inventoryReserve`, and `inventoryRelease`.
+- `paymentsReady` now validates Firestore QR session state, product status, inventory availability, and server amount before creating a payment intent.
+- `paymentsConfirm` keeps mock provider approval but writes payments, order, order items, payment event, inventory movement, QR paid state, and audit log in one Firestore transaction.
+- `paymentsWebhook` records event/idempotency skeleton data without real signature verification.
+- `paymentsCancel` records manual review and audit log only; real PG cancel/refund stays blocked.
+- `ordersCreate`, `qrCreate`, `qrExpire`, `inventoryReserve`, and `inventoryRelease` provide beta server write surfaces for the next PG handoff.
+- Real PG SDK/API calls, secrets, firebase deploy, refund, settlement, Alimtalk, delivery tracking, and external inventory calls remain blocked.

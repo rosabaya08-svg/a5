@@ -389,3 +389,13 @@
 4. Connect `/admin/permissions` to a server-only endpoint after owner approval and audit logging are ready.
 5. Keep `CUSTOMER_GUEST` outside Firebase Auth and continue QR/session/order lookup verification.
 6. Keep bulk user creation and plain password issuance blocked.
+
+## 2026-05-26 Payment backend next tasks
+
+1. Owner-approve Firebase Functions deploy for the expanded payment/order/QR/inventory exports.
+2. Verify endpoint reachability after deploy and decide whether a rewrite layer is needed for slash-style API paths.
+3. Insert real PG adapter code only after official PG sandbox docs and keys are received.
+4. Store PG server secrets in Firebase Secret Manager/runtime only.
+5. Add real webhook signature verification before any webhook status transition.
+6. Smoke success, failed, expired QR, duplicate confirm, amount mismatch, stock shortage, reserve, release, and cancel manual-review flows.
+7. Keep refund execution, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.

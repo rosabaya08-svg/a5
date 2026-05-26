@@ -262,3 +262,13 @@
 4. Add Firestore Rules tests for company_id, nursery_id, room_id, and tablet_id scope mismatches.
 5. Keep CUSTOMER_GUEST outside Firebase Auth; validate QR/session/order lookup through server logic.
 6. Keep bulk user creation, plain password issuance, and Admin private key files blocked.
+
+## 2026-05-26 Payment transaction backend next tasks
+
+1. Deploy Functions only after owner approval and confirm the exported endpoints are reachable.
+2. Add Hosting/Cloudflare rewrite mapping if literal `/payments/ready` style paths are required instead of function export names.
+3. Insert the selected PG provider logic only inside `functions/src/payments/providerAdapter.ts` after official sandbox docs and keys are received.
+4. Put `PG_SECRET_KEY` and `PG_WEBHOOK_SECRET` in Firebase Secret Manager/runtime only.
+5. Implement the official webhook signature verification and duplicate event transition guard.
+6. Run sandbox tests for success, fail, expired QR, duplicate confirm, amount mismatch, out-of-stock, cancel request, reserve, and release.
+7. Keep real refund, settlement payout, Alimtalk, delivery tracking, and external inventory API blocked.

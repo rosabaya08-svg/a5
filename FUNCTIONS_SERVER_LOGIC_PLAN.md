@@ -173,3 +173,53 @@ Still blocked:
 - Real webhook signature validation.
 - Real settlement payout.
 - Real Alimtalk, delivery tracking, and external inventory APIs.
+
+# 2026-05-26 Transaction Backend Implementation Update
+
+Firebase Functions now has the server API skeleton required for PG handoff:
+
+| API | Function export | Implementation |
+| --- | --- | --- |
+| `POST /payments/ready` | `paymentsReady` | validates Firestore QR session, checks active products, recalculates amount, creates payment intent |
+| `POST /payments/confirm` | `paymentsConfirm` | mock provider approval, duplicate guard, amount guard, inventory guard, full Firestore transaction |
+| `POST /payments/webhook` | `paymentsWebhook` | event/idempotency skeleton and signature-present capture |
+| `POST /payments/cancel` | `paymentsCancel` | manual review only; real PG cancel/refund blocked |
+| `GET /payments/status` | `paymentsStatus` | reads payment by intent id or order number |
+| `POST /orders/create` | `ordersCreate` | creates `order_drafts` snapshot only |
+| `POST /qr/create` | `qrCreate` | creates `qr_payment_sessions` with item snapshot, total amount, and expiry |
+| `POST /qr/expire` | `qrExpire` | marks active QR sessions expired, leaves paid/cancelled sessions unchanged |
+| `POST /inventory/reserve` | `inventoryReserve` | checks available stock and increments `reserved_inventory` |
+| `POST /inventory/release` | `inventoryRelease` | releases reserved stock with underflow guard |
+
+## Confirm Transaction Writes
+
+`paymentsConfirm` writes these documents in a single Firestore transaction:
+
+- `payment_intents/{paymentIntentId}`
+- `payments/{paymentIntentId}`
+- `orders/{orderNo}`
+- `order_items/{orderNo}-{lineNo}`
+- `inventory_movements/{autoId}`
+- `qr_payment_sessions/{qrSessionId}`
+- `payment_events/{paymentIntentId}-approved-mock`
+- `audit_logs/{autoId}`
+
+The transaction re-reads QR status and product stock before writing. Duplicate payment, expired QR, inactive product, amount mismatch, and stock shortage are blocked before state transition.
+
+## PG Provider Boundary
+
+`functions/src/payments/providerAdapter.ts` is the only intended slot for real PG approval logic. The current adapter always returns mock approval and records that no real PG API was called. When PG keys/docs arrive, replace the adapter internals while preserving:
+
+1. QR validation.
+2. Product active validation.
+3. Server amount recalculation.
+4. Duplicate payment guard.
+5. Firestore transaction writes.
+6. Audit log writes.
+
+Still blocked:
+
+- real PG approval/cancel/refund API calls,
+- real webhook signature verification,
+- settlement payout,
+- firebase deploy from this task.

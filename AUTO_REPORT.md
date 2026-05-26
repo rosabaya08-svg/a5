@@ -578,3 +578,15 @@
 | Write gate | `seed_admin` and `SUPER_ADMIN` are the only seed/admin write roles in the skeleton |
 | Validation | `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs`, and `npm.cmd run check:no-secrets` passed |
 | Boundaries | No Firebase deploy, no Admin private key, no `.env.local` commit, no bulk user creation, no plain password storage |
+
+## 33. 2026-05-26 Firebase payment transaction backend
+
+| Item | Result |
+| --- | --- |
+| Scope | Added PG-ready Firebase Functions order/payment/QR/inventory transaction backend |
+| Payment APIs | `paymentsReady`, `paymentsConfirm`, `paymentsWebhook`, `paymentsCancel`, `paymentsStatus` keep real PG disabled and preserve mock provider flow |
+| New APIs | Added `ordersCreate`, `qrCreate`, `qrExpire`, `inventoryReserve`, and `inventoryRelease` HTTPS exports |
+| Server validation | QR active/expired checks, Firestore product active checks, amount recalculation, duplicate payment guard, and stock guard are in the Functions layer |
+| Transaction writes | `paymentsConfirm` writes order, order items, payment, payment event, inventory movement, QR paid state, and audit log in one transaction |
+| PG slot | `functions/src/payments/providerAdapter.ts` is the real provider insertion point; no PG SDK/API call is active |
+| Boundaries | No firebase deploy, no real PG approval/cancel/refund/settlement, no `.env.local` commit, no service account key |

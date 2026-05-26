@@ -214,3 +214,12 @@
 - Bulk user creation remains blocked until owner approval and account recovery policy are defined.
 - Plain password issuance or storage remains prohibited.
 - `CUSTOMER_GUEST` must remain outside Firebase Auth and use QR/session/order verification only.
+
+## 2026-05-26 Payment transaction backend blockers
+
+- Functions deploy was not executed in this task.
+- Real PG provider code is not implemented; `providerAdapter.ts` remains mock-only.
+- PG server secrets and webhook secrets are not created in code or Git and must go to Firebase Secret Manager/runtime.
+- Real webhook signature verification is still blocked until the PG company provides the official algorithm.
+- Real PG cancel/refund and settlement payout remain blocked.
+- Literal `/payments/ready` path routing may require Firebase Hosting, Cloud Run, or Cloudflare rewrite configuration after deploy.

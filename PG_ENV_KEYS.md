@@ -58,3 +58,24 @@ Server-only Functions values:
 - `PAYMENT_WEBHOOK_URL`
 
 Never commit actual values. Server-only values must not be exposed to static export pages.
+
+# 2026-05-26 Functions Endpoint Mapping
+
+Public browser code should call only browser-safe endpoint base URLs. Server-only keys stay inside Firebase Functions runtime or Secret Manager.
+
+| Logical endpoint | Function export | Secret required now |
+| --- | --- | --- |
+| `POST /payments/ready` | `paymentsReady` | no PG secret |
+| `POST /payments/confirm` | `paymentsConfirm` | no PG secret while mock provider is active; `PG_SECRET_KEY` required after real adapter |
+| `POST /payments/webhook` | `paymentsWebhook` | `PG_WEBHOOK_SECRET` required after real signature verification |
+| `POST /payments/cancel` | `paymentsCancel` | `PG_SECRET_KEY` required only after real cancel/refund approval |
+| `GET /payments/status` | `paymentsStatus` | no PG secret |
+| `POST /orders/create` | `ordersCreate` | no PG secret |
+| `POST /qr/create` | `qrCreate` | no PG secret |
+| `POST /qr/expire` | `qrExpire` | no PG secret |
+| `POST /inventory/reserve` | `inventoryReserve` | no PG secret |
+| `POST /inventory/release` | `inventoryRelease` | no PG secret |
+
+Additional optional public key:
+
+- `NEXT_PUBLIC_A5_FUNCTIONS_REWRITE_BASE_URL`: set only if Cloudflare/Firebase Hosting rewrites literal `/payments/ready` style paths to Functions exports.

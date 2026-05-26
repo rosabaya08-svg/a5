@@ -79,3 +79,23 @@
 - [ ] PG test keys inserted into safe runtime locations.
 - [ ] Real webhook signature verification implemented.
 - [ ] Real cancel/refund policy approved.
+
+# 2026-05-26 Transaction Backend Checklist
+
+- [x] `paymentsReady` reads QR session from Firestore.
+- [x] `paymentsReady` blocks missing, paid, expired, or cancelled QR sessions.
+- [x] `paymentsReady` reads Firestore `products` and recalculates server amount.
+- [x] `paymentsConfirm` blocks duplicate payment/order attempts.
+- [x] `paymentsConfirm` blocks amount mismatch before any state transition.
+- [x] `paymentsConfirm` blocks out-of-stock products.
+- [x] `paymentsConfirm` writes order, order items, payment, payment event, inventory movement, QR paid state, and audit log in one Firestore transaction.
+- [x] `paymentsWebhook` records event skeleton and duplicate event state without real signature validation.
+- [x] `paymentsCancel` records manual review only; real cancel/refund remains blocked.
+- [x] `ordersCreate` creates order draft snapshots only.
+- [x] `qrCreate` creates active QR sessions with item snapshot and expiry.
+- [x] `qrExpire` expires active QR sessions without changing paid/cancelled sessions.
+- [x] `inventoryReserve` creates inventory reservations and increments `reserved_inventory`.
+- [x] `inventoryRelease` releases reservations and prevents reserve underflow.
+- [ ] Replace mock provider internals with official PG provider after keys/docs arrive.
+- [ ] Add real webhook signature algorithm from the PG company.
+- [ ] Run sandbox PG success/fail/expired/duplicate/amount-mismatch tests after deploy.

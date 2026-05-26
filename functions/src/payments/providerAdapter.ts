@@ -1,5 +1,5 @@
 import { getPgServerReadiness } from "./providerRuntime";
-import type { PaymentProviderId } from "./types";
+import type { MockPgApproval, PaymentProviderId } from "./types";
 
 export type PgProviderCandidate = "toss" | "portone" | "kcp" | "nice" | "unknown";
 
@@ -12,6 +12,17 @@ export type PgProviderAdapterSlot = {
   blockedOperations: string[];
   handoff: string[];
 };
+
+export type ProviderConfirmInput = {
+  paymentIntentId: string;
+  orderNo: string;
+  amount: number;
+  providerPaymentKey?: string;
+};
+
+export type ProviderConfirmResult =
+  | { ok: true; approval: MockPgApproval; realPgCalled: false }
+  | { ok: false; code: string; message: string; realPgCalled: false };
 
 export function resolveProviderCandidate(value?: string): PgProviderCandidate {
   const provider = String(value ?? "").trim().toLowerCase();
@@ -41,5 +52,23 @@ export function getProviderAdapterSlot(providerName?: string): PgProviderAdapter
       "Implement official SDK/API call only inside provider adapter after PG contract review.",
       "Keep server amount recalculation before confirmPayment.",
     ],
+  };
+}
+
+export async function confirmPaymentWithConfiguredProvider(input: ProviderConfirmInput): Promise<ProviderConfirmResult> {
+  const readiness = getPgServerReadiness();
+
+  return {
+    ok: true,
+    realPgCalled: false,
+    approval: {
+      provider: "mock",
+      status: "approved_mock",
+      mockTid: `MOCK-FN-${input.orderNo}`,
+      approvedAt: new Date().toISOString(),
+      message: readiness.readyForAdapter
+        ? "PG keys appear ready, but provider adapter is still mock-only. No real PG API was used."
+        : "Mock approval only. No PG secret or real API was used.",
+    },
   };
 }

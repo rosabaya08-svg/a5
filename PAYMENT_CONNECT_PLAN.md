@@ -96,3 +96,43 @@ PG key insertion flow:
 5. Validate webhook signature before status transitions.
 
 Do not implement real refund or settlement payout before separate approval.
+
+# 2026-05-26 Functions Transaction Backend Update
+
+The backend now exposes the PG-ready Functions surface in mock-only mode:
+
+| Logical API | Firebase Function export | Status |
+| --- | --- | --- |
+| `POST /payments/ready` | `paymentsReady` | Firestore QR read, active/expired validation, product active validation, server amount recalculation, `payment_intents` write |
+| `POST /payments/confirm` | `paymentsConfirm` | mock provider approval, duplicate payment guard, amount mismatch guard, order/payment/item/inventory/QR/audit transaction |
+| `POST /payments/webhook` | `paymentsWebhook` | duplicate event skeleton, signature presence capture, no real signature validation yet |
+| `POST /payments/cancel` | `paymentsCancel` | manual review request and audit log only, no real PG cancel/refund |
+| `GET /payments/status` | `paymentsStatus` | payment status read by payment intent or order number |
+| `POST /orders/create` | `ordersCreate` | order draft/snapshot creation before final PG confirm |
+| `POST /qr/create` | `qrCreate` | QR session creation with item snapshot and expiry |
+| `POST /qr/expire` | `qrExpire` | QR active-to-expired transition unless already paid/cancelled |
+| `POST /inventory/reserve` | `inventoryReserve` | reserved inventory transaction using `reserved_inventory` |
+| `POST /inventory/release` | `inventoryRelease` | reservation release transaction and audit log |
+
+If these need literal slash paths, add Firebase Hosting, Cloud Run, or gateway rewrites later. The repo currently exports callable HTTPS function names and documents the intended API shape.
+
+## PG Adapter Insertion Point
+
+The real provider code belongs inside:
+
+- `functions/src/payments/providerAdapter.ts`
+
+Keep the rest of the flow stable:
+
+1. `/payments/ready` validates QR/product/amount.
+2. Browser opens the PG module with public keys only.
+3. `/payments/confirm` performs server-side amount recalculation again.
+4. Provider confirm call replaces only the current mock approval branch.
+5. Firestore transaction writes `orders`, `order_items`, `payments`, `payment_events`, `inventory_movements`, `qr_payment_sessions`, and `audit_logs`.
+
+Still blocked:
+
+- real PG approval/cancel/refund API calls,
+- real webhook signature verification,
+- production settlement payout,
+- Firebase Functions deploy from this task.

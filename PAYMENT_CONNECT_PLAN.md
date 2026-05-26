@@ -136,3 +136,29 @@ Still blocked:
 - real webhook signature verification,
 - production settlement payout,
 - Firebase Functions deploy from this task.
+
+# 2026-05-26 PG Provider Adapter Slot Finalization
+
+Updated frontend and Functions contracts:
+
+- `lib/payments/types.ts`: final `PaymentProvider` interface with create/request/confirm/webhook/cancel/refund methods.
+- `lib/payments/paymentConfig.ts`: key readiness and Toss/PortOne/KCP/NICE candidate resolution.
+- `lib/payments/paymentService.ts`: public helper functions for every provider method.
+- `lib/payments/providers/mockPaymentProvider.ts`: complete mock implementation with no real PG call.
+- `lib/payments/providers/pgProviderSkeleton.ts`: complete provider skeleton that blocks every real call but preserves payload shape.
+- `functions/src/payments/providerAdapter.ts`: server-only provider slot and operation plan for Toss/PortOne/KCP/NICE.
+
+Provider swap rule:
+
+1. Keep checkout UI and payment service calls unchanged.
+2. Put public keys in Cloudflare Pages only.
+3. Put server secrets in Firebase Functions runtime or Secret Manager only.
+4. Replace only the internals of `functions/src/payments/providerAdapter.ts` for the selected provider.
+5. Preserve server amount recalculation, QR validation, duplicate guard, stock guard, webhook idempotency, and audit logs.
+
+Current state:
+
+- Actual SDK import: not present.
+- Actual PG approval/cancel/refund API call: not present.
+- Actual secret value: not present.
+- Adapter candidates: Toss, PortOne, KCP, NICE.

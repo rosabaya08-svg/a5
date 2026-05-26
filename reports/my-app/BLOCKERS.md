@@ -223,3 +223,11 @@
 - Real webhook signature verification is still blocked until the PG company provides the official algorithm.
 - Real PG cancel/refund and settlement payout remain blocked.
 - Literal `/payments/ready` path routing may require Firebase Hosting, Cloud Run, or Cloudflare rewrite configuration after deploy.
+
+## 2026-05-26 PG adapter blockers
+
+- Real PG provider SDK/API is still not imported.
+- Actual `PG_SECRET_KEY`, `PG_WEBHOOK_SECRET`, merchant id, channel key, and client key values are not in Git and must stay out of Git.
+- Toss/PortOne/KCP/NICE exact request and response fields must come from the official PG document.
+- Real cancel/refund remains blocked until refund policy and settlement hold rules are approved.
+- Real webhook status transitions remain blocked until signature verification is implemented.

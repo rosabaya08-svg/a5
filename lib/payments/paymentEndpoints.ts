@@ -12,7 +12,12 @@ function trimSlash(value: string) {
 }
 
 export function getPaymentFunctionsBaseUrl() {
-  return trimSlash(process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL?.trim() || process.env.NEXT_PUBLIC_A5_BACKEND_URL?.trim() || "");
+  return trimSlash(
+    process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_A5_BACKEND_URL?.trim() ||
+      "",
+  );
 }
 
 export function getPaymentFunctionUrl(key: PaymentFunctionKey) {
@@ -32,6 +37,6 @@ export function getPaymentEndpointReadiness() {
       webhook: getPaymentFunctionUrl("webhook"),
       cancel: getPaymentFunctionUrl("cancel"),
     },
-    missing: baseUrl ? [] : ["NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL"],
+    missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL"],
   };
 }

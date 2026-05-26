@@ -1,5 +1,5 @@
 export type Currency = "KRW";
-export type PaymentProviderId = "mock" | "pg_contract";
+export type PaymentProviderId = "mock" | "pg_contract" | "toss" | "portone" | "kcp" | "nice";
 export type PaymentServerMode = "mock_only" | "signature_skeleton_only" | "blocked";
 
 export type PgServerReadinessSnapshot = {

@@ -1,60 +1,110 @@
-import type { PaymentCancellationInput, PaymentIntent, PaymentIntentInput, PaymentRequestResult, PaymentWebhookEvent } from "@/types/payment";
+import type {
+  PaymentCancellationInput,
+  PaymentIntent,
+  PaymentIntentInput,
+  PaymentProviderCandidate,
+  PaymentRequestResult,
+  PaymentWebhookEvent,
+} from "@/types/payment";
 import type { PaymentProvider } from "@/lib/payments/types";
-import { getPaymentRuntimeReadiness } from "@/lib/payments/paymentConfig";
+import {
+  getPaymentConfigSummary,
+  getPaymentRuntimeReadiness,
+  toPaymentProviderId,
+} from "@/lib/payments/paymentConfig";
 
-function blocked(message: string): PaymentRequestResult {
+function blocked(candidate: PaymentProviderCandidate, adapterAction: PaymentRequestResult["adapterAction"], message: string): PaymentRequestResult {
   return {
     ok: false,
-    provider: "pg_skeleton",
-    status: "failed",
+    provider: toPaymentProviderId(candidate),
+    providerCandidate: candidate,
+    status: adapterAction === "refundPayment" ? "refund_blocked" : "failed",
+    realPgCalled: false,
+    adapterAction,
     message,
   };
 }
 
+function currentCandidate(): PaymentProviderCandidate {
+  return getPaymentConfigSummary().candidate;
+}
+
 export const pgProviderSkeleton: PaymentProvider = {
   id: "pg_skeleton",
-  displayName: "PG Provider Skeleton",
+  candidate: "unknown",
+  displayName: "PG Provider Adapter Slot",
+  capabilities: {
+    createPaymentIntent: true,
+    requestPayment: true,
+    confirmPayment: true,
+    handleWebhook: true,
+    cancelPayment: true,
+    refundPayment: true,
+    realPgCallsEnabled: false,
+  },
 
   getReadiness: getPaymentRuntimeReadiness,
 
   async createPaymentIntent(input: PaymentIntentInput): Promise<PaymentIntent> {
+    const summary = getPaymentConfigSummary();
+
     return {
       ...input,
-      id: `pg-intent-${input.orderNo}`,
-      provider: "pg_skeleton",
+      id: `pg-intent-${summary.candidate}-${input.orderNo}`,
+      provider: toPaymentProviderId(summary.candidate),
+      providerCandidate: summary.candidate,
       status: "ready",
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      successUrl: input.successUrl || summary.successUrl,
+      failUrl: input.failUrl || summary.failUrl,
+      paymentApiBaseUrl: input.paymentApiBaseUrl || summary.paymentApiBaseUrl,
       serverRecalculationRequired: true,
-      message: "PG intent contract is prepared. Real SDK/API call is intentionally blocked.",
+      message: "PG intent contract is prepared. Real SDK/API calls are intentionally blocked until official provider docs are applied.",
     };
   },
 
-  async requestPayment(): Promise<PaymentRequestResult> {
-    return blocked("PG SDK/module is not imported until provider, test keys, and server confirm endpoint are approved.");
+  async requestPayment(intent: PaymentIntent): Promise<PaymentRequestResult> {
+    const candidate = intent.providerCandidate ?? currentCandidate();
+    return blocked(
+      candidate,
+      "requestPayment",
+      `PG browser module request slot is ready for ${candidate}. Importing or opening the real SDK is still blocked.`,
+    );
   },
 
-  async confirmPayment(): Promise<PaymentRequestResult> {
-    return blocked("Real PG confirm must run on a server with secret keys after amount recalculation.");
+  async confirmPayment(intent: PaymentIntent): Promise<PaymentRequestResult> {
+    const candidate = intent.providerCandidate ?? currentCandidate();
+    return blocked(
+      candidate,
+      "confirmPayment",
+      `Real ${candidate} confirm must run inside Firebase Functions after amount recalculation and PG_SECRET_KEY injection.`,
+    );
   },
 
   async handleWebhook(event: PaymentWebhookEvent): Promise<PaymentRequestResult> {
-    void event;
-    return blocked("PG webhook handler requires server runtime and webhook secret validation.");
+    return blocked(
+      event.providerCandidate ?? currentCandidate(),
+      "handleWebhook",
+      "Webhook handler slot is ready, but real signature verification requires PG_WEBHOOK_SECRET and official algorithm.",
+    );
   },
 
   async cancelPayment(input: PaymentCancellationInput): Promise<PaymentRequestResult> {
     void input;
-    return blocked("Real PG cancellation is blocked until refund policy and settlement hold rules are approved.");
+    return blocked(
+      currentCandidate(),
+      "cancelPayment",
+      "Real PG cancellation is blocked until refund policy and settlement hold rules are approved.",
+    );
   },
 
   async refundPayment(input: PaymentCancellationInput): Promise<PaymentRequestResult> {
     void input;
-    return {
-      ok: false,
-      provider: "pg_skeleton",
-      status: "refund_blocked",
-      message: "Refund is a C-grade operational risk and remains blocked before approval.",
-    };
+    return blocked(
+      currentCandidate(),
+      "refundPayment",
+      "Refund is a high-risk operation and remains interface-only until approval.",
+    );
   },
 };

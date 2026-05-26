@@ -43,8 +43,9 @@ const publicPgEnv = {
   environment: process.env.NEXT_PUBLIC_PG_ENVIRONMENT?.trim() || "test",
   clientKey: process.env.NEXT_PUBLIC_PG_CLIENT_KEY?.trim() ?? "",
   channelKey: process.env.NEXT_PUBLIC_PG_CHANNEL_KEY?.trim() ?? "",
-  merchantId: process.env.NEXT_PUBLIC_PG_MERCHANT_ID?.trim() ?? "",
   scriptUrl: process.env.NEXT_PUBLIC_PG_SCRIPT_URL?.trim() ?? "",
+  successUrl: process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL?.trim() ?? "",
+  failUrl: process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL?.trim() ?? "",
 };
 
 export function buildPgCheckoutPayload(input: {
@@ -63,7 +64,7 @@ export function buildPgCheckoutPayload(input: {
     environment: publicPgEnv.environment === "production" ? "production" : "test",
     clientKey: publicPgEnv.clientKey,
     channelKey: publicPgEnv.channelKey,
-    merchantId: publicPgEnv.merchantId,
+    merchantId: "",
     orderNo: input.orderNo,
     orderName: input.orderName,
     amount: input.amount,
@@ -71,8 +72,8 @@ export function buildPgCheckoutPayload(input: {
     customerName: input.customerName,
     customerPhoneMasked: input.customerPhoneMasked,
     qrSessionId: input.qrSessionId,
-    successUrl: `${origin}/q/${input.qrSessionId}/success`,
-    failUrl: `${origin}/q/${input.qrSessionId}/failed`,
+    successUrl: publicPgEnv.successUrl || `${origin}/q/${input.qrSessionId}/success`,
+    failUrl: publicPgEnv.failUrl || `${origin}/q/${input.qrSessionId}/failed`,
     readyEndpoint: endpoints.endpoints.ready,
     confirmEndpoint: endpoints.endpoints.confirm,
   };
@@ -83,8 +84,8 @@ export function getPgBridgeStatus(): PgBridgeStatus {
   const missing = [
     !publicPgEnv.provider ? "NEXT_PUBLIC_PG_PROVIDER" : "",
     !publicPgEnv.clientKey ? "NEXT_PUBLIC_PG_CLIENT_KEY" : "",
-    !publicPgEnv.channelKey ? "NEXT_PUBLIC_PG_CHANNEL_KEY" : "",
-    !publicPgEnv.merchantId ? "NEXT_PUBLIC_PG_MERCHANT_ID" : "",
+    !publicPgEnv.successUrl ? "NEXT_PUBLIC_PAYMENT_SUCCESS_URL" : "",
+    !publicPgEnv.failUrl ? "NEXT_PUBLIC_PAYMENT_FAIL_URL" : "",
     ...endpoints.missing,
   ].filter(Boolean);
   const moduleLoaded = typeof window !== "undefined" && typeof window.A5PgProvider?.requestPayment === "function";

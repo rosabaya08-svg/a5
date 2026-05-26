@@ -79,3 +79,38 @@ Public browser code should call only browser-safe endpoint base URLs. Server-onl
 Additional optional public key:
 
 - `NEXT_PUBLIC_A5_FUNCTIONS_REWRITE_BASE_URL`: set only if Cloudflare/Firebase Hosting rewrites literal `/payments/ready` style paths to Functions exports.
+
+# 2026-05-26 PG Provider Adapter Slot Final Keys
+
+The adapter slot is prepared around the following exact key names requested for the first PG handoff:
+
+Browser/Cloudflare public values:
+
+- `NEXT_PUBLIC_PG_PROVIDER`
+- `NEXT_PUBLIC_PG_CLIENT_KEY`
+- `NEXT_PUBLIC_PAYMENT_SUCCESS_URL`
+- `NEXT_PUBLIC_PAYMENT_FAIL_URL`
+- `NEXT_PUBLIC_PAYMENT_API_BASE_URL`
+
+Firebase Functions runtime or Secret Manager values:
+
+- `PG_SECRET_KEY`
+- `PG_MERCHANT_ID`
+- `PG_CHANNEL_KEY`
+- `PG_WEBHOOK_SECRET`
+- `PAYMENT_WEBHOOK_URL`
+
+Optional compatibility values:
+
+- `NEXT_PUBLIC_PG_CHANNEL_KEY`: only if the browser SDK requires a public channel/store key.
+- `NEXT_PUBLIC_PG_ENVIRONMENT`: `test` or `production`; first integration must stay `test`.
+- `PG_ENVIRONMENT`: server runtime mode; first integration must stay `test`.
+
+Provider candidates accepted by the slot:
+
+- `toss` / `tosspayments`
+- `portone` / `iamport`
+- `kcp`
+- `nice` / `nicepay`
+
+No real values are stored in this document. Do not commit screenshots or logs containing real PG keys.

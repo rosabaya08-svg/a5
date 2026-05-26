@@ -7,14 +7,14 @@ export type PgServerReadiness = {
   message: string;
 };
 
-const requiredServerKeys = ["PG_PROVIDER", "PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
+const requiredServerKeys = ["PG_SECRET_KEY", "PG_MERCHANT_ID", "PG_CHANNEL_KEY", "PG_WEBHOOK_SECRET", "PAYMENT_WEBHOOK_URL"] as const;
 
 function readEnv(name: string): string {
   return process.env[name]?.trim() ?? "";
 }
 
 export function getPgServerReadiness(): PgServerReadiness {
-  const provider = readEnv("PG_PROVIDER") || "mock";
+  const provider = readEnv("PG_PROVIDER") || readEnv("NEXT_PUBLIC_PG_PROVIDER") || "mock";
   const missingKeys = requiredServerKeys.filter((key) => !readEnv(key));
   const readyForAdapter = provider !== "mock" && missingKeys.length === 0;
 

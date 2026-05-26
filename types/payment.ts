@@ -1,4 +1,6 @@
-export type PaymentProviderId = "mock" | "pg_skeleton";
+export type PaymentProviderCandidate = "mock" | "toss" | "portone" | "kcp" | "nice" | "unknown";
+
+export type PaymentProviderId = "mock" | "pg_skeleton" | "toss" | "portone" | "kcp" | "nice";
 
 export type PaymentEnvironment = "test" | "production";
 
@@ -24,11 +26,13 @@ export type PaymentIntentInput = {
   customerPhoneMasked: string;
   successUrl?: string;
   failUrl?: string;
+  paymentApiBaseUrl?: string;
 };
 
 export type PaymentIntent = PaymentIntentInput & {
   id: string;
   provider: PaymentProviderId;
+  providerCandidate?: PaymentProviderCandidate;
   status: PaymentIntentStatus;
   createdAt: string;
   expiresAt?: string;
@@ -39,15 +43,19 @@ export type PaymentIntent = PaymentIntentInput & {
 export type PaymentRequestResult = {
   ok: boolean;
   provider: PaymentProviderId;
+  providerCandidate?: PaymentProviderCandidate;
   status: PaymentIntentStatus;
   paymentKey?: string;
   transactionId?: string;
   redirectUrl?: string;
+  realPgCalled?: boolean;
+  adapterAction?: "createPaymentIntent" | "requestPayment" | "confirmPayment" | "handleWebhook" | "cancelPayment" | "refundPayment";
   message: string;
 };
 
 export type PaymentWebhookEvent = {
   provider: PaymentProviderId;
+  providerCandidate?: PaymentProviderCandidate;
   eventId: string;
   eventType: string;
   orderNo: string;

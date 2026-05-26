@@ -399,3 +399,12 @@
 5. Add real webhook signature verification before any webhook status transition.
 6. Smoke success, failed, expired QR, duplicate confirm, amount mismatch, stock shortage, reserve, release, and cancel manual-review flows.
 7. Keep refund execution, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked.
+
+## 2026-05-26 PG adapter next tasks
+
+1. Confirm the provider candidate: Toss, PortOne, KCP, or NICE.
+2. Add browser-safe public PG values to Cloudflare Pages only.
+3. Add PG secrets to Firebase Functions runtime or Secret Manager only.
+4. Implement the selected provider branch inside `functions/src/payments/providerAdapter.ts`.
+5. Keep frontend `PaymentProvider` calls and server transaction writes unchanged.
+6. Add webhook signature verification and idempotency tests from the official PG document.

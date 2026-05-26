@@ -272,3 +272,12 @@
 5. Implement the official webhook signature verification and duplicate event transition guard.
 6. Run sandbox tests for success, fail, expired QR, duplicate confirm, amount mismatch, out-of-stock, cancel request, reserve, and release.
 7. Keep real refund, settlement payout, Alimtalk, delivery tracking, and external inventory API blocked.
+
+## 2026-05-26 PG adapter next tasks
+
+1. Receive the PG company official sandbox document and identify whether the provider is Toss, PortOne, KCP, or NICE.
+2. Enter browser-safe values into Cloudflare Pages: `NEXT_PUBLIC_PG_PROVIDER`, `NEXT_PUBLIC_PG_CLIENT_KEY`, `NEXT_PUBLIC_PAYMENT_SUCCESS_URL`, `NEXT_PUBLIC_PAYMENT_FAIL_URL`, `NEXT_PUBLIC_PAYMENT_API_BASE_URL`.
+3. Enter server-only values into Firebase Functions runtime/Secret Manager: `PG_SECRET_KEY`, `PG_MERCHANT_ID`, `PG_CHANNEL_KEY`, `PG_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_URL`.
+4. Replace only the selected branch internals in `functions/src/payments/providerAdapter.ts`.
+5. Keep `paymentsConfirm` amount recalculation and Firestore transaction unchanged while swapping mock approval for real provider confirm.
+6. Add the official webhook signature verification before any webhook status transition.

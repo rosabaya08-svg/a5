@@ -855,3 +855,13 @@
 - `paymentsCancel` records manual review and audit log only; real PG cancel/refund stays blocked.
 - `ordersCreate`, `qrCreate`, `qrExpire`, `inventoryReserve`, and `inventoryRelease` provide beta server write surfaces for the next PG handoff.
 - Real PG SDK/API calls, secrets, firebase deploy, refund, settlement, Alimtalk, delivery tracking, and external inventory calls remain blocked.
+
+## 2026-05-26 PG provider adapter slots
+
+- Finalized `PaymentProvider` interface for create intent, request, confirm, webhook, cancel, and refund.
+- Updated payment config to use the requested public/server key names and `NEXT_PUBLIC_PAYMENT_API_BASE_URL`.
+- Added Toss/PortOne/KCP/NICE candidate resolution without importing any PG SDK.
+- Completed mock provider metadata so every method explicitly reports `realPgCalled: false`.
+- Completed PG skeleton provider so the UI/service layer can call all methods while real calls remain blocked.
+- Expanded Functions `providerAdapter.ts` with candidate branches, operation plan, and server-only handoff notes.
+- No actual PG API call, SDK import, secret value, deploy, cancel, refund, or settlement execution was added.

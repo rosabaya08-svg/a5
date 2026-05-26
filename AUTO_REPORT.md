@@ -590,3 +590,16 @@
 | Transaction writes | `paymentsConfirm` writes order, order items, payment, payment event, inventory movement, QR paid state, and audit log in one transaction |
 | PG slot | `functions/src/payments/providerAdapter.ts` is the real provider insertion point; no PG SDK/API call is active |
 | Boundaries | No firebase deploy, no real PG approval/cancel/refund/settlement, no `.env.local` commit, no service account key |
+
+## 34. 2026-05-26 PG provider adapter slots
+
+| Item | Result |
+| --- | --- |
+| Scope | Finalized frontend and Functions PG provider adapter slots |
+| Frontend interface | `PaymentProvider` now covers create intent, request, confirm, webhook, cancel, and refund methods with provider candidate metadata |
+| Provider candidates | Toss, PortOne, KCP, and NICE aliases are resolved without SDK imports |
+| Config keys | Public/browser keys and server-only secret keys are separated in `paymentConfig.ts` and `PG_ENV_KEYS.md` |
+| Mock provider | Complete mock provider still runs without money movement |
+| PG skeleton | Complete skeleton blocks real calls while preserving handoff shape |
+| Functions adapter | Server adapter slot exposes provider operation plan and mock confirm placeholder only |
+| Boundaries | No actual PG SDK import, no secret values, no firebase deploy, no real approval/cancel/refund/settlement |

@@ -207,14 +207,19 @@ export function CartStatusBadge() {
   const count = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <Link href="/tablet/cart" className="rounded-full bg-rose-600 px-5 py-3 text-base font-black text-white shadow-lg shadow-rose-600/20 ring-2 ring-rose-100/70">
+    <button
+      type="button"
+      onClick={() => {
+        window.location.assign("/tablet/cart");
+      }}
+      className="rounded-full bg-rose-600 px-5 py-3 text-base font-black text-white shadow-lg shadow-rose-600/20 ring-2 ring-rose-100/70"
+    >
       장바구니 {count}
-    </Link>
+    </button>
   );
 }
 
 export function AddToCartPanel({ product, options }: { product: Product; options: ProductOption[] }) {
-  const router = useRouter();
   const [selectedOptionId, setSelectedOptionId] = useState(options[0]?.id ?? "default");
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
@@ -250,7 +255,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
     setMessage(result.stored ? "장바구니에 담았습니다. 상단 장바구니 수량과 장바구니 화면에 바로 반영됩니다." : "장바구니 메모리에 반영했습니다. 브라우저 저장소 권한은 확인이 필요합니다.");
 
     if (goCart) {
-      router.push("/tablet/cart");
+      window.location.assign("/tablet/cart");
     }
   }
 
@@ -320,7 +325,6 @@ export function AddToCartPanel({ product, options }: { product: Product; options
 }
 
 export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapshot[] }) {
-  const router = useRouter();
   const { items, replace } = useCart(fallbackItems);
   const [message, setMessage] = useState("");
   const total = cartTotal(items);
@@ -376,7 +380,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     }
 
     setMessage(backend.ok ? "고객 휴대폰 결제 화면을 열었습니다." : `서버 결제 진입 생성 실패: ${backend.error}. 개발용 로컬 결제 화면으로 이동합니다.`);
-    router.push(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
+    window.location.assign(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
 
     if (!backend.ok) {
       void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {

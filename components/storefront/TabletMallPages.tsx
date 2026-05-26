@@ -38,6 +38,10 @@ type ProductDetailRead = {
   reason?: string;
 };
 
+function requestedProductDataSource() {
+  return (process.env.NEXT_PUBLIC_DATA_SOURCE ?? "firebase").trim().toLowerCase();
+}
+
 const tabletNav = [
   { href: "/tablet/products", label: "상품" },
   { href: "/tablet/cart", label: "장바구니" },
@@ -56,6 +60,16 @@ async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
 }
 
 async function getApprovedProductsWithSource(): Promise<ProductListRead> {
+  const requestedSource = requestedProductDataSource();
+
+  if (requestedSource !== "firebase") {
+    return {
+      products: repositoryData(await mockRepositories.products.listApprovedProducts()),
+      source: "mock fallback",
+      reason: `NEXT_PUBLIC_DATA_SOURCE=${requestedSource || "unset"}; Firestore read skipped by data-source gate.`,
+    };
+  }
+
   const firebaseResult = await firebaseProductRepository.listApprovedProducts();
 
   if (firebaseResult.ok && firebaseResult.data.length > 0) {
@@ -70,6 +84,16 @@ async function getApprovedProductsWithSource(): Promise<ProductListRead> {
 }
 
 async function getProductWithSource(productId: string): Promise<ProductDetailRead> {
+  const requestedSource = requestedProductDataSource();
+
+  if (requestedSource !== "firebase") {
+    return {
+      product: repositoryData(await mockRepositories.products.getProductById(productId)),
+      source: "mock fallback",
+      reason: `NEXT_PUBLIC_DATA_SOURCE=${requestedSource || "unset"}; Firestore read skipped by data-source gate.`,
+    };
+  }
+
   const firebaseResult = await firebaseProductRepository.getProductById(productId);
 
   if (firebaseResult.ok) {
@@ -195,6 +219,8 @@ function ProductDevPanel({
 }
 
 function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource; reason?: string }) {
+  const requestedSource = requestedProductDataSource();
+
   return (
     <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -208,6 +234,7 @@ function FirestoreReadDiagnostic({ source, reason }: { source: ProductReadSource
         <DataSourceBadge source={source} reason={reason} />
       </div>
       <div className="mt-4 rounded-md bg-white/55 p-3 text-xs font-bold text-slate-600 ring-1 ring-white/40">
+        <p className="mb-1">NEXT_PUBLIC_DATA_SOURCE: {requestedSource || "unset"}</p>
         {reason ? <p>Last fallback reason: {reason}</p> : <p>No Firestore read failure captured in this render.</p>}
       </div>
     </section>

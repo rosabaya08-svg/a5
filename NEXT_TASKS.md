@@ -227,3 +227,10 @@
 3. Resolve remaining `<img>` warnings after final Storage/image policy is approved.
 4. Keep real PG confirm/cancel/refund/settlement blocked until official PG docs and keys are received.
 5. Keep Firebase deploy commands manual and owner-approved only.
+## 2026-05-26 Firebase products Cloudflare smoke
+
+1. After Cloudflare deployment finishes, open `/products` and verify the badge reads `Firebase products`.
+2. Open `/tablet/products` and verify the product cards show product id/status/source/seeded_at.
+3. Open `/tablet/products/product-care-kit`, `/tablet/products/product-robe`, `/tablet/products/product-bag`, and `/tablet/products/product-tea`.
+4. Confirm developer diagnostics show `NEXT_PUBLIC_DATA_SOURCE: firebase`.
+5. If Cloudflare shows `mock fallback`, check `NEXT_PUBLIC_DATA_SOURCE` and all `NEXT_PUBLIC_FIREBASE_*` environment variables.

@@ -813,3 +813,13 @@
 - `npm.cmd --prefix functions run build`: passed.
 - `node scripts/check-routes.mjs`: passed, 71 page routes.
 - No Firebase deploy, real PG approval/refund/settlement, service account, or secret changes were made.
+## 2026-05-26 Firebase products storefront read verification
+
+- `/products` and `/tablet/products` render `TabletProductsPage`, which reads Firestore `products` before mock fallback.
+- `/tablet/products/[id]` reads Firestore `products/{id}` before mock fallback.
+- `NEXT_PUBLIC_DATA_SOURCE=firebase` is now the explicit storefront data-source gate.
+- Successful Firestore reads show `Firebase products`; fallback renders `mock fallback` with reason.
+- Developer diagnostics show product id, status, source, seeded_at, and last fallback reason.
+- `.env.local.example` includes `NEXT_PUBLIC_DATA_SOURCE=firebase`.
+- Firestore smoke passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea.
+- `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, and `node scripts/check-routes.mjs` passed.

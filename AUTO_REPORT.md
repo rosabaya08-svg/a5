@@ -516,3 +516,19 @@
 | Functions build | `npm.cmd --prefix functions run build` passed |
 | Route check | `node scripts/check-routes.mjs` passed with 71 App Router page routes |
 | Deploy boundary | No firebase deploy, no PG/refund/settlement execution, no secret creation |
+## 29. 2026-05-26 Firebase products storefront read verification
+
+| Item | Result |
+| --- | --- |
+| Scope | `/products`, `/tablet/products`, `/tablet/products/[id]` product data source verification |
+| Primary source | Product listing/detail pages use Firestore `products` first when `NEXT_PUBLIC_DATA_SOURCE=firebase` |
+| Fallback | If env gate is not `firebase`, Firestore read fails, or Firestore returns empty, UI falls back to `mockProducts` with `mock fallback` badge |
+| Badge | `Firebase products` badge appears for successful Firestore reads; `mock fallback` badge appears with fallback reason |
+| Developer fields | Product cards/detail show `product id`, `status`, `source`, and `seeded_at` |
+| Failure reason | Firestore empty/read/env gate failure is shown in the developer diagnostic panel |
+| Env example | `.env.local.example` now includes `NEXT_PUBLIC_DATA_SOURCE=firebase` |
+| Firestore smoke | `npm.cmd run check:firestore-products` passed: product-bag, product-care-kit, product-robe, product-tea active |
+| Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 page routes |

@@ -45,6 +45,7 @@ export type ProviderConfirmInput = {
   amount: number;
   companyId?: string;
   merchantId?: string;
+  moduleKey?: string;
   providerPaymentKey?: string;
 };
 
@@ -148,7 +149,7 @@ export async function confirmPaymentWithConfiguredProvider(input: ProviderConfir
   if (candidate !== "unknown") {
     return blocked(
       "confirmPayment",
-      `Real ${candidate} confirm is not implemented yet. Company MID ${input.merchantId ?? "missing"} was resolved, but no PG API was called.`,
+      `Real ${candidate} confirm is not implemented yet. Company MID ${input.merchantId ?? "missing"} and module key ${input.moduleKey ? "resolved" : "missing"} were resolved, but no PG API was called.`,
     );
   }
 
@@ -163,7 +164,7 @@ export async function confirmPaymentWithConfiguredProvider(input: ProviderConfir
       mockTid: `MOCK-FN-${input.orderNo}`,
       approvedAt: new Date().toISOString(),
       message: readiness.readyForAdapter
-        ? `${candidate} keys and MID ${input.merchantId ?? "missing"} appear ready, but provider adapter is still mock-only. No real PG API was used.`
+        ? `${candidate} keys, MID ${input.merchantId ?? "missing"}, and module key ${input.moduleKey ? "resolved" : "missing"} appear ready, but provider adapter is still mock-only. No real PG API was used.`
         : "Mock approval only. No PG secret or real API was used.",
     },
   };

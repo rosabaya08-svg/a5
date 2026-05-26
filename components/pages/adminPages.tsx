@@ -4,7 +4,6 @@ import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { AdminApiIntegrationRequestsPanel } from "@/components/admin/AdminApiIntegrationRequestsPanel";
 import { AdminProductDraftRequestsPanel } from "@/components/admin/AdminProductDraftRequestsPanel";
 import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
-import { ComplianceSummaryPanel } from "@/components/admin/ComplianceSummaryPanel";
 import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
 import {
   AuditLogViewerPanel,
@@ -138,13 +137,80 @@ const featureGroups = [
 ];
 
 export function AdminFeatureStatusPage() {
+  const reviewGroups = [
+    {
+      title: "승인/검수",
+      description: "기업이 작성한 상품, 콘텐츠, 입점 요청을 최고관리자가 검토하는 영역입니다.",
+      links: [
+        { href: "/admin/products", label: "상품 승인", body: "기업 상품 등록 요청, 고시정보, KC/증빙, 가격 정책을 승인/반려합니다." },
+        { href: "/admin/companies", label: "입점사 승인", body: "회원가입 요청, 사업자 서류, 정산 계좌, 기업 상태를 검토합니다." },
+        { href: "/admin/marketing/banners", label: "배너/광고 검수", body: "기업이 제출한 광고 소재의 노출 위치와 승인 상태를 관리합니다." },
+        { href: "/admin/exhibitions", label: "기획전 검수", body: "기획전 참여 신청과 노출 기간, 대상 상품을 승인합니다." },
+      ],
+    },
+    {
+      title: "배포/연동",
+      description: "기업 요청을 운영 승인한 뒤 외부 시스템과 연결할 문서와 키를 배포하는 영역입니다.",
+      links: [
+        { href: "/admin/public-api-docs", label: "기업 API 요청 승인/배포", body: "기업 ERP, WMS, 사방넷 연동 요청을 승인하고 다운로드 패키지를 배포합니다." },
+        { href: "/admin/integrations", label: "외부 연동 센터", body: "사방넷, 네이버, 카페24, 쿠팡, WMS, ERP 커넥터를 관리합니다." },
+        { href: "/admin/companies", label: "인피니 MID 입력", body: "회원가입 승인대기 목록에서 기업별 MID와 결제 모듈 키를 입력합니다." },
+      ],
+    },
+    {
+      title: "운영 감사",
+      description: "주문, 정산, 권한 변경처럼 분쟁 근거가 되는 운영 기록을 확인하는 영역입니다.",
+      links: [
+        { href: "/admin/orders", label: "전체 주문", body: "QR 출처와 order_items 기준 주문 흐름을 점검합니다." },
+        { href: "/admin/settlements", label: "정산 검산", body: "수수료, 입금 예정액, 정산 보류 상태를 검산합니다." },
+        { href: "/admin/audit-logs", label: "감사 로그", body: "승인, 반려, 권한, 금액 변경 이력을 확인합니다." },
+      ],
+    },
+  ];
+
+  return (
+    <AdminShell
+      title="운영 검수 현황"
+      subtitle="최고관리자 내부에서는 승인, 배포, 정산, 외부 연동 준비 상태만 점검합니다."
+    >
+      <div className="grid gap-4">
+        {reviewGroups.map((group) => (
+          <section key={group.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">admin review</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">{group.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{group.description}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {group.links.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-md border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md"
+                >
+                  <p className="text-base font-black text-slate-950">{item.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
+                  <p className="mt-3 text-xs font-black text-blue-700">{item.href}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </AdminShell>
+  );
+}
+
+export function AdminFeatureStatusLegacyPage() {
   return (
     <AdminShell
       title="기능 현황"
       subtitle="첫 화면에서 빠졌던 기능 목록을 최고관리자 내부에서 다시 확인합니다."
     >
       <div className="grid gap-4">
-        {featureGroups.map((group) => (
+        {featureGroups.slice(0, 1).map((group) => (
           <section key={group.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -327,7 +393,7 @@ export function AdminDashboardPage() {
 
 export function AdminCompaniesPage() {
   return (
-    <AdminShell title="입점사 관리" subtitle="기업 승인, 인피니 MID, 수수료율, 정산 차단 상태를 확인합니다.">
+    <AdminShell title="입점사 관리" subtitle="회원가입 승인대기에서 기업 정보를 인피니에 전달하고, 기업별 MID/결제 모듈 키를 입력합니다.">
       <CompanySignupRequestsPanel />
       <div className="mt-4" />
       <AccountProvisioningPanel />
@@ -425,9 +491,7 @@ export function AdminProductsPage() {
   const companies = mockApi.companies();
 
   return (
-    <AdminShell title="상품 승인" subtitle="승인 대기 상품과 가격비교 표시값을 검토합니다.">
-      <ComplianceSummaryPanel />
-      <div className="mt-4" />
+    <AdminShell title="상품 승인" subtitle="기업 어드민이 제출한 상품 draft를 검수하고 승인/반려만 처리합니다.">
       <AdminProductDraftRequestsPanel />
       <div className="mt-4" />
       <ProductApprovalQueuePanel />
@@ -485,7 +549,7 @@ export function AdminPaymentsPage() {
       <div className="mt-4" />
       <ConfirmBox
         title="인피니 MID 승인 전 실결제 차단"
-        description="기업별 MID, 분할정산 API, 테스트 승인, webhook 검증 전까지 실제 결제 모듈은 열지 않습니다. MID 입력은 최고관리자 화면에서만 처리합니다."
+        description="기업별 MID, 결제 모듈 키, 테스트 승인, webhook 검증 전까지 실제 결제 모듈은 열지 않습니다. MID 입력은 입점사 승인대기 목록의 각 기업 행에서만 처리합니다."
       />
       <div className="mt-4">
         <DataTable

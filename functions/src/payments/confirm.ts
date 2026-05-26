@@ -167,6 +167,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       const companyId = [...companyIds][0] ?? "";
       const intentCompanyId = String(intentSnapshot.get("company_id") ?? intentSnapshot.get("companyId") ?? "");
       const merchantId = optionalString(intentSnapshot.get("merchant_id") ?? intentSnapshot.get("merchantId"));
+      const moduleKey = optionalString(intentSnapshot.get("pg_module_key") ?? intentSnapshot.get("moduleKey") ?? intentSnapshot.get("channelKey"));
       const merchantStatus = asMerchantStatus(intentSnapshot.get("merchant_status") ?? intentSnapshot.get("merchantStatus"));
       const merchantProvider = asPaymentProviderId(intentSnapshot.get("pg_provider") ?? intentSnapshot.get("provider") ?? "infiny");
 
@@ -174,8 +175,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error(`PAYMENT_INTENT_COMPANY_MISMATCH:${JSON.stringify({ intentCompanyId, companyId })}`);
       }
 
-      if (pgReadiness.provider !== "mock" && (!merchantId || merchantStatus !== "active")) {
-        throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus })}`);
+      if (pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || merchantStatus !== "active")) {
+        throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey) })}`);
       }
 
       merchantProfile = {
@@ -184,8 +185,10 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         provider: merchantProvider,
         merchantId,
         merchantIdMasked: maskMerchantId(merchantId),
+        moduleKey,
+        moduleKeyMasked: maskModuleKey(moduleKey),
         merchantStatus,
-        paymentReady: Boolean(merchantId && merchantStatus === "active"),
+        paymentReady: Boolean(merchantId && moduleKey && merchantStatus === "active"),
       };
 
       recalculatedAmount = calculateItemsAmount(pricedItems);
@@ -201,6 +204,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         amount: recalculatedAmount,
         companyId,
         merchantId,
+        moduleKey,
       });
 
       if (!providerResult.ok) {
@@ -235,6 +239,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
           merchant_id_masked: merchantProfile!.merchantIdMasked,
+          pg_module_key: merchantProfile!.moduleKey ?? null,
+          pg_module_key_masked: merchantProfile!.moduleKeyMasked,
           merchant_status: merchantProfile!.merchantStatus,
           status: "approved_mock",
           amount: recalculatedAmount,
@@ -288,6 +294,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           company_id: merchantProfile!.companyId,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
+          pg_module_key: merchantProfile!.moduleKey ?? null,
           source: "firebase_functions_mock_confirm",
           guest_lookup_enabled: true,
           demo_read_enabled: true,
@@ -380,6 +387,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           message: approval.message,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
+          pg_module_key: merchantProfile!.moduleKey ?? null,
           idempotency_key: `${paymentIntentId}-approved-mock`,
           source: "firebase_functions_mock_confirm",
           demo_read_enabled: true,
@@ -515,7 +523,7 @@ function errorMessage(code: string, detail: string): string {
     AMOUNT_MISMATCH: "Client amount does not match server recalculated amount.",
     COMPANY_GROUP_REQUIRED: "One payment QR can contain items from only one company/MID. Create the next company QR after this payment.",
     PAYMENT_INTENT_COMPANY_MISMATCH: "Payment intent company does not match the recalculated cart company.",
-    PAYMENT_INTENT_MID_REQUIRED: "Company MID is missing or not active for real PG confirm.",
+    PAYMENT_INTENT_MID_REQUIRED: "Company MID or payment module key is missing or not active for real PG confirm.",
   };
 
   return messages[code] ?? detail;
@@ -525,6 +533,12 @@ function maskMerchantId(merchantId?: string): string {
   if (!merchantId) return "MID 발급 대기";
   if (merchantId.length <= 8) return merchantId;
   return `${merchantId.slice(0, 4)}-${"*".repeat(Math.max(merchantId.length - 9, 4))}-${merchantId.slice(-4)}`;
+}
+
+function maskModuleKey(moduleKey?: string): string {
+  if (!moduleKey) return "모듈 키 대기";
+  if (moduleKey.length <= 8) return moduleKey;
+  return `${moduleKey.slice(0, 4)}-${"*".repeat(Math.max(moduleKey.length - 8, 4))}-${moduleKey.slice(-4)}`;
 }
 
 function asPaymentProviderId(value: unknown): PaymentProviderId {

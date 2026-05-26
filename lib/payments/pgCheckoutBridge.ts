@@ -57,6 +57,7 @@ export function buildPgCheckoutPayload(input: {
   customerPhoneMasked: string;
   qrSessionId: string;
   merchantId?: string;
+  moduleKey?: string;
 }): PgCheckoutPayload {
   const endpoints = getPaymentEndpointReadiness();
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -65,7 +66,7 @@ export function buildPgCheckoutPayload(input: {
     provider: publicPgEnv.provider || "unselected",
     environment: publicPgEnv.environment === "production" ? "production" : "test",
     clientKey: publicPgEnv.clientKey,
-    channelKey: publicPgEnv.channelKey,
+    channelKey: input.moduleKey || publicPgEnv.channelKey,
     merchantId: input.merchantId || publicPgEnv.merchantId,
     orderNo: input.orderNo,
     orderName: input.orderName,

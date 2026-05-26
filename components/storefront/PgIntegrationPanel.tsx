@@ -13,6 +13,7 @@ type PgIntegrationPanelProps = {
   customerPhoneMasked: string;
   qrSessionId: string;
   merchantId?: string;
+  moduleKey?: string;
 };
 
 export function PgIntegrationPanel({
@@ -23,6 +24,7 @@ export function PgIntegrationPanel({
   customerPhoneMasked,
   qrSessionId,
   merchantId,
+  moduleKey,
 }: PgIntegrationPanelProps) {
   const [probeMessage, setProbeMessage] = useState("PG 모듈 점검을 아직 실행하지 않았습니다.");
   const bridgeStatus = useMemo(() => getPgBridgeStatus(), []);
@@ -37,8 +39,9 @@ export function PgIntegrationPanel({
         customerPhoneMasked,
         qrSessionId,
         merchantId,
+        moduleKey,
       }),
-    [amount, customerName, customerPhoneMasked, merchantId, orderName, orderNo, qrSessionId],
+    [amount, customerName, customerPhoneMasked, merchantId, moduleKey, orderName, orderNo, qrSessionId],
   );
 
   async function probePgModule() {
@@ -49,7 +52,7 @@ export function PgIntegrationPanel({
   const rows = [
     ["PG사", bridgeStatus.provider],
     ["클라이언트 키", bridgeStatus.missing.includes("NEXT_PUBLIC_PG_CLIENT_KEY") ? "미입력" : "입력됨"],
-    ["채널/상점 정보", bridgeStatus.missing.includes("NEXT_PUBLIC_PG_CHANNEL_KEY") || !payload.merchantId ? "미입력" : "입력됨"],
+    ["채널/상점 정보", !payload.channelKey || !payload.merchantId ? "미입력" : "입력됨"],
     ["함수 기본 주소", endpoints.ready ? "입력됨" : "미입력"],
     ["브라우저 모듈", bridgeStatus.moduleLoaded ? "로드됨" : "미로드"],
   ];

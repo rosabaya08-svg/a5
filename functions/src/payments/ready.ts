@@ -131,6 +131,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           companyId,
           merchantStatus: merchantProfile.merchantStatus,
           merchantIdMasked: merchantProfile.merchantIdMasked,
+          moduleKeyMasked: merchantProfile.moduleKeyMasked,
         },
       },
     });
@@ -155,6 +156,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     provider: "mock",
     companyId,
     merchantId: merchantProfile.merchantId,
+    moduleKey: merchantProfile.moduleKey,
     merchantStatus: merchantProfile.merchantStatus,
     status: "ready_mock",
     createdAt: now.toISOString(),
@@ -185,6 +187,8 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           company_name: merchantProfile.companyName,
           merchant_id: merchantProfile.merchantId ?? null,
           merchant_id_masked: merchantProfile.merchantIdMasked,
+          pg_module_key: merchantProfile.moduleKey ?? null,
+          pg_module_key_masked: merchantProfile.moduleKeyMasked,
           merchant_status: merchantProfile.merchantStatus,
           merchant_payment_ready: merchantProfile.paymentReady,
           pg_ready: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
@@ -250,6 +254,7 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
     companyName: companyId || "unknown company",
     provider: "infiny",
     merchantIdMasked: "MID 발급 대기",
+    moduleKeyMasked: "모듈 키 대기",
     merchantStatus: "not_applied",
     paymentReady: false,
   };
@@ -269,6 +274,15 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
       pgProfile.pg_merchant_id ??
       pgProfile.merchantId,
   );
+  const moduleKey = optionalString(
+    data.pg_module_key ??
+      data.infiny_module_key ??
+      data.moduleKey ??
+      data.channelKey ??
+      pgProfile.pg_module_key ??
+      pgProfile.infiny_module_key ??
+      pgProfile.moduleKey,
+  );
   const merchantStatus = asMerchantStatus(
     data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus ?? pgProfile.merchantStatus,
   );
@@ -279,8 +293,10 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
     provider: asPaymentProviderId(data.pg_provider ?? pgProfile.provider ?? "infiny"),
     merchantId,
     merchantIdMasked: maskMerchantId(merchantId),
+    moduleKey,
+    moduleKeyMasked: maskModuleKey(moduleKey),
     merchantStatus,
-    paymentReady: Boolean(merchantId && merchantStatus === "active"),
+    paymentReady: Boolean(merchantId && moduleKey && merchantStatus === "active"),
   };
 }
 
@@ -288,6 +304,12 @@ function maskMerchantId(merchantId?: string): string {
   if (!merchantId) return "MID 발급 대기";
   if (merchantId.length <= 8) return merchantId;
   return `${merchantId.slice(0, 4)}-${"*".repeat(Math.max(merchantId.length - 9, 4))}-${merchantId.slice(-4)}`;
+}
+
+function maskModuleKey(moduleKey?: string): string {
+  if (!moduleKey) return "모듈 키 대기";
+  if (moduleKey.length <= 8) return moduleKey;
+  return `${moduleKey.slice(0, 4)}-${"*".repeat(Math.max(moduleKey.length - 8, 4))}-${moduleKey.slice(-4)}`;
 }
 
 function asPaymentProviderId(value: unknown): PaymentProviderId {

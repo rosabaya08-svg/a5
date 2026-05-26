@@ -16,6 +16,8 @@ export type CompanyMerchantProfile = {
   provider: PaymentProviderId;
   merchantId?: string;
   merchantIdMasked: string;
+  moduleKey?: string;
+  moduleKeyMasked: string;
   merchantStatus: "not_applied" | "in_review" | "mid_issued" | "active" | "blocked";
   paymentReady: boolean;
 };
@@ -171,6 +173,7 @@ export type ServerPaymentIntent = {
   provider: PaymentProviderId;
   companyId: string;
   merchantId?: string;
+  moduleKey?: string;
   merchantStatus?: CompanyMerchantProfile["merchantStatus"];
   status: "ready_mock" | "confirmed_mock" | "cancel_blocked";
   createdAt: string;

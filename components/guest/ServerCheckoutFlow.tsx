@@ -34,6 +34,8 @@ type ReadyResponse = {
     provider: string;
     merchantId?: string;
     merchantIdMasked: string;
+    moduleKey?: string;
+    moduleKeyMasked: string;
     merchantStatus: string;
     paymentReady: boolean;
   };
@@ -322,6 +324,7 @@ function DeveloperPayloadPanel({
     ["order_no", confirm?.orderNo ?? ready?.orderNoCandidate ?? "-"],
     ["company_id", ready?.merchantProfile?.companyId ?? "-"],
     ["merchant_id", ready?.merchantProfile?.merchantIdMasked ?? "-"],
+    ["module_key", ready?.merchantProfile?.moduleKeyMasked ?? "-"],
     ["merchant_status", ready?.merchantProfile?.merchantStatus ?? "-"],
     ["server_amount", ready?.recalculatedAmount ? formatCurrency(ready.recalculatedAmount) : "-"],
     ["last_error", error ? `${error.code}: ${error.message}` : "-"],
@@ -442,8 +445,9 @@ export function ServerCheckoutFlow({
         customerPhoneMasked: "010-****-0000",
         qrSessionId: session.id,
         merchantId: ready?.merchantProfile?.merchantId,
+        moduleKey: ready?.merchantProfile?.moduleKey,
       }),
-    [ready?.merchantProfile?.merchantId, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
+    [ready?.merchantProfile?.merchantId, ready?.merchantProfile?.moduleKey, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
   );
 
   async function runReady(clientAmount = session.totalAmount, intent: "ready" | "amount-test" = "ready") {
@@ -685,6 +689,7 @@ export function ServerCheckoutFlow({
         customerPhoneMasked="010-****-0000"
         qrSessionId={session.id}
         merchantId={ready?.merchantProfile?.merchantId}
+        moduleKey={ready?.merchantProfile?.moduleKey}
       />
 
       <section className="rounded-md border border-blue-100 bg-blue-50 p-4 text-blue-950">

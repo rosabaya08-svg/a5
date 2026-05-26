@@ -7,6 +7,7 @@ import {
 } from "@/components/company/CompanyExcelExportPanel";
 import { CompanyConsentSummary } from "@/components/company/CompanyConsentSummary";
 import { CompanyPgReadOnlyPanel } from "@/components/company/CompanyPgReadOnlyPanel";
+import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import { CompanyProductRegistrationWorkspace } from "@/components/company/CompanyProductRegistrationWorkspace";
 import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
@@ -140,6 +141,9 @@ export function CompanyDashboardPage() {
         <Link href="/company/products/new" className="rounded-md bg-emerald-600 px-4 py-3 text-sm font-black text-white">
           상품 등록
         </Link>
+        <Link href="/company/excel" className="rounded-md bg-white px-4 py-3 text-sm font-black text-slate-950 ring-1 ring-emerald-200">
+          사방넷 엑셀 다운로드
+        </Link>
         <Link href="/company/api-integration" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
           API 연동 요청
         </Link>
@@ -223,6 +227,14 @@ export function CompanyProductNewPage() {
   return (
     <CompanyShell title="상품 등록" subtitle="카테고리, 상세페이지, 옵션 조합 SKU, 가격, 재고, 고시정보를 작성하고 승인 요청을 보냅니다.">
       <CompanyProductRegistrationWorkspace companyId={companyId} />
+    </CompanyShell>
+  );
+}
+
+export function CompanyProductPreviewPage() {
+  return (
+    <CompanyShell title="상품 상세 미리보기" subtitle="승인 요청 전 태블릿 폐쇄몰에 노출될 상품 상세 구성을 확인합니다.">
+      <CompanyProductDraftPreview />
     </CompanyShell>
   );
 }

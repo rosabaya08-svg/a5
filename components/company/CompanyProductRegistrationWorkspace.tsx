@@ -5,7 +5,11 @@ import {
   ProductCategoryClassificationPanel,
   type ProductCategorySelection,
 } from "@/components/company/ProductCategoryClassificationPanel";
+import { CertificationEvidenceUploader } from "@/components/company/CertificationEvidenceUploader";
+import { LegalNoticeChecklist } from "@/components/company/LegalNoticeChecklist";
 import { ProductPricePolicyForm, type ProductPricePolicyValue } from "@/components/company/ProductPricePolicyForm";
+import { ReturnPolicyForm } from "@/components/company/ReturnPolicyForm";
+import { SellerDisclosureForm } from "@/components/company/SellerDisclosureForm";
 import { companyProductCategories } from "@/data/companyProductCategories";
 import { mockCompanies } from "@/data/mockCompanies";
 import {
@@ -520,6 +524,8 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
         </div>
       </section>
 
+      <LegalNoticeChecklist />
+
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <SectionHeader eyebrow="step 1" title="기본정보" body="상품명, 브랜드, 제조사, 모델명은 고객 노출과 외부 연동 기준값으로 사용됩니다." />
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -747,6 +753,9 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
         </div>
       </section>
 
+      <SellerDisclosureForm />
+      <ReturnPolicyForm />
+
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <SectionHeader eyebrow="step 6" title="고시정보/KC/증빙" body="선택한 카테고리의 고시 템플릿과 필수 증빙 조건을 검수합니다." />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -778,6 +787,8 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
           </FieldShell>
         </div>
       </section>
+
+      <CertificationEvidenceUploader />
 
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <SectionHeader eyebrow="step 7" title="미리보기/승인 요청" body="태블릿 폐쇄몰에 노출될 상품 상세와 승인 차단 항목을 한 화면에서 확인합니다." />

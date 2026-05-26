@@ -11,11 +11,8 @@ export type NavSection = {
 
 export const adminNavItems: NavSection[] = [
   {
-    title: "대시보드",
-    items: [
-      { href: "/admin/dashboard", label: "통합 대시보드" },
-      { href: "/admin/feature-status", label: "기능 현황" },
-    ],
+    title: "운영 대시보드",
+    items: [{ href: "/admin/dashboard", label: "통합 대시보드" }],
   },
   {
     title: "입점사/계정",
@@ -33,7 +30,7 @@ export const adminNavItems: NavSection[] = [
     ],
   },
   {
-    title: "상품/콘텐츠",
+    title: "상품/콘텐츠 검수",
     items: [
       { href: "/admin/products", label: "상품 승인" },
       { href: "/admin/home-editor", label: "홈 편집" },
@@ -48,19 +45,18 @@ export const adminNavItems: NavSection[] = [
     items: [
       { href: "/admin/orders", label: "주문 관리" },
       { href: "/admin/payments", label: "결제 관리" },
-      { href: "/admin/pg-settings", label: "인피니 PG 설정" },
-      { href: "/admin/settlements", label: "정산 검토" },
+      { href: "/admin/settlements", label: "정산 검산" },
     ],
   },
   {
-    title: "외부 연동",
+    title: "연동/문서 배포",
     items: [
       { href: "/admin/integrations", label: "외부 연동 센터" },
       { href: "/admin/public-api-docs", label: "A5 공개 API 문서" },
     ],
   },
   {
-    title: "시스템/감사",
+    title: "감사/시스템",
     items: [{ href: "/admin/audit-logs", label: "감사 로그" }],
   },
 ];
@@ -82,24 +78,22 @@ export const companyNavItems: NavSection[] = [
     ],
   },
   {
-    title: "재고 관리",
-    items: [{ href: "/company/inventory", label: "재고 현황" }],
+    title: "주문/배송",
+    items: [
+      { href: "/company/orders", label: "주문 목록" },
+      { href: "/company/deliveries", label: "배송/현장수령" },
+    ],
   },
   {
-    title: "주문 관리",
-    items: [{ href: "/company/orders", label: "주문 목록" }],
-  },
-  {
-    title: "엑셀 연동",
-    items: [{ href: "/company/excel", label: "사방넷 엑셀 다운로드" }],
+    title: "재고/엑셀 연동",
+    items: [
+      { href: "/company/inventory", label: "재고 현황" },
+      { href: "/company/excel", label: "사방넷 엑셀 다운로드" },
+    ],
   },
   {
     title: "API 연동",
     items: [{ href: "/company/api-integration", label: "API 요청/다운로드" }],
-  },
-  {
-    title: "배송/수령",
-    items: [{ href: "/company/deliveries", label: "배송/현장수령" }],
   },
   {
     title: "매출/정산",

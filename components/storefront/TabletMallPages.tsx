@@ -240,11 +240,15 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
-      <Link href={productHref} className="block" aria-label={`${profile.displayName} 상세 보기`}>
-        <div className="relative aspect-[4/5] bg-slate-100">
-          <img src={profile.imageUrl} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
-          <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
-        </div>
+      <Link
+        href={productHref}
+        prefetch
+        className="relative block aspect-[4/5] cursor-pointer overflow-hidden bg-slate-100 touch-manipulation focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/60"
+        aria-label={`${profile.displayName} 상세페이지로 이동`}
+        title={`${profile.displayName} 상세페이지`}
+      >
+        <img src={profile.imageUrl} alt={profile.displayName} draggable={false} className="pointer-events-none h-full w-full object-cover transition group-hover:scale-[1.03]" />
+        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
       </Link>
       <div className="grid gap-3 p-4">
         <Link href={productHref} className="block">

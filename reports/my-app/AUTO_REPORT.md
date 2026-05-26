@@ -804,3 +804,12 @@
 - Firestore active products read verified: 4 active products.
 - Validation passed: env check, no-secrets, route check, release-ready check, lint, root build, functions build.
 - Real PG, refund, settlement, Alimtalk, delivery tracking, external inventory, and deploy remain blocked.
+## 2026-05-26 Release gate verification
+
+- Confirmed `refunded` is included in `OrderStatus`, status labels, tone map, and Firebase order repository status normalization.
+- Confirmed root ESLint ignores `functions/lib/**`, so Functions TypeScript build output is not linted.
+- `npm.cmd run lint`: passed, 0 errors, 12 existing `<img>` warnings.
+- `npm.cmd run build`: passed, 95 static pages generated.
+- `npm.cmd --prefix functions run build`: passed.
+- `node scripts/check-routes.mjs`: passed, 71 page routes.
+- No Firebase deploy, real PG approval/refund/settlement, service account, or secret changes were made.

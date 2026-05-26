@@ -504,3 +504,15 @@
 | Firestore live smoke | `npm.cmd run check:firestore-products` passed with 4 active products: product-bag, product-care-kit, product-robe, product-tea |
 | Validation | `npm.cmd run check:env`, `npm.cmd run check:no-secrets`, `node scripts/check-routes.mjs`, `npm.cmd run lint`, `npm.cmd run build`, and `npm.cmd --prefix functions run build` passed |
 | Remaining boundary | Real PG approval/cancel/refund/settlement, Alimtalk, delivery tracking, external inventory API, and firebase deploy remain blocked |
+## 28. 2026-05-26 Release gate verification
+
+| Item | Result |
+| --- | --- |
+| Scope | A5 Firebase beta release gate re-check |
+| `refunded` status | Already present in `OrderStatus`, label, tone map, and Firebase order repository allowed status list |
+| ESLint ignore | `eslint.config.mjs` already ignores `functions/lib/**` and `functions/node_modules/**` |
+| Lint | `npm.cmd run lint` passed with 0 errors and 12 existing `<img>` warnings |
+| Root build | `npm.cmd run build` passed and generated 95 static pages |
+| Functions build | `npm.cmd --prefix functions run build` passed |
+| Route check | `node scripts/check-routes.mjs` passed with 71 App Router page routes |
+| Deploy boundary | No firebase deploy, no PG/refund/settlement execution, no secret creation |

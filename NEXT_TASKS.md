@@ -220,3 +220,10 @@
 8. Visually smoke `/admin/permissions`, `/company/onboarding`, `/company/products/new`, `/q/SANHO701/checkout`, and `/orders/guest/A5-20260519-001`.
 9. Convert remaining admin/company/nursery aggregate widgets from mock summaries to Firestore read models.
 10. Keep refund, settlement payout, Alimtalk, delivery tracking, and external inventory APIs blocked until policies and official keys are approved.
+## 2026-05-26 Next release tasks
+
+1. Check Cloudflare Pages deployment triggered by the release-gate push.
+2. Visually smoke `/products`, `/tablet/products`, `/q/SANHO701/checkout`, `/admin/permissions`, and `/company/onboarding`.
+3. Resolve remaining `<img>` warnings after final Storage/image policy is approved.
+4. Keep real PG confirm/cancel/refund/settlement blocked until official PG docs and keys are received.
+5. Keep Firebase deploy commands manual and owner-approved only.

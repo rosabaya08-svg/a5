@@ -1,3 +1,15 @@
+# 2026-05-26 Firestore/Storage Rules Beta Blockers
+
+- Firestore rules are prepared as a beta-safe client policy, but the rules were not deployed in this task.
+- Client writes to `orders`, `order_items`, `payments`, `payment_events`, `webhook_events`, `inventory_movements`, `audit_logs`, `refunds`, `settlements`, and `payouts` remain blocked.
+- QR/session/order guest access is read-only and must be backed by server-issued token/lookup fields before production.
+- `SUPER_ADMIN`/`seed_admin` write is limited to beta setup/catalog/CMS/foundation records and still needs audit log coverage before production.
+- Storage rules are beta-safe with uploads blocked; actual `uploadBytes` requires separate approval, MIME/size validation, malware scan policy, media asset records, and audit logs.
+- Deploy commands are documented only:
+  - `firebase.cmd deploy --only firestore:rules`
+  - `firebase.cmd deploy --only storage:rules`
+- Real PG confirm/cancel/refund, real settlement payout, Alimtalk, delivery tracking, and external inventory APIs remain blocked.
+
 # Firebase Blockers
 
 작성일: 2026-05-20

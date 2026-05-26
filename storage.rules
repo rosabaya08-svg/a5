@@ -15,99 +15,86 @@ service firebase.storage {
     }
 
     function isCompanyAdmin(companyId) {
-      return role() == "COMPANY_ADMIN" &&
+      return signedIn() &&
+        role() == "COMPANY_ADMIN" &&
         request.auth.token.company_id == companyId;
     }
 
     function isNurseryAdmin(nurseryId) {
-      return role() == "NURSERY_ADMIN" &&
+      return signedIn() &&
+        role() == "NURSERY_ADMIN" &&
         request.auth.token.nursery_id == nurseryId;
     }
 
-    function isImage() {
-      return request.resource == null ||
-        request.resource.contentType.matches("image/.*");
+    function publicReadEnabled() {
+      return true;
     }
 
-    function isVideo() {
-      return request.resource == null ||
-        request.resource.contentType.matches("video/.*");
-    }
-
-    function isDocument() {
-      return request.resource == null ||
-        request.resource.contentType.matches("application/pdf") ||
-        request.resource.contentType.matches("image/.*");
-    }
-
-    function betaCmsUpload() {
-      return request.resource != null &&
-        request.resource.metadata.source == "a5-cms-beta";
-    }
-
-    function under(sizeInMb) {
-      return request.resource == null ||
-        request.resource.size < sizeInMb * 1024 * 1024;
-    }
-
+    // Beta-safe policy: reads are scoped for already-approved assets, writes stay blocked.
+    // Actual uploadBytes enablement requires a separate approval, validation, and malware-scan plan.
     match /public/storefront/{fileName=**} {
-      allow read: if true;
-      allow write: if ((isSuperAdmin() || betaCmsUpload()) && (isImage() || isVideo()) && under(50));
+      allow read: if publicReadEnabled();
+      allow write: if false;
     }
 
     match /companies/{companyId}/products/{productId}/images/{fileName=**} {
-      allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isImage() && under(15);
+      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /companies/{companyId}/products/{productId}/gifs/{fileName=**} {
-      allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isImage() && under(25);
+      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /companies/{companyId}/products/{productId}/videos/{fileName=**} {
-      allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && isVideo() && under(100);
+      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /companies/{companyId}/onboarding/{fileName=**} {
-      allow read, write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isDocument() && under(20);
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /companies/{companyId}/bank-documents/{fileName=**} {
-      allow read, write: if (isSuperAdmin() || isCompanyAdmin(companyId)) && isDocument() && under(20);
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /companies/{companyId}/ad-materials/{fileName=**} {
-      allow read: if true;
-      allow write: if (isSuperAdmin() || isCompanyAdmin(companyId) || betaCmsUpload()) && (isImage() || isVideo()) && under(100);
+      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow write: if false;
     }
 
     match /nurseries/{nurseryId}/business-documents/{fileName=**} {
-      allow read, write: if (isSuperAdmin() || isNurseryAdmin(nurseryId)) && isDocument() && under(20);
+      allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
+      allow write: if false;
     }
 
     match /nurseries/{nurseryId}/rooms/{roomId}/tablet-proofs/{fileName=**} {
-      allow read, write: if (isSuperAdmin() || isNurseryAdmin(nurseryId)) && isImage() && under(10);
+      allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
+      allow write: if false;
     }
 
     match /settlements/{period}/{companyId}/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if isSuperAdmin() && under(20);
+      allow write: if false;
     }
 
     match /payouts/{period}/{companyId}/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if isSuperAdmin() && under(20);
+      allow write: if false;
     }
 
     match /policies/{policyId}/{fileName=**} {
       allow read: if signedIn();
-      allow write: if isSuperAdmin() && isDocument() && under(20);
+      allow write: if false;
     }
 
     match /audit-exports/{yyyy}/{mm}/{fileName=**} {
-      allow read, write: if isSuperAdmin() && under(50);
+      allow read: if isSuperAdmin();
+      allow write: if false;
     }
 
     match /{allPaths=**} {

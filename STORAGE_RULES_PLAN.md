@@ -1,87 +1,71 @@
 # Storage Rules Plan
 
-작성일: 2026-05-20
+Updated: 2026-05-26
 
-## 1. 목적
+## Goal
 
-상품 이미지/GIF, 증빙 파일, 정산 파일을 Firebase Storage에 저장하기 전 경로 구조와 접근 원칙을 정리한다. 현재는 설계 단계이며 Storage bucket 연결이나 rules 파일은 만들지 않는다.
+Prepare beta-safe Firebase Storage rules for the A5 closed mall while keeping actual uploads blocked until a separate upload approval and validation pass.
 
-## 1-1. 2026-05-20 상태 업데이트
+Storage is initialized for `a5-closed-mall`, but this phase does not enable production `uploadBytes` behavior.
 
-- Firebase 프로젝트 `a5-closed-mall`에서 Storage는 Spark 요금제 사용 불가 안내가 표시되어 현재 보류한다.
-- Blaze 요금제 업그레이드는 이번 단계에서 지시하지 않는다.
-- 상품 이미지/GIF는 실제 Storage가 아니라 현재 mock placeholder를 계속 사용한다.
-- 실제 Storage 연동은 입점사 상품 등록 기능 구현 전 별도 승인 이후에만 검토한다.
-- Storage SDK 연결, bucket 설정, `storage.rules` 생성, 실제 파일 업로드는 아직 하지 않는다.
+## Current Beta Rule
 
-## 2. 경로 구조 초안
+- Default: deny all reads and writes.
+- Public storefront media paths can be read.
+- Company/nursery private document paths can be read only by scoped operators.
+- All writes are currently denied.
+- Upload candidates are documented, but actual upload enablement requires separate approval.
 
-```text
-storage
-├─ companies/{companyId}/products/{productId}/images/{fileName}
-├─ companies/{companyId}/products/{productId}/gifs/{fileName}
-├─ companies/{companyId}/orders/{orderId}/attachments/{fileName}
-├─ nurseries/{nurseryId}/rooms/{roomId}/tablet-proofs/{fileName}
-├─ settlements/{period}/{companyId}/{fileName}
-├─ payouts/{period}/{companyId}/{fileName}
-├─ policies/{policyId}/{fileName}
-└─ audit-exports/{yyyy}/{mm}/{fileName}
-```
+## Read Paths
 
-## 3. 접근 원칙
+| Path | Read policy |
+| --- | --- |
+| `public/storefront/**` | public read |
+| `companies/{companyId}/products/{productId}/images/**` | public read, plus company/admin scope |
+| `companies/{companyId}/products/{productId}/gifs/**` | public read, plus company/admin scope |
+| `companies/{companyId}/products/{productId}/videos/**` | public read, plus company/admin scope |
+| `companies/{companyId}/ad-materials/**` | public read, plus company/admin scope |
+| `companies/{companyId}/onboarding/**` | `SUPER_ADMIN` or matching `COMPANY_ADMIN` only |
+| `companies/{companyId}/bank-documents/**` | `SUPER_ADMIN` or matching `COMPANY_ADMIN` only |
+| `nurseries/{nurseryId}/business-documents/**` | `SUPER_ADMIN` or matching `NURSERY_ADMIN` only |
+| `nurseries/{nurseryId}/rooms/{roomId}/tablet-proofs/**` | `SUPER_ADMIN` or matching `NURSERY_ADMIN` only |
+| `settlements/{period}/{companyId}/**` | `SUPER_ADMIN` or matching `COMPANY_ADMIN` only |
+| `payouts/{period}/{companyId}/**` | `SUPER_ADMIN` or matching `COMPANY_ADMIN` only |
+| `policies/**` | signed-in operators only |
+| `audit-exports/**` | `SUPER_ADMIN` only |
 
-| 경로 | 읽기 | 쓰기 |
-| --- | --- | --- |
-| `companies/{companyId}/products/**` | SUPER_ADMIN, 해당 COMPANY_ADMIN, 승인 상품은 tablet/customer read 후보 | 해당 COMPANY_ADMIN, SUPER_ADMIN |
-| `companies/{companyId}/orders/**` | SUPER_ADMIN, 해당 COMPANY_ADMIN | 해당 COMPANY_ADMIN, server |
-| `nurseries/{nurseryId}/rooms/**` | SUPER_ADMIN, 해당 NURSERY_ADMIN | 해당 NURSERY_ADMIN, server |
-| `settlements/**` | SUPER_ADMIN, 해당 COMPANY_ADMIN scoped read | server, SUPER_ADMIN |
-| `payouts/**` | SUPER_ADMIN only, 해당 COMPANY_ADMIN 제한 read 후보 | server, SUPER_ADMIN |
-| `audit-exports/**` | SUPER_ADMIN only | server only |
+## Upload Candidates, Not Yet Enabled
 
-## 4. 파일 검증 원칙
+The following upload candidates are intentionally not enabled in `storage.rules` yet:
 
-- 이미지: jpg, png, webp
-- GIF: gif, 용량 제한 필요
-- 증빙: pdf, jpg, png
-- 정산 파일: pdf, csv, xlsx 후보
-- 업로드 최대 용량은 정책 문서로 확정
-- 파일명은 사용자 입력 그대로 쓰지 않고 서버에서 안전한 이름으로 재생성
-- 업로드/삭제/교체는 `audit_logs` 기록
+- `SUPER_ADMIN` CMS uploads for banners, videos, GIFs, popup assets, brand logos, and policy documents.
+- `COMPANY_ADMIN` scoped uploads for product images, product GIFs, product videos, business registration, bankbook copy, certification evidence, and ad materials.
+- `NURSERY_ADMIN` scoped uploads for nursery business documents and room/tablet proofs.
 
-## 5. 운영 전 확인할 항목
+## Required Before Enabling Uploads
 
-- 상품 이미지/GIF 용량 제한
-- mock placeholder에서 실제 Storage 이미지/GIF로 전환할 승인 시점
-- 입점사 상품 등록 기능에서 업로드를 허용할 범위
-- 정산/입금 파일 접근 권한
-- 개인정보 포함 파일 암호화/보관 기간
-- 삭제 정책과 법적 보존 기간
-- signed URL 사용 여부
+1. File size limits per path.
+2. MIME type allowlist per path.
+3. File extension normalization.
+4. Filename sanitization and server-generated object names.
+5. Malware/unsafe content scan policy.
+6. Approval workflow for public storefront exposure.
+7. Firestore `media_assets` document write flow and audit log.
+8. Retention and deletion policy for business documents and bank documents.
+9. Owner approval to enable actual `uploadBytes` paths.
 
-## 6. 현재 금지
+## Deploy Command Candidate
 
-Storage Rules 파일 생성, Firebase Storage SDK 연결, bucket 설정, 실제 파일 업로드, Storage Blaze 업그레이드 지시는 금지한다. 상품 이미지/GIF는 mock placeholder 상태를 유지한다.
-# 2026-05-25 Storage Beta Update
-
-Storage bucket is initialized for `a5-closed-mall`.
-
-Beta upload candidates:
-- `company-documents/{company_id}/business-registration/*`
-- `company-documents/{company_id}/bankbook/*`
-- `product-media/{company_id}/{product_id}/images/*`
-- `product-media/{company_id}/{product_id}/videos/*`
-- `cms-media/{owner_id}/banners/*`
-- `cms-media/{owner_id}/videos/*`
-
-Current code policy:
-- Product/customer screens may read placeholder/media URLs.
-- Actual `uploadBytes` production behavior remains blocked until upload validation, file size, MIME type, malware scan, and approval workflow are confirmed.
-
-Deploy command candidate only:
+Do not run this automatically in this phase. It is recorded for the owner/operator:
 
 ```powershell
 firebase.cmd deploy --only storage:rules
 ```
 
-Do not run storage rules deploy automatically in this phase.
+## Still Blocked
+
+- Actual Storage uploads from admin/company/nursery UI.
+- Product media upload, business document upload, bank document upload, and video/GIF upload.
+- Signed URL policy.
+- Malware scan integration.
+- Storage rules deployment without owner/operator confirmation.

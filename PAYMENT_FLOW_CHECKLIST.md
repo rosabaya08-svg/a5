@@ -99,3 +99,12 @@
 - [ ] Replace mock provider internals with official PG provider after keys/docs arrive.
 - [ ] Add real webhook signature algorithm from the PG company.
 - [ ] Run sandbox PG success/fail/expired/duplicate/amount-mismatch tests after deploy.
+## 2026-05-26 QR Before PG Gate
+- [x] Tablet cart QR creation calls backend QR API instead of silent local mock.
+- [x] Backend QR response stores only display cache in browser localStorage.
+- [x] `qr_payment_sessions` server write is the primary path.
+- [x] QR amount is recalculated on the server from Firestore product/option prices.
+- [x] Customer route is `/q/{shortCode}`.
+- [ ] Deploy `qrCreate`/`qrExpire` Functions after final environment approval.
+- [ ] Connect checkout to `paymentsReady`.
+- [ ] Insert official PG adapter and keys after PG contract is received.

@@ -512,3 +512,9 @@
 2. `/tablet/cart`, `/tablet/products/[id]`, `/tablet/ask`에서도 같은 개발용 상단 구역이 보이지 않는지 확인한다.
 3. QR 카드와 주문 상품 요약 사이 간격을 태블릿 세로 화면 기준으로 한 번 더 줄인다.
 4. 하단 개발자 읽기 진단은 운영 전 접이식 패널 또는 관리자 전용 디버그 화면으로 이동한다.
+## 2026-05-26 next tasks
+1. Deploy `qrCreate` and `qrExpire` after final Functions environment approval.
+2. Verify live Cloudflare flow from cart to `/q/{shortCode}`.
+3. Connect checkout to `paymentsReady` before inserting PG provider module.
+4. Confirm seed data for companies, nurseries, rooms, tablets, products, and product options is complete.
+5. Continue removing remaining mock-only browser writes from checkout/order after backend payment transaction endpoints are deployed.

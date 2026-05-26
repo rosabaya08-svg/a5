@@ -782,3 +782,16 @@
 | 동작 | `←` 버튼은 브라우저 뒤로가기, 히스토리가 없으면 `/tablet`로 이동. `→` 버튼은 브라우저 앞으로가기 |
 | 적용 | `StoreShell`에 포함되어 `/tablet`, `/tablet/products`, `/tablet/products/[id]`, `/tablet/cart`, `/tablet/qr`, `/tablet/ask`, `/products` 공유 화면에 표시 |
 | Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |
+## 2026-05-26 QR backend and price policy update
+- Product detail duplicate inline price comparison panel was removed; `AI 가격 비교` now opens a single modal comparison layer.
+- Storefront product rails now auto-group exposed products by normal-price discount bands: 80~51, 50~36, 35~21, 20~10.
+- Products under 10% discount versus normal price are excluded from storefront rail exposure.
+- Company product registration now includes required normal price/platform lowest price policy UI and closed-mall price calculation.
+- Tablet cart QR generation now calls backend QR creation through `POST /qr/create`, with direct Functions fallback to `qrCreate`.
+- Browser direct Firestore QR write is disabled after server success and remains only as visible local fallback.
+- QR server logic now validates nursery/room/tablet scope, active products, options, inventory, amount mismatch, short-code collision, and writes audit logs.
+- Verification: `npm run lint` passed with existing `<img>` warnings only.
+- Verification: `npm run build` passed.
+- Verification: `npm --prefix functions run build` passed.
+- Verification: `node scripts/check-routes.mjs` passed with 76 routes.
+- Verification: `npm run check:no-secrets` passed; `.env.local` remains untracked.

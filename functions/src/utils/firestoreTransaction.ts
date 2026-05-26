@@ -54,7 +54,10 @@ export function getOrderCreateTransactionPlan(): string[] {
 
 export function getQrTransactionPlan(): string[] {
   return [
-    "Read products/options in cart snapshot.",
+    "Read nurseries/rooms/tablets and validate tablet-room-nursery scope.",
+    "Read products/options in cart snapshot and require active/approved products.",
+    "Recalculate amount from Firestore prices, not browser totals.",
+    "Check option/product inventory before QR session creation.",
     "Create qr_payment_sessions/{qrSessionId} with active status and expires_at.",
     "Store item snapshot and total_amount_snapshot.",
     "Append audit_logs/{autoId}.",

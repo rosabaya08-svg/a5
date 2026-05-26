@@ -50,7 +50,7 @@ export function PriceAnalysisButton({
         onClick={openModal}
         className="rounded-md border border-rose-500 px-3 py-2 text-sm font-black text-rose-600 transition hover:bg-rose-50 active:scale-[0.99]"
       >
-        AI 분석
+        AI 가격 비교
       </button>
 
       {open ? (
@@ -70,19 +70,19 @@ export function PriceAnalysisButton({
               <div>
                 <p className="text-xs font-black text-rose-600">{brand}</p>
                 <h2 id="price-analysis-title" className="mt-1 text-2xl font-black">
-                  할인 분석
+                  AI 가격 비교
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  기업 어드민에 등록된 정상가와 비교 기준가를 토대로 폐쇄몰가가 얼마나 낮은지 계산한 안내입니다. 실제 AI나 외부 가격 API는 호출하지 않습니다.
+                  실제 AI나 외부 가격 API를 호출하지 않고, 기업 어드민에 등록된 정상가와 플랫폼 최저가를 기준으로 폐쇄몰가 절감폭을 계산합니다.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
                 className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-700"
-                aria-label="분석 팝업 닫기"
+                aria-label="가격 비교 팝업 닫기"
               >
-                ×
+                x
               </button>
             </div>
 
@@ -92,18 +92,29 @@ export function PriceAnalysisButton({
               <p className="mt-1 text-xs font-bold text-slate-500">입점사 ID: {companyId}</p>
             </div>
 
-            <div className="mt-4 grid gap-2 text-sm font-bold">
-              <div className="flex justify-between rounded-md bg-slate-50 px-3 py-2">
-                <span>기업 등록 정상가</span>
-                <strong>{formatCurrency(listPrice)}</strong>
+            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-slate-950">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">가격 비교 레이어</p>
+                  <h3 className="mt-1 text-xl font-black">실제 AI가 아닌 가격 비교 모의 레이어</h3>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-emerald-900 shadow-sm">
+                  {analysis.discountRate}% 절감
+                </span>
               </div>
-              <div className="flex justify-between rounded-md bg-slate-50 px-3 py-2">
-                <span>비교 기준 최저가</span>
-                <strong>{formatCurrency(platformLowestPrice)}</strong>
-              </div>
-              <div className="flex justify-between rounded-md bg-slate-950 px-3 py-2 text-white">
-                <span>폐쇄몰 회원가</span>
-                <strong>{formatCurrency(closedMallPrice)}</strong>
+              <div className="grid gap-2 text-sm font-bold">
+                <div className="flex justify-between rounded-md bg-white px-3 py-2">
+                  <span>정상가</span>
+                  <strong>{formatCurrency(listPrice)}</strong>
+                </div>
+                <div className="flex justify-between rounded-md bg-white px-3 py-2">
+                  <span>플랫폼 최저가</span>
+                  <strong>{formatCurrency(platformLowestPrice)}</strong>
+                </div>
+                <div className="flex justify-between rounded-md bg-slate-950 px-3 py-2 text-white">
+                  <span>폐쇄몰가</span>
+                  <strong>{formatCurrency(closedMallPrice)}</strong>
+                </div>
               </div>
             </div>
 
@@ -114,14 +125,14 @@ export function PriceAnalysisButton({
                 <p className="mt-1 text-sm font-bold text-slate-600">{formatCurrency(analysis.listSavings)} 절감</p>
               </div>
               <div className="rounded-lg bg-emerald-50 p-4">
-                <p className="text-xs font-black text-emerald-700">비교가 대비</p>
+                <p className="text-xs font-black text-emerald-700">플랫폼 최저가 대비</p>
                 <p className="mt-1 text-3xl font-black text-emerald-700">{analysis.platformRate}%</p>
                 <p className="mt-1 text-sm font-bold text-slate-600">{formatCurrency(analysis.platformSavings)} 절감</p>
               </div>
             </div>
 
             <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
-              베타 기준: 기업 어드민 등록 금액과 Firestore 상품 가격 필드를 기준으로 계산합니다. PG 실결제, 외부 최저가 API, 실시간 크롤링은 아직 연결하지 않았습니다.
+              노출 기준: 정상가 대비 10% 이하 할인 상품은 폐쇄몰 홈 노출 대상에서 제외합니다. 실제 외부 최저가 API 연동은 PG/외부 API 승인 후 별도 작업입니다.
             </p>
           </section>
         </div>

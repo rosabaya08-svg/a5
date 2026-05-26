@@ -63,6 +63,7 @@ function asCartItems(value: unknown): CartItemSnapshot[] {
 
       return {
         productId: asString(data.productId ?? data.product_id),
+        optionId: asString(data.optionId ?? data.option_id) || undefined,
         productName: asString(data.productName ?? data.product_name),
         optionName: asString(data.optionName ?? data.option_name, "default"),
         unitPrice: asNumber(data.unitPrice ?? data.unit_price),
@@ -131,6 +132,7 @@ function toFirestorePayload(session: QrPaymentSession) {
     items: session.items,
     items_snapshot: session.items.map((item) => ({
       product_id: item.productId,
+      option_id: item.optionId ?? null,
       product_name: item.productName,
       option_name: item.optionName,
       unit_price: item.unitPrice,

@@ -15,7 +15,9 @@ import {
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { LegalNoticeChecklist } from "@/components/company/LegalNoticeChecklist";
+import { ProductCategoryClassificationPanel } from "@/components/company/ProductCategoryClassificationPanel";
 import { ProductComplianceForm } from "@/components/company/ProductComplianceForm";
+import { ProductPricePolicyForm } from "@/components/company/ProductPricePolicyForm";
 import { ReturnPolicyForm } from "@/components/company/ReturnPolicyForm";
 import { SellerDisclosureForm } from "@/components/company/SellerDisclosureForm";
 import { StatCard } from "@/components/ui/StatCard";
@@ -202,11 +204,24 @@ export function CompanyProductsPage() {
 }
 
 export function CompanyProductNewPage() {
+  const draftFields = [
+    ["상품명", "입점 상품명 입력"],
+    ["대분류", "산후조리원 전용 taxonomy 선택"],
+    ["세분류", "상품군별 세부 분류 선택"],
+    ["검수 레벨", "기본/증빙/전문가 검토 자동 분기"],
+    ["폐쇄몰 가격", "정상가/플랫폼 최저가 기준 계산"],
+    ["배송/수령 방식", "현장수령, 택배, 예약/바우처"],
+  ];
+
   return (
-    <CompanyShell title="상품 등록 초안" subtitle="실제 저장 없이 등록 폼 구조와 필수 입력 항목만 표시합니다.">
+    <CompanyShell title="기업 상품 등록" subtitle="입점사 상품을 분류, 가격, 인증, 고시, 미리보기, 승인 요청 gate 기준으로 관리합니다.">
       <CompanyOnboardingPanel />
       <div className="mt-4" />
       <CompanyProductRegistrationFlowPanel />
+      <div className="mt-4" />
+      <ProductCategoryClassificationPanel />
+      <div className="mt-4" />
+      <ProductPricePolicyForm />
       <div className="mt-4" />
       <SellerDisclosureForm />
       <div className="mt-4" />
@@ -223,17 +238,17 @@ export function CompanyProductNewPage() {
       </div>
       <div className="mt-4" />
       <ConfirmBox
-        title="저장 동작 없음"
-        description="이 화면은 모의/테스트 베타용 UI입니다. 이미지 업로드, Firebase Storage, 상품 저장 서버 동작은 아직 만들지 않습니다."
-        confirmLabel="모의 입력 양식"
+        title="저장/승인 연동 상태"
+        description="현재 베타에서는 기업 계정 claim, Storage rules, 서버 write 검증 전까지 상품 저장과 이미지 업로드 실행을 비활성화합니다."
+        confirmLabel="등록 입력 대기"
       />
       <div className="mt-4 grid gap-4 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-2">
-        {["상품명", "카테고리", "폐쇄몰 가격", "플랫폼 최저가", "외부 상품 코드", "배송/수령 방식"].map((label) => (
+        {draftFields.map(([label, value]) => (
           <label key={label} className="grid gap-2 text-sm font-semibold text-slate-700">
             {label}
             <input
               readOnly
-              value="모의 입력 대기"
+              value={value}
               className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal text-slate-500"
             />
           </label>

@@ -22,7 +22,15 @@ export type BackendOrder = {
 
 type CreateQrSessionResponse = {
   ok: true;
-  session: QrPaymentSession;
+  qrSessionId: string;
+  shortCode: string;
+  status: QrPaymentSession["status"];
+  expiresAt: string;
+  totalAmount: number;
+  paymentUrl: string;
+  customerUrl: string;
+  source: "firebase_functions_qr_create";
+  message: string;
 };
 
 type ApprovePaymentResponse = {
@@ -33,13 +41,37 @@ type ApprovePaymentResponse = {
 const backendTimeoutMs = 8000;
 
 function getBackendBaseUrl() {
-  return (process.env.NEXT_PUBLIC_A5_BACKEND_URL ?? "").replace(/\/$/, "");
+  return (
+    process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL ??
+    process.env.NEXT_PUBLIC_A5_BACKEND_URL ??
+    ""
+  ).replace(/\/$/, "");
+}
+
+function getFunctionsBaseUrl() {
+  return (process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL ?? "").replace(/\/$/, "");
+}
+
+function resolveBackendUrl(path: string) {
+  const baseUrl = getBackendBaseUrl();
+
+  if (baseUrl) {
+    return `${baseUrl}${path}`;
+  }
+
+  const functionsBaseUrl = getFunctionsBaseUrl();
+
+  if (functionsBaseUrl && path === "/qr/create") {
+    return `${functionsBaseUrl}/qrCreate`;
+  }
+
+  return "";
 }
 
 async function postBackend<T>(path: string, payload: Record<string, unknown>): Promise<BackendResult<T>> {
-  const baseUrl = getBackendBaseUrl();
+  const url = resolveBackendUrl(path);
 
-  if (!baseUrl) {
+  if (!url) {
     return { ok: false, error: "Backend URL missing" };
   }
 
@@ -47,7 +79,7 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>): P
   const timeout = window.setTimeout(() => controller.abort(), backendTimeoutMs);
 
   try {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,8 +111,36 @@ export async function createBackendQrSession(input: {
   items: CartItemSnapshot[];
   totalAmountHint: number;
 }) {
-  const result = await postBackend<CreateQrSessionResponse>("/qr-sessions", input);
-  return result.ok ? { ok: true as const, session: result.data.session } : result;
+  const result = await postBackend<CreateQrSessionResponse>("/qr/create", {
+    cartId: input.cartId,
+    nurseryId: input.nurseryId,
+    roomId: input.roomId,
+    tabletId: input.tabletId,
+    deliveryMethod: input.deliveryMethod,
+    items: input.items,
+    clientAmount: input.totalAmountHint,
+  });
+
+  if (!result.ok) return result;
+
+  const now = new Date().toISOString();
+  const session: QrPaymentSession = {
+    id: result.data.qrSessionId,
+    shortCode: result.data.shortCode,
+    type: "purchase",
+    status: result.data.status,
+    nurseryId: input.nurseryId,
+    roomId: input.roomId,
+    tabletId: input.tabletId,
+    cartId: input.cartId,
+    createdAt: now,
+    expiresAt: result.data.expiresAt,
+    deliveryMethod: input.deliveryMethod,
+    totalAmount: result.data.totalAmount,
+    items: input.items,
+  };
+
+  return { ok: true as const, session, customerUrl: result.data.customerUrl, paymentUrl: result.data.paymentUrl };
 }
 
 export async function approveBackendMockPayment(input: {

@@ -43,13 +43,6 @@ type ProductDetailRead = {
   reason?: string;
 };
 
-const tabletNav = [
-  { href: "/tablet/products", label: "상품" },
-  { href: "/tablet/cart", label: "장바구니" },
-  { href: "/tablet/qr", label: "QR" },
-  { href: "/tablet/ask", label: "조르기" },
-];
-
 async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
   const [{ data: session }, content] = await Promise.all([
     getLiveQrSessionByShortCode(shortCode),
@@ -79,7 +72,28 @@ async function getProductOptionsWithFallback(productId: string) {
 
 function discountRate(product: Product) {
   const { listPrice, closedMallPrice } = product.comparison;
+  if (listPrice <= 0) return 0;
   return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
+}
+
+const discountBands = [
+  { title: "80~51% 메가 할인", eyebrow: "정상가 대비 최상단 할인", min: 51, max: 80 },
+  { title: "50~36% 베스트 특가", eyebrow: "베스트 상품 우선 노출", min: 36, max: 50 },
+  { title: "35~21% 산모케어 특가", eyebrow: "산모/베이비 케어 추천", min: 21, max: 35 },
+  { title: "20~10% 신상품 특가", eyebrow: "기본 노출 가능 할인", min: 10, max: 20 },
+] as const;
+
+function sortByNormalPriceDiscount(products: Product[]) {
+  return [...products]
+    .filter((product) => discountRate(product) >= 10)
+    .sort((left, right) => discountRate(right) - discountRate(left));
+}
+
+function productsForDiscountBand(products: Product[], min: number, max: number) {
+  return sortByNormalPriceDiscount(products).filter((product) => {
+    const rate = discountRate(product);
+    return rate >= min && rate <= max;
+  });
 }
 
 function profileFor(product: Product, content?: StorefrontContent): MallProductProfile {
@@ -205,7 +219,7 @@ function StoreShell({
     <main className="min-h-screen bg-transparent text-white">
       <TabletFirstLoginGate />
       <header className="sticky top-0 z-20 border-b border-white/20 bg-white/65 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/55">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
           <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
             <span>
@@ -213,12 +227,7 @@ function StoreShell({
               <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 폐쇄몰</span>
             </span>
           </Link>
-          <nav className="hidden flex-wrap gap-2 md:flex">
-            {tabletNav.map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-full px-3 py-2 text-sm font-bold hover:bg-slate-100">
-                {item.label}
-              </Link>
-            ))}
+          <nav className="flex shrink-0 items-center">
             <CartStatusBadge />
           </nav>
           <TabletContextBadge />
@@ -337,41 +346,6 @@ function BrandGrid({ content }: { content: StorefrontContent }) {
   );
 }
 
-function CatalogControls({ content }: { content: StorefrontContent }) {
-  return (
-    <section className="rounded-md border border-white/30 bg-white/75 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
-      <div className="grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_150px_150px]">
-        <label className="grid gap-1 text-sm font-bold">
-          상품 검색
-          <input readOnly value="수딩, 산모, 베이비" className="h-11 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600" />
-        </label>
-        {[
-          ["카테고리", "전체"],
-          ["브랜드", "전체"],
-          ["가격대", "10만원 이하"],
-          ["재고", "품절 제외"],
-          ["정렬", "할인율 높은순"],
-        ].map(([label, value]) => (
-          <label key={label} className="grid gap-1 text-sm font-bold">
-            {label}
-            <select disabled value={value} className="h-11 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600">
-              <option value={value}>{value}</option>
-            </select>
-          </label>
-        ))}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {content.categories.map((category) => (
-          <span key={category.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
-            {category.label} · {category.helper}
-          </span>
-        ))}
-      </div>
-      <p className="mt-3 text-xs leading-5 text-slate-500">검색/필터/정렬은 화면 모의 기능입니다. 실제 인덱스, Firestore query, 외부 재고 API는 연결하지 않습니다.</p>
-    </section>
-  );
-}
-
 function ProductCard({ product, source, content }: { product: Product; source?: ProductReadSource; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
   const stock = stockLabel(product.stock);
@@ -399,14 +373,6 @@ function ProductCard({ product, source, content }: { product: Product; source?: 
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${stock.className}`}>{stock.label}</span>
         </div>
-        <PriceAnalysisButton
-          productName={profile.displayName}
-          brand={profile.brand}
-          companyId={product.companyId}
-          listPrice={product.comparison.listPrice}
-          platformLowestPrice={product.comparison.platformLowestPrice}
-          closedMallPrice={product.comparison.closedMallPrice}
-        />
         <ProductDevPanel product={product} source={readSource} compact />
       </div>
     </Link>
@@ -426,6 +392,8 @@ function ProductRail({
   source?: ProductReadSource;
   content?: StorefrontContent;
 }) {
+  if (products.length === 0) return null;
+
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -446,6 +414,31 @@ function ProductRail({
   );
 }
 
+function DiscountBandRails({
+  products,
+  source,
+  content,
+}: {
+  products: Product[];
+  source?: ProductReadSource;
+  content?: StorefrontContent;
+}) {
+  return (
+    <>
+      {discountBands.map((band) => (
+        <ProductRail
+          key={band.title}
+          title={band.title}
+          eyebrow={band.eyebrow}
+          products={productsForDiscountBand(products, band.min, band.max)}
+          source={source}
+          content={content}
+        />
+      ))}
+    </>
+  );
+}
+
 function ProductGallery({ product, content }: { product: Product; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
   const images = profile.gallery.length ? profile.gallery : [profile.imageUrl];
@@ -459,32 +452,6 @@ function ProductGallery({ product, content }: { product: Product; content?: Stor
         {images.slice(0, 3).map((image, index) => (
           <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white/80 shadow-sm backdrop-blur-md">
             <img src={image} alt={`${profile.displayName} ${index + 1}`} className="aspect-square w-full object-cover" />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PriceComparePanel({ product }: { product: Product }) {
-  return (
-    <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-slate-950">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">가격 비교 레이어</p>
-          <h3 className="mt-1 text-xl font-black">실제 AI가 아닌 가격 비교 모의 레이어</h3>
-        </div>
-        <span className="rounded-full bg-white/85 px-3 py-1 text-sm font-black text-emerald-900 shadow-sm backdrop-blur-md">{discountRate(product)}% 절감</span>
-      </div>
-      <div className="mt-4 grid gap-2 text-sm">
-        {[
-          ["정상가", product.comparison.listPrice],
-          ["플랫폼 최저가", product.comparison.platformLowestPrice],
-          ["폐쇄몰가", product.comparison.closedMallPrice],
-        ].map(([label, value]) => (
-          <div key={label} className={`flex justify-between rounded-md px-3 py-2 ${label === "폐쇄몰가" ? "bg-slate-950 text-white" : "bg-white/75 text-slate-950 backdrop-blur-md"}`}>
-            <span>{label}</span>
-            <strong>{formatCurrency(Number(value))}</strong>
           </div>
         ))}
       </div>
@@ -550,8 +517,8 @@ function SummaryPanel({ session, ask = false }: { session: QrPaymentSession; ask
           <div className="flex justify-between text-lg"><span className="font-black">합계</span><strong className="text-rose-600">{formatCurrency(session.totalAmount)}</strong></div>
         </div>
       </div>
-      <Link href={ask ? `/q/${session.shortCode}` : "/tablet/qr"} className="mt-5 block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">
-        {ask ? "조르기 QR 열기" : "구매 QR 생성"}
+      <Link href={ask ? `/q/${session.shortCode}` : "/tablet/cart"} className="mt-5 block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">
+        {ask ? "고객 결제 화면 열기" : "장바구니로 이동"}
       </Link>
       <p className="mt-3 text-xs leading-5 text-slate-500">QR은 2~3시간 만료, 1회성 사용, 재사용 차단 전제로 표시됩니다. 실제 PG 요청은 없습니다.</p>
     </aside>
@@ -579,15 +546,12 @@ export async function TabletProductsPage() {
         <PromoBannerGrid content={context.content} />
         <VideoAdStrip />
         <BrandGrid content={context.content} />
-        <CatalogControls content={context.content} />
-        <ProductRail title="베이비 베스트 핫딜" eyebrow="베이비 특가" products={products.slice(0, 4)} />
-        <ProductRail title="산모 회복 케어" eyebrow="산모 케어 특가" products={products.filter((product) => profileFor(product).category.includes("산모")).slice(0, 4)} />
-        <ProductRail title="신상품/기획전" eyebrow="신상품과 기획전" products={products.slice(-4)} />
+        <DiscountBandRails products={products} source={source} content={context.content} />
         <div className="rounded-md border border-white/30 bg-white/78 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase text-slate-500">장바구니 바로가기</p>
-              <h2 className="mt-1 text-xl font-black">선택한 상품은 장바구니에서 QR로 전환됩니다.</h2>
+              <h2 className="mt-1 text-xl font-black">선택한 상품은 빨간 장바구니에서 확인합니다.</h2>
             </div>
             <Link href="/tablet/cart" className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white">장바구니 보기</Link>
           </div>
@@ -629,9 +593,18 @@ export async function TabletProductDetailPage({ productId }: { productId: string
               <p className="text-sm font-black">리뷰 요약</p>
               <p className="mt-1 text-sm text-slate-600">{profile.review.rating.toFixed(1)}점 / {profile.review.count}개 모의 후기 · {profile.review.highlight}</p>
             </div>
+            <div className="mt-5">
+              <PriceAnalysisButton
+                productName={profile.displayName}
+                brand={profile.brand}
+                companyId={product.companyId}
+                listPrice={product.comparison.listPrice}
+                platformLowestPrice={product.comparison.platformLowestPrice}
+                closedMallPrice={product.comparison.closedMallPrice}
+              />
+            </div>
           </div>
 
-          <PriceComparePanel product={product} />
           <AddToCartPanel product={product} options={options} />
           <ProductDevPanel product={product} source={source} reason={reason} />
         </section>
@@ -640,7 +613,7 @@ export async function TabletProductDetailPage({ productId }: { productId: string
         <DetailTabs product={product} />
       </div>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/40 bg-white/85 p-3 text-slate-950 shadow-2xl backdrop-blur-xl md:hidden">
-        <Link href="/tablet/cart" className="block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">장바구니 담고 QR 생성</Link>
+        <Link href="/tablet/cart" className="block rounded-md bg-rose-600 px-4 py-3 text-center text-sm font-black text-white">장바구니 열기</Link>
       </div>
     </StoreShell>
   );

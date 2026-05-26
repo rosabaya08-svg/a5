@@ -137,6 +137,7 @@ function cartTotal(items: CartLine[]) {
 function toSnapshot(item: CartLine): CartItemSnapshot {
   return {
     productId: item.productId,
+    optionId: item.optionId,
     productName: item.productName,
     optionName: item.optionName,
     unitPrice: item.unitPrice,
@@ -206,7 +207,7 @@ export function CartStatusBadge() {
   const count = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <Link href="/tablet/cart" className="rounded-full bg-rose-600 px-3 py-2 text-xs font-black text-white">
+    <Link href="/tablet/cart" className="rounded-full bg-rose-600 px-5 py-3 text-base font-black text-white shadow-lg shadow-rose-600/20 ring-2 ring-rose-100/70">
       장바구니 {count}
     </Link>
   );
@@ -235,6 +236,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
           ...current,
           {
             productId: product.id,
+            optionId: selected?.id,
             productName: product.name,
             optionName,
             unitPrice,
@@ -245,7 +247,7 @@ export function AddToCartPanel({ product, options }: { product: Product; options
         ];
 
     const result = await persistCart(next);
-    setMessage(result.stored ? "장바구니에 담았습니다. 실제 브라우저 저장소와 Firebase 저장을 실행했습니다." : "장바구니 메모리에 반영했습니다. 브라우저 저장소 권한은 확인이 필요합니다.");
+    setMessage(result.stored ? "장바구니에 담았습니다. 상단 장바구니 수량과 장바구니 화면에 바로 반영됩니다." : "장바구니 메모리에 반영했습니다. 브라우저 저장소 권한은 확인이 필요합니다.");
 
     if (goCart) {
       router.push("/tablet/cart");
@@ -369,18 +371,21 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     const savedPointer = writeText(lastQrKey, liveSession.shortCode);
 
     if (!savedSession || !savedPointer) {
-      setMessage("QR 세션을 브라우저 저장소에 저장하지 못했습니다. 브라우저 저장소 권한을 확인해 주세요.");
+      setMessage("결제 진입 정보를 브라우저 저장소에 저장하지 못했습니다. 브라우저 저장소 권한을 확인해 주세요.");
       return;
     }
 
-    setMessage(backend.ok ? "백엔드 QR 세션을 생성했습니다. 고객 모바일 결제 화면으로 이동합니다." : `로컬 QR 세션으로 진행합니다. 백엔드 대기: ${backend.error}`);
-    router.push(`/q/live?code=${liveSession.shortCode}`);
+    setMessage(backend.ok ? "고객 휴대폰 결제 화면을 열었습니다." : `서버 결제 진입 생성 실패: ${backend.error}. 개발용 로컬 결제 화면으로 이동합니다.`);
+    router.push(`/q/live?code=${encodeURIComponent(liveSession.shortCode)}`);
 
-    void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
-      ...liveSession,
-      short_code: liveSession.shortCode,
-      total_amount: liveSession.totalAmount,
-    });
+    if (!backend.ok) {
+      void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
+        ...liveSession,
+        short_code: liveSession.shortCode,
+        total_amount: liveSession.totalAmount,
+        source: "local_fallback_only",
+      });
+    }
   }
 
   return (
@@ -428,7 +433,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
         )}
       </div>
       <aside className="rounded-md bg-white/82 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-        <h2 className="text-xl font-black">주문 요약</h2>
+        <h2 className="text-xl font-black">장바구니 요약</h2>
         <div className="mt-4 grid gap-3 text-sm">
           <div className="flex justify-between">
             <span>상품 수량</span>
@@ -444,10 +449,10 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
           onClick={() => void createQr()}
           className="mt-5 w-full rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white"
         >
-          실제 QR 세션 생성
+          고객 휴대폰 결제 열기
         </button>
         <Link href="/tablet/products" className="mt-2 block rounded-md bg-slate-100 px-4 py-3 text-center text-sm font-black text-slate-900">
-          계속 쇼핑
+          상품 계속 보기
         </Link>
         {message ? <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p> : null}
       </aside>
@@ -480,7 +485,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
           </div>
         </div>
         <p className="mt-4 text-sm font-bold text-rose-600">만료 {new Date(session.expiresAt).toLocaleString("ko-KR")}</p>
-        <Link href={`/q/live?code=${session.shortCode}`} className="mt-4 inline-flex rounded-md bg-slate-950 px-5 py-3 text-sm font-black text-white">
+        <Link href={`/q/live?code=${encodeURIComponent(session.shortCode)}`} className="mt-4 inline-flex rounded-md bg-slate-950 px-5 py-3 text-sm font-black text-white">
           고객 모바일 화면 열기
         </Link>
       </div>

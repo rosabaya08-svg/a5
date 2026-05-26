@@ -294,3 +294,8 @@
 - `<img>` lint 경고 12개는 기능 차단은 아니며, 이미지 최적화/Storage 정책 확정 후 처리한다.
 - 실제 PG 승인/취소/환불, 정산 지급, 알림톡 발송, 배송조회, 외부 재고 API 호출은 계속 차단한다.
 - secret, service account, private key, `.env.local` 값은 Git에 포함하면 안 된다.
+## 2026-05-26 blockers
+- Functions deploy for QR APIs is still pending approval.
+- PG official module, test MID/channel key/client key/secret key/webhook secret are still pending.
+- Real PG approval, cancel, refund, settlement payout, Alimtalk, delivery tracking, and external inventory calls are blocked.
+- Storage upload remains beta-only; production media upload policy still needs final rule review.

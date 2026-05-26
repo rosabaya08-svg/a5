@@ -116,6 +116,7 @@ export type Product = {
 
 export type CartItemSnapshot = {
   productId: string;
+  optionId?: string;
   productName: string;
   optionName: string;
   unitPrice: number;

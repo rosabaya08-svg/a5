@@ -991,3 +991,10 @@
 - 앞으로가기는 `window.history.forward()`를 사용한다.
 - `StoreShell`에 포함해 태블릿 쇼핑, 상품 상세, 장바구니, QR, 조르기, `/products` 공유 화면에서 동일하게 동작한다.
 - 경계 유지: 실제 PG/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. secret/service account 변경 없음.
+## 2026-05-26 QR backend and price policy update
+- Removed duplicate product-detail price comparison section and routed comparison through `AI 가격 비교` modal.
+- Added discount-band storefront grouping and blocked product rail exposure under 10% normal-price discount.
+- Added company admin required pricing policy panel for normal price, platform lowest price, and closed-mall price.
+- Routed tablet cart QR creation toward Firebase Functions `qrCreate` and removed browser direct QR write on server success.
+- Added server QR validation for tablet scope, room/nursery relation, products, options, inventory, amount mismatch, and short-code collision.
+- Verification passed: lint, Next build, Functions build, route check, and no-secret check.

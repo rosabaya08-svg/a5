@@ -131,3 +131,9 @@
 - Storage upload is enabled only for public storefront/ad/product media; private business documents, bank documents, settlement files, payout files, and audit exports remain blocked.
 - Malware scanning, media moderation, retention policy, and deletion governance are not implemented.
 - PG, order/payment ledgers, refund, settlement payout, Alimtalk, delivery tracking, and external inventory API integrations remain blocked.
+## 2026-05-26 blockers
+- Firebase Functions deploy is still not executed in this task; `qrCreate`/`qrExpire` deployment requires final approval and environment check.
+- Official PG provider module and real PG keys are still not inserted.
+- Real PG approval/cancel/refund/settlement remains blocked.
+- Alimtalk, delivery tracking, and external inventory API calls remain blocked.
+- Company price policy UI is implemented, but legal/commerce policy review is still required before production enforcement.

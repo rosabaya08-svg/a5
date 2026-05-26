@@ -223,3 +223,10 @@ Still blocked:
 - real webhook signature verification,
 - settlement payout,
 - firebase deploy from this task.
+## 2026-05-26 QR Backend Update
+- `qrCreate` is the server authority for creating `qr_payment_sessions`.
+- Tablet cart now calls `POST /qr/create` through the frontend backend client, with direct Functions fallback to `qrCreate`.
+- Server QR creation validates nursery, room, tablet, products, product options, inventory, and amount before writing.
+- Server recalculates totals from Firestore product/option prices and blocks client/server amount mismatch.
+- Successful server QR creation writes `qr_payment_sessions` and `audit_logs`; browser direct QR writes are only allowed as visible local fallback.
+- Customer URL is standardized as `/q/{shortCode}` and checkout URL as `/q/{shortCode}/checkout`.

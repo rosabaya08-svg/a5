@@ -103,6 +103,7 @@ export type QrCreateRequest = {
   nurseryId: string;
   roomId: string;
   tabletId: string;
+  deliveryMethod?: "pickup" | "delivery";
   expiresInMinutes?: number;
   clientAmount?: number;
   currency?: Currency;

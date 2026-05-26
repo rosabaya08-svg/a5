@@ -1,7 +1,8 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { getAdminDb } from "../firebaseAdmin";
 import {
   calculateItemsAmount,
+  type CartItemInput,
   makeQrSessionId,
   makeShortCode,
   normalizeCartItems,
@@ -37,6 +38,26 @@ export type FirestoreQrSession = {
   totalAmountSnapshot?: number;
   itemsSnapshot?: unknown;
 };
+
+type PricedCartItem = CartItemInput & {
+  status: string;
+  inventory: number;
+  reservedInventory: number;
+  availableInventory: number;
+  lineAmount: number;
+  source: "firestore_products";
+};
+
+class QrCreateHttpError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly httpStatus = 400,
+    public readonly details?: unknown,
+  ) {
+    super(message);
+  }
+}
 
 export function validateQrSession(input: QrSessionValidationInput): QrSessionValidationResult {
   const checkedAt = new Date().toISOString();
@@ -109,95 +130,122 @@ export async function validateFirestoreQrSession(qrSessionId: string): Promise<Q
 export async function qrCreateHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
 
-  const body = readObjectBody<QrCreateRequest>(request);
-  const items = normalizeCartItems(body.items);
-  const nurseryId = String(body.nurseryId ?? "");
-  const roomId = String(body.roomId ?? "");
-  const tabletId = String(body.tabletId ?? "");
+  try {
+    const body = readObjectBody<QrCreateRequest>(request);
+    const items = normalizeCartItems(body.items);
+    const nurseryId = String(body.nurseryId ?? "");
+    const roomId = String(body.roomId ?? "");
+    const tabletId = String(body.tabletId ?? "");
 
-  if (!nurseryId || !roomId || !tabletId || items.length === 0) {
-    sendJson(response, 400, {
-      ok: false,
-      error: {
-        code: "QR_CREATE_INPUT_INVALID",
-        message: "nurseryId, roomId, tabletId, and at least one item are required.",
-        httpStatus: 400,
-      },
-    });
-    return;
-  }
+    if (!nurseryId || !roomId || !tabletId || items.length === 0) {
+      throw new QrCreateHttpError(
+        "QR_CREATE_INPUT_INVALID",
+        "nurseryId, roomId, tabletId, and at least one item are required.",
+        400,
+      );
+    }
 
-  const now = new Date();
-  const shortCode = String(body.shortCode ?? makeShortCode("SANHO", now));
-  const qrSessionId = makeQrSessionId(shortCode, now);
-  const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
-  const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
-  const totalAmount = calculateItemsAmount(items);
+    const db = getAdminDb();
+    await validateTabletScope(db, { nurseryId, roomId, tabletId });
 
-  if (typeof body.clientAmount === "number" && body.clientAmount !== totalAmount) {
-    sendJson(response, 409, {
-      ok: false,
-      error: {
-        code: "QR_CREATE_AMOUNT_MISMATCH",
-        message: "Client amount does not match QR server snapshot amount.",
-        httpStatus: 409,
-        details: { clientAmount: body.clientAmount, serverAmount: totalAmount },
-      },
-    });
-    return;
-  }
+    const pricedItems = await priceCartItemsFromFirestore(db, items);
+    const totalAmount = calculateItemsAmount(pricedItems);
+    const clientAmount = readClientAmount(body);
 
-  const db = getAdminDb();
-  const auditRef = db.collection("audit_logs").doc();
-  const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
+    if (typeof clientAmount === "number" && clientAmount !== totalAmount) {
+      throw new QrCreateHttpError(
+        "QR_CREATE_AMOUNT_MISMATCH",
+        "Client amount does not match QR server snapshot amount.",
+        409,
+        { clientAmount, serverAmount: totalAmount },
+      );
+    }
 
-  await db.runTransaction(async (transaction) => {
-    transaction.set(qrRef, {
-      id: qrSessionId,
-      qr_session_id: qrSessionId,
-      short_code: shortCode,
-      cart_id: body.cartId ?? null,
-      nursery_id: nurseryId,
-      room_id: roomId,
-      tablet_id: tabletId,
-      status: "active",
-      items_snapshot: items.map(toSnapshotItem),
-      total_amount_snapshot: totalAmount,
-      currency: body.currency ?? "KRW",
-      expires_at: expiresAt,
-      guest_read_enabled: true,
-      source: "firebase_functions_qr_create",
-      demo_read_enabled: true,
-      created_at: now.toISOString(),
-      updated_at: FieldValue.serverTimestamp(),
-    });
+    const now = new Date();
+    const shortCode = await resolveShortCode(db, optionalString(body.shortCode), now);
+    const qrSessionId = makeQrSessionId(shortCode, now);
+    const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
+    const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
+    const deliveryMethod = body.deliveryMethod === "delivery" ? "delivery" : "pickup";
+    const auditRef = db.collection("audit_logs").doc();
+    const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
 
-    transaction.set(
-      auditRef,
-      {
-        ...toAuditLogDocument(
-          createAuditLogDraft({
-            action: "qr_session_create",
-            target: qrSessionId,
-            severity: "info",
-            message: "QR payment session created by Firebase Functions.",
-          }),
-        ),
+    await db.runTransaction(async (transaction) => {
+      transaction.set(qrRef, {
+        id: qrSessionId,
+        qr_session_id: qrSessionId,
+        short_code: shortCode,
+        cart_id: body.cartId ?? null,
+        nursery_id: nurseryId,
+        room_id: roomId,
+        tablet_id: tabletId,
+        type: "purchase",
+        status: "active",
+        delivery_method: deliveryMethod,
+        items_snapshot: pricedItems.map(toSnapshotItem),
+        total_amount_snapshot: totalAmount,
+        currency: body.currency ?? "KRW",
+        expires_at: expiresAt,
+        guest_read_enabled: true,
+        source: "firebase_functions_qr_create",
+        demo_read_enabled: true,
+        created_at: now.toISOString(),
         updated_at: FieldValue.serverTimestamp(),
-      },
-    );
-  });
+      });
 
-  sendJson(response, 200, {
-    ok: true,
-    qrSessionId,
-    shortCode,
-    status: "active",
-    expiresAt,
-    totalAmount,
-    firestoreTransactionPlan: getQrTransactionPlan(),
-    message: "QR session created in beta server flow. Direct client writes remain blocked.",
-  });
+      transaction.set(
+        auditRef,
+        {
+          ...toAuditLogDocument(
+            createAuditLogDraft({
+              action: "qr_session_create",
+              target: qrSessionId,
+              severity: "info",
+              message: "QR payment session created by Firebase Functions after server-side scope, product, option, inventory, and amount validation.",
+            }),
+          ),
+          nursery_id: nurseryId,
+          room_id: roomId,
+          tablet_id: tabletId,
+          short_code: shortCode,
+          total_amount_snapshot: totalAmount,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+      );
+    });
+
+    const customerUrl = buildCustomerUrl(request, `/q/${shortCode}`);
+    const paymentUrl = buildCustomerUrl(request, `/q/${shortCode}/checkout`);
+
+    sendJson(response, 200, {
+      ok: true,
+      qrSessionId,
+      shortCode,
+      status: "active",
+      expiresAt,
+      totalAmount,
+      paymentUrl,
+      customerUrl,
+      source: "firebase_functions_qr_create",
+      firestoreTransactionPlan: getQrTransactionPlan(),
+      message: "QR session created in beta server flow. Direct client writes remain blocked.",
+    });
+  } catch (error) {
+    const normalized =
+      error instanceof QrCreateHttpError
+        ? error
+        : new QrCreateHttpError("FIRESTORE_WRITE_FAILED", error instanceof Error ? error.message : "QR create failed.", 500);
+
+    sendJson(response, normalized.httpStatus, {
+      ok: false,
+      error: {
+        code: normalized.code,
+        message: normalized.message,
+        httpStatus: normalized.httpStatus,
+        details: normalized.details,
+      },
+    });
+  }
 }
 
 export async function qrExpireHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
@@ -276,6 +324,246 @@ export async function qrExpireHandler(request: HttpRequestLike, response: HttpRe
   });
 }
 
+async function validateTabletScope(
+  db: Firestore,
+  input: { nurseryId: string; roomId: string; tabletId: string },
+): Promise<void> {
+  const nursery = await readRequiredDocument(db, "nurseries", input.nurseryId, "ROOM_SCOPE_INVALID");
+  const room = await readRequiredDocument(db, "rooms", input.roomId, "ROOM_SCOPE_INVALID");
+  const tablet = await readRequiredDocument(db, "tablets", input.tabletId, "TABLET_SCOPE_INVALID");
+  const nurseryStatus = fieldString(nursery, "status") ?? "approved";
+  const roomNurseryId = fieldString(room, "nursery_id", "nurseryId");
+  const tabletNurseryId = fieldString(tablet, "nursery_id", "nurseryId");
+  const tabletRoomId = fieldString(tablet, "room_id", "roomId");
+  const tabletStatus = fieldString(tablet, "status") ?? "active";
+
+  if (!["approved", "active"].includes(nurseryStatus)) {
+    throw new QrCreateHttpError("ROOM_SCOPE_INVALID", "Nursery is not active for QR creation.", 403, {
+      nurseryId: input.nurseryId,
+      status: nurseryStatus,
+    });
+  }
+
+  if (roomNurseryId !== input.nurseryId) {
+    throw new QrCreateHttpError("ROOM_SCOPE_INVALID", "Room does not belong to the requested nursery.", 403, {
+      roomId: input.roomId,
+      roomNurseryId,
+      nurseryId: input.nurseryId,
+    });
+  }
+
+  if (tabletNurseryId !== input.nurseryId || tabletRoomId !== input.roomId || tabletStatus !== "active") {
+    throw new QrCreateHttpError("TABLET_SCOPE_INVALID", "Tablet scope does not match nursery/room or tablet is not active.", 403, {
+      tabletId: input.tabletId,
+      tabletNurseryId,
+      tabletRoomId,
+      tabletStatus,
+    });
+  }
+}
+
+async function priceCartItemsFromFirestore(db: Firestore, items: CartItemInput[]): Promise<PricedCartItem[]> {
+  const pricedItems: PricedCartItem[] = [];
+
+  for (const item of items) {
+    const product = await readProductForCart(db, item.productId);
+    const option = item.optionId ? await readOptionForCart(db, item.productId, item.optionId) : undefined;
+    const productPrice = resolveProductPrice(product);
+    const priceDelta = option ? fieldNumber(option, "price_delta", "priceDelta") ?? 0 : 0;
+    const unitPrice = productPrice + priceDelta;
+    const productStock = fieldNumber(product, "stock", "inventory", "available_stock", "availableStock") ?? 0;
+    const optionStock = option ? fieldNumber(option, "stock", "inventory", "available_stock", "availableStock") : undefined;
+    const stock = optionStock ?? productStock;
+    const reservedInventory = option
+      ? fieldNumber(option, "reserved_inventory", "reservedInventory") ?? 0
+      : fieldNumber(product, "reserved_inventory", "reservedInventory") ?? 0;
+    const availableInventory = Math.max(0, stock - reservedInventory);
+
+    if (item.quantity > availableInventory) {
+      throw new QrCreateHttpError("INVENTORY_SHORTAGE", "Inventory is not enough to create QR session.", 409, {
+        productId: item.productId,
+        optionId: item.optionId,
+        requestedQuantity: item.quantity,
+        availableInventory,
+      });
+    }
+
+    pricedItems.push({
+      productId: item.productId,
+      optionId: item.optionId,
+      productName: fieldString(product, "title", "name") ?? item.productName,
+      optionName: option ? fieldString(option, "name", "option_name", "optionName") ?? item.optionName : item.optionName,
+      unitPrice,
+      quantity: item.quantity,
+      companyId: fieldString(product, "company_id", "companyId") ?? item.companyId,
+      status: fieldString(product, "status") ?? "active",
+      inventory: stock,
+      reservedInventory,
+      availableInventory,
+      lineAmount: unitPrice * item.quantity,
+      source: "firestore_products",
+    });
+  }
+
+  return pricedItems;
+}
+
+async function readProductForCart(db: Firestore, productId: string): Promise<Record<string, unknown>> {
+  const product = await readRequiredDocument(db, "products", productId, "PRODUCT_NOT_FOUND");
+  const status = fieldString(product, "status") ?? "";
+
+  if (!["active", "approved"].includes(status)) {
+    throw new QrCreateHttpError("PRODUCT_NOT_ACTIVE", "Product is not active or approved.", 409, {
+      productId,
+      status,
+    });
+  }
+
+  return product;
+}
+
+async function readOptionForCart(db: Firestore, productId: string, optionId: string): Promise<Record<string, unknown>> {
+  const direct = await db.collection("product_options").doc(optionId).get();
+  let option = direct.exists ? asRecord(direct.data()) : undefined;
+
+  if (!option) {
+    const snapshot = await db
+      .collection("product_options")
+      .where("product_id", "==", productId)
+      .where("option_id", "==", optionId)
+      .limit(1)
+      .get();
+    option = snapshot.docs[0]?.data();
+  }
+
+  if (!option) {
+    throw new QrCreateHttpError("OPTION_NOT_FOUND", "Product option was not found.", 404, { productId, optionId });
+  }
+
+  const optionProductId = fieldString(option, "product_id", "productId");
+
+  if (optionProductId && optionProductId !== productId) {
+    throw new QrCreateHttpError("OPTION_NOT_FOUND", "Product option does not belong to the requested product.", 404, {
+      productId,
+      optionId,
+      optionProductId,
+    });
+  }
+
+  return option;
+}
+
+async function readRequiredDocument(
+  db: Firestore,
+  collectionName: string,
+  documentId: string,
+  errorCode: string,
+): Promise<Record<string, unknown>> {
+  const snapshot = await db.collection(collectionName).doc(documentId).get();
+
+  if (!snapshot.exists) {
+    throw new QrCreateHttpError(errorCode, `${collectionName}/${documentId} was not found.`, 404, {
+      collectionName,
+      documentId,
+    });
+  }
+
+  return asRecord(snapshot.data());
+}
+
+async function resolveShortCode(db: Firestore, requestedShortCode: string | undefined, now: Date): Promise<string> {
+  if (requestedShortCode) {
+    if (await shortCodeExists(db, requestedShortCode)) {
+      throw new QrCreateHttpError("QR_SHORT_CODE_COLLISION", "Requested short code already exists.", 409, {
+        shortCode: requestedShortCode,
+      });
+    }
+
+    return requestedShortCode;
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const candidate = makeShortCode("SANHO", new Date(now.getTime() + attempt));
+    if (!(await shortCodeExists(db, candidate))) return candidate;
+  }
+
+  throw new QrCreateHttpError("QR_SHORT_CODE_COLLISION", "Could not allocate unique QR short code after 3 attempts.", 409);
+}
+
+async function shortCodeExists(db: Firestore, shortCode: string): Promise<boolean> {
+  const snapshot = await db.collection("qr_payment_sessions").where("short_code", "==", shortCode).limit(1).get();
+  return !snapshot.empty;
+}
+
+function resolveProductPrice(product: Record<string, unknown>): number {
+  const comparison = asRecord(product.comparison);
+  const price =
+    fieldNumber(product, "closed_mall_price", "closedMallPrice", "price") ??
+    fieldNumber(comparison, "closedMallPrice", "closed_mall_price");
+
+  if (typeof price !== "number" || price < 0) {
+    throw new QrCreateHttpError("PRODUCT_NOT_FOUND", "Product price is missing for QR server recalculation.", 409, {
+      productId: fieldString(product, "product_id", "productId", "id"),
+    });
+  }
+
+  return price;
+}
+
+function readClientAmount(body: Partial<QrCreateRequest>): number | undefined {
+  if (typeof body.clientAmount === "number" && Number.isFinite(body.clientAmount)) return body.clientAmount;
+
+  const legacyHint = (body as { totalAmountHint?: unknown }).totalAmountHint;
+  if (typeof legacyHint === "number" && Number.isFinite(legacyHint)) return legacyHint;
+
+  return undefined;
+}
+
+function buildCustomerUrl(request: HttpRequestLike, path: string): string {
+  const base =
+    (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL ?? process.env.A5_PUBLIC_BASE_URL ?? "").replace(/\/$/, "") ||
+    inferOriginFromRequest(request);
+
+  return base ? `${base}${path}` : path;
+}
+
+function inferOriginFromRequest(request: HttpRequestLike): string {
+  const origin = request.get?.("origin");
+  if (origin) return origin.replace(/\/$/, "");
+
+  const referer = request.get?.("referer");
+  if (!referer) return "";
+
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return "";
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function fieldString(data: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  return undefined;
+}
+
+function fieldNumber(data: Record<string, unknown>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  }
+
+  return undefined;
+}
+
 function normalizeQrStatus(value: string): QrSessionValidationInput["status"] {
   return value === "paid" || value === "expired" || value === "cancelled" ? value : "active";
 }
@@ -290,6 +578,7 @@ function toSnapshotItem(item: ReturnType<typeof normalizeCartItems>[number]) {
     quantity: item.quantity,
     company_id: item.companyId,
     line_amount: item.unitPrice * item.quantity,
+    source: "firestore_products",
   };
 }
 

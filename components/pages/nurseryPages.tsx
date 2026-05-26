@@ -1,13 +1,16 @@
 import { AppShell } from "@/components/layout/AppShell";
+import { A4RoomImportPanel } from "@/components/nursery/A4RoomImportPanel";
 import { nurseryNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { listA4RoomsReadOnly } from "@/lib/integrations/a4/readOnlyRooms";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 const nurseryId = "nursery-test-1004";
+const nurseryBusinessRegistrationNo = "1004-1004-1004";
 
 function NurseryShell({
   title,
@@ -50,7 +53,7 @@ function NurseryIdentityPanel() {
       <h2 className="text-lg font-black">조리원 계정 정보</h2>
       <div className="mt-4 grid gap-2 md:grid-cols-4">
         {[
-          ["사업자등록번호", "1004-1004-1004"],
+          ["사업자등록번호", nurseryBusinessRegistrationNo],
           ["조리원 ID", nurseryId],
           ["객실 수", `${rooms().length}개`],
           ["연결 태블릿", `${tablets().length}대`],
@@ -94,11 +97,21 @@ export function NurseryDashboardPage() {
 }
 
 export function NurseryRoomsPage() {
+  const nurseryRooms = rooms();
+  const a4Rooms = listA4RoomsReadOnly(nurseryId);
+
   return (
     <NurseryShell title="객실 관리" subtitle="객실과 태블릿 연결 상태를 확인합니다.">
+      <A4RoomImportPanel
+        nurseryId={nurseryId}
+        businessRegistrationNo={nurseryBusinessRegistrationNo}
+        existingRooms={nurseryRooms}
+        a4Rooms={a4Rooms}
+      />
+      <div className="mt-4" />
       <DataTable
         columns={["객실", "층", "현장수령", "연결 태블릿", "QR 출처"]}
-        rows={rooms().map((room) => ({
+        rows={nurseryRooms.map((room) => ({
           id: room.id,
           cells: [room.name, room.floor, room.pickupEnabled ? "가능" : "불가", room.activeTabletId ?? "미연결", `${nurseryId} / ${room.id}`],
         }))}

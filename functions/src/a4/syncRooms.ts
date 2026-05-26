@@ -1,0 +1,644 @@
+import { FieldValue, type Firestore, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { getAdminAuth, getAdminDb, getAdminDbForProject } from "../firebaseAdmin";
+import { readObjectBody, requirePost, sendJson, type HttpRequestLike, type HttpResponseLike } from "../payments/types";
+
+type A4RoomsSyncRequest = {
+  nurseryId?: string;
+  businessRegistrationNo?: string;
+  externalNurseryId?: string;
+  selectedExternalRoomIds?: string[];
+};
+
+type SourceNurseryMatch = {
+  externalNurseryId: string;
+  businessRegistrationNo: string;
+  sourceNurseryPath: string;
+  matchedBusinessField?: string;
+};
+
+type SourceRoom = {
+  externalRoomId: string;
+  targetRoomId: string;
+  roomNumber: string;
+  name: string;
+  floor: string;
+  pickupEnabled: boolean;
+  activeTabletId?: string;
+  externalTabletId?: string;
+};
+
+type SourceRoomRead = {
+  sourcePath: string;
+  sourceNurseryField?: string;
+  sourceBusinessField?: string;
+  docs: QueryDocumentSnapshot[];
+};
+
+type SkippedRoom = {
+  externalRoomId: string;
+  roomNumber?: string;
+  reason: string;
+  existingRoomId?: string;
+};
+
+type ResponseWithHeaders = HttpResponseLike & {
+  set?: (field: string | Record<string, string>, value?: string) => HttpResponseLike;
+  header?: (field: string | Record<string, string>, value?: string) => HttpResponseLike;
+};
+
+const sourceProjectId = process.env.A4_SOURCE_PROJECT_ID?.trim() || "signage-partner";
+
+const businessNoFields = [
+  process.env.A4_NURSERY_BUSINESS_FIELD,
+  process.env.A4_ROOMS_BUSINESS_FIELD,
+  "business_registration_no",
+  "businessRegistrationNo",
+  "business_no",
+  "businessNo",
+  "biz_no",
+  "bizNo",
+  "company_registration_no",
+  "registration_number",
+];
+
+const nurseryIdFields = [
+  process.env.A4_NURSERY_ID_FIELD,
+  process.env.A4_ROOMS_NURSERY_FIELD,
+  "external_nursery_id",
+  "externalNurseryId",
+  "nursery_id",
+  "nurseryId",
+  "center_id",
+  "centerId",
+  "branch_id",
+  "branchId",
+  "partner_id",
+  "partnerId",
+];
+
+function optionalString(value: unknown): string | undefined {
+  const text = String(value ?? "").trim();
+  return text ? text : undefined;
+}
+
+function fieldString(data: Record<string, unknown>, ...names: string[]) {
+  for (const name of names) {
+    const value = optionalString(data[name]);
+    if (value) return value;
+  }
+
+  return "";
+}
+
+function fieldBoolean(data: Record<string, unknown>, fallback: boolean) {
+  const value = data.pickup_enabled ?? data.pickupEnabled ?? data.is_pickup_enabled ?? data.pickupAvailable;
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function unique(items: Array<string | undefined>) {
+  return [...new Set(items.map((item) => item?.trim()).filter(Boolean) as string[])];
+}
+
+function splitConfigList(value: string | undefined, fallback: string[]) {
+  const configured = value
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return configured && configured.length > 0 ? configured : fallback;
+}
+
+function normalizeBusinessRegistrationNo(value: string) {
+  return value.replace(/[^0-9]/g, "");
+}
+
+function businessNoCandidates(value: string) {
+  const normalized = normalizeBusinessRegistrationNo(value);
+  const formattedTenDigit =
+    normalized.length === 10 ? `${normalized.slice(0, 3)}-${normalized.slice(3, 5)}-${normalized.slice(5)}` : "";
+
+  return unique([value, normalized, formattedTenDigit]);
+}
+
+function normalizeRoomNumber(value: string) {
+  return value.replace(/[^0-9A-Za-z]/g, "").toLowerCase();
+}
+
+function inferFloor(roomNumber: string) {
+  const digits = roomNumber.replace(/[^0-9]/g, "");
+  return digits.length >= 3 ? `${digits.slice(0, -2)}F` : "";
+}
+
+function safeDocumentId(value: string, fallback: string) {
+  const normalized = value
+    .trim()
+    .replace(/[\\/#[\]?]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || fallback;
+}
+
+function getHeader(request: HttpRequestLike, name: string) {
+  return request.get?.(name) ?? request.get?.(name.toLowerCase()) ?? "";
+}
+
+function setCorsHeaders(response: HttpResponseLike) {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-A5-Client, X-A5-Beta-Room-Sync",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "3600",
+  };
+  const withHeaders = response as ResponseWithHeaders;
+
+  if (typeof withHeaders.set === "function") {
+    withHeaders.set(headers);
+    return;
+  }
+
+  if (typeof withHeaders.header === "function") {
+    withHeaders.header(headers);
+  }
+}
+
+async function authorizeRoomSync(request: HttpRequestLike, nurseryId: string) {
+  const authorization = getHeader(request, "authorization");
+  const token = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
+
+  if (token) {
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(token);
+      const role = String(decoded.role ?? "");
+      const tokenNurseryId = String(decoded.nursery_id ?? decoded.nurseryId ?? "");
+      const seedAdmin = decoded.seed_admin === true;
+
+      if (role === "SUPER_ADMIN" || role === "seed_admin" || seedAdmin) {
+        return { ok: true as const, actor: role || "seed_admin" };
+      }
+
+      if (role === "NURSERY_ADMIN" && tokenNurseryId === nurseryId) {
+        return { ok: true as const, actor: role };
+      }
+    } catch {
+      return { ok: false as const, reason: "Firebase ID token verification failed." };
+    }
+  }
+
+  const betaEnabled = process.env.A5_ALLOW_BETA_ROOM_SYNC === "true";
+  const betaHeader = getHeader(request, "x-a5-beta-room-sync");
+
+  if (betaEnabled && betaHeader === "enabled") {
+    return { ok: true as const, actor: "beta_nursery_admin" };
+  }
+
+  return {
+    ok: false as const,
+    reason: "Room sync requires SUPER_ADMIN/NURSERY_ADMIN Firebase claims or A5_ALLOW_BETA_ROOM_SYNC=true.",
+  };
+}
+
+async function readA5NurseryProfile(targetDb: Firestore, nurseryId: string) {
+  const snapshot = await targetDb.collection("nurseries").doc(nurseryId).get();
+  const data = snapshot.exists ? snapshot.data() ?? {} : {};
+  const businessRegistrationNo = fieldString(
+    data,
+    "business_registration_no",
+    "businessRegistrationNo",
+    "business_no",
+    "businessNo",
+  );
+  const externalNurseryId = fieldString(
+    data,
+    "a4_external_nursery_id",
+    "external_nursery_id",
+    "externalNurseryId",
+    "a4NurseryId",
+  );
+
+  return { businessRegistrationNo, externalNurseryId };
+}
+
+function sourceQuery(sourceDb: Firestore, collectionPath: string, collectionGroupName?: string): Query {
+  return collectionGroupName ? sourceDb.collectionGroup(collectionGroupName) : sourceDb.collection(collectionPath);
+}
+
+function sourceNurseryCollections() {
+  return splitConfigList(process.env.A4_NURSERIES_COLLECTION_PATHS ?? process.env.A4_NURSERIES_COLLECTION_PATH, [
+    "nurseries",
+    "signage_partners",
+    "partners",
+    "companies",
+  ]);
+}
+
+function sourceRoomCollections() {
+  return splitConfigList(process.env.A4_ROOMS_COLLECTION_PATHS ?? process.env.A4_ROOMS_COLLECTION_PATH, ["rooms"]);
+}
+
+function mapSourceNursery(doc: QueryDocumentSnapshot, matchedBusinessField: string, businessRegistrationNo: string) {
+  const data = doc.data();
+  const idFields = unique(nurseryIdFields);
+  const externalNurseryId = fieldString(data, ...idFields) || doc.id;
+  const sourceBusinessNo =
+    fieldString(data, ...unique(businessNoFields)) || businessNoCandidates(businessRegistrationNo)[0] || businessRegistrationNo;
+
+  return {
+    externalNurseryId,
+    businessRegistrationNo: sourceBusinessNo,
+    sourceNurseryPath: doc.ref.path,
+    matchedBusinessField,
+  } satisfies SourceNurseryMatch;
+}
+
+async function findSourceNurseryByBusinessNo(
+  sourceDb: Firestore,
+  businessRegistrationNo: string,
+): Promise<SourceNurseryMatch | null> {
+  const fields = unique(businessNoFields);
+  const candidates = businessNoCandidates(businessRegistrationNo);
+  const collectionGroupName = process.env.A4_NURSERIES_COLLECTION_GROUP?.trim();
+  const collectionPaths = collectionGroupName ? [""] : sourceNurseryCollections();
+
+  for (const collectionPath of collectionPaths) {
+    for (const field of fields) {
+      for (const candidate of candidates) {
+        const snapshot = await sourceQuery(sourceDb, collectionPath, collectionGroupName).where(field, "==", candidate).limit(1).get();
+
+        if (!snapshot.empty) {
+          return mapSourceNursery(snapshot.docs[0], field, businessRegistrationNo);
+        }
+      }
+    }
+  }
+
+  const scanLimit = Number(process.env.A4_NURSERIES_SCAN_LIMIT ?? 300);
+  for (const collectionPath of collectionPaths) {
+    const snapshot = await sourceQuery(sourceDb, collectionPath, collectionGroupName).limit(scanLimit).get();
+    const matchedDoc = snapshot.docs.find((doc) => {
+      const data = doc.data();
+      return fields.some((field) => normalizeBusinessRegistrationNo(fieldString(data, field)) === normalizeBusinessRegistrationNo(businessRegistrationNo));
+    });
+
+    if (matchedDoc) {
+      const matchedField = fields.find(
+        (field) => normalizeBusinessRegistrationNo(fieldString(matchedDoc.data(), field)) === normalizeBusinessRegistrationNo(businessRegistrationNo),
+      );
+      return mapSourceNursery(matchedDoc, matchedField ?? "scan", businessRegistrationNo);
+    }
+  }
+
+  return null;
+}
+
+function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
+  const data = doc.data();
+  const externalRoomId = fieldString(data, "external_room_id", "externalRoomId", "room_id", "roomId") || doc.id;
+  const roomNumber =
+    fieldString(data, "room_number", "roomNumber", "room_no", "roomNo", "number", "name", "label", "title") || doc.id;
+
+  if (!externalRoomId || !roomNumber) {
+    return null;
+  }
+
+  const fallbackTargetId = `room-${normalizeRoomNumber(roomNumber) || safeDocumentId(externalRoomId, doc.id)}`;
+  const targetRoomId = safeDocumentId(fieldString(data, "a5_room_id", "target_room_id", "targetRoomId"), fallbackTargetId);
+  const name = fieldString(data, "name", "room_name", "roomName", "label", "title") || roomNumber;
+  const floor = fieldString(data, "floor", "floor_name", "floorName") || inferFloor(roomNumber);
+  const externalTabletId = fieldString(data, "external_tablet_id", "externalTabletId", "tablet_id", "tabletId");
+  const activeTabletId = fieldString(data, "a5_tablet_id", "active_tablet_id", "activeTabletId");
+
+  return {
+    externalRoomId,
+    targetRoomId,
+    roomNumber,
+    name,
+    floor,
+    pickupEnabled: fieldBoolean(data, true),
+    activeTabletId: activeTabletId || undefined,
+    externalTabletId: externalTabletId || undefined,
+  };
+}
+
+async function queryRoomsByField(
+  sourceDb: Firestore,
+  collectionPath: string,
+  collectionGroupName: string | undefined,
+  field: string,
+  candidates: string[],
+): Promise<QueryDocumentSnapshot[]> {
+  for (const candidate of candidates) {
+    const snapshot = await sourceQuery(sourceDb, collectionPath, collectionGroupName).where(field, "==", candidate).get();
+
+    if (!snapshot.empty) {
+      return snapshot.docs;
+    }
+  }
+
+  return [];
+}
+
+async function scanRoomsByBusinessNo(
+  sourceDb: Firestore,
+  collectionPath: string,
+  collectionGroupName: string | undefined,
+  businessRegistrationNo: string,
+) {
+  const fields = unique(businessNoFields);
+  const scanLimit = Number(process.env.A4_ROOMS_SCAN_LIMIT ?? 500);
+  const snapshot = await sourceQuery(sourceDb, collectionPath, collectionGroupName).limit(scanLimit).get();
+  const normalized = normalizeBusinessRegistrationNo(businessRegistrationNo);
+
+  return snapshot.docs.filter((doc) => {
+    const data = doc.data();
+    return fields.some((field) => normalizeBusinessRegistrationNo(fieldString(data, field)) === normalized);
+  });
+}
+
+async function readSourceRooms(
+  sourceDb: Firestore,
+  options: { externalNurseryId?: string; businessRegistrationNo: string },
+): Promise<SourceRoomRead> {
+  const collectionGroupName = process.env.A4_ROOMS_COLLECTION_GROUP?.trim();
+  const collectionPaths = collectionGroupName ? [""] : sourceRoomCollections();
+  const nurseryFields = unique(nurseryIdFields);
+  const businessFields = unique(businessNoFields);
+
+  for (const collectionPath of collectionPaths) {
+    if (options.externalNurseryId) {
+      const resolvedPath = collectionPath.replace(/\{externalNurseryId\}/g, options.externalNurseryId);
+
+      if (resolvedPath !== collectionPath) {
+        const snapshot = await sourceDb.collection(resolvedPath).get();
+
+        if (!snapshot.empty) {
+          return { sourcePath: resolvedPath, docs: snapshot.docs };
+        }
+      }
+
+      for (const field of nurseryFields) {
+        const docs = await queryRoomsByField(sourceDb, collectionPath, collectionGroupName, field, [options.externalNurseryId]);
+
+        if (docs.length > 0) {
+          return {
+            sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
+            sourceNurseryField: field,
+            docs,
+          };
+        }
+      }
+    }
+
+    for (const field of businessFields) {
+      const docs = await queryRoomsByField(sourceDb, collectionPath, collectionGroupName, field, businessNoCandidates(options.businessRegistrationNo));
+
+      if (docs.length > 0) {
+        return {
+          sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
+          sourceBusinessField: field,
+          docs,
+        };
+      }
+    }
+
+    const scannedDocs = await scanRoomsByBusinessNo(sourceDb, collectionPath, collectionGroupName, options.businessRegistrationNo);
+    if (scannedDocs.length > 0) {
+      return {
+        sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
+        sourceBusinessField: "scan",
+        docs: scannedDocs,
+      };
+    }
+  }
+
+  return { sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : sourceRoomCollections()[0], docs: [] };
+}
+
+function inferExternalNurseryIdFromRooms(docs: QueryDocumentSnapshot[]) {
+  const fields = unique(nurseryIdFields);
+
+  for (const doc of docs) {
+    const value = fieldString(doc.data(), ...fields);
+    if (value) return value;
+  }
+
+  return "";
+}
+
+async function readExistingA5Rooms(targetDb: Firestore, nurseryId: string) {
+  const snapshot = await targetDb.collection("rooms").where("nursery_id", "==", nurseryId).get();
+  const byId = new Set<string>();
+  const byNumber = new Map<string, string>();
+  const byExternalRoomId = new Map<string, string>();
+
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    byId.add(doc.id);
+
+    const numberKey = normalizeRoomNumber(fieldString(data, "room_number", "roomNumber", "name") || doc.id);
+    if (numberKey) byNumber.set(numberKey, doc.id);
+
+    const externalRoomId = fieldString(data, "external_room_id", "externalRoomId");
+    if (externalRoomId) byExternalRoomId.set(externalRoomId, doc.id);
+  });
+
+  return { byId, byNumber, byExternalRoomId };
+}
+
+export async function a4RoomsSyncHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
+  setCorsHeaders(response);
+
+  if (request.method === "OPTIONS") {
+    sendJson(response, 204, {});
+    return;
+  }
+
+  if (!requirePost(request, response)) return;
+
+  const body = readObjectBody<A4RoomsSyncRequest>(request);
+  const nurseryId = optionalString(body.nurseryId);
+
+  if (!nurseryId) {
+    sendJson(response, 400, {
+      ok: false,
+      error: {
+        code: "A4_ROOM_SYNC_INPUT_INVALID",
+        message: "nurseryId is required.",
+        httpStatus: 400,
+      },
+    });
+    return;
+  }
+
+  const authorization = await authorizeRoomSync(request, nurseryId);
+  if (!authorization.ok) {
+    sendJson(response, 403, {
+      ok: false,
+      error: {
+        code: "A4_ROOM_SYNC_PERMISSION_DENIED",
+        message: authorization.reason,
+        httpStatus: 403,
+      },
+    });
+    return;
+  }
+
+  const targetDb = getAdminDb();
+  const a5NurseryProfile = await readA5NurseryProfile(targetDb, nurseryId);
+  const businessRegistrationNo = optionalString(body.businessRegistrationNo) ?? a5NurseryProfile.businessRegistrationNo;
+
+  if (!normalizeBusinessRegistrationNo(businessRegistrationNo ?? "")) {
+    sendJson(response, 400, {
+      ok: false,
+      error: {
+        code: "A4_ROOM_SYNC_BUSINESS_NO_MISSING",
+        message: "businessRegistrationNo is required or must exist on the A5 nursery document.",
+        httpStatus: 400,
+      },
+    });
+    return;
+  }
+
+  const sourceDb = getAdminDbForProject("a4-readonly-source", sourceProjectId);
+  let sourceNursery: SourceNurseryMatch | null = null;
+  let sourceRead: SourceRoomRead;
+
+  try {
+    sourceNursery = await findSourceNurseryByBusinessNo(sourceDb, businessRegistrationNo);
+    sourceRead = await readSourceRooms(sourceDb, {
+      externalNurseryId: sourceNursery?.externalNurseryId ?? optionalString(body.externalNurseryId) ?? a5NurseryProfile.externalNurseryId,
+      businessRegistrationNo,
+    });
+  } catch (error) {
+    sendJson(response, 503, {
+      ok: false,
+      error: {
+        code: "A4_ROOM_SYNC_SOURCE_READ_FAILED",
+        message: error instanceof Error ? error.message : "Unknown signage-partner source read error.",
+        httpStatus: 503,
+      },
+    });
+    return;
+  }
+
+  if (!sourceNursery && sourceRead.docs.length === 0) {
+    sendJson(response, 404, {
+      ok: false,
+      error: {
+        code: "A4_ROOM_SYNC_BUSINESS_NO_NOT_FOUND",
+        message: "No signage-partner nursery or room matched the A5 nursery business registration number.",
+        httpStatus: 404,
+      },
+    });
+    return;
+  }
+
+  const selectedIds = new Set((body.selectedExternalRoomIds ?? []).map((id) => String(id).trim()).filter(Boolean));
+  const sourceRooms = sourceRead.docs
+    .map((doc) => mapSourceRoom(doc))
+    .filter((room): room is SourceRoom => Boolean(room))
+    .filter((room) => selectedIds.size === 0 || selectedIds.has(room.externalRoomId));
+  const missingSelected = [...selectedIds].filter((id) => !sourceRooms.some((room) => room.externalRoomId === id));
+  const existing = await readExistingA5Rooms(targetDb, nurseryId);
+  const imported: SourceRoom[] = [];
+  const skipped: SkippedRoom[] = missingSelected.map((externalRoomId) => ({
+    externalRoomId,
+    reason: "Selected signage-partner room was not found in the source project.",
+  }));
+  const batch = targetDb.batch();
+  const now = FieldValue.serverTimestamp();
+  const externalNurseryId =
+    sourceNursery?.externalNurseryId ||
+    inferExternalNurseryIdFromRooms(sourceRead.docs) ||
+    optionalString(body.externalNurseryId) ||
+    a5NurseryProfile.externalNurseryId ||
+    `business-${normalizeBusinessRegistrationNo(businessRegistrationNo)}`;
+
+  for (const room of sourceRooms) {
+    const numberKey = normalizeRoomNumber(room.roomNumber);
+    const externalMatch = existing.byExternalRoomId.get(room.externalRoomId);
+    const numberMatch = existing.byNumber.get(numberKey);
+    const idMatch = existing.byId.has(room.targetRoomId);
+
+    if (externalMatch) {
+      skipped.push({
+        externalRoomId: room.externalRoomId,
+        roomNumber: room.roomNumber,
+        reason: "Already imported into A5 by external_room_id.",
+        existingRoomId: externalMatch,
+      });
+      continue;
+    }
+
+    if (numberMatch) {
+      skipped.push({
+        externalRoomId: room.externalRoomId,
+        roomNumber: room.roomNumber,
+        reason: "A5 already has a room with the same room number.",
+        existingRoomId: numberMatch,
+      });
+      continue;
+    }
+
+    if (idMatch) {
+      skipped.push({
+        externalRoomId: room.externalRoomId,
+        roomNumber: room.roomNumber,
+        reason: "A5 already has a room document with the target id.",
+        existingRoomId: room.targetRoomId,
+      });
+      continue;
+    }
+
+    const docRef = targetDb.collection("rooms").doc(room.targetRoomId);
+    batch.set(docRef, {
+      room_id: room.targetRoomId,
+      nursery_id: nurseryId,
+      name: room.name,
+      room_number: room.roomNumber,
+      floor: room.floor,
+      pickup_enabled: room.pickupEnabled,
+      active_tablet_id: room.activeTabletId ?? null,
+      external_project_id: sourceProjectId,
+      external_nursery_id: externalNurseryId,
+      external_room_id: room.externalRoomId,
+      external_tablet_id: room.externalTabletId ?? null,
+      business_registration_no: businessRegistrationNo,
+      import_source: "SIGNAGE_PARTNER_BUSINESS_NO",
+      local_editable: true,
+      status: "active",
+      created_at: now,
+      imported_at: now,
+      updated_at: now,
+    });
+
+    imported.push(room);
+    existing.byId.add(room.targetRoomId);
+    existing.byNumber.set(numberKey, room.targetRoomId);
+    existing.byExternalRoomId.set(room.externalRoomId, room.targetRoomId);
+  }
+
+  if (imported.length > 0) {
+    await batch.commit();
+  }
+
+  sendJson(response, 200, {
+    ok: true,
+    mode: "firestore",
+    sourceProjectId,
+    sourcePath: sourceRead.sourcePath,
+    sourceNurseryPath: sourceNursery?.sourceNurseryPath,
+    sourceNurseryField: sourceRead.sourceNurseryField,
+    sourceBusinessField: sourceRead.sourceBusinessField ?? sourceNursery?.matchedBusinessField,
+    sourceReadCount: sourceRead.docs.length,
+    importedCount: imported.length,
+    skippedCount: skipped.length,
+    nurseryId,
+    externalNurseryId,
+    businessRegistrationNo,
+    imported,
+    skipped,
+    actor: authorization.actor,
+    message: "signage-partner rooms were matched by business registration number and imported into A5 rooms.",
+  });
+}

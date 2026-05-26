@@ -1,19 +1,25 @@
-import { initializeApp, getApps } from "firebase-admin/app";
+import { getApp, initializeApp, getApps, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-export function getAdminDb() {
-  if (getApps().length === 0) {
-    initializeApp();
+function getDefaultAdminApp(): App {
+  try {
+    return getApp();
+  } catch {
+    return initializeApp();
   }
+}
 
-  return getFirestore();
+export function getAdminDb() {
+  return getFirestore(getDefaultAdminApp());
 }
 
 export function getAdminAuth() {
-  if (getApps().length === 0) {
-    initializeApp();
-  }
+  return getAuth(getDefaultAdminApp());
+}
 
-  return getAuth();
+export function getAdminDbForProject(appName: string, projectId: string) {
+  const existing = getApps().find((app) => app.name === appName);
+  const app = existing ?? initializeApp({ projectId }, appName);
+  return getFirestore(app);
 }

@@ -965,3 +965,21 @@
 - `Firebase 상품` 데이터 소스 배지는 Firestore 상품 읽기 확인에 필요하므로 유지했다.
 - `reports/my-app/UIUX_CLUTTER_AUDIT.md`를 추가해 태블릿, 고객 QR, 관리자, 기업, 조리원 화면의 반복 배지, 개발자 진단 과노출, 첫 화면 카드 과밀 문제를 route 기준으로 정리했다.
 - 경계 유지: 실제 PG/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. secret/service account 변경 없음.
+
+## 2026-05-26 태블릿 홈 히어로 제거와 가격 분석 팝업
+
+- `/tablet` 첫 화면에서 상품몰 배너 위에 보이던 개발용 어두운 설명 박스를 화면에서 숨겼습니다.
+- 쇼핑몰 배너, 광고 배너, 브랜드 로고, 상품 카드가 참고 쇼핑몰처럼 바로 보이도록 태블릿 홈 노출 우선순위를 조정했습니다.
+- 상품 카드의 `AI 분석` 버튼은 이제 기업 어드민 등록 정상가, 비교 기준가, 폐쇄몰가를 비교하는 팝업을 엽니다.
+- 분석 팝업은 정상가 대비 할인율, 정상가 대비 절감액, 비교 기준가 대비 할인율과 절감액을 표시합니다.
+- 검증은 `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd --prefix functions run build`, `node scripts/check-routes.mjs` 모두 통과했습니다.
+- 실제 AI, 외부 최저가 API, PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출은 추가하지 않았습니다.
+
+## 2026-05-26 태블릿 로고 이동과 고스트 히스토리 버튼
+
+- 태블릿 상단 `HANSANYEON` 로고 링크를 `/tablet/products`에서 `/tablet`로 변경했다.
+- `components/tablet/FloatingHistoryButtons.tsx`를 추가해 화면 좌측 하단에 떠 있는 뒤로가기/앞으로가기 고스트 버튼을 제공한다.
+- 뒤로가기는 브라우저 히스토리가 있으면 `router.back()`, 없으면 `/tablet`로 이동한다.
+- 앞으로가기는 `window.history.forward()`를 사용한다.
+- `StoreShell`에 포함해 태블릿 쇼핑, 상품 상세, 장바구니, QR, 조르기, `/products` 공유 화면에서 동일하게 동작한다.
+- 경계 유지: 실제 PG/환불/정산, 알림톡, 배송조회, 외부 재고 API 호출 없음. secret/service account 변경 없음.

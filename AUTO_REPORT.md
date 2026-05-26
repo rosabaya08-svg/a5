@@ -749,3 +749,25 @@
 | 분석 문서 | `reports/my-app/UIUX_CLUTTER_AUDIT.md` 신규 작성 |
 | 분석 대상 | 태블릿/고객 QR/관리자/기업/조리원 주요 route의 반복 경고, 개발자 진단 과노출, 카드 과밀 문제 정리 |
 | Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |
+
+## 45. 2026-05-26 태블릿 홈 히어로 제거와 가격 분석 팝업
+
+| 항목 | 결과 |
+| --- | --- |
+| 상단 박스 정리 | `/tablet`과 공유 태블릿 화면에서 개발용 어두운 설명 박스를 화면에서 제거해 쇼핑몰 배너가 첫 화면의 중심이 되도록 정리 |
+| AI 분석 버튼 | 상품 카드의 `AI 분석` 클릭 시 기업 어드민 등록 정상가, 비교 기준가, 폐쇄몰가를 기준으로 할인율과 절감액을 보여주는 팝업 추가 |
+| 데이터 기준 | 실제 AI/외부 가격 API 호출 없이 Firestore 또는 fallback 상품의 `comparison` 가격 필드만 사용 |
+| 화면 이동 | 기존 상품 카드 이동, 태블릿 로고 `/tablet` 이동, 고스트 뒤로/앞으로 버튼 유지 |
+| 검증 | `npm.cmd run lint` 통과, `npm.cmd run build` 통과, `npm.cmd --prefix functions run build` 통과, `node scripts/check-routes.mjs` 통과 |
+| Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |
+
+## 44. 2026-05-26 태블릿 로고 이동과 고스트 히스토리 버튼
+
+| 항목 | 결과 |
+| --- | --- |
+| 로고 링크 | 태블릿 상단 `HANSANYEON` 로고 클릭 시 `/tablet` 메인으로 이동하도록 수정 |
+| 고스트 버튼 | `components/tablet/FloatingHistoryButtons.tsx` 추가 |
+| 위치 | 태블릿 화면 좌측 하단 고정, 반투명/글라스 스타일 |
+| 동작 | `←` 버튼은 브라우저 뒤로가기, 히스토리가 없으면 `/tablet`로 이동. `→` 버튼은 브라우저 앞으로가기 |
+| 적용 | `StoreShell`에 포함되어 `/tablet`, `/tablet/products`, `/tablet/products/[id]`, `/tablet/cart`, `/tablet/qr`, `/tablet/ask`, `/products` 공유 화면에 표시 |
+| Boundaries | 실제 PG, 환불, 정산, 알림톡, 배송조회, 외부 재고 API 호출 없음 |

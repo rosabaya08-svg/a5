@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AddToCartPanel, CartStatusBadge, LiveCartPage, LiveQrSessionPanel } from "@/components/storefront/LiveShopClient";
+import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
+import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletContextBadge, TabletFirstLoginGate } from "@/components/tablet/TabletAccessFlow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { MallProductProfile } from "@/data/mockShopContent";
@@ -226,7 +228,7 @@ function StoreShell({
       <TabletFirstLoginGate />
       <header className="sticky top-0 z-20 border-b border-white/20 bg-white/65 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/55">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-          <Link href="/tablet/products" className="flex items-center gap-3">
+          <Link href="/tablet" className="flex items-center gap-3" aria-label="태블릿 폐쇄몰 메인으로 이동">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
             <span>
               <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
@@ -246,7 +248,7 @@ function StoreShell({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
-        <section className="mb-5 overflow-hidden rounded-md border border-white/25 bg-white/70 text-slate-950 shadow-[0_18px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <section className="sr-only" aria-label="태블릿 화면 정보">
           <div className="bg-slate-950/85 px-4 py-4 text-white backdrop-blur-md md:px-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -267,6 +269,7 @@ function StoreShell({
           <FirestoreReadDiagnostic source={dataSource} reason={dataSourceNote} />
         </div>
       </div>
+      <FloatingHistoryButtons />
     </main>
   );
 }
@@ -434,7 +437,14 @@ function ProductCard({ product, source, content }: { product: Product; source?: 
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{fulfillmentLabel(product, content)}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${stock.className}`}>{stock.label}</span>
         </div>
-        <button className="rounded-md border border-rose-500 px-3 py-2 text-sm font-black text-rose-600">AI 분석</button>
+        <PriceAnalysisButton
+          productName={profile.displayName}
+          brand={profile.brand}
+          companyId={product.companyId}
+          listPrice={product.comparison.listPrice}
+          platformLowestPrice={product.comparison.platformLowestPrice}
+          closedMallPrice={product.comparison.closedMallPrice}
+        />
         <ProductDevPanel product={product} source={readSource} compact />
       </div>
     </Link>

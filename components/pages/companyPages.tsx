@@ -1,4 +1,9 @@
 import Link from "next/link";
+import {
+  CompanyExcelExportPanel,
+  type CompanyExcelOrderRow,
+  type CompanyExcelProductRow,
+} from "@/components/company/CompanyExcelExportPanel";
 import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
 import { DataTable } from "@/components/ui/DataTable";
@@ -55,6 +60,63 @@ function companyOrderItems() {
 function companyOrders() {
   const orderIds = new Set(companyOrderItems().map((item) => item.orderId));
   return mockApi.orders().filter((order) => orderIds.has(order.id));
+}
+
+function companyExcelOrderRows(): CompanyExcelOrderRow[] {
+  const productsByName = new Map(companyProducts().map((product) => [product.name, product]));
+  const ordersById = new Map(companyOrders().map((order) => [order.id, order]));
+
+  return companyOrderItems().map((item) => {
+    const order = ordersById.get(item.orderId);
+    const product = productsByName.get(item.productName);
+    const isPickup = order?.deliveryMethod === "pickup";
+
+    return {
+      orderNo: order?.orderNo ?? item.orderId,
+      orderedAt: order?.createdAt ?? "",
+      paidAt: order?.paidAt ?? "",
+      orderStatus: order?.status ?? "paid",
+      buyerName: order?.customerName ?? "",
+      buyerPhone: order?.customerPhoneMasked ?? "",
+      buyerEmail: "",
+      receiverName: order?.customerName ?? "",
+      receiverPhone: order?.customerPhoneMasked ?? "",
+      postalCode: "",
+      address: isPickup ? "조리원 현장수령" : "",
+      addressDetail: order?.roomId ?? "",
+      productCode: product?.externalProductCode ?? product?.id ?? item.id,
+      productName: item.productName,
+      optionName: item.optionName,
+      quantity: item.quantity,
+      salePrice: item.unitPrice,
+      productAmount: item.unitPrice * item.quantity,
+      shippingFee: 0,
+      totalPaidAmount: order?.totalAmount ?? item.unitPrice * item.quantity,
+      paymentMethod: "A5 결제",
+      carrier: isPickup ? "현장수령" : "",
+      invoiceNo: "",
+      deliveryMemo: isPickup ? "조리원 데스크 수령" : "",
+      companyId,
+      supplierName: "A5 테스트 기업",
+      settlementStatus: "입금 예정",
+    };
+  });
+}
+
+function companyExcelProductRows(): CompanyExcelProductRow[] {
+  return companyProducts().map((product) => ({
+    a5ProductCode: product.id,
+    sabangnetProductCode: product.externalProductCode ?? "",
+    productName: product.name,
+    optionName: product.optionIds.join(" / ") || "기본",
+    normalPrice: product.comparison.listPrice,
+    platformLowestPrice: product.comparison.platformLowestPrice,
+    closedMallPrice: product.price,
+    stock: product.stock,
+    status: product.status,
+    companyId,
+    supplierName: "A5 테스트 기업",
+  }));
 }
 
 export function CompanyIndexPage() {
@@ -218,6 +280,14 @@ export function CompanyOrdersPage() {
         }))}
         emptyMessage="배정된 주문 상품이 없습니다."
       />
+    </CompanyShell>
+  );
+}
+
+export function CompanyExcelIntegrationPage() {
+  return (
+    <CompanyShell title="사방넷 엑셀 다운로드" subtitle="API 연동 전 주문, 상품, 송장 양식을 엑셀 호환 CSV로 내려받습니다.">
+      <CompanyExcelExportPanel orderRows={companyExcelOrderRows()} productRows={companyExcelProductRows()} />
     </CompanyShell>
   );
 }

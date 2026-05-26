@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavItem } from "@/components/layout/navigation";
+import type { NavSection } from "@/components/layout/navigation";
 
-export type { NavItem } from "@/components/layout/navigation";
+export type { NavItem, NavSection } from "@/components/layout/navigation";
 
 type AdminSidebarProps = {
   title: string;
-  navItems: NavItem[];
+  navItems: NavSection[];
   accent?: "admin" | "company" | "nursery" | "tablet" | "guest";
   surface?: "light" | "dark";
 };
@@ -40,33 +40,42 @@ export function AdminSidebar({
         <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">A5 CLOSED MALL</p>
         <h1 className="mt-2 text-lg font-black">{title}</h1>
       </div>
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3" aria-label={`${title} 메뉴`}>
-        {navItems.map((item) => {
-          const active = isActivePath(pathname, item.href);
-          const linkTone = active
-            ? isDark
-              ? "bg-white text-slate-950 shadow-sm"
-              : "bg-slate-950 text-white shadow-sm"
-            : isDark
-              ? "text-slate-200 hover:bg-white/10 hover:text-white"
-              : "text-slate-700 hover:bg-slate-100 hover:text-slate-950";
+      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3" aria-label={`${title} 메뉴`}>
+        {navItems.map((section) => (
+          <section key={section.title}>
+            <p className={`px-3 pb-2 text-[11px] font-black uppercase tracking-[0.12em] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              {section.title}
+            </p>
+            <div className="flex flex-col gap-1">
+              {section.items.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                const linkTone = active
+                  ? isDark
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "bg-slate-950 text-white shadow-sm"
+                  : isDark
+                    ? "text-slate-200 hover:bg-white/10 hover:text-white"
+                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-950";
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              className={`flex min-h-11 items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-bold transition ${linkTone}`}
-            >
-              <span className="truncate">{item.label}</span>
-              {item.badge ? (
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${active ? "bg-white/15 text-inherit ring-1 ring-current/20" : "bg-slate-900 text-white"}`}>
-                  {item.badge}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-10 items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-bold transition ${linkTone}`}
+                  >
+                    <span className="truncate">{item.label}</span>
+                    {item.badge ? (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${active ? "bg-white/15 text-inherit ring-1 ring-current/20" : "bg-slate-900 text-white"}`}>
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </nav>
     </aside>
   );

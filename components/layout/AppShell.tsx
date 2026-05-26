@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { AdminSidebar, type NavItem } from "@/components/layout/AdminSidebar";
+import { AdminSidebar, type NavSection } from "@/components/layout/AdminSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
 type AppShellProps = {
@@ -8,7 +8,7 @@ type AppShellProps = {
   subtitle: string;
   sectionTitle: string;
   scopeLabel: string;
-  navItems: NavItem[];
+  navItems: NavSection[];
   accent?: "admin" | "company" | "nursery" | "tablet" | "guest";
   surface?: "light" | "dark";
   children: ReactNode;

@@ -1,13 +1,13 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
-import type { NavItem } from "@/components/layout/AdminSidebar";
+import type { NavSection } from "@/components/layout/AdminSidebar";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency } from "@/lib/utils/format";
 
-export const legacyAdminMarketingNav: NavItem[] = adminNavItems;
-export const legacyCompanyContentNav: NavItem[] = companyNavItems;
+export const legacyAdminMarketingNav: NavSection[] = adminNavItems;
+export const legacyCompanyContentNav: NavSection[] = companyNavItems;
 
 function AdminContentShell({
   title,
@@ -128,7 +128,7 @@ export async function CompanyProductPreviewPage() {
   const product = mockApi.products()[0];
 
   return (
-    <CompanyContentShell title="상품 상세 확인" subtitle="승인 요청 전 고객에게 보일 상품 상세 구성을 확인합니다.">
+    <CompanyContentShell title="상품 등록 미리보기" subtitle="승인 요청 전 고객에게 보일 상품 상세 구성을 확인합니다.">
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <p className="text-xs font-black text-emerald-700">{product.brand ?? "A5 Partner"}</p>
         <h2 className="mt-2 text-3xl font-black text-slate-950">{product.name}</h2>

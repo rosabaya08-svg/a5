@@ -59,6 +59,8 @@ const completedOrderSyncKeyBase = "a5-live-completed-order-sync";
 const qrPrefix = "a5-live-qr:";
 const orderPrefix = "a5-live-order:";
 const cartAddedEventName = "a5-cart-added";
+const defaultA5PublicOrigin = "https://mommy-a5.pages.dev";
+const configuredA5PublicOrigin = (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL || defaultA5PublicOrigin).replace(/\/$/, "");
 const memoryStore = new Map<string, string>();
 
 function readTabletScope() {
@@ -261,11 +263,20 @@ function itemQuantity(items: CartItemSnapshot[]) {
 
 function orderShareUrl(orderNo: string) {
   const path = `/orders/guest/live?orderNo=${encodeURIComponent(orderNo)}`;
-  return typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+  return `${resolveA5PublicOrigin(typeof window === "undefined" ? "" : window.location.origin)}${path}`;
 }
 
 function completedOrderShareMessage(orderNo: string) {
   return `주문내역 확인: ${orderNo}`;
+}
+
+function resolveA5PublicOrigin(origin: string) {
+  const normalizedOrigin = origin.replace(/\/$/, "");
+  if (normalizedOrigin.startsWith("http://localhost") || normalizedOrigin.startsWith("http://127.0.0.1")) {
+    return normalizedOrigin;
+  }
+
+  return configuredA5PublicOrigin || normalizedOrigin || defaultA5PublicOrigin;
 }
 
 function groupStatusLabel(group: CompanyPaymentGroup) {
@@ -803,7 +814,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
   const [session, setSession] = useState<QrPaymentSession>(() => readLastQrSession(fallbackSession));
   const [origin, setOrigin] = useState("");
   const sessionGroup = groupCartItemsByCompany(session.items, mockCompanies)[0];
-  const checkoutUrl = `${origin || "https://a5-closed-mall.pages.dev"}/q/live?code=${encodeURIComponent(session.shortCode)}`;
+  const checkoutUrl = `${resolveA5PublicOrigin(origin)}/q/live?code=${encodeURIComponent(session.shortCode)}`;
 
   useEffect(() => {
     const sync = () => setSession(readLastQrSession(fallbackSession));

@@ -239,7 +239,7 @@ const orderApiGuide = `# A5 주문내역 상세 실시간 연동 API
   "status": "PAYMENT_COMPLETED",
   "paymentStatus": "APPROVED",
   "deliveryMethod": "pickup",
-  "guestOrderUrl": "https://a5-closed-mall.pages.dev/orders/guest/live?orderNo=A5-20260519-001",
+  "guestOrderUrl": "https://mommy-a5.pages.dev/orders/guest/live?orderNo=A5-20260519-001",
   "shareMessage": "주문내역 확인: A5-20260519-001",
   "tabletSafeSummary": {
     "orderNo": "A5-20260519-001",

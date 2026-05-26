@@ -17,6 +17,8 @@ import {
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getQrTransactionPlan } from "../utils/firestoreTransaction";
 
+const defaultA5PublicOrigin = "https://mommy-a5.pages.dev";
+
 export type QrSessionValidationInput = {
   qrSessionId: string;
   status?: "active" | "paid" | "expired" | "cancelled";
@@ -534,11 +536,15 @@ function readClientAmount(body: Partial<QrCreateRequest>): number | undefined {
 }
 
 function buildCustomerUrl(request: HttpRequestLike, path: string): string {
-  const base =
-    (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL ?? process.env.A5_PUBLIC_BASE_URL ?? "").replace(/\/$/, "") ||
-    inferOriginFromRequest(request);
+  const configuredBase = (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL || process.env.A5_PUBLIC_BASE_URL || "").replace(/\/$/, "");
+  const inferredBase = inferOriginFromRequest(request);
+  const base = configuredBase || (isLocalOrigin(inferredBase) ? inferredBase : defaultA5PublicOrigin) || inferredBase;
 
   return base ? `${base}${path}` : path;
+}
+
+function isLocalOrigin(origin: string): boolean {
+  return origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
 }
 
 function inferOriginFromRequest(request: HttpRequestLike): string {

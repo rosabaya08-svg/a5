@@ -50,6 +50,9 @@ export type ProviderConfirmInput = {
   merchantSerialNo?: string;
   moduleKey?: string;
   terminalId?: string;
+  secretKey?: string;
+  merchantPassword?: string;
+  signKey?: string;
   secretKeyRef?: string;
   merchantPasswordRef?: string;
   signKeyRef?: string;
@@ -203,7 +206,7 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
     runtimeConfig.confirmUrl ||
     readEnv("INFINY_CONFIRM_URL") ||
     joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/confirm");
-  const secretKey = readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
+  const secretKey = input.secretKey || readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
 
   if (!endpoint) {
     return blocked("confirmPayment", "INFINY_CONFIRM_URL or INFINY_API_BASE_URL is missing. No PG API was called.");
@@ -238,6 +241,8 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
       merchantPasswordRef: input.merchantPasswordRef ?? null,
       signKeyRef: input.signKeyRef ?? null,
     },
+    merchantPassword: input.merchantPassword ? "__server_supplied__" : null,
+    signKey: input.signKey ? "__server_supplied__" : null,
     paymentKey: input.providerPaymentKey ?? null,
     transactionId: input.transactionId ?? null,
   };
@@ -255,6 +260,8 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
         "X-A5-Merchant-Serial-No": input.merchantSerialNo,
         "X-A5-Module-Key": input.moduleKey,
         "X-A5-Terminal-Id": input.terminalId ?? "",
+        "X-A5-Merchant-Password": input.merchantPassword ?? "",
+        "X-A5-Sign-Key": input.signKey ?? "",
       },
       body: JSON.stringify(requestBody),
     });

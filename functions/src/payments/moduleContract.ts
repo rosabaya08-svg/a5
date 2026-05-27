@@ -136,10 +136,10 @@ export const companyMerchantKeyContract = {
     "pg_merchant_id or infiny_mid",
     "merchant_serial_no from company_pg_credentials/{companyId}",
     "pg_module_key or infiny_module_key",
-    "secret_key_ref from company_pg_credentials/{companyId}",
-    "merchant_password_ref from company_pg_credentials/{companyId}",
-    "sign_key_ref from company_pg_credentials/{companyId}",
-    "webhook_secret_ref from company_pg_credentials/{companyId}",
+    "secret_key_ref or encrypted_secret_key from company_pg_credentials/{companyId}",
+    "merchant_password_ref or encrypted_merchant_password from company_pg_credentials/{companyId}",
+    "sign_key_ref or encrypted_sign_key from company_pg_credentials/{companyId}",
+    "webhook_secret_ref or encrypted_webhook_secret from company_pg_credentials/{companyId}",
     "pg_merchant_status = active",
   ],
   optionalFields: ["pg_profile", "pg_channel_key", "infiny_mid_status"],
@@ -147,7 +147,7 @@ export const companyMerchantKeyContract = {
 };
 
 export const firebasePaymentRuntimeKeys = {
-  functionsSecrets: ["PG_SECRET_KEY", "PG_WEBHOOK_SECRET"],
+  functionsSecrets: ["PG_SECRET_KEY", "PG_WEBHOOK_SECRET", "PG_CREDENTIAL_ENCRYPTION_KEY"],
   functionsEnv: [
     "PG_PROVIDER",
     "PG_ENVIRONMENT",
@@ -187,6 +187,7 @@ export function getFirebasePaymentModuleContract(readiness: PgServerReadiness) {
       "Super admin enters approved company MID/module key values; company admin only confirms masked values and status.",
       "One QR/payment intent is limited to one company MID. Split carts by company before payment.",
       "All amount, stock, order, payment, webhook, and cancel ledger writes stay inside Firebase Functions Admin SDK.",
+      "Company PG passwords/signKeys can be stored only as Secret Manager references or AES-GCM encrypted Firestore vault payloads.",
       "Customer/tablet order lookups must expose completed order status only through token/date limited views.",
     ],
   };

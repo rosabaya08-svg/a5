@@ -1,4 +1,5 @@
 import { sendJson, type HttpRequestLike, type HttpResponseLike } from "./types";
+import { canUseCredentialVault } from "./credentialCrypto";
 import { getProviderAdapterSlot } from "./providerAdapter";
 import { getFirebasePaymentModuleContract } from "./moduleContract";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
@@ -22,6 +23,7 @@ const serverKeys = [
   "PG_PROVIDER",
   "PG_ENVIRONMENT",
   "PG_SECRET_KEY",
+  "PG_CREDENTIAL_ENCRYPTION_KEY",
   "PG_MERCHANT_ID",
   "PG_CHANNEL_KEY",
   "PG_WEBHOOK_SECRET",
@@ -65,6 +67,7 @@ export async function paymentsDiagnosticsHandler(request: HttpRequestLike, respo
     publicKeyPresence: presence(publicKeys),
     serverKeyPresence: presence(serverKeys),
     realPgCanBeCalled: readiness.readyForAdapter,
+    credentialVaultReady: canUseCredentialVault(),
     adapterSlot: getProviderAdapterSlot(readiness.provider),
     paymentModuleContract: contract,
     handoff: getPgAdapterHandoffPlan(),

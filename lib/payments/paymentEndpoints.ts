@@ -26,10 +26,14 @@ function trimSlash(value: string) {
 }
 
 export function getPaymentFunctionsBaseUrl() {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim() || "";
+  const inferredFirebaseFunctionsUrl = projectId ? `https://asia-northeast3-${projectId}.cloudfunctions.net` : "";
+
   return trimSlash(
     process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL?.trim() ||
       process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL?.trim() ||
       process.env.NEXT_PUBLIC_A5_BACKEND_URL?.trim() ||
+      inferredFirebaseFunctionsUrl ||
       "",
   );
 }
@@ -56,6 +60,6 @@ export function getPaymentEndpointReadiness() {
       adminPgConnectionTest: getPaymentFunctionUrl("adminPgConnectionTest"),
       adminPgActivation: getPaymentFunctionUrl("adminPgActivation"),
     },
-    missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL"],
+    missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL or NEXT_PUBLIC_FIREBASE_PROJECT_ID"],
   };
 }

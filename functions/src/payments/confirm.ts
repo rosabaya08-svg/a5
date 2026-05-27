@@ -7,6 +7,7 @@ import { validateFirestoreQrSession } from "../qr/validateQrSession";
 import { assertAmount } from "../utils/assertAmount";
 import { appendAuditLogSkeleton, createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPaymentConfirmTransactionPlan } from "../utils/firestoreTransaction";
+import { decryptCredential } from "./credentialCrypto";
 import { confirmPaymentWithConfiguredProvider } from "./providerAdapter";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
 import {
@@ -545,7 +546,15 @@ type ConfirmPreflightResult = {
   pricedItems: ServerPricedItem[];
   recalculatedAmount: number;
   merchantProfile: CompanyMerchantProfile;
+  serverCredentials: PgServerCredentials;
   approval: PgApproval;
+};
+
+type PgServerCredentials = {
+  secretKey?: string;
+  merchantPassword?: string;
+  signKey?: string;
+  webhookSecret?: string;
 };
 
 async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<ConfirmPreflightResult> {
@@ -654,6 +663,9 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     throw new Error(`AMOUNT_MISMATCH:${JSON.stringify(amountAssertion.error.details ?? {})}`);
   }
 
+  const credentialSnapshot = await db.collection("company_pg_credentials").doc(companyId).get();
+  const serverCredentials = readServerCredentials(credentialSnapshot.data() ?? {});
+
   await db.runTransaction(async (transaction) => {
     const currentIntent = await transaction.get(intentRef);
     const currentPayment = await transaction.get(paymentRef);
@@ -686,6 +698,9 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     merchantSerialNo,
     moduleKey,
     terminalId,
+    secretKey: serverCredentials.secretKey,
+    merchantPassword: serverCredentials.merchantPassword,
+    signKey: serverCredentials.signKey,
     secretKeyRef: merchantProfile.secretKeyRef,
     merchantPasswordRef: merchantProfile.merchantPasswordRef,
     signKeyRef: merchantProfile.signKeyRef,
@@ -702,7 +717,17 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     pricedItems,
     recalculatedAmount,
     merchantProfile,
+    serverCredentials,
     approval: providerResult.approval,
+  };
+}
+
+function readServerCredentials(data: Record<string, unknown>): PgServerCredentials {
+  return {
+    secretKey: decryptCredential(data.encrypted_secret_key),
+    merchantPassword: decryptCredential(data.encrypted_merchant_password),
+    signKey: decryptCredential(data.encrypted_sign_key),
+    webhookSecret: decryptCredential(data.encrypted_webhook_secret),
   };
 }
 

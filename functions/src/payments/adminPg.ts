@@ -1,6 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "../firebaseAdmin";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
+import { canUseCredentialVault, encryptCredential, type EncryptedCredential } from "./credentialCrypto";
 import { getPgServerReadiness } from "./providerRuntime";
 import {
   readObjectBody,
@@ -26,6 +27,10 @@ type AdminPgCredentialRequest = {
   merchantPasswordRef?: string;
   signKeyRef?: string;
   webhookSecretRef?: string;
+  secretKey?: string;
+  merchantPassword?: string;
+  signKey?: string;
+  webhookSecret?: string;
   status?: CompanyMerchantProfile["merchantStatus"];
 };
 
@@ -66,10 +71,36 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
   const merchantPasswordRef = text(body.merchantPasswordRef);
   const signKeyRef = text(body.signKeyRef);
   const webhookSecretRef = text(body.webhookSecretRef);
+  let encryptedSecretKey: EncryptedCredential | undefined;
+  let encryptedMerchantPassword: EncryptedCredential | undefined;
+  let encryptedSignKey: EncryptedCredential | undefined;
+  let encryptedWebhookSecret: EncryptedCredential | undefined;
+
+  try {
+    encryptedSecretKey = encryptCredential(body.secretKey);
+    encryptedMerchantPassword = encryptCredential(body.merchantPassword);
+    encryptedSignKey = encryptCredential(body.signKey);
+    encryptedWebhookSecret = encryptCredential(body.webhookSecret);
+  } catch (error) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "ADMIN_PG_CREDENTIAL_VAULT_REQUIRED",
+        message: error instanceof Error ? error.message : "PG credential encryption key is required.",
+        httpStatus: 409,
+      },
+    });
+    return;
+  }
+
+  const hasSecretKey = Boolean(encryptedSecretKey || secretKeyRef);
+  const hasMerchantPassword = Boolean(encryptedMerchantPassword || merchantPasswordRef);
+  const hasSignKey = Boolean(encryptedSignKey || signKeyRef);
+  const hasWebhookSecret = Boolean(encryptedWebhookSecret || webhookSecretRef);
   const requestedStatus = allowedStatuses.includes(body.status as CompanyMerchantProfile["merchantStatus"])
     ? (body.status as CompanyMerchantProfile["merchantStatus"])
     : "mid_issued";
-  const credentialReady = Boolean(merchantId && merchantSerialNo && moduleKey && secretKeyRef && merchantPasswordRef && signKeyRef && webhookSecretRef);
+  const credentialReady = Boolean(merchantId && merchantSerialNo && moduleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
   const status = requestedStatus === "active" && !credentialReady ? "mid_issued" : requestedStatus;
   const credentialDoc = {
     company_id: companyId,
@@ -87,17 +118,25 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
     terminal_id_masked: maskValue(terminalId, "터미널 대기"),
     secret_key_ref: secretKeyRef || null,
     secret_key_ref_masked: maskValue(secretKeyRef, "Secret 참조 대기"),
+    encrypted_secret_key: encryptedSecretKey ?? null,
     merchant_password_ref: merchantPasswordRef || null,
     merchant_password_ref_masked: maskValue(merchantPasswordRef, "비밀번호 참조 대기"),
+    encrypted_merchant_password: encryptedMerchantPassword ?? null,
     sign_key_ref: signKeyRef || null,
     sign_key_ref_masked: maskValue(signKeyRef, "SignKey 참조 대기"),
+    encrypted_sign_key: encryptedSignKey ?? null,
     webhook_secret_ref: webhookSecretRef || null,
     webhook_secret_ref_masked: maskValue(webhookSecretRef, "Webhook Secret 참조 대기"),
+    encrypted_webhook_secret: encryptedWebhookSecret ?? null,
     credential_ready: credentialReady,
     credential_status: status,
     status,
     raw_secret_stored: false,
-    secret_storage_policy: "secret_manager_reference_only",
+    encrypted_secret_stored: Boolean(encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret),
+    secret_storage_policy: encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret
+      ? "firebase_functions_encrypted_firestore_vault"
+      : "secret_manager_reference_only",
+    vault_ready: canUseCredentialVault(),
     updated_at: FieldValue.serverTimestamp(),
   };
 
@@ -132,6 +171,7 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
           signKeyRefMasked: maskValue(signKeyRef, "SignKey 참조 대기"),
           webhookSecretRefMasked: maskValue(webhookSecretRef, "Webhook Secret 참조 대기"),
           credentialRefsStored: Boolean(secretKeyRef || merchantPasswordRef || signKeyRef || webhookSecretRef),
+          encryptedCredentialStored: Boolean(encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret),
           merchantStatus: status,
           credentialReady,
           adminManaged: true,
@@ -148,7 +188,7 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
       action: "admin_pg_credential_save",
       targetType: "company_pg_credentials",
       targetId: companyId,
-      after: credentialDoc,
+      after: redactCredentialDocument(credentialDoc),
       createdAt: now,
       created_at: now,
       updated_at: FieldValue.serverTimestamp(),
@@ -198,10 +238,10 @@ export async function adminPgConnectionTestHandler(request: HttpRequestLike, res
     !text(credential.mid ?? credential.merchant_id) ? "company MID" : "",
     !text(credential.merchant_serial_no) ? "merchant serial number" : "",
     !text(credential.module_key) ? "module key" : "",
-    !text(credential.secret_key_ref) ? "secret key reference" : "",
-    !text(credential.merchant_password_ref) ? "merchant password reference" : "",
-    !text(credential.sign_key_ref) ? "sign key reference" : "",
-    !text(credential.webhook_secret_ref) ? "webhook secret reference" : "",
+    !hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) ? "secret key" : "",
+    !hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) ? "merchant password" : "",
+    !hasCredential(credential.encrypted_sign_key, credential.sign_key_ref) ? "sign key" : "",
+    !hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref) ? "webhook secret" : "",
   ].filter(Boolean);
   const ready = blockers.length === 0;
 
@@ -244,10 +284,10 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
     text(credential.mid ?? credential.merchant_id) &&
       text(credential.merchant_serial_no) &&
       text(credential.module_key) &&
-      text(credential.secret_key_ref) &&
-      text(credential.merchant_password_ref) &&
-      text(credential.sign_key_ref) &&
-      text(credential.webhook_secret_ref),
+      hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) &&
+      hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) &&
+      hasCredential(credential.encrypted_sign_key, credential.sign_key_ref) &&
+      hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref),
   );
 
   if (action === "activate" && !canActivate) {
@@ -287,6 +327,29 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
 
 function text(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function hasCredential(encrypted: unknown, reference: unknown): boolean {
+  return Boolean(isEncryptedCredentialShape(encrypted) || text(reference));
+}
+
+function isEncryptedCredentialShape(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as { version?: unknown; iv?: unknown; authTag?: unknown; ciphertext?: unknown };
+  return candidate.version === "aes-256-gcm:v1" &&
+    typeof candidate.iv === "string" &&
+    typeof candidate.authTag === "string" &&
+    typeof candidate.ciphertext === "string";
+}
+
+function redactCredentialDocument<T extends Record<string, unknown>>(document: T): Record<string, unknown> {
+  const redacted: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(document)) {
+    redacted[key] = key.startsWith("encrypted_") && isEncryptedCredentialShape(value) ? "[encrypted]" : value;
+  }
+
+  return redacted;
 }
 
 async function requireSuperAdmin(request: HttpRequestLike, response: HttpResponseLike): Promise<boolean> {

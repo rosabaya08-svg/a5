@@ -119,14 +119,20 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const companyId = [...companyIds][0] ?? "";
   const pgReadiness = getPgServerReadiness();
   const merchantProfile = await readCompanyMerchantProfile(companyId);
-  const resolvedProvider: PaymentProviderId = pgReadiness.provider === "mock" ? "mock" : merchantProfile.provider;
+  const resolvedProvider: PaymentProviderId = merchantProfile.paymentReady
+    ? merchantProfile.provider
+    : pgReadiness.provider === "mock"
+      ? "mock"
+      : merchantProfile.provider;
+  const realPgRequested = resolvedProvider !== "mock";
+  const firestoreRuntimeReady = await hasFirestorePgRuntimeEndpoint();
 
-  if (pgReadiness.provider !== "mock" && !pgReadiness.readyForAdapter) {
+  if (realPgRequested && !firestoreRuntimeReady && !pgReadiness.confirmUrl && !pgReadiness.apiBaseUrl) {
     sendJson(response, 409, {
       ok: false,
       error: {
         code: "PAYMENT_READY_SERVER_KEYS_REQUIRED",
-        message: "PG server keys or Infiny endpoint config are missing. Fill Functions secrets/config before real payment.",
+        message: "Infiny endpoint config is missing. Fill Firebase PG provider settings before real payment.",
         httpStatus: 409,
         details: {
           provider: pgReadiness.provider,
@@ -137,7 +143,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     return;
   }
 
-  if (pgReadiness.provider !== "mock" && !merchantProfile.paymentReady) {
+  if (realPgRequested && !merchantProfile.paymentReady) {
     sendJson(response, 409, {
       ok: false,
       error: {
@@ -218,7 +224,8 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           webhook_secret_ref: merchantProfile.webhookSecretRef ?? null,
           merchant_status: merchantProfile.merchantStatus,
           merchant_payment_ready: merchantProfile.paymentReady,
-          pg_ready: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
+          pg_ready: realPgRequested ? merchantProfile.paymentReady && (firestoreRuntimeReady || pgReadiness.readyForAdapter) : pgReadiness.readyForAdapter,
+          pg_runtime_ready: firestoreRuntimeReady || pgReadiness.readyForAdapter,
           source: resolvedProvider === "mock" ? "firebase_functions_mock_ready" : "firebase_functions_pg_ready",
           demo_read_enabled: true,
           guest_lookup_enabled: true,
@@ -257,7 +264,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const result: PaymentReadyResponse = {
     ok: true,
     provider: resolvedProvider,
-    pgReady: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
+    pgReady: realPgRequested ? merchantProfile.paymentReady && (firestoreRuntimeReady || pgReadiness.readyForAdapter) : pgReadiness.readyForAdapter,
     pgReadiness,
     paymentIntentId: paymentIntent.id,
     orderNoCandidate: paymentIntent.orderNoCandidate,
@@ -337,6 +344,10 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
   );
   const signKeyRef = optionalString(data.sign_key_ref ?? data.signKeyRef ?? pgProfile.signKeyRef);
   const webhookSecretRef = optionalString(data.webhook_secret_ref ?? data.webhookSecretRef ?? pgProfile.webhookSecretRef);
+  const hasSecretKey = Boolean(secretKeyRef || hasEncryptedCredential(data.encrypted_secret_key));
+  const hasMerchantPassword = Boolean(merchantPasswordRef || hasEncryptedCredential(data.encrypted_merchant_password));
+  const hasSignKey = Boolean(signKeyRef || hasEncryptedCredential(data.encrypted_sign_key));
+  const hasWebhookSecret = Boolean(webhookSecretRef || hasEncryptedCredential(data.encrypted_webhook_secret));
   const merchantStatus = asMerchantStatus(
     data.credential_status ?? data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus ?? pgProfile.merchantStatus,
   );
@@ -358,7 +369,7 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
     signKeyRef,
     webhookSecretRef,
     merchantStatus,
-    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && secretKeyRef && merchantPasswordRef && signKeyRef && webhookSecretRef && merchantStatus === "active"),
+    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret && merchantStatus === "active"),
   };
 }
 
@@ -391,6 +402,30 @@ function optionalString(value: unknown): string | undefined {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function hasEncryptedCredential(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as { version?: unknown; iv?: unknown; authTag?: unknown; ciphertext?: unknown };
+  return candidate.version === "aes-256-gcm:v1" &&
+    typeof candidate.iv === "string" &&
+    typeof candidate.authTag === "string" &&
+    typeof candidate.ciphertext === "string";
+}
+
+async function hasFirestorePgRuntimeEndpoint(): Promise<boolean> {
+  try {
+    const db = getAdminDb();
+    const providerSnapshot = await db.collection("pg_provider_settings").doc("infiny").get();
+    const legacySnapshot = await db.collection("pg_gateway_settings").doc("infiny-pg-runtime").get();
+    const providerData = providerSnapshot.data() ?? {};
+    const legacyData = legacySnapshot.data() ?? {};
+    const data = { ...legacyData, ...providerData };
+
+    return Boolean(optionalString(data.confirm_url ?? data.confirmUrl) || optionalString(data.api_base_url ?? data.apiBaseUrl));
+  } catch {
+    return false;
+  }
 }
 
 async function readServerPricedItems(items: CartItemInput[]): Promise<ServerPricedItem[]> {

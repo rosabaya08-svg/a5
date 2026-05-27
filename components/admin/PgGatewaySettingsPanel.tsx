@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { mockCompanies } from "@/data/mockCompanies";
 import { saveCmsRecord, type CmsCollectionName } from "@/lib/firebase/contentRepository";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuthClient, getFirebaseDb } from "@/lib/firebase/client";
+import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import {
   buildPgEnvTemplate,
   defaultInfinyPgRuntimeConfig,
@@ -74,6 +75,15 @@ type SaveState = {
   status: "idle" | "saving" | "saved" | "error";
   message: string;
 };
+
+type MerchantSecretInputs = {
+  secretKey: string;
+  merchantPassword: string;
+  signKey: string;
+  webhookSecret: string;
+};
+
+type MerchantSecretState = Record<string, MerchantSecretInputs>;
 
 function initialMerchantRows(): InfinyMerchantConfig[] {
   return mockCompanies.map((company) => normalizeMerchantRow({
@@ -146,12 +156,38 @@ function maskSecretRef(value: string) {
   return `${text.slice(0, 6)}****${text.slice(-4)}`;
 }
 
+function emptyMerchantSecrets(): MerchantSecretInputs {
+  return { secretKey: "", merchantPassword: "", signKey: "", webhookSecret: "" };
+}
+
+async function postAdminPaymentFunction(url: string, payload: Record<string, unknown>) {
+  if (!url) throw new Error("Firebase Functions 결제 모듈 URL이 설정되지 않았습니다.");
+  const auth = getFirebaseAuthClient();
+  const idToken = await auth?.currentUser?.getIdToken();
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.ok === false) {
+    throw new Error(data?.error?.message || data?.message || "Firebase Functions PG 요청이 실패했습니다.");
+  }
+  return data;
+}
+
 export function PgGatewaySettingsPanel() {
   const [state, setState] = useState<InfinyPgProvisioningState>(() => readInitialState());
+  const [merchantSecrets, setMerchantSecrets] = useState<MerchantSecretState>({});
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle", message: "" });
   const readiness = useMemo(() => evaluateInfinyPgProvisioning(state.runtime, state.merchants), [state.runtime, state.merchants]);
   const feePreview = useMemo(() => calculateInfinySettlement(100000), []);
   const envTemplate = useMemo(() => buildPgEnvTemplate(state.runtime), [state.runtime]);
+  const paymentEndpoints = useMemo(() => getPaymentEndpointReadiness(), []);
 
   function updateRuntime<K extends keyof InfinyPgRuntimeConfig>(key: K, value: InfinyPgRuntimeConfig[K]) {
     setState((current) => ({
@@ -166,6 +202,13 @@ export function PgGatewaySettingsPanel() {
       ...current,
       merchants: current.merchants.map((row) => (row.companyId === companyId ? { ...row, ...patch } : row)),
       updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  function updateMerchantSecret(companyId: string, patch: Partial<MerchantSecretInputs>) {
+    setMerchantSecrets((current) => ({
+      ...current,
+      [companyId]: { ...(current[companyId] ?? emptyMerchantSecrets()), ...patch },
     }));
   }
 
@@ -244,103 +287,26 @@ export function PgGatewaySettingsPanel() {
 
       await Promise.all(
         nextState.merchants.map((row) => {
-          const merchantId = row.merchantId.trim();
-          const merchantIdMasked = maskMerchantId(merchantId || undefined);
-          const merchantSerialNo = row.merchantSerialNo.trim();
-          const moduleKey = row.moduleKey.trim();
-          const terminalId = row.terminalId.trim();
-          const secretKeyRef = row.secretKeyRef.trim();
-          const merchantPasswordRef = row.merchantPasswordRef.trim();
-          const signKeyRef = row.signKeyRef.trim();
-          const webhookSecretRef = row.webhookSecretRef.trim();
-          const credentialReady = Boolean(
-            merchantId &&
-              merchantSerialNo &&
-              moduleKey &&
-              secretKeyRef &&
-              merchantPasswordRef &&
-              signKeyRef &&
-              webhookSecretRef &&
-              row.merchantStatus === "active",
-          );
-          const commonCredentialPayload = {
-            company_id: row.companyId,
-            company_name: row.companyName,
+          const secrets = merchantSecrets[row.companyId] ?? emptyMerchantSecrets();
+          return postAdminPaymentFunction(paymentEndpoints.endpoints.adminPgCredentialSave, {
+            companyId: row.companyId,
+            companyName: row.companyName,
             provider: nextState.runtime.provider,
             environment: nextState.runtime.environment,
-            mid: merchantId || null,
-            merchant_id: merchantId || null,
-            merchant_id_masked: merchantIdMasked,
-            merchant_serial_no: merchantSerialNo || null,
-            merchant_serial_no_masked: maskSecretRef(merchantSerialNo),
-            module_key: moduleKey || null,
-            module_key_masked: maskSecretRef(moduleKey),
-            terminal_id: terminalId || null,
-            terminal_id_masked: maskSecretRef(terminalId),
-            secret_key_ref: secretKeyRef || null,
-            secret_key_ref_masked: maskSecretRef(secretKeyRef),
-            merchant_password_ref: merchantPasswordRef || null,
-            merchant_password_ref_masked: maskSecretRef(merchantPasswordRef),
-            sign_key_ref: signKeyRef || null,
-            sign_key_ref_masked: maskSecretRef(signKeyRef),
-            webhook_secret_ref: webhookSecretRef || null,
-            webhook_secret_ref_masked: maskSecretRef(webhookSecretRef),
-            credential_status: row.merchantStatus,
-            status: credentialReady ? "active" : row.merchantStatus,
-            credential_ready: credentialReady,
-            raw_secret_stored: false,
-            secret_storage_policy: "secret_manager_reference_only",
-            updated_at: serverTimestamp(),
-          };
-
-          return Promise.all([
-            setDoc(doc(db, "company_pg_credentials", row.companyId), commonCredentialPayload, { merge: true }),
-            setDoc(
-              doc(db, "companies", row.companyId),
-              {
-                company_id: row.companyId,
-                name: row.companyName,
-                status: row.companyStatus ?? "approved",
-                pg_provider: nextState.runtime.provider,
-                pg_merchant_id: merchantId || null,
-                pg_module_key: moduleKey || null,
-                pg_merchant_status: row.merchantStatus,
-                infiny_mid: merchantId || null,
-                infiny_module_key: moduleKey || null,
-                infiny_mid_status: row.merchantStatus,
-                merchantId: merchantId || null,
-                merchantStatus: row.merchantStatus,
-                pg_profile: {
-                  provider: nextState.runtime.provider,
-                  providerLabel: providerLabels[nextState.runtime.provider],
-                  merchantId: merchantId || null,
-                  merchantIdMasked,
-                  merchantSerialNoStored: Boolean(merchantSerialNo),
-                  merchantSerialNoMasked: maskSecretRef(merchantSerialNo),
-                  moduleKey: moduleKey || null,
-                  moduleKeyMasked: maskSecretRef(moduleKey),
-                  terminalIdStored: Boolean(terminalId),
-                  terminalIdMasked: maskSecretRef(terminalId),
-                  secretKeyRefMasked: maskSecretRef(secretKeyRef),
-                  merchantPasswordRefMasked: maskSecretRef(merchantPasswordRef),
-                  signKeyRefMasked: maskSecretRef(signKeyRef),
-                  webhookSecretRefMasked: maskSecretRef(webhookSecretRef),
-                  credentialRefsStored: Boolean(secretKeyRef || merchantPasswordRef || signKeyRef || webhookSecretRef),
-                  merchantStatus: row.merchantStatus,
-                  credentialReady,
-                  adminManaged: true,
-                  companyEditable: false,
-                  pgFeeRate: INFINY_PG_FEE_RATE,
-                  platformFeeRate: A5_PLATFORM_FEE_RATE,
-                  totalFeeRate: INFINY_TOTAL_FEE_RATE,
-                  settlementOwner: "infiny",
-                  settlementExecutionBlocked: true,
-                },
-                updated_at: serverTimestamp(),
-              },
-              { merge: true },
-            ),
-          ]);
+            mid: row.merchantId,
+            merchantSerialNo: row.merchantSerialNo,
+            moduleKey: row.moduleKey,
+            terminalId: row.terminalId,
+            secretKeyRef: row.secretKeyRef,
+            merchantPasswordRef: row.merchantPasswordRef,
+            signKeyRef: row.signKeyRef,
+            webhookSecretRef: row.webhookSecretRef,
+            secretKey: secrets.secretKey || undefined,
+            merchantPassword: secrets.merchantPassword || undefined,
+            signKey: secrets.signKey || undefined,
+            webhookSecret: secrets.webhookSecret || undefined,
+            status: row.merchantStatus,
+          });
         }),
       );
 
@@ -585,6 +551,25 @@ export function PgGatewaySettingsPanel() {
                   placeholder="원문이 아닌 참조명"
                 />
               </label>
+
+              {[
+                ["secretKey", "PG Secret Key"],
+                ["merchantPassword", "가맹점 비밀번호"],
+                ["signKey", "Sign Key"],
+                ["webhookSecret", "Webhook Secret"],
+              ].map(([key, label]) => (
+                <label key={key} className="grid gap-1 text-xs font-black text-slate-500">
+                  {label}
+                  <input
+                    type="password"
+                    value={merchantSecrets[row.companyId]?.[key as keyof MerchantSecretInputs] ?? ""}
+                    onChange={(event) => updateMerchantSecret(row.companyId, { [key]: event.target.value } as Partial<MerchantSecretInputs>)}
+                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                    placeholder="저장 시 Firebase Functions에서 암호화"
+                    autoComplete="new-password"
+                  />
+                </label>
+              ))}
 
               <label className="grid gap-1 text-xs font-black text-slate-500">
                 발급 상태

@@ -12,7 +12,7 @@ import {
 } from "@/components/storefront/QrReceiverForm";
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
-import { createBackendQrSession } from "@/lib/firebase/liveShopBackend";
+import { createBackendQrSession, readBackendQrSessionByShortCode } from "@/lib/firebase/liveShopBackend";
 import {
   listLiveShopCompletedOrdersForRoom,
   readLiveShopOrderByOrderNo,
@@ -140,7 +140,7 @@ async function readLiveShopQrSessionByShortCodeWithTimeout(code: string) {
 
   try {
     return await Promise.race([
-      readLiveShopQrSessionByShortCode(code),
+      readQrSessionFromBackendOrFirestore(code),
       new Promise<null>((resolve) => {
         timeoutId = window.setTimeout(() => resolve(null), qrSessionLookupTimeoutMs);
       }),
@@ -148,6 +148,12 @@ async function readLiveShopQrSessionByShortCodeWithTimeout(code: string) {
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
   }
+}
+
+async function readQrSessionFromBackendOrFirestore(code: string) {
+  const backend = await readBackendQrSessionByShortCode(code);
+  if (backend.ok) return backend.session;
+  return readLiveShopQrSessionByShortCode(code);
 }
 
 function readLiveOrder(orderNo: string) {

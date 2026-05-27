@@ -14,7 +14,7 @@ import { paymentsDiagnosticsHandler } from "./payments/diagnostics";
 import { paymentsReadyHandler } from "./payments/ready";
 import { paymentsStatusHandler } from "./payments/status";
 import { paymentsWebhookHandler } from "./payments/webhook";
-import { qrCreateHandler, qrExpireHandler } from "./qr/validateQrSession";
+import { qrCreateHandler, qrExpireHandler, qrLookupHandler } from "./qr/validateQrSession";
 
 const pgCredentialEncryptionKey = defineSecret("PG_CREDENTIAL_ENCRYPTION_KEY");
 
@@ -36,6 +36,7 @@ export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgCo
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
+export const qrLookup = onRequest(paymentFunctionOptions, qrLookupHandler);
 export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);
 export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReserveHandler);
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);

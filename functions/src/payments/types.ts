@@ -291,8 +291,8 @@ export function makePaymentIntentId(qrSessionId: string, now = new Date()): stri
   return `pi_${qrSessionId}_${now.getTime()}`;
 }
 
-export function makeQrSessionId(shortCode: string, now = new Date()): string {
-  return `qr_${shortCode}_${now.getTime()}`;
+export function makeQrSessionId(shortCode: string): string {
+  return `qr-${shortCode}`;
 }
 
 export function makeShortCode(prefix = "A5", now = new Date()): string {

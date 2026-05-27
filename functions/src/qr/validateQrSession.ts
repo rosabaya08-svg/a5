@@ -170,7 +170,7 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
 
     const now = new Date();
     const shortCode = await resolveShortCode(db, optionalString(body.shortCode), now);
-    const qrSessionId = makeQrSessionId(shortCode, now);
+    const qrSessionId = makeQrSessionId(shortCode);
     const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
     const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
     const deliveryMethod = body.deliveryMethod === "delivery" ? "delivery" : "pickup";
@@ -339,6 +339,65 @@ export async function qrExpireHandler(request: HttpRequestLike, response: HttpRe
     qrSessionId,
     status: newStatus,
     message: newStatus === "expired" ? "QR session expired." : "QR session was not changed because it is already terminal.",
+  });
+}
+
+export async function qrLookupHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
+  if (!["GET", "POST"].includes(String(request.method ?? ""))) {
+    sendJson(response, 405, {
+      ok: false,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "Use GET or POST for QR lookup.",
+        httpStatus: 405,
+      },
+    });
+    return;
+  }
+
+  const body = readObjectBody<{ shortCode?: string; code?: string; qrSessionId?: string }>(request);
+  const shortCode = optionalString(request.query?.shortCode ?? request.query?.code ?? body.shortCode ?? body.code);
+  const qrSessionId = optionalString(request.query?.qrSessionId ?? body.qrSessionId);
+
+  if (!shortCode && !qrSessionId) {
+    sendJson(response, 400, {
+      ok: false,
+      error: {
+        code: "QR_LOOKUP_INPUT_INVALID",
+        message: "shortCode or qrSessionId is required.",
+        httpStatus: 400,
+      },
+    });
+    return;
+  }
+
+  const db = getAdminDb();
+  const snapshot = qrSessionId
+    ? await db.collection("qr_payment_sessions").doc(qrSessionId).get()
+    : (
+        await db.collection("qr_payment_sessions")
+          .where("short_code", "==", shortCode)
+          .limit(1)
+          .get()
+      ).docs[0];
+
+  if (!snapshot?.exists) {
+    sendJson(response, 404, {
+      ok: false,
+      error: {
+        code: "QR_SESSION_NOT_FOUND",
+        message: "QR session document was not found.",
+        httpStatus: 404,
+        details: { shortCode, qrSessionId },
+      },
+    });
+    return;
+  }
+
+  sendJson(response, 200, {
+    ok: true,
+    session: toPublicQrSession(snapshot.id, asRecord(snapshot.data())),
+    source: "firebase_functions_qr_lookup",
   });
 }
 
@@ -613,6 +672,31 @@ function toClientCartItem(item: ReturnType<typeof normalizeCartItems>[number]) {
     unitPrice: item.unitPrice,
     quantity: item.quantity,
     companyId: item.companyId,
+  };
+}
+
+function toPublicQrSession(documentId: string, data: Record<string, unknown>) {
+  const items = normalizeCartItems(data.items_snapshot ?? data.items ?? data.itemsSnapshot);
+  const pickupLocation = normalizePickupLocation(data.pickup_location ?? data.pickupLocation, {
+    nurseryId: fieldString(data, "nursery_id", "nurseryId") ?? "",
+    roomId: fieldString(data, "room_id", "roomId") ?? "",
+  });
+
+  return {
+    id: fieldString(data, "id", "qr_session_id", "qrSessionId") ?? documentId,
+    shortCode: fieldString(data, "short_code", "shortCode") ?? documentId,
+    type: data.type === "ask" ? "ask" : "purchase",
+    status: normalizeQrStatus(String(data.status ?? "active")),
+    nurseryId: fieldString(data, "nursery_id", "nurseryId") ?? "",
+    roomId: fieldString(data, "room_id", "roomId") ?? "",
+    tabletId: fieldString(data, "tablet_id", "tabletId") ?? "",
+    cartId: fieldString(data, "cart_id", "cartId") ?? "",
+    createdAt: toIsoString(data.created_at ?? data.createdAt) ?? new Date().toISOString(),
+    expiresAt: toIsoString(data.expires_at ?? data.expiresAt) ?? new Date().toISOString(),
+    deliveryMethod: data.delivery_method === "delivery" || data.deliveryMethod === "delivery" ? "delivery" : "pickup",
+    totalAmount: fieldNumber(data, "total_amount_snapshot", "totalAmount", "total_amount") ?? calculateItemsAmount(items),
+    items: items.map(toClientCartItem),
+    pickupLocation,
   };
 }
 

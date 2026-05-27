@@ -39,6 +39,12 @@ type CreateQrSessionResponse = {
   message: string;
 };
 
+type LookupQrSessionResponse = {
+  ok: true;
+  session: QrPaymentSession;
+  source: "firebase_functions_qr_lookup";
+};
+
 type ApprovePaymentResponse = {
   ok: true;
   order: BackendOrder;
@@ -67,6 +73,7 @@ function getFunctionsBaseUrl() {
 
 function firebaseFunctionPath(path: string) {
   if (path === "/qr/create") return "/qrCreate";
+  if (path === "/qr/lookup") return "/qrLookup";
   return "";
 }
 
@@ -198,6 +205,11 @@ export async function createBackendQrSession(input: {
   };
 
   return { ok: true as const, session, customerUrl: result.data.customerUrl, paymentUrl: result.data.paymentUrl };
+}
+
+export async function readBackendQrSessionByShortCode(shortCode: string) {
+  const result = await postBackend<LookupQrSessionResponse>("/qr/lookup", { shortCode });
+  return result.ok ? { ok: true as const, session: result.data.session } : result;
 }
 
 export async function approveBackendMockPayment(input: {

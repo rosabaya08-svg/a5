@@ -108,8 +108,8 @@ export function buildPgCheckoutPayload(input: {
   const pgEnv = resolvePgEnv(input.runtimeConfig);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const returnCode = input.returnCode || input.qrSessionId;
-  const successUrl = pgEnv.successUrl || `${origin}/q/${returnCode}/success`;
-  const failUrl = pgEnv.failUrl || `${origin}/q/${returnCode}/failed`;
+  const successUrl = pgEnv.successUrl || defaultPaymentReturnUrl(origin, returnCode, "success");
+  const failUrl = pgEnv.failUrl || defaultPaymentReturnUrl(origin, returnCode, "failed");
 
   return {
     provider: pgEnv.provider || "unselected",
@@ -301,6 +301,14 @@ function applyReturnUrlTemplate(url: string, input: { qrSessionId: string; retur
     .replaceAll("{shortCode}", encodeURIComponent(input.returnCode))
     .replaceAll("{qrSessionId}", encodeURIComponent(input.qrSessionId))
     .replaceAll("{orderNo}", encodeURIComponent(input.orderNo));
+}
+
+function defaultPaymentReturnUrl(origin: string, returnCode: string, paymentResult: "success" | "failed") {
+  const query = new URLSearchParams({
+    code: returnCode,
+    paymentResult,
+  });
+  return `${origin}/q/live?${query.toString()}`;
 }
 
 function readString(value: unknown): string | undefined {

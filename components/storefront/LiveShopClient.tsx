@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PgReturnConfirmClient } from "@/components/guest/PgReturnConfirmClient";
+import { ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
 import {
   QrReceiverForm,
   initialQrReceiverFormValue,
-  isQrReceiverFormComplete,
-  maskCustomerPhone,
   type QrReceiverFormValue,
 } from "@/components/storefront/QrReceiverForm";
 import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
-import { approveBackendMockPayment, createBackendQrSession } from "@/lib/firebase/liveShopBackend";
+import { createBackendQrSession } from "@/lib/firebase/liveShopBackend";
 import {
   listLiveShopCompletedOrdersForRoom,
   readLiveShopOrderByOrderNo,
@@ -59,8 +59,9 @@ const completedOrderSyncKeyBase = "a5-live-completed-order-sync";
 const qrPrefix = "a5-live-qr:";
 const orderPrefix = "a5-live-order:";
 const cartAddedEventName = "a5-cart-added";
-const defaultA5PublicOrigin = "https://mommy-a5.pages.dev";
+const defaultA5PublicOrigin = "https://a5-closed-mall.pages.dev";
 const configuredA5PublicOrigin = (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL || defaultA5PublicOrigin).replace(/\/$/, "");
+const qrSessionLookupTimeoutMs = 8000;
 const memoryStore = new Map<string, string>();
 
 function readTabletScope() {
@@ -114,11 +115,6 @@ function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function localDateKeyFromIso(iso: string) {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? localDateKey() : localDateKey(date);
-}
-
 function addHoursIso(baseIso: string, hours: number) {
   return new Date(new Date(baseIso).getTime() + hours * 60 * 60 * 1000).toISOString();
 }
@@ -129,12 +125,6 @@ function makeShortCode() {
   return `A5${stamp}${random}`;
 }
 
-function makeOrderNo() {
-  const date = new Date();
-  const ymd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-  return `A5-${ymd}-${Date.now().toString().slice(-5)}`;
-}
-
 function readLastQrSession(fallbackSession: QrPaymentSession) {
   const code = readText(currentLastQrKey());
   return withResolvedQrPickupLocation(code ? readJson<QrPaymentSession>(`${qrPrefix}${code}`, fallbackSession) : fallbackSession);
@@ -143,6 +133,21 @@ function readLastQrSession(fallbackSession: QrPaymentSession) {
 function readQrCheckoutSession(code: string) {
   const session = code ? readJson<QrPaymentSession | null>(`${qrPrefix}${code}`, null) : null;
   return session ? withResolvedQrPickupLocation(session) : null;
+}
+
+async function readLiveShopQrSessionByShortCodeWithTimeout(code: string) {
+  let timeoutId: number | undefined;
+
+  try {
+    return await Promise.race([
+      readLiveShopQrSessionByShortCode(code),
+      new Promise<null>((resolve) => {
+        timeoutId = window.setTimeout(() => resolve(null), qrSessionLookupTimeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
 }
 
 function readLiveOrder(orderNo: string) {
@@ -255,10 +260,6 @@ function cartItemsEqual(left: CartLine[], right: CartLine[]) {
       item.unitPrice === other.unitPrice
     );
   });
-}
-
-function itemQuantity(items: CartItemSnapshot[]) {
-  return items.reduce((total, item) => total + item.quantity, 0);
 }
 
 function orderShareUrl(orderNo: string) {
@@ -676,7 +677,13 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       items: session.items,
       totalAmountHint: session.totalAmount,
     });
-    const liveSession = backend.ok ? { ...backend.session, pickupLocation: backend.session.pickupLocation ?? pickupLocation } : session;
+
+    if (!backend.ok) {
+      setMessage(`Firebase QR 세션 생성 실패: ${backend.error}. 고객 휴대폰 결제 QR은 서버에 저장된 세션만 열 수 있습니다.`);
+      return;
+    }
+
+    const liveSession = { ...backend.session, pickupLocation: backend.session.pickupLocation ?? pickupLocation };
     const savedSession = writeJson(`${qrPrefix}${liveSession.shortCode}`, liveSession);
     const savedPointer = writeText(currentLastQrKey(), liveSession.shortCode);
 
@@ -693,7 +700,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
       short_code: liveSession.shortCode,
       total_amount: liveSession.totalAmount,
       pickup_location: liveSession.pickupLocation,
-      source: backend.ok ? "backend_plus_storefront_context" : "local_fallback_only",
+      source: "backend_plus_storefront_context",
     });
   }
 
@@ -878,23 +885,39 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
 }
 
 export function LiveQrCheckoutPage() {
-  const router = useRouter();
   const params = useSearchParams();
   const code = params.get("code") ?? "";
+  const paymentResult = params.get("paymentResult") ?? "";
+  const hasPgReturnParams = Boolean(
+    paymentResult ||
+      params.get("paymentIntentId") ||
+      params.get("payment_intent_id") ||
+      params.get("orderNo") ||
+      params.get("orderId") ||
+      params.get("order_no") ||
+      params.get("paymentKey") ||
+      params.get("payment_key") ||
+      params.get("transactionId") ||
+      params.get("transaction_id") ||
+      params.get("tid"),
+  );
   const [session, setSession] = useState<QrPaymentSession | null>(() => readQrCheckoutSession(code));
   const [receiver, setReceiver] = useState<QrReceiverFormValue | null>(() => {
     const initialSession = readQrCheckoutSession(code);
     return initialSession ? initialQrReceiverFormValue(initialSession) : null;
   });
   const [isLoadingSession, setIsLoadingSession] = useState(Boolean(code));
-  const [message, setMessage] = useState("");
+  const [lookupError, setLookupError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     function sync() {
       const localSession = readQrCheckoutSession(code);
-      if (localSession) setSession(localSession);
+      if (localSession) {
+        setSession(localSession);
+        setReceiver((current) => current ?? initialQrReceiverFormValue(localSession));
+      }
     }
 
     async function syncFromFirestore() {
@@ -904,11 +927,17 @@ export function LiveQrCheckoutPage() {
       }
 
       setIsLoadingSession(true);
-      const remoteSession = await readLiveShopQrSessionByShortCode(code);
+      setLookupError("");
+      const remoteSession = await readLiveShopQrSessionByShortCodeWithTimeout(code);
 
       if (!cancelled && remoteSession) {
         writeJson(`${qrPrefix}${remoteSession.shortCode}`, remoteSession);
         setSession(remoteSession);
+        setReceiver((current) => current ?? initialQrReceiverFormValue(remoteSession));
+      }
+
+      if (!cancelled && !remoteSession) {
+        setLookupError("Firebase에서 QR 세션을 확인하지 못했습니다. 태블릿에서 서버 QR 생성이 완료된 뒤 다시 스캔해 주세요.");
       }
 
       if (!cancelled) setIsLoadingSession(false);
@@ -927,173 +956,6 @@ export function LiveQrCheckoutPage() {
     };
   }, [code]);
 
-  async function pay() {
-    if (!session) return;
-    if (!receiver || !isQrReceiverFormComplete(receiver)) {
-      setMessage("고객성명, 연락처, 주소를 입력하고 개인정보 처리 안내에 동의해 주세요.");
-      return;
-    }
-
-    const customerName = receiver.customerName.trim();
-    const customerPhoneMasked = maskCustomerPhone(receiver.customerPhone);
-    const checkoutSession: QrPaymentSession = {
-      ...session,
-      deliveryMethod: receiver.deliveryMethod,
-    };
-
-    const backend = await approveBackendMockPayment({
-      shortCode: session.shortCode,
-      customerName,
-      customerPhoneMasked,
-    });
-    const paidAt = nowIso();
-    const fallbackPaidSession: QrPaymentSession = { ...checkoutSession, status: "paid" };
-    const fallbackOrder: LiveOrder = {
-      orderNo: makeOrderNo(),
-      qrSession: fallbackPaidSession,
-      customerName,
-      customerPhoneMasked,
-      receiver,
-      createdAt: paidAt,
-      paidAt,
-      status: "paid",
-    };
-    const order: LiveOrder = backend.ok
-      ? {
-          ...backend.order,
-          qrSession: {
-            ...backend.order.qrSession,
-            deliveryMethod: receiver.deliveryMethod,
-            pickupLocation: backend.order.qrSession.pickupLocation ?? session.pickupLocation,
-          },
-          customerName,
-          customerPhoneMasked,
-          receiver,
-        }
-      : fallbackOrder;
-    const orderNo = order.orderNo;
-    const paidSession = {
-      ...order.qrSession,
-      status: "paid" as const,
-      deliveryMethod: receiver.deliveryMethod,
-      pickupLocation: order.qrSession.pickupLocation ?? session.pickupLocation,
-    };
-    const completedDate = localDateKeyFromIso(paidAt);
-    const guestOrderUrl = orderShareUrl(orderNo);
-    const shareMessage = completedOrderShareMessage(orderNo);
-    const orderForStorage: LiveOrder = {
-      ...order,
-      qrSession: paidSession,
-      status: "paid",
-      guestOrderUrl,
-      shareMessage,
-    };
-    const tabletSafeSummary = {
-      order_no: orderNo,
-      status: "paid",
-      completed_at: paidAt,
-      completed_date: completedDate,
-      total_amount: paidSession.totalAmount,
-      item_count: itemQuantity(paidSession.items),
-      nursery_id: paidSession.nurseryId,
-      room_id: paidSession.roomId,
-      tablet_id: paidSession.tabletId,
-      cart_id: paidSession.cartId,
-      qr_session_id: paidSession.id,
-      short_code: paidSession.shortCode,
-    };
-
-    const savedSession = writeJson(`${qrPrefix}${paidSession.shortCode}`, paidSession);
-    const savedOrder = writeJson(`${orderPrefix}${orderNo}`, orderForStorage);
-    const currentCart = readJson<CartLine[]>(currentCartKey(), []);
-    const remainingCart = removePaidItemsFromCart(currentCart, paidSession.items);
-    const remainingStored = persistCart(remainingCart).stored;
-
-    if (!savedSession || !savedOrder || !remainingStored) {
-      setMessage("주문을 브라우저 저장소에 저장하지 못했습니다. 브라우저 저장소 권한을 확인해 주세요.");
-      return;
-    }
-
-    const hasRemaining = remainingCart.length > 0;
-    setMessage(
-      backend.ok
-        ? hasRemaining
-          ? "결제 완료. 남은 업체 상품은 장바구니에서 다음 QR로 생성할 수 있습니다."
-          : "백엔드 결제 승인과 주문 저장을 완료했습니다."
-        : hasRemaining
-          ? `로컬 주문으로 진행합니다. 남은 업체 상품은 다음 QR로 생성할 수 있습니다. 백엔드 대기: ${backend.error}`
-          : `로컬 주문으로 진행합니다. 백엔드 대기: ${backend.error}`,
-    );
-    router.push(`/orders/guest/live?orderNo=${orderNo}${hasRemaining ? "&remaining=1" : ""}`);
-
-    void Promise.all([
-      saveLiveShopDocument("qr_payment_sessions", paidSession.id, {
-        ...paidSession,
-        status: "paid",
-        short_code: paidSession.shortCode,
-        total_amount: paidSession.totalAmount,
-        pickup_location: paidSession.pickupLocation,
-        paid_at: paidAt,
-        order_no: orderNo,
-      }),
-      saveLiveShopDocument("orders", orderNo, {
-        order_no: orderNo,
-        qr_session_id: paidSession.id,
-        short_code: paidSession.shortCode,
-        nursery_id: paidSession.nurseryId,
-        room_id: paidSession.roomId,
-        tablet_id: paidSession.tabletId,
-        cart_id: paidSession.cartId,
-        customer_name: order.customerName,
-        customer_phone_masked: order.customerPhoneMasked,
-        status: "paid",
-        order_completed: true,
-        completed_at: paidAt,
-        completed_date: completedDate,
-        delivery_method: receiver.deliveryMethod,
-        receiver_address: receiver.address,
-        receiver_address_detail: receiver.addressDetail,
-        receiver: {
-          name: customerName,
-          phone_masked: customerPhoneMasked,
-          delivery_method: receiver.deliveryMethod,
-          address: receiver.address,
-          address_detail: receiver.addressDetail,
-        },
-        pickup_location: paidSession.pickupLocation,
-        total_amount: paidSession.totalAmount,
-        item_count: tabletSafeSummary.item_count,
-        items: paidSession.items,
-        paid_at: paidAt,
-        guest_order_url: guestOrderUrl,
-        share_message: shareMessage,
-        tablet_safe_summary: tabletSafeSummary,
-        admin_data_provision_enabled: true,
-        customer_order_share_enabled: true,
-        notification_payload: {
-          event: "order.payment_completed",
-          order_no: orderNo,
-          qr_session_id: paidSession.id,
-          guest_order_url: guestOrderUrl,
-          share_message: shareMessage,
-          tablet_safe_summary: tabletSafeSummary,
-        },
-      }),
-      ...paidSession.items.map((item, index) =>
-        saveLiveShopDocument("order_items", `${orderNo}-${index + 1}`, {
-          order_no: orderNo,
-          order_id: orderNo,
-          qr_session_id: paidSession.id,
-          nursery_id: paidSession.nurseryId,
-          room_id: paidSession.roomId,
-          tablet_id: paidSession.tabletId,
-          ...item,
-          line_total: item.unitPrice * item.quantity,
-        }),
-      ),
-    ]);
-  }
-
   if (!session && isLoadingSession) {
     return (
       <main className="min-h-screen bg-[#f5f1eb] p-4 text-slate-950">
@@ -1110,6 +972,7 @@ export function LiveQrCheckoutPage() {
       <main className="min-h-screen bg-[#f5f1eb] p-4 text-slate-950">
         <section className="mx-auto max-w-md rounded-md bg-white p-5">
           <h1 className="text-2xl font-black">QR 세션을 찾을 수 없습니다</h1>
+          {lookupError ? <p className="mt-2 text-sm font-bold leading-6 text-red-700">{lookupError}</p> : null}
           <Link href="/tablet/cart" className="mt-4 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
             장바구니로 이동
           </Link>
@@ -1118,39 +981,49 @@ export function LiveQrCheckoutPage() {
     );
   }
 
+  const effectiveReceiver = receiver ?? initialQrReceiverFormValue(session);
+
   return (
     <main className="min-h-screen bg-[#f5f1eb] px-4 py-5 text-slate-950">
-      <section className="mx-auto max-w-md rounded-md bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase text-rose-600">live QR checkout</p>
-        <h1 className="mt-2 text-3xl font-black">{session.shortCode}</h1>
-        <p className="mt-2 text-sm text-slate-600">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
-        <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
-          이 QR은 한 기업/MID 상품만 결제합니다. 결제 완료 후 남은 업체 상품은 장바구니에서 다음 QR로 생성됩니다.
-        </div>
-        <div className="mt-4 grid gap-3">
-          {session.items.map((item) => (
-            <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-slate-50 p-3">
-              <p className="font-black">{item.productName}</p>
-              <p className="mt-1 text-sm text-slate-600">{item.optionName} / {item.quantity}개</p>
-              <p className="mt-2 text-right font-black">{formatCurrency(item.unitPrice * item.quantity)}</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-4 flex justify-between border-t border-slate-100 pt-4">
-          <span className="font-black">총 결제금액</span>
-          <strong className="text-2xl text-rose-600">{formatCurrency(session.totalAmount)}</strong>
-        </div>
-        <div className="mt-4">
-          <QrReceiverForm key={session.id} session={session} onChange={setReceiver} />
-        </div>
-        <button
-          type="button"
-          onClick={() => void pay()}
-          className="mt-5 w-full rounded-md bg-rose-600 px-4 py-4 text-base font-black text-white"
-        >
-          결제 완료 처리
-        </button>
-        {message ? <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p> : null}
+      <section className="mx-auto grid max-w-md gap-4 md:max-w-4xl">
+        <section className="rounded-md bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase text-rose-600">Firebase QR checkout</p>
+          <h1 className="mt-2 text-3xl font-black">{session.shortCode}</h1>
+          <p className="mt-2 text-sm text-slate-600">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
+            고객 결제는 Firebase Functions ready/confirm을 통해 서버 금액 검증 후 진행됩니다. PG 키가 비어 있으면 결제창은 대기 상태로 유지됩니다.
+          </div>
+          <div className="mt-4 grid gap-3">
+            {session.items.map((item) => (
+              <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-slate-50 p-3">
+                <p className="font-black">{item.productName}</p>
+                <p className="mt-1 text-sm text-slate-600">{item.optionName} / {item.quantity}개</p>
+                <p className="mt-2 text-right font-black">{formatCurrency(item.unitPrice * item.quantity)}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 flex justify-between border-t border-slate-100 pt-4">
+            <span className="font-black">총 결제금액</span>
+            <strong className="text-2xl text-rose-600">{formatCurrency(session.totalAmount)}</strong>
+          </div>
+        </section>
+        <QrReceiverForm key={session.id} session={session} onChange={setReceiver} />
+        {paymentResult === "failed" ? (
+          <section className="rounded-md bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase text-red-600">PG payment failed</p>
+            <h2 className="mt-2 text-xl font-black">결제가 완료되지 않았습니다</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+              PG사 결제창에서 취소되었거나 승인에 실패했습니다. 정보를 확인한 뒤 다시 결제를 진행해 주세요.
+            </p>
+          </section>
+        ) : null}
+        {hasPgReturnParams && paymentResult !== "failed" ? <PgReturnConfirmClient session={session} /> : null}
+        <ServerCheckoutFlow
+          session={session}
+          dataSource="live_qr_checkout"
+          receiver={effectiveReceiver}
+          fallbackReason="고객 휴대폰 QR은 Firestore qr_payment_sessions를 읽고 Firebase Functions 결제 서버로 ready/confirm을 호출합니다."
+        />
       </section>
     </main>
   );

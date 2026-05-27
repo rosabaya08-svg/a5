@@ -40,6 +40,13 @@ type ApprovePaymentResponse = {
 };
 
 const backendTimeoutMs = 8000;
+const defaultFunctionsProjectId = "a5-closed-mall";
+const defaultFunctionsRegion = "asia-northeast3";
+
+function inferFunctionsBaseUrl() {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim() || defaultFunctionsProjectId;
+  return `https://${defaultFunctionsRegion}-${projectId}.cloudfunctions.net`;
+}
 
 function getBackendBaseUrl() {
   return (
@@ -50,11 +57,25 @@ function getBackendBaseUrl() {
 }
 
 function getFunctionsBaseUrl() {
-  return (process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL ?? "").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL ?? inferFunctionsBaseUrl()).replace(/\/$/, "");
+}
+
+function firebaseFunctionPath(path: string) {
+  if (path === "/qr/create") return "/qrCreate";
+  return "";
+}
+
+function isFirebaseFunctionsBaseUrl(url: string) {
+  return /\.cloudfunctions\.net$/.test(url) || url.includes(".cloudfunctions.net/");
 }
 
 function resolveBackendUrl(path: string) {
   const baseUrl = getBackendBaseUrl();
+  const functionPath = firebaseFunctionPath(path);
+
+  if (baseUrl && functionPath && isFirebaseFunctionsBaseUrl(baseUrl)) {
+    return `${baseUrl}${functionPath}`;
+  }
 
   if (baseUrl) {
     return `${baseUrl}${path}`;
@@ -62,8 +83,8 @@ function resolveBackendUrl(path: string) {
 
   const functionsBaseUrl = getFunctionsBaseUrl();
 
-  if (functionsBaseUrl && path === "/qr/create") {
-    return `${functionsBaseUrl}/qrCreate`;
+  if (functionsBaseUrl && functionPath) {
+    return `${functionsBaseUrl}${functionPath}`;
   }
 
   return "";

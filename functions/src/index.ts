@@ -1,7 +1,9 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
+import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
 import { ordersCreateHandler } from "./orders/createOrderSnapshot";
@@ -14,15 +16,13 @@ import { paymentsStatusHandler } from "./payments/status";
 import { paymentsWebhookHandler } from "./payments/webhook";
 import { qrCreateHandler, qrExpireHandler } from "./qr/validateQrSession";
 
-const pgSecretKey = defineSecret("PG_SECRET_KEY");
-const pgWebhookSecret = defineSecret("PG_WEBHOOK_SECRET");
 const pgCredentialEncryptionKey = defineSecret("PG_CREDENTIAL_ENCRYPTION_KEY");
 
 const paymentFunctionOptions = {
   region: "asia-northeast3",
   cors: [/^http:\/\/localhost:\d+$/, /^https:\/\/.*\.pages\.dev$/, "https://with-commerce.pages.dev", "https://a5-closed-mall.pages.dev"],
   maxInstances: 10,
-  secrets: [pgSecretKey, pgWebhookSecret, pgCredentialEncryptionKey],
+  secrets: [pgCredentialEncryptionKey],
 };
 
 export const paymentsReady = onRequest(paymentFunctionOptions, paymentsReadyHandler);
@@ -41,3 +41,11 @@ export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReser
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
 export const a4NurseryAutoSignup = onRequest(paymentFunctionOptions, a4NurseryAutoSignupHandler);
+export const companyDocumentInboxDelivery = onDocumentCreated(
+  {
+    document: "a1_company_document_inbox/{uploadId}",
+    region: "asia-northeast3",
+    maxInstances: 5,
+  },
+  companyDocumentInboxCreatedHandler,
+);

@@ -509,7 +509,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   const result: PaymentConfirmResponse = {
     ok: true,
     provider: merchantProfile!.provider,
-    pgReady: pgReadiness.readyForAdapter,
+    pgReady: Boolean(approval?.realPgCalled || merchantProfile!.paymentReady),
     pgReadiness,
     approval: approval!,
     orderNo,
@@ -693,6 +693,7 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     paymentIntentId: input.paymentIntentId,
     orderNo: input.orderNo,
     amount: recalculatedAmount,
+    provider: merchantProfile.provider,
     companyId,
     merchantId,
     merchantSerialNo,

@@ -20,7 +20,6 @@ import {
   calculateInfinySettlement,
   INFINY_PG_FEE_RATE,
   INFINY_PROVIDER_LABEL,
-  INFINY_TOTAL_FEE_RATE,
   maskMerchantId,
 } from "@/lib/payments/infinySettlementPolicy";
 import { formatCurrency, formatPercent } from "@/lib/utils/format";
@@ -149,13 +148,6 @@ function inputClass() {
   return "h-12 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950 outline-none focus:border-emerald-500";
 }
 
-function maskSecretRef(value: string) {
-  const text = value.trim();
-  if (!text) return "참조 대기";
-  if (text.length <= 12) return `${text.slice(0, 4)}****`;
-  return `${text.slice(0, 6)}****${text.slice(-4)}`;
-}
-
 function emptyMerchantSecrets(): MerchantSecretInputs {
   return { secretKey: "", merchantPassword: "", signKey: "", webhookSecret: "" };
 }
@@ -231,13 +223,16 @@ export function PgGatewaySettingsPanel() {
         provider: nextState.runtime.provider,
         environment: nextState.runtime.environment,
         public_client_key_set: Boolean(nextState.runtime.clientKey),
+        public_client_key: nextState.runtime.clientKey || null,
         channel_key_set: Boolean(nextState.runtime.channelKey),
+        channel_key: nextState.runtime.channelKey || null,
         representative_merchant_id: nextState.runtime.merchantId || null,
         api_base_url: nextState.runtime.apiBaseUrl,
         confirm_url: nextState.runtime.confirmUrl,
         cancel_url: nextState.runtime.cancelUrl,
         status_url: nextState.runtime.statusUrl,
         script_url: nextState.runtime.scriptUrl,
+        global_name: "",
         request_function_name: nextState.runtime.requestFunctionName,
         success_url: nextState.runtime.successUrl,
         fail_url: nextState.runtime.failUrl,
@@ -263,12 +258,15 @@ export function PgGatewaySettingsPanel() {
           environment: nextState.runtime.environment,
           status: readiness.ready ? "active" : "testing",
           public_client_key_set: Boolean(nextState.runtime.clientKey),
+          public_client_key: nextState.runtime.clientKey || null,
           channel_key_set: Boolean(nextState.runtime.channelKey),
+          channel_key: nextState.runtime.channelKey || null,
           api_base_url: nextState.runtime.apiBaseUrl,
           confirm_url: nextState.runtime.confirmUrl,
           cancel_url: nextState.runtime.cancelUrl,
           status_url: nextState.runtime.statusUrl,
           script_url: nextState.runtime.scriptUrl,
+          global_name: "",
           request_function_name: nextState.runtime.requestFunctionName,
           success_url: nextState.runtime.successUrl,
           fail_url: nextState.runtime.failUrl,
@@ -453,14 +451,15 @@ export function PgGatewaySettingsPanel() {
 
         <div className="mt-4 grid gap-3">
           {state.merchants.map((row) => {
+            const secrets = merchantSecrets[row.companyId] ?? emptyMerchantSecrets();
             const credentialReady = Boolean(
               row.merchantId.trim() &&
                 row.merchantSerialNo.trim() &&
                 row.moduleKey.trim() &&
-                row.secretKeyRef.trim() &&
-                row.merchantPasswordRef.trim() &&
-                row.signKeyRef.trim() &&
-                row.webhookSecretRef.trim() &&
+                (row.secretKeyRef.trim() || secrets.secretKey.trim()) &&
+                (row.merchantPasswordRef.trim() || secrets.merchantPassword.trim()) &&
+                (row.signKeyRef.trim() || secrets.signKey.trim()) &&
+                (row.webhookSecretRef.trim() || secrets.webhookSecret.trim()) &&
                 row.merchantStatus === "active",
             );
 

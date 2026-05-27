@@ -20,6 +20,7 @@ import {
   type PaymentReadyRequest,
   type PaymentReadyResponse,
   type PaymentProviderId,
+  type PgClientRuntimeConfig,
   type ServerPaymentIntent,
   type ServerPricedItem,
 } from "./types";
@@ -119,6 +120,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const companyId = [...companyIds][0] ?? "";
   const pgReadiness = getPgServerReadiness();
   const merchantProfile = await readCompanyMerchantProfile(companyId);
+  const pgClientConfig = await readPgClientRuntimeConfig(merchantProfile.provider);
   const resolvedProvider: PaymentProviderId = merchantProfile.paymentReady
     ? merchantProfile.provider
     : pgReadiness.provider === "mock"
@@ -272,6 +274,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     recalculatedAmount,
     currency: "KRW",
     merchantProfile,
+    pgClientConfig,
     expiresAt: paymentIntent.expiresAt,
     firestoreTransactionPlan: [...getPaymentReadyTransactionPlan(), ...getPgAdapterHandoffPlan()],
     message: pgReadiness.readyForAdapter
@@ -280,6 +283,42 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   };
 
   sendJson(response, 200, result);
+}
+
+async function readPgClientRuntimeConfig(provider: PaymentProviderId): Promise<PgClientRuntimeConfig | undefined> {
+  try {
+    const db = getAdminDb();
+    const providerDocId = provider === "pg_contract" ? "infiny" : provider;
+    const [providerSnapshot, legacySnapshot] = await Promise.all([
+      db.collection("pg_provider_settings").doc(providerDocId).get(),
+      db.collection("pg_gateway_settings").doc("infiny-pg-runtime").get(),
+    ]);
+    const legacyData = legacySnapshot.data() ?? {};
+    const providerData = providerSnapshot.data() ?? {};
+    const data = { ...legacyData, ...providerData };
+    const clientKey = optionalString(data.public_client_key ?? data.client_key ?? data.clientKey ?? process.env.NEXT_PUBLIC_PG_CLIENT_KEY);
+    const channelKey = optionalString(data.channel_key ?? data.channelKey ?? process.env.NEXT_PUBLIC_PG_CHANNEL_KEY);
+    const scriptUrl = optionalString(data.script_url ?? data.scriptUrl ?? process.env.NEXT_PUBLIC_PG_SCRIPT_URL);
+    const requestFunctionName = optionalString(
+      data.request_function_name ?? data.requestFunctionName ?? data.request_method ?? data.requestMethod ?? process.env.NEXT_PUBLIC_PG_REQUEST_FUNCTION,
+    );
+
+    if (!clientKey && !channelKey && !scriptUrl && !requestFunctionName) return undefined;
+
+    return {
+      provider: asPaymentProviderId(data.provider ?? provider),
+      environment: data.environment === "production" ? "production" : "test",
+      clientKey,
+      channelKey,
+      scriptUrl,
+      globalName: optionalString(data.global_name ?? data.globalName ?? process.env.NEXT_PUBLIC_PG_GLOBAL_NAME),
+      requestFunctionName,
+      successUrl: optionalString(data.success_url ?? data.successUrl ?? process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL),
+      failUrl: optionalString(data.fail_url ?? data.failUrl ?? process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMerchantProfile> {

@@ -14,7 +14,7 @@ import {
 } from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
-import { buildPgCheckoutPayload, getPgBridgeStatus, requestPgModulePayment } from "@/lib/payments/pgCheckoutBridge";
+import { buildPgCheckoutPayload, getPgBridgeStatus, requestPgModulePayment, type PgRuntimeOverride } from "@/lib/payments/pgCheckoutBridge";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
 import type { CartItemSnapshot, QrPaymentSession } from "@/types/commerce";
 
@@ -40,6 +40,7 @@ type ReadyResponse = {
     merchantStatus: string;
     paymentReady: boolean;
   };
+  pgClientConfig?: PgRuntimeOverride;
   paymentIntentId: string;
   orderNoCandidate: string;
   qrSessionId: string;
@@ -442,14 +443,16 @@ export function ServerCheckoutFlow({
   const router = useRouter();
   const endpoints = useMemo(() => getPaymentEndpointReadiness(), []);
   const readiness = useMemo(() => getPaymentReadiness(), []);
-  const bridge = useMemo(() => getPgBridgeStatus(), []);
   const [ready, setReady] = useState<ReadyResponse>();
   const [confirm, setConfirm] = useState<ConfirmResponse>();
   const [error, setError] = useState<CheckoutApiError>();
   const [pending, setPending] = useState<"ready" | "pg" | "confirm" | "amount-test" | "">("");
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
-  const providerIsMock = readiness.provider === "mock";
+  const pgClientConfig = ready?.pgClientConfig;
+  const bridge = useMemo(() => getPgBridgeStatus(pgClientConfig), [pgClientConfig]);
+  const effectiveProvider = ready?.provider ?? readiness.provider;
+  const providerIsMock = effectiveProvider === "mock";
   const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
@@ -467,8 +470,9 @@ export function ServerCheckoutFlow({
         returnCode: session.shortCode,
         merchantId: ready?.merchantProfile?.merchantId,
         moduleKey: ready?.merchantProfile?.moduleKey,
+        runtimeConfig: pgClientConfig,
       }),
-    [ready?.merchantProfile?.merchantId, ready?.merchantProfile?.moduleKey, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
+    [pgClientConfig, ready?.merchantProfile?.merchantId, ready?.merchantProfile?.moduleKey, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
   );
 
   async function runReady(clientAmount = session.totalAmount, intent: "ready" | "amount-test" = "ready") {
@@ -576,7 +580,7 @@ export function ServerCheckoutFlow({
     setPending("pg");
     setError(undefined);
 
-    const pgResult = await requestPgModulePayment(pgPayload);
+    const pgResult = await requestPgModulePayment(pgPayload, pgClientConfig);
     if (!pgResult.ok) {
       setPending("");
       setError({

@@ -45,6 +45,7 @@ export type ProviderConfirmInput = {
   paymentIntentId: string;
   orderNo: string;
   amount: number;
+  provider?: PaymentProviderId;
   companyId?: string;
   merchantId?: string;
   merchantSerialNo?: string;
@@ -167,11 +168,11 @@ export async function requestProviderPayment(input: ProviderRequestInput): Promi
 
 export async function confirmPaymentWithConfiguredProvider(input: ProviderConfirmInput): Promise<ProviderConfirmResult> {
   const readiness = getPgServerReadiness();
-  const candidate = resolveProviderCandidate(readiness.provider);
-  const rawProvider = readiness.provider.trim().toLowerCase();
+  const rawProvider = String(input.provider || readiness.provider || "mock").trim().toLowerCase();
+  const candidate = resolveProviderCandidate(rawProvider);
 
   if (rawProvider !== "mock" && candidate === "unknown") {
-    return blocked("confirmPayment", `Unknown PG provider ${readiness.provider}. No PG API was called.`);
+    return blocked("confirmPayment", `Unknown PG provider ${rawProvider}. No PG API was called.`);
   }
 
   if (candidate !== "unknown") {
@@ -206,6 +207,10 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
     runtimeConfig.confirmUrl ||
     readEnv("INFINY_CONFIRM_URL") ||
     joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/confirm");
+  if (!input.secretKey && input.secretKeyRef) {
+    return blocked("confirmPayment", "Company PG secret reference exists but no decrypted server secret was supplied. Enter the issued key in admin PG settings or wire a Secret Manager resolver before calling real PG.");
+  }
+
   const secretKey = input.secretKey || readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
 
   if (!endpoint) {

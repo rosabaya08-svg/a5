@@ -30,6 +30,18 @@ export type CompanyMerchantProfile = {
   paymentReady: boolean;
 };
 
+export type PgClientRuntimeConfig = {
+  provider: PaymentProviderId;
+  environment: "test" | "production";
+  clientKey?: string;
+  channelKey?: string;
+  scriptUrl?: string;
+  globalName?: string;
+  requestFunctionName?: string;
+  successUrl?: string;
+  failUrl?: string;
+};
+
 export type CartItemInput = {
   productId: string;
   optionId?: string;
@@ -63,6 +75,7 @@ export type PaymentReadyResponse = {
   recalculatedAmount: number;
   currency: Currency;
   merchantProfile: CompanyMerchantProfile;
+  pgClientConfig?: PgClientRuntimeConfig;
   expiresAt: string;
   firestoreTransactionPlan: string[];
   message: string;

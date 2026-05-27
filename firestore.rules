@@ -112,6 +112,18 @@ service cloud.firestore {
         data.status in ["draft", "pending_approval", "approved", "scheduled", "live", "paused", "rejected", "uploaded"];
     }
 
+    function betaCompanyDocumentWrite(data) {
+      return betaCmsWrite(data) &&
+        ("company_id" in data) &&
+        ("document_type" in data) &&
+        ("document_label" in data) &&
+        ("storage_path" in data) &&
+        ("download_url" in data) &&
+        ("file_name" in data) &&
+        ("source_channel" in data) &&
+        data.source_channel == "company_admin_file_upload";
+    }
+
     // Public storefront catalog. Write is limited to SUPER_ADMIN/seed_admin beta operations.
     match /products/{productId} {
       allow get, list: if activeProduct(resource.data) || companyScoped(resource.data) || isSuperOrSeedAdmin();
@@ -248,7 +260,19 @@ service cloud.firestore {
 
     match /company_documents/{documentId} {
       allow get, list: if isSuperOrSeedAdmin() || companyScoped(resource.data);
-      allow create, update: if false;
+      allow create, update: if betaCompanyDocumentWrite(request.resource.data) || isSuperOrSeedAdmin();
+      allow delete: if false;
+    }
+
+    match /a1_company_document_inbox/{inboxId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow create, update: if betaCompanyDocumentWrite(request.resource.data) || isSuperOrSeedAdmin();
+      allow delete: if false;
+    }
+
+    match /gmail_delivery_queue/{queueId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow create, update: if betaCompanyDocumentWrite(request.resource.data) || isSuperOrSeedAdmin();
       allow delete: if false;
     }
 

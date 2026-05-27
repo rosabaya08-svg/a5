@@ -40,6 +40,23 @@ service firebase.storage {
         );
     }
 
+    function betaCompanyDocumentUpload(companyId) {
+      return signedIn() &&
+        request.resource != null &&
+        request.resource.size < 15 * 1024 * 1024 &&
+        request.resource.metadata.companyId == companyId &&
+        request.resource.metadata.source == "company-admin-upload" &&
+        (
+          request.resource.contentType.matches("image/.*") ||
+          request.resource.contentType.matches("video/.*") ||
+          request.resource.contentType == "application/pdf" ||
+          request.resource.contentType == "application/msword" ||
+          request.resource.contentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+          request.resource.contentType == "application/vnd.ms-excel" ||
+          request.resource.contentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+    }
+
     // Beta CMS policy: storefront media registration is enabled for A5 closed-mall setup.
     // Payment, order, settlement, and private documents remain blocked.
     match /public/storefront/{fileName=**} {
@@ -68,12 +85,20 @@ service firebase.storage {
 
     match /companies/{companyId}/onboarding/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCompanyDocumentUpload(companyId) || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/bank-documents/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if betaCompanyDocumentUpload(companyId) || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
+    }
+
+    match /companies/{companyId}/product-documents/{productId}/{fileName=**} {
+      allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow create, update: if betaCompanyDocumentUpload(companyId) || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/ad-materials/{fileName=**} {

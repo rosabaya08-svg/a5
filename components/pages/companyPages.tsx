@@ -6,11 +6,13 @@ import {
   type CompanyExcelProductRow,
 } from "@/components/company/CompanyExcelExportPanel";
 import { CompanyConsentSummary } from "@/components/company/CompanyConsentSummary";
+import { CompanyDocumentUploadPanel } from "@/components/company/CompanyDocumentUploadPanel";
 import { CompanyPgReadOnlyPanel } from "@/components/company/CompanyPgReadOnlyPanel";
 import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import { CompanyProductRegistrationWorkspace } from "@/components/company/CompanyProductRegistrationWorkspace";
 import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
+import { companyOnboardingDocuments } from "@/data/company/onboarding";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { StatCard } from "@/components/ui/StatCard";
@@ -243,7 +245,18 @@ export function CompanyOnboardingRequirementsPage() {
   return (
     <CompanyShell title="입점 신청 상태" subtitle="입점 서류와 운영 정보를 확인합니다.">
       <CompanyNoticePanel />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="mt-4">
+        <CompanyDocumentUploadPanel
+          companyId={companyId}
+          companyName={companyName}
+          title="입점 서류 실제 업로드"
+          description="사업자등록증, 통신판매업 신고증, 정산 통장 사본 등 입점 필수 파일을 실제 Storage에 저장하고 qsc0921@gmail.com Gmail 발송 큐에 등록합니다."
+          documents={companyOnboardingDocuments}
+          destinationEmail="qsc0921@gmail.com"
+          deliveryMode="gmail"
+        />
+      </div>
+      <div className="hidden">
         {["사업자등록증", "통장 사본", "담당자 연락처", "CS 연락처", "반품지 주소", "브랜드 로고"].map((item) => (
           <div key={item} className="rounded-md border border-slate-200 bg-white p-4">
             <p className="font-black text-slate-950">{item}</p>

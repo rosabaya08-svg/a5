@@ -163,15 +163,10 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
 
     const totalAmount = calculateItemsAmount(pricedItems);
     const clientAmount = readClientAmount(body);
-
-    if (typeof clientAmount === "number" && clientAmount !== totalAmount) {
-      throw new QrCreateHttpError(
-        "QR_CREATE_AMOUNT_MISMATCH",
-        "Client amount does not match QR server snapshot amount.",
-        409,
-        { clientAmount, serverAmount: totalAmount },
-      );
-    }
+    const amountMismatch =
+      typeof clientAmount === "number" && clientAmount !== totalAmount
+        ? { clientAmount, serverAmount: totalAmount }
+        : null;
 
     const now = new Date();
     const shortCode = await resolveShortCode(db, optionalString(body.shortCode), now);
@@ -197,6 +192,8 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
         delivery_method: deliveryMethod,
         items_snapshot: pricedItems.map(toSnapshotItem),
         total_amount_snapshot: totalAmount,
+        client_amount_hint: clientAmount ?? null,
+        amount_mismatch_warning: amountMismatch,
         pickup_location: pickupLocation,
         pickupLocation,
         currency: body.currency ?? "KRW",
@@ -223,7 +220,9 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
           room_id: roomId,
           tablet_id: tabletId,
           short_code: shortCode,
+          client_amount_hint: clientAmount ?? null,
           total_amount_snapshot: totalAmount,
+          amount_mismatch_warning: amountMismatch,
           updated_at: FieldValue.serverTimestamp(),
         },
       );
@@ -240,6 +239,8 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
       status: "active",
       expiresAt,
       totalAmount,
+      items: pricedItems.map(toClientCartItem),
+      amountMismatch,
       pickupLocation,
       paymentUrl,
       customerUrl,
@@ -600,6 +601,18 @@ function toSnapshotItem(item: ReturnType<typeof normalizeCartItems>[number]) {
     company_id: item.companyId,
     line_amount: item.unitPrice * item.quantity,
     source: "firestore_products",
+  };
+}
+
+function toClientCartItem(item: ReturnType<typeof normalizeCartItems>[number]) {
+  return {
+    productId: item.productId,
+    optionId: item.optionId,
+    productName: item.productName,
+    optionName: item.optionName,
+    unitPrice: item.unitPrice,
+    quantity: item.quantity,
+    companyId: item.companyId,
   };
 }
 

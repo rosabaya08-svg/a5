@@ -27,6 +27,11 @@ type CreateQrSessionResponse = {
   status: QrPaymentSession["status"];
   expiresAt: string;
   totalAmount: number;
+  items?: CartItemSnapshot[];
+  amountMismatch?: {
+    clientAmount: number;
+    serverAmount: number;
+  } | null;
   paymentUrl: string;
   customerUrl: string;
   pickupLocation?: QrPickupLocation;
@@ -174,6 +179,7 @@ export async function createBackendQrSession(input: {
   if (!result.ok) return result;
 
   const now = new Date().toISOString();
+  const serverItems = Array.isArray(result.data.items) && result.data.items.length > 0 ? result.data.items : input.items;
   const session: QrPaymentSession = {
     id: result.data.qrSessionId,
     shortCode: result.data.shortCode,
@@ -187,7 +193,7 @@ export async function createBackendQrSession(input: {
     expiresAt: result.data.expiresAt,
     deliveryMethod: input.deliveryMethod,
     totalAmount: result.data.totalAmount,
-    items: input.items,
+    items: serverItems,
     pickupLocation: result.data.pickupLocation ?? input.pickupLocation,
   };
 

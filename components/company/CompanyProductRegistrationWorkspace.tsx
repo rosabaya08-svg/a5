@@ -471,12 +471,7 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
     setSaveState({ status: "saving", message: `${statusLabel(nextStatus)} 처리 중입니다.` });
 
     try {
-      let persistedDraft = nextDraft;
-      try {
-        persistedDraft = await uploadPendingMedia(nextDraft);
-      } catch {
-        persistedDraft = nextDraft;
-      }
+      const persistedDraft = await uploadPendingMedia(nextDraft);
 
       const record = buildProductDraftCmsRecord(persistedDraft, nextStatus);
       window.localStorage.setItem(COMPANY_PRODUCT_DRAFT_STORAGE_KEY, JSON.stringify(persistedDraft));
@@ -489,13 +484,15 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
           status: "saved",
           message: nextStatus === "pending_approval" ? "상품 승인 요청이 최고관리자 큐에 저장되었습니다." : "상품 draft가 저장되었습니다.",
         });
-      } catch {
+      } catch (error) {
+        if (error !== undefined) throw error;
         setSaveState({
           status: "saved",
           message: "로컬 draft는 저장되었습니다. Firestore 저장은 권한 또는 네트워크 상태를 확인해야 합니다.",
         });
       }
-    } catch {
+    } catch (error) {
+      void error;
       setSaveState({ status: "error", message: "상품 draft 저장에 실패했습니다. 입력값을 확인해 주세요." });
     }
   }
@@ -788,7 +785,7 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
         </div>
       </section>
 
-      <CertificationEvidenceUploader />
+      <CertificationEvidenceUploader companyId={companyId} productId={draft.id} productName={draft.productName || draft.id} />
 
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <SectionHeader eyebrow="step 7" title="미리보기/승인 요청" body="태블릿 폐쇄몰에 노출될 상품 상세와 승인 차단 항목을 한 화면에서 확인합니다." />

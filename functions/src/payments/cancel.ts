@@ -4,6 +4,7 @@ import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime
 import { cancelProviderPayment } from "./providerAdapter";
 import { getAdminDb } from "../firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { decryptCredential } from "./credentialCrypto";
 import {
   normalizeCartItems,
   readObjectBody,
@@ -42,13 +43,17 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   const orderData = orderSnapshot.data() ?? {};
   const paymentKey = String(body.paymentKey ?? paymentData.provider_payment_key ?? paymentData.paymentKey ?? "");
   const cancelAmount = Number(body.amount ?? paymentData.amount ?? 0);
+  const companyId = String(paymentData.company_id ?? orderData.company_id ?? "");
+  const credentialSnapshot = companyId ? await db.collection("company_pg_credentials").doc(companyId).get() : undefined;
+  const secretKey = decryptCredential(credentialSnapshot?.data()?.encrypted_secret_key);
   const cancelItems = normalizeCartItems(body.items);
-  const providerResult = pgReadiness.readyForAdapter
+  const providerResult = (pgReadiness.readyForAdapter || secretKey)
     ? await cancelProviderPayment({
         orderNo,
         paymentKey,
         amount: cancelAmount,
         reason: body.reason ?? "No reason supplied",
+        secretKey,
       })
     : undefined;
   const releasePlan = releaseInventorySkeleton(cancelItems);
@@ -146,7 +151,7 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   sendJson(response, 200, {
     ok: Boolean(providerResult?.ok),
     provider: pgReadiness.provider,
-    pgReady: pgReadiness.readyForAdapter,
+    pgReady: Boolean(pgReadiness.readyForAdapter || secretKey),
     pgReadiness,
     status: providerResult?.ok ? "cancelled" : "manual_review_required",
     orderNo,

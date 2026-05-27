@@ -74,6 +74,7 @@ export type ProviderCancelInput = {
   paymentKey?: string;
   amount: number;
   reason: string;
+  secretKey?: string;
 };
 
 export type ProviderRefundInput = ProviderCancelInput & {
@@ -390,7 +391,7 @@ async function callProviderPaymentAction(
     operation === "cancelPayment"
       ? readiness.cancelUrl || runtimeConfig.cancelUrl || readEnv("INFINY_CANCEL_URL") || joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/cancel")
       : readiness.cancelUrl || runtimeConfig.cancelUrl || readEnv("INFINY_REFUND_URL") || readEnv("INFINY_CANCEL_URL") || joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/refund");
-  const secretKey = readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
+  const secretKey = input.secretKey || readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
 
   if (candidate === "unknown" || readiness.provider.trim().toLowerCase() === "mock") {
     return blocked(operation, "PG_PROVIDER is mock or unknown. No real cancel/refund API was called.");

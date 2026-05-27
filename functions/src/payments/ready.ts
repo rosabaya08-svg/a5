@@ -128,6 +128,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
       : merchantProfile.provider;
   const realPgRequested = resolvedProvider !== "mock";
   const firestoreRuntimeReady = await hasFirestorePgRuntimeEndpoint();
+  const realPgRuntimeReady = firestoreRuntimeReady || pgReadiness.readyForAdapter;
 
   if (realPgRequested && !firestoreRuntimeReady && !pgReadiness.confirmUrl && !pgReadiness.apiBaseUrl) {
     sendJson(response, 409, {
@@ -226,8 +227,8 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           webhook_secret_ref: merchantProfile.webhookSecretRef ?? null,
           merchant_status: merchantProfile.merchantStatus,
           merchant_payment_ready: merchantProfile.paymentReady,
-          pg_ready: realPgRequested ? merchantProfile.paymentReady && (firestoreRuntimeReady || pgReadiness.readyForAdapter) : pgReadiness.readyForAdapter,
-          pg_runtime_ready: firestoreRuntimeReady || pgReadiness.readyForAdapter,
+          pg_ready: realPgRequested ? merchantProfile.paymentReady && realPgRuntimeReady : pgReadiness.readyForAdapter,
+          pg_runtime_ready: realPgRuntimeReady,
           source: resolvedProvider === "mock" ? "firebase_functions_mock_ready" : "firebase_functions_pg_ready",
           demo_read_enabled: true,
           guest_lookup_enabled: true,
@@ -266,7 +267,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
   const result: PaymentReadyResponse = {
     ok: true,
     provider: resolvedProvider,
-    pgReady: realPgRequested ? merchantProfile.paymentReady && (firestoreRuntimeReady || pgReadiness.readyForAdapter) : pgReadiness.readyForAdapter,
+    pgReady: realPgRequested ? merchantProfile.paymentReady && realPgRuntimeReady : pgReadiness.readyForAdapter,
     pgReadiness,
     paymentIntentId: paymentIntent.id,
     orderNoCandidate: paymentIntent.orderNoCandidate,
@@ -277,9 +278,11 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     pgClientConfig,
     expiresAt: paymentIntent.expiresAt,
     firestoreTransactionPlan: [...getPaymentReadyTransactionPlan(), ...getPgAdapterHandoffPlan()],
-    message: pgReadiness.readyForAdapter
-      ? "Payment intent is ready and server keys are present for the configured PG adapter."
-      : "Mock payment intent is ready. Real PG module remains blocked until keys and adapter are approved.",
+    message: realPgRequested && merchantProfile.paymentReady && realPgRuntimeReady
+      ? "Payment intent is ready for the configured Firebase PG runtime."
+      : resolvedProvider === "mock"
+        ? "Mock payment intent is ready."
+        : "Real PG remains blocked until company credentials and Infiny runtime settings are complete.",
   };
 
   sendJson(response, 200, result);

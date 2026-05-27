@@ -11,13 +11,22 @@ import { getAdminDb } from "../firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { createHmac, timingSafeEqual } from "crypto";
+import { decryptCredential } from "./credentialCrypto";
 
 export async function paymentsWebhookHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
 
   const body = readObjectBody<PaymentWebhookRequest>(request);
   const pgReadiness = getPgServerReadiness();
+  const db = getAdminDb();
+  const paymentSnapshot = await findPaymentForWebhook(db, body);
+  const paymentData = paymentSnapshot?.data() ?? {};
+  const webhookRuntime = await readWebhookRuntimeConfig();
+  const provider = String(body.provider ?? paymentData.pg_provider ?? paymentData.provider ?? webhookRuntime.provider ?? pgReadiness.provider ?? "mock");
+  const webhookSecret = await readWebhookSecretForPayment(paymentData);
   const signature =
+    request.get?.(webhookRuntime.signatureHeader) ??
+    request.get?.(webhookRuntime.signatureHeader.toLowerCase()) ??
     request.get?.(pgReadiness.webhookSignatureHeader) ??
     request.get?.(pgReadiness.webhookSignatureHeader.toLowerCase()) ??
     request.get?.("x-pg-signature") ??
@@ -25,16 +34,16 @@ export async function paymentsWebhookHandler(request: HttpRequestLike, response:
     "";
   const signatureResult = verifyWebhookSignature({
     signature,
-    secret: process.env.PG_WEBHOOK_SECRET?.trim() ?? "",
+    secret: webhookSecret || process.env.PG_WEBHOOK_SECRET?.trim() || "",
     rawBody: request.rawBody,
     fallbackBody: body,
-    algorithm: pgReadiness.webhookSignatureAlgorithm,
+    algorithm: webhookRuntime.algorithm,
   });
 
-  if (pgReadiness.provider !== "mock" && !signatureResult.verified) {
+  if (provider !== "mock" && !signatureResult.verified) {
     sendJson(response, 401, {
       ok: false,
-      provider: pgReadiness.provider,
+      provider,
       verified: false,
       error: {
         code: "PAYMENT_WEBHOOK_SIGNATURE_INVALID",
@@ -46,10 +55,7 @@ export async function paymentsWebhookHandler(request: HttpRequestLike, response:
   }
 
   const eventId = String(body.eventId ?? `missing-event-${Date.now()}`);
-  const db = getAdminDb();
-  const paymentSnapshot = await findPaymentForWebhook(db, body);
   const paymentRef = paymentSnapshot?.ref;
-  const paymentData = paymentSnapshot?.data() ?? {};
   const orderNo = String(body.orderNo ?? paymentData.order_no ?? paymentData.orderNo ?? "");
   const orderRef = orderNo ? db.collection("orders").doc(orderNo) : undefined;
   const normalizedStatus = normalizeWebhookStatus(body.status ?? body.eventType);
@@ -126,8 +132,8 @@ export async function paymentsWebhookHandler(request: HttpRequestLike, response:
 
   sendJson(response, 200, {
     ok: true,
-    provider: pgReadiness.provider,
-    pgReady: pgReadiness.readyForAdapter,
+    provider,
+    pgReady: signatureResult.verified,
     pgReadiness,
     verified: signatureResult.verified,
     mode: signatureResult.verified ? "signature_verified" : "mock_signature_not_required",
@@ -172,6 +178,41 @@ async function findPaymentForWebhook(db: FirebaseFirestore.Firestore, body: Part
   }
 
   return undefined;
+}
+
+async function readWebhookRuntimeConfig(): Promise<{ provider: string; signatureHeader: string; algorithm: "sha256" | "sha512" }> {
+  try {
+    const db = getAdminDb();
+    const [providerSnapshot, legacySnapshot] = await Promise.all([
+      db.collection("pg_provider_settings").doc("infiny").get(),
+      db.collection("pg_gateway_settings").doc("infiny-pg-runtime").get(),
+    ]);
+    const data = {
+      ...(legacySnapshot.exists ? legacySnapshot.data() ?? {} : {}),
+      ...(providerSnapshot.exists ? providerSnapshot.data() ?? {} : {}),
+    };
+    const algorithm = String(data.webhook_signature_algorithm ?? data.webhookSignatureAlgorithm ?? "").toLowerCase() === "sha512" ? "sha512" : "sha256";
+
+    return {
+      provider: String(data.provider ?? "infiny"),
+      signatureHeader: String(data.webhook_signature_header ?? data.webhookSignatureHeader ?? "x-pg-signature"),
+      algorithm,
+    };
+  } catch {
+    return { provider: "infiny", signatureHeader: "x-pg-signature", algorithm: "sha256" };
+  }
+}
+
+async function readWebhookSecretForPayment(paymentData: FirebaseFirestore.DocumentData): Promise<string> {
+  const companyId = String(paymentData.company_id ?? paymentData.companyId ?? "");
+  if (!companyId) return "";
+
+  try {
+    const snapshot = await getAdminDb().collection("company_pg_credentials").doc(companyId).get();
+    return decryptCredential(snapshot.data()?.encrypted_webhook_secret) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 function normalizeWebhookStatus(value: unknown): "approved" | "failed" | "canceled" | undefined {

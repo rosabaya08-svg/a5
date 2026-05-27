@@ -62,25 +62,37 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
   }
 
   const now = new Date().toISOString();
+  const db = getAdminDb();
+  const existingSnapshot = await db.collection("company_pg_credentials").doc(companyId).get();
+  const existingCredential = existingSnapshot.data() ?? {};
+  const bodyRecord = body as Record<string, unknown>;
   const provider = allowedProviders.includes(body.provider as PaymentProviderId) ? (body.provider as PaymentProviderId) : "infiny";
-  const merchantId = text(body.mid || body.merchantId);
-  const merchantSerialNo = text(body.merchantSerialNo);
-  const moduleKey = text(body.moduleKey);
-  const terminalId = text(body.terminalId);
-  const secretKeyRef = text(body.secretKeyRef);
-  const merchantPasswordRef = text(body.merchantPasswordRef);
-  const signKeyRef = text(body.signKeyRef);
-  const webhookSecretRef = text(body.webhookSecretRef);
+  const merchantId = firstText(body.mid, body.merchantId, bodyRecord.merchant_id, bodyRecord.pg_merchant_id, bodyRecord.infiny_mid);
+  const merchantSerialNo = firstText(body.merchantSerialNo, bodyRecord.merchant_serial_no, bodyRecord.serialNo, bodyRecord.serial_no, bodyRecord.serialNumber);
+  const moduleKey = firstText(body.moduleKey, bodyRecord.module_key, bodyRecord.pg_module_key, bodyRecord.infiny_module_key, bodyRecord.channelKey, bodyRecord.channel_key);
+  const terminalId = firstText(body.terminalId, bodyRecord.terminal_id, bodyRecord.tid, bodyRecord.terminalNo);
+  const secretKeyRef = firstText(body.secretKeyRef, bodyRecord.secret_key_ref, bodyRecord.pgSecretKeyRef);
+  const merchantPasswordRef = firstText(body.merchantPasswordRef, bodyRecord.merchant_password_ref, bodyRecord.password_ref, bodyRecord.merchantPwdRef);
+  const signKeyRef = firstText(body.signKeyRef, bodyRecord.sign_key_ref, bodyRecord.hashKeyRef, bodyRecord.signatureKeyRef);
+  const webhookSecretRef = firstText(body.webhookSecretRef, bodyRecord.webhook_secret_ref, bodyRecord.webhookKeyRef);
+  const rawSecretKey = firstText(body.secretKey, bodyRecord.secret_key, bodyRecord.pgSecretKey, bodyRecord.apiKey, bodyRecord.issuedSecretKey);
+  const rawMerchantPassword = firstText(body.merchantPassword, bodyRecord.merchant_password, bodyRecord.password, bodyRecord.merchantPwd);
+  const rawSignKey = firstText(body.signKey, bodyRecord.sign_key, bodyRecord.hashKey, bodyRecord.signatureKey);
+  const rawWebhookSecret = firstText(body.webhookSecret, bodyRecord.webhook_secret, bodyRecord.webhookKey);
+  const effectiveMerchantId = merchantId || text(existingCredential.mid ?? existingCredential.merchant_id ?? existingCredential.merchantId);
+  const effectiveMerchantSerialNo = merchantSerialNo || text(existingCredential.merchant_serial_no ?? existingCredential.merchantSerialNo);
+  const effectiveModuleKey = moduleKey || text(existingCredential.module_key ?? existingCredential.moduleKey);
+  const effectiveTerminalId = terminalId || text(existingCredential.terminal_id ?? existingCredential.terminalId);
   let encryptedSecretKey: EncryptedCredential | undefined;
   let encryptedMerchantPassword: EncryptedCredential | undefined;
   let encryptedSignKey: EncryptedCredential | undefined;
   let encryptedWebhookSecret: EncryptedCredential | undefined;
 
   try {
-    encryptedSecretKey = encryptCredential(body.secretKey);
-    encryptedMerchantPassword = encryptCredential(body.merchantPassword);
-    encryptedSignKey = encryptCredential(body.signKey);
-    encryptedWebhookSecret = encryptCredential(body.webhookSecret);
+    encryptedSecretKey = encryptCredential(rawSecretKey);
+    encryptedMerchantPassword = encryptCredential(rawMerchantPassword);
+    encryptedSignKey = encryptCredential(rawSignKey);
+    encryptedWebhookSecret = encryptCredential(rawWebhookSecret);
   } catch (error) {
     sendJson(response, 409, {
       ok: false,
@@ -93,54 +105,91 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
     return;
   }
 
-  const hasSecretKey = Boolean(encryptedSecretKey || secretKeyRef);
-  const hasMerchantPassword = Boolean(encryptedMerchantPassword || merchantPasswordRef);
-  const hasSignKey = Boolean(encryptedSignKey || signKeyRef);
-  const hasWebhookSecret = Boolean(encryptedWebhookSecret || webhookSecretRef);
+  const effectiveSecretKeyRef = secretKeyRef || text(existingCredential.secret_key_ref);
+  const effectiveMerchantPasswordRef = merchantPasswordRef || text(existingCredential.merchant_password_ref);
+  const effectiveSignKeyRef = signKeyRef || text(existingCredential.sign_key_ref);
+  const effectiveWebhookSecretRef = webhookSecretRef || text(existingCredential.webhook_secret_ref);
+  const hasSecretKey = Boolean(encryptedSecretKey || isEncryptedCredentialShape(existingCredential.encrypted_secret_key) || effectiveSecretKeyRef);
+  const hasMerchantPassword = Boolean(encryptedMerchantPassword || isEncryptedCredentialShape(existingCredential.encrypted_merchant_password) || effectiveMerchantPasswordRef);
+  const hasSignKey = Boolean(encryptedSignKey || isEncryptedCredentialShape(existingCredential.encrypted_sign_key) || effectiveSignKeyRef);
+  const hasWebhookSecret = Boolean(encryptedWebhookSecret || isEncryptedCredentialShape(existingCredential.encrypted_webhook_secret) || effectiveWebhookSecretRef);
+  const existingStatus = allowedStatuses.includes(existingCredential.status as CompanyMerchantProfile["merchantStatus"])
+    ? (existingCredential.status as CompanyMerchantProfile["merchantStatus"])
+    : allowedStatuses.includes(existingCredential.credential_status as CompanyMerchantProfile["merchantStatus"])
+      ? (existingCredential.credential_status as CompanyMerchantProfile["merchantStatus"])
+      : undefined;
+  const incomingHasAnyCredentialValue = Boolean(
+    merchantId ||
+      merchantSerialNo ||
+      moduleKey ||
+      terminalId ||
+      secretKeyRef ||
+      merchantPasswordRef ||
+      signKeyRef ||
+      webhookSecretRef ||
+      rawSecretKey ||
+      rawMerchantPassword ||
+      rawSignKey ||
+      rawWebhookSecret,
+  );
   const requestedStatus = allowedStatuses.includes(body.status as CompanyMerchantProfile["merchantStatus"])
     ? (body.status as CompanyMerchantProfile["merchantStatus"])
-    : "mid_issued";
-  const credentialReady = Boolean(merchantId && merchantSerialNo && moduleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
-  const status = requestedStatus === "active" && !credentialReady ? "mid_issued" : requestedStatus;
+    : existingStatus ?? "mid_issued";
+  const credentialReady = Boolean(effectiveMerchantId && effectiveMerchantSerialNo && effectiveModuleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
+  const protectedRequestedStatus = requestedStatus === "not_applied" && existingStatus === "active" && !incomingHasAnyCredentialValue ? "active" : requestedStatus;
+  const status = protectedRequestedStatus === "active" && !credentialReady ? "mid_issued" : protectedRequestedStatus;
+  const encryptedCredentialStored = Boolean(
+    encryptedSecretKey ||
+      encryptedMerchantPassword ||
+      encryptedSignKey ||
+      encryptedWebhookSecret ||
+      isEncryptedCredentialShape(existingCredential.encrypted_secret_key) ||
+      isEncryptedCredentialShape(existingCredential.encrypted_merchant_password) ||
+      isEncryptedCredentialShape(existingCredential.encrypted_sign_key) ||
+      isEncryptedCredentialShape(existingCredential.encrypted_webhook_secret),
+  );
   const credentialDoc = {
     company_id: companyId,
     company_name: text(body.companyName) || companyId,
     provider,
     environment: body.environment === "production" ? "production" : "test",
-    mid: merchantId || null,
-    merchant_id: merchantId || null,
-    merchant_id_masked: maskValue(merchantId, "MID 대기"),
-    merchant_serial_no: merchantSerialNo || null,
-    merchant_serial_no_masked: maskValue(merchantSerialNo, "시리얼 대기"),
-    module_key: moduleKey || null,
-    module_key_masked: maskValue(moduleKey, "모듈키 대기"),
-    terminal_id: terminalId || null,
-    terminal_id_masked: maskValue(terminalId, "터미널 대기"),
-    secret_key_ref: secretKeyRef || null,
-    secret_key_ref_masked: maskValue(secretKeyRef, "Secret 참조 대기"),
-    encrypted_secret_key: encryptedSecretKey ?? null,
-    merchant_password_ref: merchantPasswordRef || null,
-    merchant_password_ref_masked: maskValue(merchantPasswordRef, "비밀번호 참조 대기"),
-    encrypted_merchant_password: encryptedMerchantPassword ?? null,
-    sign_key_ref: signKeyRef || null,
-    sign_key_ref_masked: maskValue(signKeyRef, "SignKey 참조 대기"),
-    encrypted_sign_key: encryptedSignKey ?? null,
-    webhook_secret_ref: webhookSecretRef || null,
-    webhook_secret_ref_masked: maskValue(webhookSecretRef, "Webhook Secret 참조 대기"),
-    encrypted_webhook_secret: encryptedWebhookSecret ?? null,
+    mid: effectiveMerchantId || null,
+    merchant_id: effectiveMerchantId || null,
+    merchant_id_masked: maskValue(effectiveMerchantId, "MID 대기"),
+    merchant_serial_no: effectiveMerchantSerialNo || null,
+    merchant_serial_no_masked: maskValue(effectiveMerchantSerialNo, "시리얼 대기"),
+    module_key: effectiveModuleKey || null,
+    module_key_masked: maskValue(effectiveModuleKey, "모듈키 대기"),
+    terminal_id: effectiveTerminalId || null,
+    terminal_id_masked: maskValue(effectiveTerminalId, "터미널 대기"),
+    merchantId: effectiveMerchantId || null,
+    merchantSerialNo: effectiveMerchantSerialNo || null,
+    moduleKey: effectiveModuleKey || null,
+    terminalId: effectiveTerminalId || null,
+    secret_key_ref: effectiveSecretKeyRef || null,
+    secret_key_ref_masked: maskValue(effectiveSecretKeyRef, "Secret 참조 대기"),
+    ...(encryptedSecretKey ? { encrypted_secret_key: encryptedSecretKey } : {}),
+    merchant_password_ref: effectiveMerchantPasswordRef || null,
+    merchant_password_ref_masked: maskValue(effectiveMerchantPasswordRef, "비밀번호 참조 대기"),
+    ...(encryptedMerchantPassword ? { encrypted_merchant_password: encryptedMerchantPassword } : {}),
+    sign_key_ref: effectiveSignKeyRef || null,
+    sign_key_ref_masked: maskValue(effectiveSignKeyRef, "SignKey 참조 대기"),
+    ...(encryptedSignKey ? { encrypted_sign_key: encryptedSignKey } : {}),
+    webhook_secret_ref: effectiveWebhookSecretRef || null,
+    webhook_secret_ref_masked: maskValue(effectiveWebhookSecretRef, "Webhook Secret 참조 대기"),
+    ...(encryptedWebhookSecret ? { encrypted_webhook_secret: encryptedWebhookSecret } : {}),
     credential_ready: credentialReady,
     credential_status: status,
     status,
     raw_secret_stored: false,
-    encrypted_secret_stored: Boolean(encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret),
-    secret_storage_policy: encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret
+    encrypted_secret_stored: encryptedCredentialStored,
+    secret_storage_policy: encryptedCredentialStored
       ? "firebase_functions_encrypted_firestore_vault"
       : "secret_manager_reference_only",
     vault_ready: canUseCredentialVault(),
     updated_at: FieldValue.serverTimestamp(),
   };
 
-  const db = getAdminDb();
   await db.runTransaction(async (transaction) => {
     transaction.set(db.collection("company_pg_credentials").doc(companyId), credentialDoc, { merge: true });
     transaction.set(
@@ -149,29 +198,29 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
         company_id: companyId,
         name: text(body.companyName) || companyId,
         pg_provider: provider,
-        pg_merchant_id: merchantId || null,
-        pg_module_key: moduleKey || null,
+        pg_merchant_id: effectiveMerchantId || null,
+        pg_module_key: effectiveModuleKey || null,
         pg_merchant_status: status,
-        infiny_mid: merchantId || null,
-        infiny_module_key: moduleKey || null,
+        infiny_mid: effectiveMerchantId || null,
+        infiny_module_key: effectiveModuleKey || null,
         infiny_mid_status: status,
         pg_profile: {
           provider,
           providerLabel: provider === "infiny" ? "인피니 PG" : provider,
-          merchantId: merchantId || null,
-          merchantIdMasked: maskValue(merchantId, "MID 대기"),
-          merchantSerialNoStored: Boolean(merchantSerialNo),
-          merchantSerialNoMasked: maskValue(merchantSerialNo, "시리얼 대기"),
-          moduleKey: moduleKey || null,
-          moduleKeyMasked: maskValue(moduleKey, "모듈키 대기"),
-          terminalIdStored: Boolean(terminalId),
-          terminalIdMasked: maskValue(terminalId, "터미널 대기"),
-          secretKeyRefMasked: maskValue(secretKeyRef, "Secret 참조 대기"),
-          merchantPasswordRefMasked: maskValue(merchantPasswordRef, "비밀번호 참조 대기"),
-          signKeyRefMasked: maskValue(signKeyRef, "SignKey 참조 대기"),
-          webhookSecretRefMasked: maskValue(webhookSecretRef, "Webhook Secret 참조 대기"),
-          credentialRefsStored: Boolean(secretKeyRef || merchantPasswordRef || signKeyRef || webhookSecretRef),
-          encryptedCredentialStored: Boolean(encryptedSecretKey || encryptedMerchantPassword || encryptedSignKey || encryptedWebhookSecret),
+          merchantId: effectiveMerchantId || null,
+          merchantIdMasked: maskValue(effectiveMerchantId, "MID 대기"),
+          merchantSerialNoStored: Boolean(effectiveMerchantSerialNo),
+          merchantSerialNoMasked: maskValue(effectiveMerchantSerialNo, "시리얼 대기"),
+          moduleKey: effectiveModuleKey || null,
+          moduleKeyMasked: maskValue(effectiveModuleKey, "모듈키 대기"),
+          terminalIdStored: Boolean(effectiveTerminalId),
+          terminalIdMasked: maskValue(effectiveTerminalId, "터미널 대기"),
+          secretKeyRefMasked: maskValue(effectiveSecretKeyRef, "Secret 참조 대기"),
+          merchantPasswordRefMasked: maskValue(effectiveMerchantPasswordRef, "비밀번호 참조 대기"),
+          signKeyRefMasked: maskValue(effectiveSignKeyRef, "SignKey 참조 대기"),
+          webhookSecretRefMasked: maskValue(effectiveWebhookSecretRef, "Webhook Secret 참조 대기"),
+          credentialRefsStored: Boolean(effectiveSecretKeyRef || effectiveMerchantPasswordRef || effectiveSignKeyRef || effectiveWebhookSecretRef),
+          encryptedCredentialStored,
           merchantStatus: status,
           credentialReady,
           adminManaged: true,
@@ -199,7 +248,9 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
           action: "admin_pg_credential_save",
           target: companyId,
           severity: credentialReady ? "info" : "warning",
-          message: "Company PG credential references were saved without raw secret values.",
+          message: encryptedCredentialStored
+            ? "Company PG credentials were stored in the encrypted Firebase Functions vault."
+            : "Company PG credential references were saved without raw secret values.",
         }),
       ),
       updated_at: FieldValue.serverTimestamp(),
@@ -232,9 +283,10 @@ export async function adminPgConnectionTestHandler(request: HttpRequestLike, res
 
   const credentialSnapshot = await getAdminDb().collection("company_pg_credentials").doc(companyId).get();
   const credential = credentialSnapshot.data() ?? {};
+  const runtimeReadiness = await readFirestorePgRuntimeReadiness();
   const pgReadiness = getPgServerReadiness();
   const blockers = [
-    ...pgReadiness.missingKeys,
+    ...runtimeReadiness.blockers,
     !text(credential.mid ?? credential.merchant_id) ? "company MID" : "",
     !text(credential.merchant_serial_no) ? "merchant serial number" : "",
     !text(credential.module_key) ? "module key" : "",
@@ -258,7 +310,7 @@ export async function adminPgConnectionTestHandler(request: HttpRequestLike, res
   sendJson(response, ready ? 200 : 409, {
     ok: ready,
     companyId,
-    pgReadiness,
+    pgReadiness: { ...pgReadiness, firestoreRuntime: runtimeReadiness },
     blockers,
     message: ready ? "PG 연결 준비 조건을 통과했습니다." : "PG 연결 준비 조건이 부족합니다.",
   });
@@ -280,6 +332,7 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
   const db = getAdminDb();
   const credentialSnapshot = await db.collection("company_pg_credentials").doc(companyId).get();
   const credential = credentialSnapshot.data() ?? {};
+  const runtimeReadiness = await readFirestorePgRuntimeReadiness();
   const canActivate = Boolean(
     text(credential.mid ?? credential.merchant_id) &&
       text(credential.merchant_serial_no) &&
@@ -287,7 +340,8 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
       hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) &&
       hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) &&
       hasCredential(credential.encrypted_sign_key, credential.sign_key_ref) &&
-      hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref),
+      hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref) &&
+      runtimeReadiness.ready,
   );
 
   if (action === "activate" && !canActivate) {
@@ -295,8 +349,9 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
       ok: false,
       error: {
         code: "ADMIN_PG_ACTIVATION_BLOCKED",
-        message: "MID, serial number, module key, and Secret references are required before activation.",
+        message: "MID, serial number, module key, Secret values, and Infiny runtime endpoints are required before activation.",
         httpStatus: 409,
+        details: { runtimeBlockers: runtimeReadiness.blockers },
       },
     });
     return;
@@ -327,6 +382,47 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
 
 function text(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const candidate = text(value);
+    if (candidate) return candidate;
+  }
+  return "";
+}
+
+async function readFirestorePgRuntimeReadiness(): Promise<{ ready: boolean; blockers: string[] }> {
+  try {
+    const db = getAdminDb();
+    const [providerSnapshot, legacySnapshot] = await Promise.all([
+      db.collection("pg_provider_settings").doc("infiny").get(),
+      db.collection("pg_gateway_settings").doc("infiny-pg-runtime").get(),
+    ]);
+    const data = {
+      ...(legacySnapshot.exists ? legacySnapshot.data() ?? {} : {}),
+      ...(providerSnapshot.exists ? providerSnapshot.data() ?? {} : {}),
+    };
+    const hasConfirmEndpoint = Boolean(text(data.confirm_url ?? data.confirmUrl) || text(data.api_base_url ?? data.apiBaseUrl));
+    const blockers = [
+      !text(data.provider) ? "PG provider" : "",
+      !text(data.public_client_key ?? data.client_key ?? data.publicClientKey) ? "public client key" : "",
+      !text(data.channel_key ?? data.channelKey) ? "channel key" : "",
+      !text(data.script_url ?? data.scriptUrl) ? "browser SDK script URL" : "",
+      !text(data.request_function_name ?? data.requestFunctionName ?? data.request_method ?? data.requestMethod) ? "browser payment function name" : "",
+      !hasConfirmEndpoint ? "Infiny confirm endpoint or API base URL" : "",
+      !text(data.webhook_url ?? data.webhookUrl) ? "A5 webhook URL" : "",
+      !text(data.success_url ?? data.successUrl) ? "success URL" : "",
+      !text(data.fail_url ?? data.failUrl) ? "fail URL" : "",
+    ].filter(Boolean);
+
+    return { ready: blockers.length === 0, blockers };
+  } catch (error) {
+    return {
+      ready: false,
+      blockers: [error instanceof Error ? error.message : "Firestore PG runtime settings read failed"],
+    };
+  }
 }
 
 function hasCredential(encrypted: unknown, reference: unknown): boolean {

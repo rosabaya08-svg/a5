@@ -1,6 +1,9 @@
 import type { PgMerchantStatus, PgProvider } from "@/types/commerce";
 
 export const INFINY_PG_SETTINGS_STORAGE_KEY = "a5.admin.infiny-pg-settings";
+export const A5_PUBLIC_BASE_URL = "https://a5-closed-mall.pages.dev";
+export const A5_FIREBASE_FUNCTIONS_BASE_URL = "https://asia-northeast3-a5-closed-mall.cloudfunctions.net";
+export const A5_PAYMENT_WEBHOOK_URL = `${A5_FIREBASE_FUNCTIONS_BASE_URL}/paymentsWebhook`;
 
 export type InfinyPgRuntimeConfig = {
   provider: PgProvider;
@@ -70,9 +73,9 @@ export const defaultInfinyPgRuntimeConfig: InfinyPgRuntimeConfig = {
   statusUrl: "",
   scriptUrl: "",
   requestFunctionName: "INNOPAY.requestPayment",
-  successUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=success",
-  failUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=failed",
-  webhookUrl: "",
+  successUrl: `${A5_PUBLIC_BASE_URL}/q/live?code={shortCode}&paymentResult=success`,
+  failUrl: `${A5_PUBLIC_BASE_URL}/q/live?code={shortCode}&paymentResult=failed`,
+  webhookUrl: A5_PAYMENT_WEBHOOK_URL,
   webhookSignatureHeader: "x-pg-signature",
   webhookSignatureAlgorithm: "sha256",
   secretKeyRef: "",

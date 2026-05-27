@@ -76,13 +76,37 @@ type SaveState = {
 };
 
 function initialMerchantRows(): InfinyMerchantConfig[] {
-  return mockCompanies.map((company) => ({
+  return mockCompanies.map((company) => normalizeMerchantRow({
     companyId: company.id,
     companyName: company.name,
     companyStatus: company.status,
     merchantId: company.pgProfile?.merchantId ?? "",
+    merchantSerialNo: "",
+    moduleKey: company.pgProfile?.moduleKey ?? "",
+    terminalId: "",
+    secretKeyRef: "",
+    merchantPasswordRef: "",
+    signKeyRef: "",
+    webhookSecretRef: "",
     merchantStatus: company.pgProfile?.merchantStatus ?? "not_applied",
   }));
+}
+
+function normalizeMerchantRow(row: Partial<InfinyMerchantConfig>): InfinyMerchantConfig {
+  return {
+    companyId: row.companyId ?? "",
+    companyName: row.companyName ?? row.companyId ?? "",
+    companyStatus: row.companyStatus ?? "approved",
+    merchantId: row.merchantId ?? "",
+    merchantSerialNo: row.merchantSerialNo ?? "",
+    moduleKey: row.moduleKey ?? "",
+    terminalId: row.terminalId ?? "",
+    secretKeyRef: row.secretKeyRef ?? "",
+    merchantPasswordRef: row.merchantPasswordRef ?? "",
+    signKeyRef: row.signKeyRef ?? "",
+    webhookSecretRef: row.webhookSecretRef ?? "",
+    merchantStatus: row.merchantStatus ?? "not_applied",
+  };
 }
 
 function readInitialState(): InfinyPgProvisioningState {
@@ -103,7 +127,7 @@ function readInitialState(): InfinyPgProvisioningState {
     return {
       id: parsed.id || fallback.id,
       runtime: { ...defaultInfinyPgRuntimeConfig, ...parsed.runtime },
-      merchants: parsed.merchants?.length ? parsed.merchants : fallback.merchants,
+      merchants: parsed.merchants?.length ? parsed.merchants.map(normalizeMerchantRow) : fallback.merchants,
       updatedAt: parsed.updatedAt || fallback.updatedAt,
     };
   } catch {
@@ -113,6 +137,13 @@ function readInitialState(): InfinyPgProvisioningState {
 
 function inputClass() {
   return "h-12 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950 outline-none focus:border-emerald-500";
+}
+
+function maskSecretRef(value: string) {
+  const text = value.trim();
+  if (!text) return "참조 대기";
+  if (text.length <= 12) return `${text.slice(0, 4)}****`;
+  return `${text.slice(0, 6)}****${text.slice(-4)}`;
 }
 
 export function PgGatewaySettingsPanel() {
@@ -181,42 +212,135 @@ export function PgGatewaySettingsPanel() {
         merchants: nextState.merchants,
       });
 
+      await setDoc(
+        doc(db, "pg_provider_settings", "infiny"),
+        {
+          id: "infiny",
+          provider: nextState.runtime.provider,
+          environment: nextState.runtime.environment,
+          status: readiness.ready ? "active" : "testing",
+          public_client_key_set: Boolean(nextState.runtime.clientKey),
+          channel_key_set: Boolean(nextState.runtime.channelKey),
+          api_base_url: nextState.runtime.apiBaseUrl,
+          confirm_url: nextState.runtime.confirmUrl,
+          cancel_url: nextState.runtime.cancelUrl,
+          status_url: nextState.runtime.statusUrl,
+          script_url: nextState.runtime.scriptUrl,
+          request_function_name: nextState.runtime.requestFunctionName,
+          success_url: nextState.runtime.successUrl,
+          fail_url: nextState.runtime.failUrl,
+          webhook_url: nextState.runtime.webhookUrl,
+          webhook_signature_header: nextState.runtime.webhookSignatureHeader,
+          webhook_signature_algorithm: nextState.runtime.webhookSignatureAlgorithm,
+          secret_key_ref: nextState.runtime.secretKeyRef,
+          webhook_secret_ref: nextState.runtime.webhookSecretRef,
+          raw_secret_stored: false,
+          secret_storage_policy: "firebase_functions_secret_manager",
+          readiness,
+          updated_at: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
       await Promise.all(
         nextState.merchants.map((row) => {
           const merchantId = row.merchantId.trim();
           const merchantIdMasked = maskMerchantId(merchantId || undefined);
-
-          return setDoc(
-            doc(db, "companies", row.companyId),
-            {
-              company_id: row.companyId,
-              name: row.companyName,
-              status: row.companyStatus ?? "approved",
-              pg_provider: nextState.runtime.provider,
-              pg_merchant_id: merchantId || null,
-              pg_merchant_status: row.merchantStatus,
-              infiny_mid: merchantId || null,
-              infiny_mid_status: row.merchantStatus,
-              merchantId: merchantId || null,
-              merchantStatus: row.merchantStatus,
-              pg_profile: {
-                provider: nextState.runtime.provider,
-                providerLabel: providerLabels[nextState.runtime.provider],
-                merchantId: merchantId || null,
-                merchantIdMasked,
-                merchantStatus: row.merchantStatus,
-                adminManaged: true,
-                companyEditable: false,
-                pgFeeRate: INFINY_PG_FEE_RATE,
-                platformFeeRate: A5_PLATFORM_FEE_RATE,
-                totalFeeRate: INFINY_TOTAL_FEE_RATE,
-                settlementOwner: "infiny",
-                settlementExecutionBlocked: true,
-              },
-              updated_at: serverTimestamp(),
-            },
-            { merge: true },
+          const merchantSerialNo = row.merchantSerialNo.trim();
+          const moduleKey = row.moduleKey.trim();
+          const terminalId = row.terminalId.trim();
+          const secretKeyRef = row.secretKeyRef.trim();
+          const merchantPasswordRef = row.merchantPasswordRef.trim();
+          const signKeyRef = row.signKeyRef.trim();
+          const webhookSecretRef = row.webhookSecretRef.trim();
+          const credentialReady = Boolean(
+            merchantId &&
+              merchantSerialNo &&
+              moduleKey &&
+              secretKeyRef &&
+              merchantPasswordRef &&
+              signKeyRef &&
+              webhookSecretRef &&
+              row.merchantStatus === "active",
           );
+          const commonCredentialPayload = {
+            company_id: row.companyId,
+            company_name: row.companyName,
+            provider: nextState.runtime.provider,
+            environment: nextState.runtime.environment,
+            mid: merchantId || null,
+            merchant_id: merchantId || null,
+            merchant_id_masked: merchantIdMasked,
+            merchant_serial_no: merchantSerialNo || null,
+            merchant_serial_no_masked: maskSecretRef(merchantSerialNo),
+            module_key: moduleKey || null,
+            module_key_masked: maskSecretRef(moduleKey),
+            terminal_id: terminalId || null,
+            terminal_id_masked: maskSecretRef(terminalId),
+            secret_key_ref: secretKeyRef || null,
+            secret_key_ref_masked: maskSecretRef(secretKeyRef),
+            merchant_password_ref: merchantPasswordRef || null,
+            merchant_password_ref_masked: maskSecretRef(merchantPasswordRef),
+            sign_key_ref: signKeyRef || null,
+            sign_key_ref_masked: maskSecretRef(signKeyRef),
+            webhook_secret_ref: webhookSecretRef || null,
+            webhook_secret_ref_masked: maskSecretRef(webhookSecretRef),
+            credential_status: row.merchantStatus,
+            status: credentialReady ? "active" : row.merchantStatus,
+            credential_ready: credentialReady,
+            raw_secret_stored: false,
+            secret_storage_policy: "secret_manager_reference_only",
+            updated_at: serverTimestamp(),
+          };
+
+          return Promise.all([
+            setDoc(doc(db, "company_pg_credentials", row.companyId), commonCredentialPayload, { merge: true }),
+            setDoc(
+              doc(db, "companies", row.companyId),
+              {
+                company_id: row.companyId,
+                name: row.companyName,
+                status: row.companyStatus ?? "approved",
+                pg_provider: nextState.runtime.provider,
+                pg_merchant_id: merchantId || null,
+                pg_module_key: moduleKey || null,
+                pg_merchant_status: row.merchantStatus,
+                infiny_mid: merchantId || null,
+                infiny_module_key: moduleKey || null,
+                infiny_mid_status: row.merchantStatus,
+                merchantId: merchantId || null,
+                merchantStatus: row.merchantStatus,
+                pg_profile: {
+                  provider: nextState.runtime.provider,
+                  providerLabel: providerLabels[nextState.runtime.provider],
+                  merchantId: merchantId || null,
+                  merchantIdMasked,
+                  merchantSerialNoStored: Boolean(merchantSerialNo),
+                  merchantSerialNoMasked: maskSecretRef(merchantSerialNo),
+                  moduleKey: moduleKey || null,
+                  moduleKeyMasked: maskSecretRef(moduleKey),
+                  terminalIdStored: Boolean(terminalId),
+                  terminalIdMasked: maskSecretRef(terminalId),
+                  secretKeyRefMasked: maskSecretRef(secretKeyRef),
+                  merchantPasswordRefMasked: maskSecretRef(merchantPasswordRef),
+                  signKeyRefMasked: maskSecretRef(signKeyRef),
+                  webhookSecretRefMasked: maskSecretRef(webhookSecretRef),
+                  credentialRefsStored: Boolean(secretKeyRef || merchantPasswordRef || signKeyRef || webhookSecretRef),
+                  merchantStatus: row.merchantStatus,
+                  credentialReady,
+                  adminManaged: true,
+                  companyEditable: false,
+                  pgFeeRate: INFINY_PG_FEE_RATE,
+                  platformFeeRate: A5_PLATFORM_FEE_RATE,
+                  totalFeeRate: INFINY_TOTAL_FEE_RATE,
+                  settlementOwner: "infiny",
+                  settlementExecutionBlocked: true,
+                },
+                updated_at: serverTimestamp(),
+              },
+              { merge: true },
+            ),
+          ]);
         }),
       );
 
@@ -362,8 +486,20 @@ export function PgGatewaySettingsPanel() {
         </div>
 
         <div className="mt-4 grid gap-3">
-          {state.merchants.map((row) => (
-            <div key={row.companyId} className="grid gap-3 rounded-md border border-slate-200 p-3 lg:grid-cols-[1fr_1.2fr_220px_150px]">
+          {state.merchants.map((row) => {
+            const credentialReady = Boolean(
+              row.merchantId.trim() &&
+                row.merchantSerialNo.trim() &&
+                row.moduleKey.trim() &&
+                row.secretKeyRef.trim() &&
+                row.merchantPasswordRef.trim() &&
+                row.signKeyRef.trim() &&
+                row.webhookSecretRef.trim() &&
+                row.merchantStatus === "active",
+            );
+
+            return (
+            <div key={row.companyId} className="grid gap-3 rounded-md border border-slate-200 p-3 lg:grid-cols-[1fr_1fr_1fr_1fr]">
               <div>
                 <p className="text-xs font-black text-slate-500">기업명</p>
                 <p className="mt-1 font-black text-slate-950">{row.companyName}</p>
@@ -377,6 +513,76 @@ export function PgGatewaySettingsPanel() {
                   onChange={(event) => updateMerchant(row.companyId, { merchantId: event.target.value })}
                   className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
                   placeholder="INF-COMPANY-000000"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                시리얼번호
+                <input
+                  value={row.merchantSerialNo}
+                  onChange={(event) => updateMerchant(row.companyId, { merchantSerialNo: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="인피니 발급 시리얼"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                모듈키
+                <input
+                  value={row.moduleKey}
+                  onChange={(event) => updateMerchant(row.companyId, { moduleKey: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="moduleKey / channelKey"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                터미널 ID
+                <input
+                  value={row.terminalId}
+                  onChange={(event) => updateMerchant(row.companyId, { terminalId: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="선택 입력"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                PG Secret 참조
+                <input
+                  value={row.secretKeyRef}
+                  onChange={(event) => updateMerchant(row.companyId, { secretKeyRef: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="Secret Manager 참조명"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                가맹점 비밀번호 참조
+                <input
+                  value={row.merchantPasswordRef}
+                  onChange={(event) => updateMerchant(row.companyId, { merchantPasswordRef: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="원문이 아닌 참조명"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                SignKey 참조
+                <input
+                  value={row.signKeyRef}
+                  onChange={(event) => updateMerchant(row.companyId, { signKeyRef: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="원문이 아닌 참조명"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-500">
+                Webhook Secret 참조
+                <input
+                  value={row.webhookSecretRef}
+                  onChange={(event) => updateMerchant(row.companyId, { webhookSecretRef: event.target.value })}
+                  className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                  placeholder="원문이 아닌 참조명"
                 />
               </label>
 
@@ -397,11 +603,13 @@ export function PgGatewaySettingsPanel() {
 
               <div className="rounded-md bg-slate-50 p-3 text-xs font-bold text-slate-600">
                 <p className="font-black text-slate-950">결제 적용</p>
-                <p className="mt-1">{row.merchantStatus === "active" && row.merchantId.trim() ? "QR 결제 payload 사용 가능" : "실결제 차단"}</p>
+                <p className="mt-1">{credentialReady ? "결제 준비 payload 사용 가능" : "필수 발급값 대기"}</p>
                 <p className="mt-1">{maskMerchantId(row.merchantId || undefined)}</p>
+                <p className="mt-1">Secret 원문 저장 안 함</p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

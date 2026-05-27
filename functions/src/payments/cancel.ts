@@ -1,6 +1,7 @@
 import { releaseInventorySkeleton } from "../inventory/releaseInventory";
 import { appendAuditLogSkeleton, createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { cancelProviderPayment } from "./providerAdapter";
 import { getAdminDb } from "../firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
@@ -32,7 +33,25 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   }
 
   const pgReadiness = getPgServerReadiness();
-  const releasePlan = releaseInventorySkeleton(normalizeCartItems(body.items));
+  const db = getAdminDb();
+  const paymentSnapshot = (
+    await db.collection("payments").where("order_no", "==", orderNo).limit(1).get()
+  ).docs[0];
+  const paymentData = paymentSnapshot?.data() ?? {};
+  const orderSnapshot = await db.collection("orders").doc(orderNo).get();
+  const orderData = orderSnapshot.data() ?? {};
+  const paymentKey = String(body.paymentKey ?? paymentData.provider_payment_key ?? paymentData.paymentKey ?? "");
+  const cancelAmount = Number(body.amount ?? paymentData.amount ?? 0);
+  const cancelItems = normalizeCartItems(body.items);
+  const providerResult = pgReadiness.readyForAdapter
+    ? await cancelProviderPayment({
+        orderNo,
+        paymentKey,
+        amount: cancelAmount,
+        reason: body.reason ?? "No reason supplied",
+      })
+    : undefined;
+  const releasePlan = releaseInventorySkeleton(cancelItems);
   const auditPlan = appendAuditLogSkeleton(
     createAuditLogDraft({
       action: "payment_cancel_blocked",
@@ -42,23 +61,74 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
     }),
   );
 
-  const db = getAdminDb();
   const cancelRequestId = `${orderNo}-${Date.now()}`;
 
   await db.runTransaction(async (transaction) => {
     transaction.set(db.collection("cancel_requests").doc(cancelRequestId), {
       order_no: orderNo,
-      payment_key: body.paymentKey ?? null,
-      amount: body.amount ?? null,
+      payment_id: paymentData.payment_id ?? paymentData.payment_intent_id ?? paymentSnapshot?.id ?? null,
+      company_id: paymentData.company_id ?? orderData.company_id ?? null,
+      nursery_id: orderData.nursery_id ?? paymentData.nursery_id ?? null,
+      room_id: orderData.room_id ?? null,
+      tablet_id: orderData.tablet_id ?? null,
+      payment_key: paymentKey || null,
+      amount: cancelAmount || null,
       reason: body.reason ?? "No reason supplied",
       requested_by: body.requestedBy ?? "CUSTOMER_GUEST",
-      status: "manual_review_required",
-      pg_cancel_called: false,
-      source: "firebase_functions_cancel_blocked",
+      status: providerResult?.ok ? "pg_cancelled" : "manual_review_required",
+      pg_cancel_called: Boolean(providerResult?.ok && providerResult.realPgCalled),
+      provider_message: providerResult?.message ?? null,
+      source: providerResult?.ok ? "firebase_functions_pg_cancel" : "firebase_functions_cancel_review",
       demo_read_enabled: true,
       created_at: new Date().toISOString(),
       updated_at: FieldValue.serverTimestamp(),
     });
+
+    if (paymentSnapshot?.ref && providerResult?.ok) {
+      transaction.set(
+        paymentSnapshot.ref,
+        {
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          cancel_amount: providerResult.amount ?? cancelAmount,
+          cancel_transaction_id: providerResult.transactionId ?? null,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    if (providerResult?.ok) {
+      transaction.set(
+        db.collection("orders").doc(orderNo),
+        {
+          status: "cancelled",
+          payment_status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      cancelItems.forEach((item) => {
+        transaction.update(db.collection("products").doc(item.productId), {
+          inventory: FieldValue.increment(item.quantity),
+          updated_at: FieldValue.serverTimestamp(),
+        });
+        transaction.set(db.collection("inventory_movements").doc(), {
+          option_id: item.optionId ?? item.productId,
+          product_id: item.productId,
+          company_id: item.companyId,
+          type: "release",
+          quantity: item.quantity,
+          reason: "pg_payment_cancel",
+          source_id: orderNo,
+          source: "firebase_functions_pg_cancel",
+          created_at: new Date().toISOString(),
+          updated_at: FieldValue.serverTimestamp(),
+        });
+      });
+    }
 
     transaction.set(db.collection("audit_logs").doc(), {
       ...toAuditLogDocument(
@@ -74,13 +144,13 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   });
 
   sendJson(response, 200, {
-    ok: false,
-    provider: "mock",
+    ok: Boolean(providerResult?.ok),
+    provider: pgReadiness.provider,
     pgReady: pgReadiness.readyForAdapter,
     pgReadiness,
-    status: "cancel_blocked",
+    status: providerResult?.ok ? "cancelled" : "manual_review_required",
     orderNo,
-    pgCancelCalled: false,
+    pgCancelCalled: Boolean(providerResult?.ok && providerResult.realPgCalled),
     firestoreTransactionPlan: [
       ...releasePlan.transactionSteps,
       ...getPgAdapterHandoffPlan(),
@@ -88,6 +158,6 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
       "Hold settlement payout until refund policy is approved.",
       `Append audit log at ${auditPlan.plannedPath}.`,
     ],
-    message: "Real cancel/refund is blocked. This endpoint is a mock skeleton only.",
+    message: providerResult?.message ?? "Cancel request recorded for manual review. Real PG cancel needs provider readiness and a payment key.",
   });
 }

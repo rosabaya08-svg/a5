@@ -90,6 +90,40 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   let merchantProfile: CompanyMerchantProfile | undefined;
 
   try {
+    const preflight = await buildConfirmPreflight({
+      paymentIntentId,
+      qrSessionId,
+      orderNo,
+      requestItems,
+      clientAmount: body.clientAmount,
+      providerPaymentKey: optionalString(body.providerPaymentKey),
+      transactionId: optionalString(body.transactionId),
+      receiptUrl: optionalString(body.receiptUrl),
+      pgReadiness,
+    });
+
+    pricedItems = preflight.pricedItems;
+    recalculatedAmount = preflight.recalculatedAmount;
+    merchantProfile = preflight.merchantProfile;
+    approval = preflight.approval;
+    approvedAt = approval.approvedAt;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown payment confirm preflight error.";
+    const [code, detail] = message.split(":");
+
+    await recordPaymentConfirmFailure(paymentIntentId, orderNo, code, detail ?? message);
+    sendJson(response, errorStatus(code), {
+      ok: false,
+      error: {
+        code,
+        message: errorMessage(code, detail ?? message),
+        httpStatus: errorStatus(code),
+      },
+    });
+    return;
+  }
+
+  try {
     const db = getAdminDb();
     const intentRef = db.collection("payment_intents").doc(paymentIntentId);
     const paymentRef = db.collection("payments").doc(paymentIntentId);
@@ -168,7 +202,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       const companyId = [...companyIds][0] ?? "";
       const intentCompanyId = String(intentSnapshot.get("company_id") ?? intentSnapshot.get("companyId") ?? "");
       const merchantId = optionalString(intentSnapshot.get("merchant_id") ?? intentSnapshot.get("merchantId"));
+      const merchantSerialNo = optionalString(intentSnapshot.get("merchant_serial_no") ?? intentSnapshot.get("merchantSerialNo"));
       const moduleKey = optionalString(intentSnapshot.get("pg_module_key") ?? intentSnapshot.get("moduleKey") ?? intentSnapshot.get("channelKey"));
+      const terminalId = optionalString(intentSnapshot.get("terminal_id") ?? intentSnapshot.get("terminalId"));
       const merchantStatus = asMerchantStatus(intentSnapshot.get("merchant_status") ?? intentSnapshot.get("merchantStatus"));
       const merchantProvider = asPaymentProviderId(intentSnapshot.get("pg_provider") ?? intentSnapshot.get("provider") ?? "infiny");
 
@@ -176,8 +212,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error(`PAYMENT_INTENT_COMPANY_MISMATCH:${JSON.stringify({ intentCompanyId, companyId })}`);
       }
 
-      if (pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || merchantStatus !== "active")) {
-        throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey) })}`);
+      if (pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || !merchantSerialNo || merchantStatus !== "active")) {
+        throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey), hasSerialNo: Boolean(merchantSerialNo) })}`);
       }
 
       merchantProfile = {
@@ -186,10 +222,18 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         provider: merchantProvider,
         merchantId,
         merchantIdMasked: maskMerchantId(merchantId),
+        merchantSerialNo,
+        merchantSerialNoMasked: maskModuleKey(merchantSerialNo),
         moduleKey,
         moduleKeyMasked: maskModuleKey(moduleKey),
+        terminalId,
+        terminalIdMasked: maskModuleKey(terminalId),
+        secretKeyRef: optionalString(intentSnapshot.get("secret_key_ref")),
+        merchantPasswordRef: optionalString(intentSnapshot.get("merchant_password_ref")),
+        signKeyRef: optionalString(intentSnapshot.get("sign_key_ref")),
+        webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
         merchantStatus,
-        paymentReady: Boolean(merchantId && moduleKey && merchantStatus === "active"),
+        paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
       };
 
       recalculatedAmount = calculateItemsAmount(pricedItems);
@@ -199,23 +243,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error(`AMOUNT_MISMATCH:${JSON.stringify(amountAssertion.error.details ?? {})}`);
       }
 
-      const providerResult = await confirmPaymentWithConfiguredProvider({
-        paymentIntentId,
-        orderNo,
-        amount: recalculatedAmount,
-        companyId,
-        merchantId,
-        moduleKey,
-        providerPaymentKey: optionalString(body.providerPaymentKey),
-        transactionId: optionalString(body.transactionId),
-        receiptUrl: optionalString(body.receiptUrl),
-      });
-
-      if (!providerResult.ok) {
-        throw new Error(providerResult.code);
-      }
-
-      approval = providerResult.approval;
+      if (!approval) throw new Error("PAYMENT_APPROVAL_MISSING");
       approvedAt = approval.approvedAt;
       const confirmedApproval = approval;
 
@@ -248,8 +276,16 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
           merchant_id_masked: merchantProfile!.merchantIdMasked,
+          merchant_serial_no: merchantProfile!.merchantSerialNo ?? null,
+          merchant_serial_no_masked: merchantProfile!.merchantSerialNoMasked ?? null,
           pg_module_key: merchantProfile!.moduleKey ?? null,
           pg_module_key_masked: merchantProfile!.moduleKeyMasked,
+          terminal_id: merchantProfile!.terminalId ?? null,
+          terminal_id_masked: merchantProfile!.terminalIdMasked ?? null,
+          secret_key_ref: merchantProfile!.secretKeyRef ?? null,
+          merchant_password_ref: merchantProfile!.merchantPasswordRef ?? null,
+          sign_key_ref: merchantProfile!.signKeyRef ?? null,
+          webhook_secret_ref: merchantProfile!.webhookSecretRef ?? null,
           merchant_status: merchantProfile!.merchantStatus,
           status: approval.status,
           amount: recalculatedAmount,
@@ -311,7 +347,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           company_id: merchantProfile!.companyId,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
+          merchant_serial_no: merchantProfile!.merchantSerialNo ?? null,
           pg_module_key: merchantProfile!.moduleKey ?? null,
+          terminal_id: merchantProfile!.terminalId ?? null,
           source: approval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
           guest_lookup_enabled: true,
           demo_read_enabled: true,
@@ -406,7 +444,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           message: approval.message,
           pg_provider: merchantProfile!.provider,
           merchant_id: merchantProfile!.merchantId ?? null,
+          merchant_serial_no: merchantProfile!.merchantSerialNo ?? null,
           pg_module_key: merchantProfile!.moduleKey ?? null,
+          terminal_id: merchantProfile!.terminalId ?? null,
           idempotency_key: `${paymentIntentId}-${approval.status}`,
           source: approval.realPgCalled ? "firebase_functions_pg_confirm" : "firebase_functions_mock_confirm",
           demo_read_enabled: true,
@@ -489,6 +529,222 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
   sendJson(response, 200, result);
 }
 
+type ConfirmPreflightInput = {
+  paymentIntentId: string;
+  qrSessionId: string;
+  orderNo: string;
+  requestItems: ReturnType<typeof normalizeCartItems>;
+  clientAmount?: number;
+  providerPaymentKey?: string;
+  transactionId?: string;
+  receiptUrl?: string;
+  pgReadiness: ReturnType<typeof getPgServerReadiness>;
+};
+
+type ConfirmPreflightResult = {
+  pricedItems: ServerPricedItem[];
+  recalculatedAmount: number;
+  merchantProfile: CompanyMerchantProfile;
+  approval: PgApproval;
+};
+
+async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<ConfirmPreflightResult> {
+  const db = getAdminDb();
+  const intentRef = db.collection("payment_intents").doc(input.paymentIntentId);
+  const paymentRef = db.collection("payments").doc(input.paymentIntentId);
+  const orderRef = db.collection("orders").doc(input.orderNo);
+  const qrRef = db.collection("qr_payment_sessions").doc(input.qrSessionId);
+  const productRefs = input.requestItems.map((item) => db.collection("products").doc(item.productId));
+
+  const [intentSnapshot, paymentSnapshot, orderSnapshot, qrSnapshot, ...productSnapshots] = await Promise.all([
+    intentRef.get(),
+    paymentRef.get(),
+    orderRef.get(),
+    qrRef.get(),
+    ...productRefs.map((ref) => ref.get()),
+  ]);
+
+  if (!intentSnapshot.exists) throw new Error("PAYMENT_INTENT_NOT_FOUND");
+  if (paymentSnapshot.exists || orderSnapshot.exists || ["confirmed_mock", "confirmed"].includes(String(intentSnapshot.get("status") ?? ""))) {
+    throw new Error("DUPLICATE_PAYMENT_ATTEMPT");
+  }
+  if (!qrSnapshot.exists) throw new Error("QR_SESSION_NOT_FOUND");
+
+  const qrStatus = String(qrSnapshot.get("status") ?? "");
+  if (qrStatus !== "active") throw new Error(`QR_SESSION_NOT_ACTIVE:${qrStatus}`);
+
+  const expiresAt = toIsoString(qrSnapshot.get("expires_at") ?? qrSnapshot.get("expiresAt"));
+  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) throw new Error("QR_SESSION_EXPIRED");
+
+  const pricedItems = productSnapshots.map((snapshot, index) => {
+    if (!snapshot.exists) throw new Error(`PRODUCT_NOT_FOUND:${input.requestItems[index].productId}`);
+
+    const data = snapshot.data() ?? {};
+    const status = String(data.status ?? "");
+    if (status !== "active" && status !== "approved") {
+      throw new Error(`PRODUCT_NOT_ACTIVE:${input.requestItems[index].productId}`);
+    }
+
+    const inventory = asNumber(data.inventory ?? data.stock, 0);
+    const reservedInventory = asNumber(data.reserved_inventory, 0);
+    const availableInventory = inventory - reservedInventory;
+    const quantity = input.requestItems[index].quantity;
+
+    if (inventory < quantity && availableInventory < quantity) {
+      throw new Error(`OUT_OF_STOCK:${input.requestItems[index].productId}`);
+    }
+
+    return {
+      ...input.requestItems[index],
+      productName: String(data.title ?? data.name ?? input.requestItems[index].productName),
+      unitPrice: asNumber(data.closed_mall_price ?? data.price, input.requestItems[index].unitPrice),
+      companyId: String(data.company_id ?? input.requestItems[index].companyId),
+      status,
+      inventory,
+      reservedInventory,
+      availableInventory,
+      source: "firestore_products" as const,
+    };
+  });
+
+  const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
+  if (companyIds.size > 1) {
+    throw new Error(`COMPANY_GROUP_REQUIRED:${JSON.stringify({ companyIds: [...companyIds] })}`);
+  }
+
+  const companyId = [...companyIds][0] ?? "";
+  const intentCompanyId = String(intentSnapshot.get("company_id") ?? intentSnapshot.get("companyId") ?? "");
+  if (intentCompanyId && intentCompanyId !== companyId) {
+    throw new Error(`PAYMENT_INTENT_COMPANY_MISMATCH:${JSON.stringify({ intentCompanyId, companyId })}`);
+  }
+
+  const merchantId = optionalString(intentSnapshot.get("merchant_id") ?? intentSnapshot.get("merchantId"));
+  const merchantSerialNo = optionalString(intentSnapshot.get("merchant_serial_no") ?? intentSnapshot.get("merchantSerialNo"));
+  const moduleKey = optionalString(intentSnapshot.get("pg_module_key") ?? intentSnapshot.get("moduleKey") ?? intentSnapshot.get("channelKey"));
+  const terminalId = optionalString(intentSnapshot.get("terminal_id") ?? intentSnapshot.get("terminalId"));
+  const merchantStatus = asMerchantStatus(intentSnapshot.get("merchant_status") ?? intentSnapshot.get("merchantStatus"));
+  const merchantProvider = asPaymentProviderId(intentSnapshot.get("pg_provider") ?? intentSnapshot.get("provider") ?? "infiny");
+  const merchantProfile: CompanyMerchantProfile = {
+    companyId,
+    companyName: String(intentSnapshot.get("company_name") ?? companyId),
+    provider: merchantProvider,
+    merchantId,
+    merchantIdMasked: maskMerchantId(merchantId),
+    merchantSerialNo,
+    merchantSerialNoMasked: maskModuleKey(merchantSerialNo),
+    moduleKey,
+    moduleKeyMasked: maskModuleKey(moduleKey),
+    terminalId,
+    terminalIdMasked: maskModuleKey(terminalId),
+    secretKeyRef: optionalString(intentSnapshot.get("secret_key_ref")),
+    merchantPasswordRef: optionalString(intentSnapshot.get("merchant_password_ref")),
+    signKeyRef: optionalString(intentSnapshot.get("sign_key_ref")),
+    webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
+    merchantStatus,
+    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
+  };
+
+  if (input.pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || !merchantSerialNo || merchantStatus !== "active")) {
+    throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey), hasSerialNo: Boolean(merchantSerialNo) })}`);
+  }
+
+  const recalculatedAmount = calculateItemsAmount(pricedItems);
+  const amountAssertion = assertAmount(input.clientAmount ?? asNumber(intentSnapshot.get("recalculated_amount"), NaN), recalculatedAmount);
+  if (!amountAssertion.ok) {
+    throw new Error(`AMOUNT_MISMATCH:${JSON.stringify(amountAssertion.error.details ?? {})}`);
+  }
+
+  await db.runTransaction(async (transaction) => {
+    const currentIntent = await transaction.get(intentRef);
+    const currentPayment = await transaction.get(paymentRef);
+    const currentOrder = await transaction.get(orderRef);
+    const status = String(currentIntent.get("status") ?? "");
+
+    if (currentPayment.exists || currentOrder.exists || ["confirming", "confirmed", "confirmed_mock"].includes(status)) {
+      throw new Error("DUPLICATE_PAYMENT_ATTEMPT");
+    }
+
+    transaction.set(
+      intentRef,
+      {
+        status: "confirming",
+        confirming_at: new Date().toISOString(),
+        order_no: input.orderNo,
+        idempotency_key: input.paymentIntentId,
+        updated_at: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  const providerResult = await confirmPaymentWithConfiguredProvider({
+    paymentIntentId: input.paymentIntentId,
+    orderNo: input.orderNo,
+    amount: recalculatedAmount,
+    companyId,
+    merchantId,
+    merchantSerialNo,
+    moduleKey,
+    terminalId,
+    secretKeyRef: merchantProfile.secretKeyRef,
+    merchantPasswordRef: merchantProfile.merchantPasswordRef,
+    signKeyRef: merchantProfile.signKeyRef,
+    providerPaymentKey: input.providerPaymentKey,
+    transactionId: input.transactionId,
+    receiptUrl: input.receiptUrl,
+  });
+
+  if (!providerResult.ok) {
+    throw new Error(`${providerResult.code}:${providerResult.message}`);
+  }
+
+  return {
+    pricedItems,
+    recalculatedAmount,
+    merchantProfile,
+    approval: providerResult.approval,
+  };
+}
+
+async function recordPaymentConfirmFailure(paymentIntentId: string, orderNo: string, code: string, message: string) {
+  try {
+    const db = getAdminDb();
+    const now = new Date().toISOString();
+
+    await db.runTransaction(async (transaction) => {
+      transaction.set(
+        db.collection("payment_intents").doc(paymentIntentId),
+        {
+          status: "failed",
+          failed_at: now,
+          failure_code: code,
+          failure_message: message,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      transaction.set(
+        db.collection("payment_events").doc(`${paymentIntentId}-failed-${Date.now()}`),
+        {
+          payment_intent_id: paymentIntentId,
+          order_no: orderNo,
+          event_type: "confirm_failed",
+          status: "failed",
+          error_code: code,
+          error_message: message,
+          source: "firebase_functions_pg_confirm",
+          created_at: now,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+  } catch {
+    // Best-effort failure audit only. The response still carries the original payment error.
+  }
+}
+
 function toSnapshotItem(item: ServerPricedItem) {
   return {
     product_id: item.productId,
@@ -529,6 +785,8 @@ function errorStatus(code: string): number {
   if (code === "COMPANY_GROUP_REQUIRED") return 409;
   if (code === "PAYMENT_INTENT_COMPANY_MISMATCH") return 409;
   if (code === "PAYMENT_INTENT_MID_REQUIRED") return 409;
+  if (code === "PAYMENT_APPROVAL_MISSING") return 503;
+  if (code === "PG_PROVIDER_ADAPTER_NOT_IMPLEMENTED") return 503;
   if (code.endsWith("NOT_FOUND")) return 404;
   return 503;
 }
@@ -546,7 +804,9 @@ function errorMessage(code: string, detail: string): string {
     AMOUNT_MISMATCH: "Client amount does not match server recalculated amount.",
     COMPANY_GROUP_REQUIRED: "One payment QR can contain items from only one company/MID. Create the next company QR after this payment.",
     PAYMENT_INTENT_COMPANY_MISMATCH: "Payment intent company does not match the recalculated cart company.",
-    PAYMENT_INTENT_MID_REQUIRED: "Company MID or payment module key is missing or not active for real PG confirm.",
+    PAYMENT_INTENT_MID_REQUIRED: "Company MID, serial number, payment module key, or active status is missing for real PG confirm.",
+    PAYMENT_APPROVAL_MISSING: "Payment approval result is missing after PG confirm.",
+    PG_PROVIDER_ADAPTER_NOT_IMPLEMENTED: "Configured PG adapter is not ready for real approval. Check Infiny endpoint and Firebase Function secrets.",
   };
 
   return messages[code] ?? detail;

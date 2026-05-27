@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GuestCheckoutClient } from "@/components/guest/GuestCheckoutClient";
+import { PgReturnConfirmClient } from "@/components/guest/PgReturnConfirmClient";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mockCompanies } from "@/data/mockCompanies";
 import { COMPANY_GROUP_PURCHASE_MESSAGE, groupCartItemsByCompany } from "@/lib/payments/companyPaymentGroups";
@@ -232,7 +233,8 @@ export async function QrSuccessPage({ code }: { code: string }) {
       <section className="rounded-md border border-emerald-200 bg-white p-5 text-center shadow-sm">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-lg font-black text-emerald-700">완료</div>
         <h2 className="mt-4 text-3xl font-black">{formatCurrency(session.totalAmount)}</h2>
-        <Link href="/orders/guest/A5-20260519-001" className="mt-5 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
+        <PgReturnConfirmClient session={session} />
+        <Link href="/orders/guest" className="mt-5 inline-flex rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
           주문조회
         </Link>
       </section>

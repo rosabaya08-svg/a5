@@ -143,6 +143,18 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /pg_provider_settings/{settingId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow create, update: if superSeedWrite(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /company_pg_credentials/{credentialId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow create, update: if superSeedWrite(request.resource.data);
+      allow delete: if false;
+    }
+
     match /nursery_auto_signup_profiles/{profileId} {
       allow get, list: if betaCmsRead() || isSuperOrSeedAdmin() || nurseryScoped(resource.data);
       allow create, update: if superSeedWrite(request.resource.data) || betaCmsWrite(request.resource.data);
@@ -284,6 +296,16 @@ service cloud.firestore {
     }
 
     // Server-owned commerce ledgers. Client writes are always denied.
+    match /payment_intents/{intentId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow write: if false;
+    }
+
+    match /order_drafts/{draftId} {
+      allow get, list: if isSuperOrSeedAdmin() || nurseryScoped(resource.data);
+      allow write: if false;
+    }
+
     match /orders/{orderId} {
       allow get, list: if isSuperOrSeedAdmin() || nurseryScoped(resource.data) || guestOrderTokenRead(resource.data);
       allow write: if false;
@@ -309,12 +331,27 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /cancel_requests/{requestId} {
+      allow get, list: if isSuperOrSeedAdmin() || companyScoped(resource.data) || nurseryScoped(resource.data);
+      allow write: if false;
+    }
+
     match /inventory_movements/{movementId} {
       allow get, list: if isSuperOrSeedAdmin() || companyScoped(resource.data);
       allow write: if false;
     }
 
+    match /inventory_reservations/{reservationId} {
+      allow get, list: if isSuperOrSeedAdmin() || companyScoped(resource.data) || nurseryScoped(resource.data);
+      allow write: if false;
+    }
+
     match /audit_logs/{logId} {
+      allow get, list: if isSuperOrSeedAdmin();
+      allow write: if false;
+    }
+
+    match /payment_audit_logs/{logId} {
       allow get, list: if isSuperOrSeedAdmin();
       allow write: if false;
     }

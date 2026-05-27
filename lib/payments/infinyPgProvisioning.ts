@@ -33,6 +33,13 @@ export type InfinyMerchantConfig = {
   companyName: string;
   companyStatus?: "pending" | "approved" | "suspended";
   merchantId: string;
+  merchantSerialNo: string;
+  moduleKey: string;
+  terminalId: string;
+  secretKeyRef: string;
+  merchantPasswordRef: string;
+  signKeyRef: string;
+  webhookSecretRef: string;
   merchantStatus: PgMerchantStatus;
 };
 
@@ -48,6 +55,7 @@ export type InfinyPgProvisioningReadiness = {
   blockers: string[];
   activeMerchantCount: number;
   blockedMerchantCount: number;
+  credentialReadyCount: number;
 };
 
 export const defaultInfinyPgRuntimeConfig: InfinyPgRuntimeConfig = {
@@ -105,6 +113,8 @@ export function buildPgEnvTemplate(runtime: InfinyPgRuntimeConfig) {
     `PG_WEBHOOK_SECRET=<Secret Manager: ${runtime.webhookSecretRef || "등록 필요"}>`,
     "",
     "# 기업별 MID는 companies/{companyId}.pg_merchant_id 로 저장합니다.",
+    "# 기업별 상세 발급값은 company_pg_credentials/{companyId}에 마스킹/참조값으로 저장합니다.",
+    "# 비밀번호, signKey, webhook secret 원문은 Firestore에 저장하지 말고 Secret Manager 참조명만 기록합니다.",
     "# 대표/플랫폼 MID가 별도로 발급된 경우에만 참고값으로 관리합니다.",
     `OPTIONAL_PLATFORM_MERCHANT_ID=${runtime.merchantId}`,
   ].join("\n");
@@ -114,8 +124,30 @@ export function evaluateInfinyPgProvisioning(
   runtime: InfinyPgRuntimeConfig,
   merchants: InfinyMerchantConfig[] = [],
 ): InfinyPgProvisioningReadiness {
-  const activeMerchantCount = merchants.filter((merchant) => merchant.merchantId.trim() && merchant.merchantStatus === "active").length;
-  const blockedMerchantCount = merchants.filter((merchant) => !merchant.merchantId.trim() || merchant.merchantStatus !== "active").length;
+  const credentialReadyCount = merchants.filter((merchant) =>
+    Boolean(
+      merchant.merchantId.trim() &&
+        merchant.merchantSerialNo.trim() &&
+        merchant.moduleKey.trim() &&
+        merchant.secretKeyRef.trim() &&
+        merchant.merchantPasswordRef.trim() &&
+        merchant.signKeyRef.trim() &&
+        merchant.webhookSecretRef.trim(),
+    ),
+  ).length;
+  const activeMerchantCount = merchants.filter((merchant) =>
+    Boolean(
+      merchant.merchantId.trim() &&
+        merchant.moduleKey.trim() &&
+        merchant.merchantSerialNo.trim() &&
+        merchant.secretKeyRef.trim() &&
+        merchant.merchantPasswordRef.trim() &&
+        merchant.signKeyRef.trim() &&
+        merchant.webhookSecretRef.trim() &&
+        merchant.merchantStatus === "active",
+    ),
+  ).length;
+  const blockedMerchantCount = Math.max(merchants.length - activeMerchantCount, 0);
   const blockers = [
     !runtime.clientKey ? "공개 client key 입력 필요" : "",
     !runtime.channelKey ? "channel key 입력 필요" : "",
@@ -135,7 +167,8 @@ export function evaluateInfinyPgProvisioning(
     !runtime.officialDocsReviewed ? "인피니 공식 문서 검토 필요" : "",
     !runtime.amountRecalculationEnabled ? "서버 금액 재계산 필수" : "",
     !runtime.webhookSignatureEnabled ? "Webhook 서명 검증 필수" : "",
-    merchants.length > 0 && activeMerchantCount === 0 ? "운영 가능한 기업별 MID 1개 이상 필요" : "",
+    merchants.length > 0 && credentialReadyCount === 0 ? "MID, 시리얼, 모듈키, Secret 참조가 입력된 기업 1개 이상 필요" : "",
+    merchants.length > 0 && activeMerchantCount === 0 ? "운영 가능한 기업별 PG 발급값 1개 이상 필요" : "",
   ].filter(Boolean);
 
   return {
@@ -143,5 +176,6 @@ export function evaluateInfinyPgProvisioning(
     blockers,
     activeMerchantCount,
     blockedMerchantCount,
+    credentialReadyCount,
   };
 }

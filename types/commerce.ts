@@ -39,6 +39,17 @@ export type CompanyPgProfile = {
   providerLabel: string;
   merchantId?: string;
   merchantIdMasked: string;
+  merchantSerialNoStored?: boolean;
+  merchantSerialNoMasked?: string;
+  moduleKey?: string;
+  moduleKeyMasked?: string;
+  terminalIdStored?: boolean;
+  terminalIdMasked?: string;
+  secretKeyRefMasked?: string;
+  merchantPasswordRefMasked?: string;
+  signKeyRefMasked?: string;
+  webhookSecretRefMasked?: string;
+  credentialRefsStored?: boolean;
   merchantStatus: PgMerchantStatus;
   adminManaged: boolean;
   companyEditable: boolean;

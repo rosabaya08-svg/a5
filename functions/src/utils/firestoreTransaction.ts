@@ -7,6 +7,7 @@ export type ServerWriteCollection =
   | "payments"
   | "payment_events"
   | "webhook_events"
+  | "cancel_requests"
   | "inventory_movements"
   | "qr_payment_sessions"
   | "audit_logs";
@@ -25,12 +26,21 @@ export const paymentConfirmTransactionCollections: ServerWriteCollection[] = [
   "audit_logs",
 ];
 
+export const paymentServerOwnedCollections: ServerWriteCollection[] = [
+  ...paymentConfirmTransactionCollections,
+  "cancel_requests",
+];
+
 export function getPaymentConfirmTransactionPlan(): string[] {
   return paymentConfirmTransactionCollections.map((collection) => `${collection}: Firebase Functions Admin SDK write only`);
 }
 
+export function getPaymentServerOwnedCollectionPlan(): string[] {
+  return paymentServerOwnedCollections.map((collection) => `${collection}: direct client writes denied; Firebase Functions Admin SDK writes only`);
+}
+
 export function isServerWriteCollection(collection: string): collection is ServerWriteCollection {
-  return paymentConfirmTransactionCollections.includes(collection as ServerWriteCollection);
+  return paymentServerOwnedCollections.includes(collection as ServerWriteCollection);
 }
 
 export function getPaymentReadyTransactionPlan(): string[] {

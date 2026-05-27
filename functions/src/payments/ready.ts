@@ -173,7 +173,9 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     provider: resolvedProvider,
     companyId,
     merchantId: merchantProfile.merchantId,
+    merchantSerialNo: merchantProfile.merchantSerialNo,
     moduleKey: merchantProfile.moduleKey,
+    terminalId: merchantProfile.terminalId,
     merchantStatus: merchantProfile.merchantStatus,
     status: resolvedProvider === "mock" ? "ready_mock" : "ready",
     createdAt: now.toISOString(),
@@ -204,8 +206,16 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
           company_name: merchantProfile.companyName,
           merchant_id: merchantProfile.merchantId ?? null,
           merchant_id_masked: merchantProfile.merchantIdMasked,
+          merchant_serial_no: merchantProfile.merchantSerialNo ?? null,
+          merchant_serial_no_masked: merchantProfile.merchantSerialNoMasked ?? null,
           pg_module_key: merchantProfile.moduleKey ?? null,
           pg_module_key_masked: merchantProfile.moduleKeyMasked,
+          terminal_id: merchantProfile.terminalId ?? null,
+          terminal_id_masked: merchantProfile.terminalIdMasked ?? null,
+          secret_key_ref: merchantProfile.secretKeyRef ?? null,
+          merchant_password_ref: merchantProfile.merchantPasswordRef ?? null,
+          sign_key_ref: merchantProfile.signKeyRef ?? null,
+          webhook_secret_ref: merchantProfile.webhookSecretRef ?? null,
           merchant_status: merchantProfile.merchantStatus,
           merchant_payment_ready: merchantProfile.paymentReady,
           pg_ready: pgReadiness.readyForAdapter && merchantProfile.paymentReady,
@@ -271,49 +281,84 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
     companyName: companyId || "unknown company",
     provider: "infiny",
     merchantIdMasked: "MID 발급 대기",
+    merchantSerialNoMasked: "시리얼 대기",
     moduleKeyMasked: "모듈 키 대기",
+    terminalIdMasked: "터미널 대기",
     merchantStatus: "not_applied",
     paymentReady: false,
   };
 
   if (!companyId) return fallback;
 
-  const snapshot = await getAdminDb().collection("companies").doc(companyId).get();
-  if (!snapshot.exists) return fallback;
+  const db = getAdminDb();
+  const credentialSnapshot = await db.collection("company_pg_credentials").doc(companyId).get();
+  const companySnapshot = await db.collection("companies").doc(companyId).get();
+  if (!credentialSnapshot.exists && !companySnapshot.exists) return fallback;
 
-  const data = snapshot.data() ?? {};
+  const companyData = companySnapshot.data() ?? {};
+  const credentialData = credentialSnapshot.data() ?? {};
+  const data = { ...companyData, ...credentialData };
   const pgProfile = asRecord(data.pg_profile ?? data.pgProfile);
   const merchantId = optionalString(
-    data.infiny_mid ??
+    data.mid ??
+      data.infiny_mid ??
       data.pg_merchant_id ??
+      data.merchant_id ??
       data.merchantId ??
+      pgProfile.mid ??
       pgProfile.infiny_mid ??
       pgProfile.pg_merchant_id ??
+      pgProfile.merchant_id ??
       pgProfile.merchantId,
+  );
+  const merchantSerialNo = optionalString(
+    data.merchant_serial_no ??
+      data.merchantSerialNo ??
+      data.serial_no ??
+      data.serialNo ??
+      pgProfile.merchant_serial_no ??
+      pgProfile.merchantSerialNo,
   );
   const moduleKey = optionalString(
     data.pg_module_key ??
       data.infiny_module_key ??
+      data.module_key ??
       data.moduleKey ??
       data.channelKey ??
       pgProfile.pg_module_key ??
       pgProfile.infiny_module_key ??
+      pgProfile.module_key ??
       pgProfile.moduleKey,
   );
+  const terminalId = optionalString(data.terminal_id ?? data.terminalId ?? pgProfile.terminal_id ?? pgProfile.terminalId);
+  const secretKeyRef = optionalString(data.secret_key_ref ?? data.secretKeyRef ?? pgProfile.secretKeyRef);
+  const merchantPasswordRef = optionalString(
+    data.merchant_password_ref ?? data.merchantPasswordRef ?? data.password_ref ?? pgProfile.merchantPasswordRef,
+  );
+  const signKeyRef = optionalString(data.sign_key_ref ?? data.signKeyRef ?? pgProfile.signKeyRef);
+  const webhookSecretRef = optionalString(data.webhook_secret_ref ?? data.webhookSecretRef ?? pgProfile.webhookSecretRef);
   const merchantStatus = asMerchantStatus(
-    data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus ?? pgProfile.merchantStatus,
+    data.credential_status ?? data.infiny_mid_status ?? data.pg_merchant_status ?? data.merchantStatus ?? pgProfile.merchantStatus,
   );
 
   return {
     companyId: String(data.company_id ?? data.companyId ?? companyId),
-    companyName: String(data.name ?? data.company_name ?? companyId),
+    companyName: String(data.name ?? data.company_name ?? data.companyName ?? companyId),
     provider: asPaymentProviderId(data.pg_provider ?? pgProfile.provider ?? "infiny"),
     merchantId,
     merchantIdMasked: maskMerchantId(merchantId),
+    merchantSerialNo,
+    merchantSerialNoMasked: maskModuleKey(merchantSerialNo),
     moduleKey,
     moduleKeyMasked: maskModuleKey(moduleKey),
+    terminalId,
+    terminalIdMasked: maskModuleKey(terminalId),
+    secretKeyRef,
+    merchantPasswordRef,
+    signKeyRef,
+    webhookSecretRef,
     merchantStatus,
-    paymentReady: Boolean(merchantId && moduleKey && merchantStatus === "active"),
+    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && secretKeyRef && merchantPasswordRef && signKeyRef && webhookSecretRef && merchantStatus === "active"),
   };
 }
 

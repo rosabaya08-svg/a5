@@ -15,11 +15,35 @@ const requiredPublicFirebaseKeys = [
 const recommendedPublicKeys = [
   "NEXT_PUBLIC_DATA_SOURCE",
   "NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY",
+  "NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL",
+  "NEXT_PUBLIC_A5_PUBLIC_BASE_URL",
   "NEXT_PUBLIC_PAYMENT_API_BASE_URL",
   "NEXT_PUBLIC_PG_PROVIDER",
+  "NEXT_PUBLIC_PG_ENVIRONMENT",
   "NEXT_PUBLIC_PG_CLIENT_KEY",
+  "NEXT_PUBLIC_PG_GLOBAL_NAME",
+  "NEXT_PUBLIC_PG_REQUEST_METHOD",
+  "NEXT_PUBLIC_PG_SCRIPT_URL",
+  "NEXT_PUBLIC_PG_REQUEST_FUNCTION",
   "NEXT_PUBLIC_PAYMENT_SUCCESS_URL",
   "NEXT_PUBLIC_PAYMENT_FAIL_URL",
+];
+const recommendedPaymentServerKeys = [
+  "PG_PROVIDER",
+  "PG_ENVIRONMENT",
+  "PG_SECRET_KEY",
+  "PG_WEBHOOK_SECRET",
+  "PAYMENT_WEBHOOK_URL",
+  "PG_API_BASE_URL",
+  "PG_CONFIRM_URL",
+  "PG_CANCEL_URL",
+  "PG_STATUS_URL",
+  "INFINY_API_BASE_URL",
+  "INFINY_CONFIRM_URL",
+  "INFINY_CANCEL_URL",
+  "INFINY_STATUS_URL",
+  "PG_WEBHOOK_SIGNATURE_HEADER",
+  "PG_WEBHOOK_SIGNATURE_ALGORITHM",
 ];
 
 function parseEnvFile(filePath) {
@@ -56,6 +80,10 @@ const recommendedResults = recommendedPublicKeys.map((key) => ({
   key,
   present: Boolean(process.env[key]) || Boolean(filePresence[key]),
 }));
+const recommendedPaymentServerResults = recommendedPaymentServerKeys.map((key) => ({
+  key,
+  present: Boolean(process.env[key]) || Boolean(filePresence[key]),
+}));
 
 const missing = results.filter((item) => !item.present).map((item) => item.key);
 
@@ -67,6 +95,11 @@ for (const item of results) {
 console.log("[check:env] Recommended beta handoff key presence");
 for (const item of recommendedResults) {
   console.log(`- ${item.key}: ${item.present ? "present" : "missing (non-blocking)"}`);
+}
+
+console.log("[check:env] Recommended Firebase payment module server key presence");
+for (const item of recommendedPaymentServerResults) {
+  console.log(`- ${item.key}: ${item.present ? "present" : "missing (Functions secret/config or non-blocking locally)"}`);
 }
 
 if (missing.length > 0) {

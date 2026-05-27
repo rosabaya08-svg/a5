@@ -36,10 +36,12 @@ export function CompanyPgReadOnlyPanel({ companyId }: { companyId: string }) {
           {ready ? "운영 가능" : "연동 대기"}
         </span>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
+      <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         {[
           ["PG사", profile.providerLabel || INFINY_PROVIDER_LABEL],
           ["MID", profile.merchantIdMasked],
+          ["시리얼", profile.merchantSerialNoMasked ?? "시리얼 대기"],
+          ["모듈키", profile.moduleKeyMasked ?? "모듈키 대기"],
           ["상태", statusLabels[profile.merchantStatus]],
           ["입력 권한", profile.companyEditable ? "기업 입력 가능" : "최고관리자 전용"],
         ].map(([label, value]) => (

@@ -47,7 +47,12 @@ export type ProviderConfirmInput = {
   amount: number;
   companyId?: string;
   merchantId?: string;
+  merchantSerialNo?: string;
   moduleKey?: string;
+  terminalId?: string;
+  secretKeyRef?: string;
+  merchantPasswordRef?: string;
+  signKeyRef?: string;
   providerPaymentKey?: string;
   transactionId?: string;
   receiptUrl?: string;
@@ -208,8 +213,8 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
     return blocked("confirmPayment", "PG_SECRET_KEY is missing from the Functions runtime. No PG API was called.");
   }
 
-  if (!input.merchantId || !input.moduleKey) {
-    return blocked("confirmPayment", "Company MID or module key is missing. No PG API was called.");
+  if (!input.merchantId || !input.moduleKey || !input.merchantSerialNo) {
+    return blocked("confirmPayment", "Company MID, serial number, or module key is missing. No PG API was called.");
   }
 
   if (!input.providerPaymentKey && !input.transactionId) {
@@ -225,7 +230,14 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
     currency: "KRW",
     companyId: input.companyId ?? null,
     merchantId: input.merchantId,
+    merchantSerialNo: input.merchantSerialNo,
     moduleKey: input.moduleKey,
+    terminalId: input.terminalId ?? null,
+    credentialRefs: {
+      secretKeyRef: input.secretKeyRef ?? null,
+      merchantPasswordRef: input.merchantPasswordRef ?? null,
+      signKeyRef: input.signKeyRef ?? null,
+    },
     paymentKey: input.providerPaymentKey ?? null,
     transactionId: input.transactionId ?? null,
   };
@@ -240,7 +252,9 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
         "X-A5-Order-No": input.orderNo,
         "X-A5-Company-Id": input.companyId ?? "",
         "X-A5-Merchant-Id": input.merchantId,
+        "X-A5-Merchant-Serial-No": input.merchantSerialNo,
         "X-A5-Module-Key": input.moduleKey,
+        "X-A5-Terminal-Id": input.terminalId ?? "",
       },
       body: JSON.stringify(requestBody),
     });
@@ -432,8 +446,13 @@ type FirestorePgRuntimeConfig = {
 
 async function readFirestorePgRuntimeConfig(): Promise<FirestorePgRuntimeConfig> {
   try {
-    const snapshot = await getAdminDb().collection("pg_gateway_settings").doc("infiny-pg-runtime").get();
-    const data = snapshot.exists ? snapshot.data() ?? {} : {};
+    const db = getAdminDb();
+    const providerSnapshot = await db.collection("pg_provider_settings").doc("infiny").get();
+    const legacySnapshot = await db.collection("pg_gateway_settings").doc("infiny-pg-runtime").get();
+    const data = {
+      ...(legacySnapshot.exists ? legacySnapshot.data() ?? {} : {}),
+      ...(providerSnapshot.exists ? providerSnapshot.data() ?? {} : {}),
+    };
 
     return {
       apiBaseUrl: readString(data.api_base_url ?? data.apiBaseUrl),

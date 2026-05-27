@@ -16,8 +16,16 @@ export type CompanyMerchantProfile = {
   provider: PaymentProviderId;
   merchantId?: string;
   merchantIdMasked: string;
+  merchantSerialNo?: string;
+  merchantSerialNoMasked?: string;
   moduleKey?: string;
   moduleKeyMasked: string;
+  terminalId?: string;
+  terminalIdMasked?: string;
+  secretKeyRef?: string;
+  merchantPasswordRef?: string;
+  signKeyRef?: string;
+  webhookSecretRef?: string;
   merchantStatus: "not_applied" | "in_review" | "mid_issued" | "active" | "blocked";
   paymentReady: boolean;
 };
@@ -104,9 +112,11 @@ export type PaymentWebhookRequest = {
   eventId?: string;
   eventType?: string;
   orderNo?: string;
+  paymentIntentId?: string;
   paymentKey?: string;
   transactionId?: string;
   amount?: number;
+  status?: string;
 };
 
 export type ServerPricedItem = CartItemInput & {
@@ -185,7 +195,9 @@ export type ServerPaymentIntent = {
   provider: PaymentProviderId;
   companyId: string;
   merchantId?: string;
+  merchantSerialNo?: string;
   moduleKey?: string;
+  terminalId?: string;
   merchantStatus?: CompanyMerchantProfile["merchantStatus"];
   status: "ready" | "ready_mock" | "confirming" | "confirmed" | "confirmed_mock" | "failed" | "cancel_blocked";
   createdAt: string;

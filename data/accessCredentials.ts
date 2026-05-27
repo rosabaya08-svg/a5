@@ -29,7 +29,7 @@ export const betaAccessAccounts: BetaAccessAccount[] = [
 ];
 
 export const tabletNurseryAccess = {
-  nurseryId: "nursery-test-1004",
+  nurseryId: "nursery-gangnam-01",
   businessNo: "1004-1004-1004",
   businessName: "A5 테스트 산후조리원",
   defaultPassword: "1004",

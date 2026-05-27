@@ -17,7 +17,7 @@ import {
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getQrTransactionPlan } from "../utils/firestoreTransaction";
 
-const defaultA5PublicOrigin = "https://mommy-a5.pages.dev";
+const defaultA5PublicOrigin = "https://a5-closed-mall.pages.dev";
 
 export type QrSessionValidationInput = {
   qrSessionId: string;

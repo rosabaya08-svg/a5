@@ -8,6 +8,7 @@ import { normalizeBusinessNo } from "@/lib/auth/session";
 const loginKey = "a5.tablet.login";
 const roomKey = "a5.tablet.room";
 const roomEditUnlockKey = "a5.tablet.room-edit-unlocked";
+const legacyTabletNurseryIds = new Set(["nursery-test-1004"]);
 
 export type TabletRoomSession = {
   nurseryId: string;
@@ -21,12 +22,32 @@ export type TabletRoomSession = {
   updatedAt: string;
 };
 
+function normalizeTabletRoomSession(session: TabletRoomSession): TabletRoomSession {
+  if (!legacyTabletNurseryIds.has(session.nurseryId)) return session;
+
+  const normalized = {
+    ...session,
+    nurseryId: tabletNurseryAccess.nurseryId,
+    businessNo: tabletNurseryAccess.businessNo,
+    businessName: tabletNurseryAccess.businessName,
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    window.localStorage.setItem(roomKey, JSON.stringify(normalized));
+  } catch {
+    // Keep using the normalized value in memory even when localStorage is blocked.
+  }
+
+  return normalized;
+}
+
 export function readTabletRoomSession(): TabletRoomSession | null {
   if (typeof window === "undefined") return null;
 
   try {
     const raw = window.localStorage.getItem(roomKey);
-    return raw ? (JSON.parse(raw) as TabletRoomSession) : null;
+    return raw ? normalizeTabletRoomSession(JSON.parse(raw) as TabletRoomSession) : null;
   } catch {
     return null;
   }

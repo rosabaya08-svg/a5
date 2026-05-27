@@ -2,7 +2,7 @@ import type { NurseryExternalMapping, NurseryRoomSelection } from "@/types/nurse
 
 export const nurseryExternalMappings: NurseryExternalMapping[] = [
   {
-    nurseryId: "nursery-test-1004",
+    nurseryId: "nursery-gangnam-01",
     externalNurseryId: "signage-partner-1004",
     businessRegistrationNo: "1004-1004-1004",
     registeredAddress: "서울시 강남구 테스트로 1004",

@@ -90,6 +90,32 @@ function resolveBackendUrl(path: string) {
   return "";
 }
 
+function asBackendErrorBody(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function formatBackendError(value: unknown, httpStatus: number) {
+  const body = asBackendErrorBody(value);
+  const nestedError = asBackendErrorBody(body.error);
+  const code = readString(nestedError.code ?? body.code);
+  const message =
+    readString(nestedError.message ?? body.message ?? body.error) ||
+    (Object.keys(nestedError).length ? "Firebase function returned an error." : `HTTP ${httpStatus}`);
+  const details = nestedError.details ?? body.details;
+
+  if (!details) return code ? `${code}: ${message}` : message;
+
+  try {
+    return `${code ? `${code}: ` : ""}${message} (${JSON.stringify(details).slice(0, 240)})`;
+  } catch {
+    return code ? `${code}: ${message}` : message;
+  }
+}
+
 async function postBackend<T>(path: string, payload: Record<string, unknown>): Promise<BackendResult<T>> {
   const url = resolveBackendUrl(path);
 
@@ -110,13 +136,13 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>): P
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
-    const data = (await response.json()) as T & { error?: string; message?: string };
+    const data = (await response.json().catch(() => ({}))) as unknown;
 
     if (!response.ok) {
-      return { ok: false, error: data.message ?? data.error ?? `HTTP ${response.status}` };
+      return { ok: false, error: formatBackendError(data, response.status) };
     }
 
-    return { ok: true, data };
+    return { ok: true, data: data as T };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Backend request failed" };
   } finally {

@@ -1,5 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   adminAuditOperations,
   adminContentSlots,
@@ -11,8 +13,13 @@ import {
 } from "@/data/admin/operations";
 import { DataTable } from "@/components/ui/DataTable";
 import { FilterBar } from "@/components/ui/FilterBar";
+import {
+  readLocalCompanySignupRequests,
+  subscribeCompanySignupRequests,
+  type CompanySignupRequestPayload,
+} from "@/lib/firebase/signupRequestRepository";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
-import type { AdminApprovalStatus } from "@/types/admin";
+import type { AdminApprovalStatus, CompanyApprovalItem } from "@/types/admin";
 
 const approvalLabel: Record<AdminApprovalStatus, string> = {
   pending_review: "검토 대기",
@@ -73,6 +80,99 @@ function SuperAdminWriteGate() {
   );
 }
 
+function companyIdForSignupRequest(request: CompanySignupRequestPayload) {
+  const normalized = request.businessRegistrationNumber.replace(/\D/g, "");
+  return request.approvedCompanyId || `company-${normalized || request.id}`;
+}
+
+function approvalStatusForSignupRequest(request: CompanySignupRequestPayload): AdminApprovalStatus {
+  if (request.status === "approved") return "approved_mock";
+  if (request.status === "rejected") return "rejected_mock";
+  if (request.status === "on_hold") return "needs_fix";
+  return "pending_review";
+}
+
+function riskFlagsForSignupRequest(request: CompanySignupRequestPayload) {
+  const risks: string[] = [];
+
+  if (request.documentUploadStatus === "failed") risks.push("서류 업로드 실패");
+  if (!request.documentNames.length) risks.push("서류 확인 필요");
+  if (!request.commerceLicenseNo) risks.push("통신판매업 신고번호 검토 필요");
+  if (!request.csPhone) risks.push("CS 연락처 보강 필요");
+  if (!request.returnAddress) risks.push("반품지 주소 누락");
+
+  return risks.length > 0 ? risks : ["서류 검토 대기"];
+}
+
+function companyApprovalFromSignupRequest(request: CompanySignupRequestPayload): CompanyApprovalItem {
+  return {
+    id: request.id,
+    companyName: request.companyName || "상호 미입력",
+    managerName: request.managerName || request.managerEmail || "담당자 미입력",
+    businessRegistrationNumber: request.businessRegistrationNumber || "-",
+    mailOrderRegistrationNumber: request.commerceLicenseNo || "-",
+    submittedAt: request.createdAt,
+    status: approvalStatusForSignupRequest(request),
+    documents: request.documentNames.length ? request.documentNames : ["서류 미업로드"],
+    riskFlags: riskFlagsForSignupRequest(request),
+    repositoryPath: `companies/${companyIdForSignupRequest(request)}`,
+  };
+}
+
+function mergeCompanyApprovalRows(signupRows: CompanyApprovalItem[]) {
+  const merged = [...signupRows, ...companyApprovalQueue];
+  const seen = new Set<string>();
+
+  return merged.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function useCompanyApprovalRows() {
+  const [signupRequests, setSignupRequests] = useState<CompanySignupRequestPayload[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const localTimer = window.setTimeout(() => {
+      const localRequests = readLocalCompanySignupRequests();
+      if (localRequests.length > 0) {
+        setSignupRequests(localRequests);
+      }
+    }, 0);
+
+    const unsubscribe = subscribeCompanySignupRequests(
+      (remoteRequests) => {
+        const localById = new Map(readLocalCompanySignupRequests().map((request) => [request.id, request]));
+        const remoteById = new Map(remoteRequests.map((request) => [request.id, request]));
+        const merged = [...remoteById.values(), ...localById.values().filter((request) => !remoteById.has(request.id))];
+
+        setSignupRequests(merged);
+        setLoading(false);
+        setErrorMessage("");
+      },
+      (error) => {
+        setLoading(false);
+        setErrorMessage(error.message);
+      },
+    );
+
+    return () => {
+      window.clearTimeout(localTimer);
+      unsubscribe();
+    };
+  }, []);
+
+  const rows = useMemo(
+    () => mergeCompanyApprovalRows(signupRequests.map(companyApprovalFromSignupRequest)),
+    [signupRequests],
+  );
+
+  return { rows, loading, errorMessage };
+}
+
 function DisabledActionButtons() {
   return (
     <div className="flex flex-wrap gap-2">
@@ -87,18 +187,22 @@ function DisabledActionButtons() {
 }
 
 export function CompanyApprovalQueuePanel() {
+  const { rows, loading, errorMessage } = useCompanyApprovalRows();
+
   return (
     <section>
       <FilterBar
         title="입점사 승인/반려 큐"
         filters={["전체", "검토 대기", "수정 요청", "서류 보강", "SUPER_ADMIN 필요"]}
         mode="toolbar"
-        resultCount={companyApprovalQueue.length}
+        resultCount={rows.length}
         searchPlaceholder="상호, 사업자등록번호, 통신판매업 신고번호"
       />
       <DataTable
         columns={["입점사", "사업자/통신판매", "서류", "위험", "상태", "저장 경로", "작업"]}
-        rows={companyApprovalQueue.map((company) => ({
+        isLoading={loading}
+        errorMessage={errorMessage ? `가입 요청 Firestore 조회 실패: ${errorMessage}` : undefined}
+        rows={rows.map((company) => ({
           id: company.id,
           cells: [
             <div key="company">
@@ -121,7 +225,7 @@ export function CompanyApprovalQueuePanel() {
           ],
         }))}
         sortLabel="정렬: 제출일 최신순"
-        paginationLabel={`1-${companyApprovalQueue.length} / ${companyApprovalQueue.length}`}
+        paginationLabel={`1-${rows.length} / ${rows.length}`}
       />
       <div className="mt-4">
         <SuperAdminWriteGate />

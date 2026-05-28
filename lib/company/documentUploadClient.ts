@@ -120,7 +120,12 @@ function documentRecord(input: UploadCompanyDocumentInput, upload: UploadedCompa
 
 export async function uploadCompanyDocument(input: UploadCompanyDocumentInput): Promise<UploadedCompanyDocument> {
   assertSupportedFile(input.file);
-  await ensureAnonymousFirebaseUser();
+  try {
+    await ensureAnonymousFirebaseUser();
+  } catch {
+    // Company signup happens before an account exists. Storage rules allow this guarded
+    // onboarding upload, so Firebase anonymous auth must not block the whole request.
+  }
 
   const storage = getFirebaseStorageClient();
   const db = getFirebaseDb();

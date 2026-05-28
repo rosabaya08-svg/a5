@@ -19,8 +19,13 @@ service cloud.firestore {
         (request.auth.token.seed_admin == true || role() == "seed_admin");
     }
 
+    function isMasterAdminEmail() {
+      return signedIn() &&
+        request.auth.token.email == "rosabaya08@gmail.com";
+    }
+
     function isSuperOrSeedAdmin() {
-      return isSuperAdmin() || isSeedAdmin();
+      return isSuperAdmin() || isSeedAdmin() || isMasterAdminEmail();
     }
 
     function isCompanyAdmin(companyId) {

@@ -7,7 +7,12 @@ import { uploadCompanyDocument, type UploadedCompanyDocument } from "@/lib/compa
 import { normalizeBusinessNo, portalHomePaths, writePortalSession } from "@/lib/auth/session";
 import { saveCmsRecord } from "@/lib/firebase/contentRepository";
 import { requestSignagePartnerNurseryAutoSignup } from "@/lib/firebase/nurseryAutoSignupClient";
-import { saveCompanySignupRequest, type CompanySignupRequestPayload } from "@/lib/firebase/signupRequestRepository";
+import {
+  readLocalCompanySignupRequests as readStoredCompanySignupRequests,
+  saveCompanySignupRequest,
+  saveLocalCompanySignupRequest,
+  type CompanySignupRequestPayload,
+} from "@/lib/firebase/signupRequestRepository";
 import {
   buildNurseryAutoSignupCmsRecord,
   buildNurseryProfileFromSignagePartnerFallback,
@@ -137,22 +142,8 @@ function findAccount(role: BetaAccessAccount["role"], loginValue: string) {
   });
 }
 
-function saveSignupRequestLocal(request: CompanySignupRequestPayload) {
-  const key = "a5.company-signup-requests";
-  const raw = window.localStorage.getItem(key);
-  const current = raw ? (JSON.parse(raw) as CompanySignupRequestPayload[]) : [];
-  window.localStorage.setItem(key, JSON.stringify([request, ...current.filter((item) => item.id !== request.id)]));
-}
-
 export function readLocalCompanySignupRequests() {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem("a5.company-signup-requests");
-    return raw ? (JSON.parse(raw) as CompanySignupRequestPayload[]) : [];
-  } catch {
-    return [];
-  }
+  return readStoredCompanySignupRequests();
 }
 
 function companySignupIdFromBusinessNo(businessNo: string) {
@@ -394,6 +385,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     const id = `company-request-${normalizeBusinessNo(signup.businessNo)}-${Date.now()}`;
     const signupCompanyId = companySignupIdFromBusinessNo(signup.businessNo);
     const uploadedDocuments: UploadedCompanyDocument[] = [];
+    let uploadErrorMessage = "";
 
     setSaving(true);
 
@@ -416,14 +408,12 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
         uploadedDocuments.push(upload);
       }
     } catch (error) {
-      setSaving(false);
-      setMessage(
-        error instanceof Error
-          ? `서류 Gmail 접수 중 오류가 발생했습니다: ${error.message}`
-          : "서류 Gmail 접수 중 오류가 발생했습니다.",
-      );
-      return;
+      uploadErrorMessage = error instanceof Error ? error.message : "서류 업로드 중 오류가 발생했습니다.";
     }
+
+    const selectedDocumentNames = companySignupDocumentSlots
+      .map((slot) => signupFiles[slot.id]?.name)
+      .filter((name): name is string => Boolean(name));
 
     const request: CompanySignupRequestPayload = {
       id,
@@ -436,16 +426,34 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       commerceLicenseNo: signup.commerceLicenseNo,
       csPhone: signup.csPhone,
       returnAddress: signup.returnAddress,
-      documentNames: uploadedDocuments.map((document) => document.fileName),
+      documentNames: uploadedDocuments.length > 0 ? uploadedDocuments.map((document) => document.fileName) : selectedDocumentNames,
+      documentUploads: uploadedDocuments.map((document, index) => {
+        const slot = companySignupDocumentSlots[index];
+
+        return {
+          id: document.id,
+          fileName: document.fileName,
+          storagePath: document.storagePath,
+          downloadUrl: document.downloadUrl,
+          documentType: slot?.type,
+          documentLabel: slot?.label,
+          contentType: document.contentType,
+          fileSize: document.fileSize,
+          a1InboxStatus: document.a1InboxStatus,
+          gmailStatus: document.gmailStatus,
+        };
+      }),
       documentUploadIds: uploadedDocuments.map((document) => document.id),
       documentStoragePaths: uploadedDocuments.map((document) => document.storagePath),
-      gmailDeliveryStatus: "queued",
+      gmailDeliveryStatus: uploadedDocuments.length > 0 ? "queued" : "not_requested",
+      documentUploadStatus: uploadErrorMessage ? "failed" : uploadedDocuments.length > 0 ? "uploaded" : "not_uploaded",
+      documentUploadError: uploadErrorMessage,
       status: "pending_review",
       createdAt: now,
       updatedAt: now,
     };
 
-    saveSignupRequestLocal(request);
+    saveLocalCompanySignupRequest(request);
 
     try {
       await saveCompanySignupRequest(request);
@@ -457,7 +465,11 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     setSignup(initialSignup);
     setSignupFiles({});
     setMode("login");
-    setMessage("회원가입 요청과 필수 서류 Gmail 접수가 완료되었습니다. 최고관리자 승인 후 이용할 수 있습니다.");
+    setMessage(
+      uploadErrorMessage
+        ? "회원가입 요청은 접수되었습니다. 서류 업로드는 실패 상태로 최고관리자 검토 큐에 표시됩니다."
+        : "회원가입 요청이 접수되었습니다. 최고관리자 승인 후 이용할 수 있습니다.",
+    );
   }
 
   async function handleNurserySignup(event: React.FormEvent<HTMLFormElement>) {

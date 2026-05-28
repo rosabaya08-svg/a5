@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { readLocalCompanySignupRequests } from "@/components/auth/BetaAdminLogin";
-import { saveCompanyPgApproval, type CompanySignupRequestPayload } from "@/lib/firebase/signupRequestRepository";
+import {
+  readLocalCompanySignupRequests,
+  saveCompanyPgApproval,
+  subscribeCompanySignupRequests,
+  type CompanySignupRequestPayload,
+} from "@/lib/firebase/signupRequestRepository";
 import { maskMerchantId } from "@/lib/payments/infinySettlementPolicy";
 import type { PgMerchantStatus } from "@/types/commerce";
 
@@ -102,18 +106,43 @@ function persistLocalReview(request: CompanySignupRequestPayload, draft: PgRevie
 export function CompanySignupRequestsPanel() {
   const [requests, setRequests] = useState<CompanySignupRequestPayload[]>(seedRequests);
   const [drafts, setDrafts] = useState<Record<string, PgReviewDraft>>({});
+  const [sourceMessage, setSourceMessage] = useState("가입 요청을 불러오고 있습니다.");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const nextRequests = [...readLocalCompanySignupRequests(), ...seedRequests];
+    const mergeRequests = (remoteRequests: CompanySignupRequestPayload[]) => {
+      const remoteById = new Map(remoteRequests.map((request) => [request.id, request]));
+      const localRequests = readLocalCompanySignupRequests().filter((request) => !remoteById.has(request.id));
+      const seedRows = seedRequests.filter((request) => !remoteById.has(request.id) && !localRequests.some((local) => local.id === request.id));
+      const nextRequests = [...remoteRequests, ...localRequests, ...seedRows];
+
       setRequests(nextRequests);
       setDrafts((current) => ({
         ...Object.fromEntries(nextRequests.map((request) => [request.id, draftFor(request)])),
         ...current,
       }));
-    }, 0);
+    };
 
-    return () => window.clearTimeout(timer);
+    const localTimer = window.setTimeout(() => mergeRequests([]), 0);
+
+    const unsubscribe = subscribeCompanySignupRequests(
+      (remoteRequests) => {
+        mergeRequests(remoteRequests);
+        setSourceMessage(
+          remoteRequests.length > 0
+            ? "Firestore 가입 요청과 로컬 임시 요청을 함께 표시합니다."
+            : "Firestore 요청이 없어 로컬/기본 검토 항목만 표시합니다.",
+        );
+      },
+      (error) => {
+        mergeRequests([]);
+        setSourceMessage(`Firestore 가입 요청 조회 실패: ${error.message}`);
+      },
+    );
+
+    return () => {
+      window.clearTimeout(localTimer);
+      unsubscribe();
+    };
   }, []);
 
   const pendingCount = useMemo(() => requests.filter((request) => request.status !== "approved").length, [requests]);
@@ -178,6 +207,7 @@ export function CompanySignupRequestsPanel() {
             기업이 제출한 가입 정보를 인피니에 전달하고, 인피니가 기업별로 발급한 MID와 결제 모듈 키만 이 목록에서 입력합니다.
             기업 어드민은 입력 권한 없이 상태와 마스킹된 MID만 확인합니다.
           </p>
+          <p className="mt-2 text-xs font-bold text-slate-500">{sourceMessage}</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{pendingCount}건 대기</span>
       </div>

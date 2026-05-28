@@ -190,6 +190,14 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
   };
+  const paymentIntentDocument = {
+    ...paymentIntent,
+    merchantId: paymentIntent.merchantId ?? null,
+    merchantSerialNo: paymentIntent.merchantSerialNo ?? null,
+    moduleKey: paymentIntent.moduleKey ?? null,
+    terminalId: paymentIntent.terminalId ?? null,
+    merchantStatus: paymentIntent.merchantStatus ?? null,
+  };
 
   try {
     const db = getAdminDb();
@@ -200,7 +208,7 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
       transaction.set(
         intentRef,
         {
-          ...paymentIntent,
+          ...paymentIntentDocument,
           items: pricedItems.map(toSnapshotItem),
           client_amount: body.clientAmount ?? null,
           recalculated_amount: recalculatedAmount,

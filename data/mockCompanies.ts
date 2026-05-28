@@ -16,4 +16,32 @@ export const mockCompanies: Company[] = [
       merchantStatus: "active",
     }),
   },
+  {
+    id: "company-sanho-care",
+    name: "Sanho Care",
+    managerName: "A5 PG test",
+    status: "approved",
+    commissionRate: INFINY_TOTAL_FEE_RATE,
+    productCount: 3,
+    pendingProductCount: 0,
+    settlementBlocked: false,
+    pgProfile: buildInfinyPgProfile({
+      merchantId: "testpay02m",
+      merchantStatus: "active",
+    }),
+  },
+  {
+    id: "company-bebe-lux",
+    name: "Bebe Lux",
+    managerName: "A5 PG test",
+    status: "approved",
+    commissionRate: INFINY_TOTAL_FEE_RATE,
+    productCount: 1,
+    pendingProductCount: 0,
+    settlementBlocked: false,
+    pgProfile: buildInfinyPgProfile({
+      merchantId: "testpay02m",
+      merchantStatus: "active",
+    }),
+  },
 ];

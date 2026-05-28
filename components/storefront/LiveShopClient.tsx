@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PgReturnConfirmClient } from "@/components/guest/PgReturnConfirmClient";
 import { ServerCheckoutFlow } from "@/components/guest/ServerCheckoutFlow";
@@ -284,6 +284,42 @@ function resolveA5PublicOrigin(origin: string) {
   }
 
   return configuredA5PublicOrigin || normalizedOrigin || defaultA5PublicOrigin;
+}
+
+function readBrowserSearchParams() {
+  return typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+}
+
+function readLiveCheckoutQuery() {
+  const params = readBrowserSearchParams();
+  const paymentResult = params.get("paymentResult") ?? "";
+
+  return {
+    code: params.get("code") ?? "",
+    paymentResult,
+    hasPgReturnParams: Boolean(
+      paymentResult ||
+        params.get("paymentIntentId") ||
+        params.get("payment_intent_id") ||
+        params.get("orderNo") ||
+        params.get("orderId") ||
+        params.get("order_no") ||
+        params.get("paymentKey") ||
+        params.get("payment_key") ||
+        params.get("transactionId") ||
+        params.get("transaction_id") ||
+        params.get("tid"),
+    ),
+  };
+}
+
+function readLiveGuestOrderQuery() {
+  const params = readBrowserSearchParams();
+
+  return {
+    orderNo: params.get("orderNo") ?? "",
+    remainingHint: params.get("remaining") === "1",
+  };
 }
 
 function groupStatusLabel(group: CompanyPaymentGroup) {
@@ -902,29 +938,28 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
 }
 
 export function LiveQrCheckoutPage() {
-  const params = useSearchParams();
-  const code = params.get("code") ?? "";
-  const paymentResult = params.get("paymentResult") ?? "";
-  const hasPgReturnParams = Boolean(
-    paymentResult ||
-      params.get("paymentIntentId") ||
-      params.get("payment_intent_id") ||
-      params.get("orderNo") ||
-      params.get("orderId") ||
-      params.get("order_no") ||
-      params.get("paymentKey") ||
-      params.get("payment_key") ||
-      params.get("transactionId") ||
-      params.get("transaction_id") ||
-      params.get("tid"),
-  );
+  const [query, setQuery] = useState(readLiveCheckoutQuery);
+  const { code, paymentResult, hasPgReturnParams } = query;
   const [session, setSession] = useState<QrPaymentSession | null>(() => readQrCheckoutSession(code));
   const [receiver, setReceiver] = useState<QrReceiverFormValue | null>(() => {
     const initialSession = readQrCheckoutSession(code);
     return initialSession ? initialQrReceiverFormValue(initialSession) : null;
   });
-  const [isLoadingSession, setIsLoadingSession] = useState(Boolean(code));
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [lookupError, setLookupError] = useState("");
+
+  useEffect(() => {
+    function syncQuery() {
+      setQuery(readLiveCheckoutQuery());
+    }
+
+    syncQuery();
+    window.addEventListener("popstate", syncQuery);
+
+    return () => {
+      window.removeEventListener("popstate", syncQuery);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1047,13 +1082,25 @@ export function LiveQrCheckoutPage() {
 }
 
 export function LiveGuestOrderPage() {
-  const params = useSearchParams();
-  const orderNo = params.get("orderNo") ?? "";
-  const remainingHint = params.get("remaining") === "1";
+  const [query, setQuery] = useState(readLiveGuestOrderQuery);
+  const { orderNo, remainingHint } = query;
   const [order, setOrder] = useState<LiveOrder | null>(() => readLiveOrder(orderNo));
   const [shareFeedback, setShareFeedback] = useState("");
   const { items: remainingItems } = useCart([]);
   const remainingGroups = useMemo(() => groupCartItemsByCompany(remainingItems, mockCompanies), [remainingItems]);
+
+  useEffect(() => {
+    function syncQuery() {
+      setQuery(readLiveGuestOrderQuery());
+    }
+
+    syncQuery();
+    window.addEventListener("popstate", syncQuery);
+
+    return () => {
+      window.removeEventListener("popstate", syncQuery);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { tabletNurseryAccess } from "@/data/accessCredentials";
 import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
-import { normalizeBusinessNo } from "@/lib/auth/session";
+import { portalLoginPaths, readPortalSession, type PortalSession } from "@/lib/auth/session";
 
-const loginKey = "a5.tablet.login";
 const roomKey = "a5.tablet.room";
+const legacyTabletLoginKey = "a5.tablet.login";
 const roomEditUnlockKey = "a5.tablet.room-edit-unlocked";
-const legacyTabletNurseryIds = new Set(["nursery-test-1004"]);
 
 export type TabletRoomSession = {
   nurseryId: string;
@@ -22,46 +21,57 @@ export type TabletRoomSession = {
   updatedAt: string;
 };
 
-function normalizeTabletRoomSession(session: TabletRoomSession): TabletRoomSession {
-  if (!legacyTabletNurseryIds.has(session.nurseryId)) return session;
+function readNurserySession(): PortalSession | null {
+  const session = readPortalSession("nursery");
+  if (!session || session.role !== "nursery") return null;
+  if (!session.nurseryId || !session.businessNo) return null;
+  if (!session.termsAcceptedAt || !session.privacyAcceptedAt || !session.marketingConsentAt) return null;
+  return session;
+}
 
-  const normalized = {
-    ...session,
-    nurseryId: tabletNurseryAccess.nurseryId,
-    businessNo: tabletNurseryAccess.businessNo,
-    businessName: tabletNurseryAccess.businessName,
-    updatedAt: new Date().toISOString(),
-  };
+function nurseryLoginNextPath() {
+  return `${portalLoginPaths.nursery}?next=${encodeURIComponent("/tablet/room-setup")}`;
+}
+
+function normalizeRoomName(roomNumber: string) {
+  return roomNumber.endsWith("호") ? roomNumber : `${roomNumber}호`;
+}
+
+function getNurseryMapping(session: PortalSession | null) {
+  return nurseryExternalMappings.find(
+    (item) =>
+      item.nurseryId === session?.nurseryId ||
+      item.businessRegistrationNo.replace(/[^0-9]/g, "") === String(session?.businessNo ?? "").replace(/[^0-9]/g, ""),
+  );
+}
+
+function readStoredRoomSession(): TabletRoomSession | null {
+  if (typeof window === "undefined") return null;
 
   try {
-    window.localStorage.setItem(roomKey, JSON.stringify(normalized));
+    const raw = window.localStorage.getItem(roomKey);
+    return raw ? (JSON.parse(raw) as TabletRoomSession) : null;
   } catch {
-    // Keep using the normalized value in memory even when localStorage is blocked.
+    return null;
   }
-
-  return normalized;
 }
 
 export function readTabletRoomSession(): TabletRoomSession | null {
   if (typeof window === "undefined") return null;
 
-  try {
-    const raw = window.localStorage.getItem(roomKey);
-    return raw ? normalizeTabletRoomSession(JSON.parse(raw) as TabletRoomSession) : null;
-  } catch {
-    return null;
-  }
-}
+  const session = readStoredRoomSession();
+  if (!session) return null;
 
-function readTabletLogin() {
-  if (typeof window === "undefined") return null;
+  const nurserySession = readNurserySession();
+  if (!nurserySession) return session;
 
-  try {
-    const raw = window.localStorage.getItem(loginKey);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  const sameNursery = session.nurseryId === nurserySession.nurseryId;
+  const sameBusiness = session.businessNo.replace(/[^0-9]/g, "") === nurserySession.businessNo?.replace(/[^0-9]/g, "");
+
+  if (sameNursery && sameBusiness) return session;
+
+  window.localStorage.removeItem(roomKey);
+  return null;
 }
 
 export function TabletAccessGate({ children }: { children: React.ReactNode }) {
@@ -70,19 +80,21 @@ export function TabletAccessGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const hasLogin = readTabletLogin();
-      const hasRoom = readTabletRoomSession();
-      const ok = Boolean(hasLogin && hasRoom);
+      window.localStorage.removeItem(legacyTabletLoginKey);
+
+      const nurserySession = readNurserySession();
+      const roomSession = readTabletRoomSession();
+      const ok = Boolean(nurserySession && roomSession);
 
       setAllowed(ok);
       setReady(true);
 
-      if (!hasLogin) {
-        window.location.replace("/tablet/login");
+      if (!nurserySession) {
+        window.location.replace(nurseryLoginNextPath());
         return;
       }
 
-      if (!hasRoom) {
+      if (!roomSession) {
         window.location.replace("/tablet/room-setup");
       }
     }, 0);
@@ -94,8 +106,8 @@ export function TabletAccessGate({ children }: { children: React.ReactNode }) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
         <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
-          <p className="text-sm font-bold text-slate-500">태블릿 확인 중</p>
-          <h1 className="mt-2 text-2xl font-black">객실 설정이 필요합니다</h1>
+          <p className="text-sm font-bold text-slate-500">태블릿 접근 확인 중</p>
+          <h1 className="mt-2 text-2xl font-black">조리원 로그인과 객실 선택이 필요합니다</h1>
         </section>
       </main>
     );
@@ -128,14 +140,14 @@ export function TabletContextBadge() {
     };
   }, []);
 
-  const businessName = session?.businessName ?? tabletNurseryAccess.businessName;
-  const roomName = session?.roomName ?? tabletNurseryAccess.defaultRoomName;
+  const businessName = session?.businessName ?? "조리원 미선택";
+  const roomName = session?.roomName ?? "객실 미선택";
 
   function unlockRoomEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (editPassword !== tabletNurseryAccess.defaultPassword) {
-      setEditMessage("등록 비밀번호를 확인해 주세요.");
+      setEditMessage("조리원 비밀번호를 확인해 주세요.");
       return;
     }
 
@@ -195,130 +207,88 @@ export function TabletContextBadge() {
 }
 
 export function TabletLoginPage() {
-  const [businessNo, setBusinessNo] = useState(tabletNurseryAccess.businessNo);
-  const [password, setPassword] = useState(tabletNurseryAccess.defaultPassword);
-  const [message, setMessage] = useState("");
-
   useEffect(() => {
-    const hasLogin = readTabletLogin();
-    const hasRoom = readTabletRoomSession();
+    window.localStorage.removeItem(legacyTabletLoginKey);
 
-    if (hasLogin && hasRoom) {
-      window.location.replace("/tablet/products");
-    }
-  }, []);
+    const nurserySession = readNurserySession();
+    const roomSession = readTabletRoomSession();
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const businessNoMatches =
-      normalizeBusinessNo(businessNo) === normalizeBusinessNo(tabletNurseryAccess.businessNo);
-
-    if (!businessNoMatches || password !== tabletNurseryAccess.defaultPassword) {
-      setMessage("산후조리원 사업자등록번호와 비밀번호를 확인해 주세요.");
+    if (!nurserySession) {
+      window.location.replace(nurseryLoginNextPath());
       return;
     }
 
-    window.localStorage.setItem(
-      loginKey,
-      JSON.stringify({
-        nurseryId: tabletNurseryAccess.nurseryId,
-        businessNo: tabletNurseryAccess.businessNo,
-        businessName: tabletNurseryAccess.businessName,
-        signedInAt: new Date().toISOString(),
-      }),
-    );
-    window.location.assign("/tablet/room-setup");
-  }
+    if (!roomSession) {
+      window.location.replace("/tablet/room-setup");
+      return;
+    }
+
+    window.location.replace("/tablet/products");
+  }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-md border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">TABLET</p>
-          <h1 className="mt-3 text-4xl font-black">태블릿 로그인</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-300">
-            등록된 산후조리원 사업자번호로 태블릿을 확인한 뒤 객실을 선택합니다.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-          <h2 className="text-2xl font-black">사업자 계정 확인</h2>
-          <div className="mt-5 grid gap-4">
-            <label className="grid gap-2 text-sm font-black">
-              사업자등록번호
-              <input
-                value={businessNo}
-                onChange={(event) => setBusinessNo(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                placeholder="1004-1004-1004"
-              />
-            </label>
-            <label className="grid gap-2 text-sm font-black">
-              비밀번호
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                placeholder="1004"
-              />
-            </label>
-          </div>
-          {message ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{message}</p> : null}
-          <button type="submit" className="mt-6 h-12 w-full rounded-md bg-rose-600 text-sm font-black text-white">
-            객실 선택으로 이동
-          </button>
-        </form>
+    <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
+      <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
+        <p className="text-sm font-bold text-slate-500">조리원 로그인 확인 중</p>
+        <h1 className="mt-2 text-2xl font-black">객실 선택으로 이동합니다</h1>
       </section>
     </main>
   );
 }
 
 export function TabletRoomSetupPage() {
-  const [selectedRoomId, setSelectedRoomId] = useState(tabletNurseryAccess.defaultRoomId);
+  const rooms = useMemo(() => nurseryRoomSelections, []);
+  const [nurserySession, setNurserySession] = useState<PortalSession | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.roomId ?? "");
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [requiresUnlock, setRequiresUnlock] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [editPassword, setEditPassword] = useState("");
   const [editMessage, setEditMessage] = useState("");
-  const rooms = useMemo(() => nurseryRoomSelections, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const login = readTabletLogin();
-      if (!login) {
-        window.location.replace("/tablet/login");
+      window.localStorage.removeItem(legacyTabletLoginKey);
+
+      const session = readNurserySession();
+      if (!session) {
+        window.location.replace(nurseryLoginNextPath());
         return;
       }
 
       const saved = readTabletRoomSession();
+      setNurserySession(session);
+      setSelectedRoomId(saved?.roomId ?? rooms[0]?.roomId ?? "");
+
       if (saved) {
-        setSelectedRoomId(saved.roomId);
         setRequiresUnlock(true);
         setIsUnlocked(window.sessionStorage.getItem(roomEditUnlockKey) === "true");
       } else {
         setRequiresUnlock(false);
         setIsUnlocked(true);
       }
+
       setIsBootstrapped(true);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [rooms]);
 
   function saveRoom(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!nurserySession) return;
+
     const room = rooms.find((item) => item.roomId === selectedRoomId) ?? rooms[0];
     if (!room) return;
-    const nurseryMapping = nurseryExternalMappings.find((item) => item.nurseryId === tabletNurseryAccess.nurseryId);
 
+    const nurseryMapping = getNurseryMapping(nurserySession);
     const session: TabletRoomSession = {
-      nurseryId: tabletNurseryAccess.nurseryId,
-      businessNo: tabletNurseryAccess.businessNo,
-      businessName: tabletNurseryAccess.businessName,
+      nurseryId: nurserySession.nurseryId ?? tabletNurseryAccess.nurseryId,
+      businessNo: nurserySession.businessNo ?? tabletNurseryAccess.businessNo,
+      businessName: nurserySession.displayName || tabletNurseryAccess.businessName,
       registeredAddress: nurseryMapping?.registeredAddress,
       roomId: room.roomId,
-      roomName: `${room.roomNumber}호`,
+      roomName: normalizeRoomName(room.roomNumber),
       tabletId: room.activeTabletId ?? tabletNurseryAccess.defaultTabletId,
       fixedLogin: true,
       updatedAt: new Date().toISOString(),
@@ -333,7 +303,7 @@ export function TabletRoomSetupPage() {
     event.preventDefault();
 
     if (editPassword !== tabletNurseryAccess.defaultPassword) {
-      setEditMessage("등록 비밀번호를 확인해 주세요.");
+      setEditMessage("조리원 비밀번호를 확인해 주세요.");
       return;
     }
 
@@ -351,6 +321,7 @@ export function TabletRoomSetupPage() {
       <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
         <section className="mx-auto max-w-md rounded-md bg-white p-5 text-slate-950 shadow-2xl">
           <h1 className="text-3xl font-black">객실 변경 확인</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">이미 선택된 객실을 바꾸려면 조리원 비밀번호를 다시 입력해야 합니다.</p>
           <form onSubmit={unlockRoomEdit} className="mt-5 grid gap-4">
             <label className="grid gap-2 text-sm font-black">
               조리원 비밀번호
@@ -375,10 +346,10 @@ export function TabletRoomSetupPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
       <section className="mx-auto max-w-4xl rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">ROOM SETUP</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">room setup</p>
         <h1 className="mt-2 text-4xl font-black">객실 선택</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          등록된 객실 중 하나를 선택하면 이 태블릿의 주문 출처가 고정됩니다.
+          {nurserySession?.displayName ?? "조리원"} 로그인 확인이 완료되었습니다. 등록된 객실 중 하나를 선택하면 이 태블릿의 주문 출처가 고정됩니다.
         </p>
 
         <form onSubmit={saveRoom} className="mt-6 grid gap-4">
@@ -392,13 +363,13 @@ export function TabletRoomSetupPage() {
                   selectedRoomId === room.roomId ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-950"
                 }`}
               >
-                <p className="text-3xl font-black">{room.roomNumber}호</p>
-                <p className="mt-2 text-sm font-bold opacity-70">{room.activeTabletId}</p>
+                <p className="text-3xl font-black">{normalizeRoomName(room.roomNumber)}</p>
+                <p className="mt-2 text-sm font-bold opacity-70">{room.activeTabletId ?? "태블릿 미지정"}</p>
               </button>
             ))}
           </div>
           <button type="submit" className="h-12 rounded-md bg-rose-600 text-sm font-black text-white">
-            적용하고 산후조리원 핫딜 열기
+            적용하고 폐쇄몰 열기
           </button>
         </form>
       </section>

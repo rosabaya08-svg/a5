@@ -137,14 +137,14 @@ async function persistNurseryProfile(profile: NurseryAutoSignupProfile) {
 export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const params = useSearchParams();
   const account = useMemo(() => betaAccessAccounts.find((item) => item.role === role), [role]);
-  const [businessNo, setBusinessNo] = useState(account?.businessNo ?? "");
+  const [businessNo, setBusinessNo] = useState("");
   const [password, setPassword] = useState(account?.defaultPassword ?? NURSERY_DEFAULT_PASSWORD);
   const [message, setMessage] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [signup, setSignup] = useState<SignupState>(initialSignup);
   const [nurserySignup, setNurserySignup] = useState<NurserySignupState>({
     ...initialNurserySignup,
-    businessRegistrationNo: role === "nursery" ? account?.businessNo ?? "" : "",
+    businessRegistrationNo: "",
   });
   const [companyStep, setCompanyStep] = useState<"login" | "agreements">("login");
   const [pendingCompanyAccount, setPendingCompanyAccount] = useState<BetaAccessAccount | null>(null);

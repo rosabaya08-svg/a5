@@ -9,7 +9,7 @@ import { appendAuditLogSkeleton, createAuditLogDraft, toAuditLogDocument } from 
 import { getPaymentConfirmTransactionPlan } from "../utils/firestoreTransaction";
 import { decryptCredential } from "./credentialCrypto";
 import { confirmPaymentWithConfiguredProvider } from "./providerAdapter";
-import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { getPgAdapterHandoffPlan, getPgServerReadiness, isInnopaySmsApiMode } from "./providerRuntime";
 import {
   calculateItemsAmount,
   normalizeCartItems,
@@ -213,7 +213,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error(`PAYMENT_INTENT_COMPANY_MISMATCH:${JSON.stringify({ intentCompanyId, companyId })}`);
       }
 
-      if (pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || !merchantSerialNo || merchantStatus !== "active")) {
+      const smsApiMode = isInnopaySmsApiMode(merchantProvider);
+      if (pgReadiness.provider !== "mock" && (!merchantId || (!smsApiMode && (!moduleKey || !merchantSerialNo)) || merchantStatus !== "active")) {
         throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey), hasSerialNo: Boolean(merchantSerialNo) })}`);
       }
 
@@ -234,7 +235,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         signKeyRef: optionalString(intentSnapshot.get("sign_key_ref")),
         webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
         merchantStatus,
-        paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
+        paymentReady: smsApiMode ? Boolean(merchantId && merchantStatus === "active") : Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
       };
 
       recalculatedAmount = calculateItemsAmount(pricedItems);
@@ -650,10 +651,13 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     signKeyRef: optionalString(intentSnapshot.get("sign_key_ref")),
     webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
     merchantStatus,
-    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
+    paymentReady: isInnopaySmsApiMode(merchantProvider)
+      ? Boolean(merchantId && merchantStatus === "active")
+      : Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
   };
 
-  if (input.pgReadiness.provider !== "mock" && (!merchantId || !moduleKey || !merchantSerialNo || merchantStatus !== "active")) {
+  const smsApiMode = isInnopaySmsApiMode(merchantProvider);
+  if (input.pgReadiness.provider !== "mock" && (!merchantId || (!smsApiMode && (!moduleKey || !merchantSerialNo)) || merchantStatus !== "active")) {
     throw new Error(`PAYMENT_INTENT_MID_REQUIRED:${JSON.stringify({ companyId, merchantStatus, hasModuleKey: Boolean(moduleKey), hasSerialNo: Boolean(merchantSerialNo) })}`);
   }
 

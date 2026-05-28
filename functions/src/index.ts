@@ -13,7 +13,10 @@ import { paymentsConfirmHandler } from "./payments/confirm";
 import { adminPgActivationHandler, adminPgConnectionTestHandler, adminPgCredentialSaveHandler } from "./payments/adminPg";
 import { paymentsDiagnosticsHandler } from "./payments/diagnostics";
 import { paymentsReadyHandler } from "./payments/ready";
+import { paymentsStartInnopaySmsHandler } from "./payments/startInnopaySms";
 import { paymentsStatusHandler } from "./payments/status";
+import { paymentsSyncInnopaySmsHandler } from "./payments/syncInnopaySms";
+import { paymentsInnopayVbankNotiHandler, paymentsStartInnopayVbankHandler } from "./payments/innopayVbank";
 import { paymentsWebhookHandler } from "./payments/webhook";
 import { qrCreateHandler, qrExpireHandler, qrLookupHandler } from "./qr/validateQrSession";
 
@@ -27,6 +30,10 @@ const paymentFunctionOptions = {
 };
 
 export const paymentsReady = onRequest(paymentFunctionOptions, paymentsReadyHandler);
+export const paymentsStartInnopaySms = onRequest(paymentFunctionOptions, paymentsStartInnopaySmsHandler);
+export const paymentsSyncInnopaySms = onRequest(paymentFunctionOptions, paymentsSyncInnopaySmsHandler);
+export const paymentsStartInnopayVbank = onRequest(paymentFunctionOptions, paymentsStartInnopayVbankHandler);
+export const paymentsInnopayVbankNoti = onRequest(paymentFunctionOptions, paymentsInnopayVbankNotiHandler);
 export const paymentsConfirm = onRequest(paymentFunctionOptions, paymentsConfirmHandler);
 export const paymentsDiagnostics = onRequest(paymentFunctionOptions, paymentsDiagnosticsHandler);
 export const paymentsWebhook = onRequest(paymentFunctionOptions, paymentsWebhookHandler);

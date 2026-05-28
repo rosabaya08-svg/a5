@@ -1,5 +1,9 @@
 export type PaymentFunctionKey =
   | "ready"
+  | "startInnopaySms"
+  | "syncInnopaySms"
+  | "startInnopayVbank"
+  | "innopayVbankNoti"
   | "confirm"
   | "webhook"
   | "cancel"
@@ -11,6 +15,10 @@ export type PaymentFunctionKey =
 
 const functionNames: Record<PaymentFunctionKey, string> = {
   ready: "paymentsReady",
+  startInnopaySms: "paymentsStartInnopaySms",
+  syncInnopaySms: "paymentsSyncInnopaySms",
+  startInnopayVbank: "paymentsStartInnopayVbank",
+  innopayVbankNoti: "paymentsInnopayVbankNoti",
   confirm: "paymentsConfirm",
   webhook: "paymentsWebhook",
   cancel: "paymentsCancel",
@@ -51,6 +59,10 @@ export function getPaymentEndpointReadiness() {
     baseUrl,
     endpoints: {
       ready: getPaymentFunctionUrl("ready"),
+      startInnopaySms: getPaymentFunctionUrl("startInnopaySms"),
+      syncInnopaySms: getPaymentFunctionUrl("syncInnopaySms"),
+      startInnopayVbank: getPaymentFunctionUrl("startInnopayVbank"),
+      innopayVbankNoti: getPaymentFunctionUrl("innopayVbankNoti"),
       confirm: getPaymentFunctionUrl("confirm"),
       webhook: getPaymentFunctionUrl("webhook"),
       cancel: getPaymentFunctionUrl("cancel"),

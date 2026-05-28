@@ -212,7 +212,7 @@ export type ServerPaymentIntent = {
   moduleKey?: string;
   terminalId?: string;
   merchantStatus?: CompanyMerchantProfile["merchantStatus"];
-  status: "ready" | "ready_mock" | "confirming" | "confirmed" | "confirmed_mock" | "failed" | "cancel_blocked";
+  status: "ready" | "ready_mock" | "sms_requesting" | "pending_payment_link" | "vbank_requesting" | "waiting_deposit" | "confirming" | "confirmed" | "confirmed_mock" | "failed" | "cancel_blocked";
   createdAt: string;
   expiresAt: string;
 };
@@ -235,6 +235,7 @@ export type HttpRequestLike = {
 export type HttpResponseLike = {
   status: (code: number) => HttpResponseLike;
   json: (body: unknown) => void;
+  send?: (body: string) => void;
 };
 
 export function readObjectBody<T extends object>(request: HttpRequestLike): Partial<T> {

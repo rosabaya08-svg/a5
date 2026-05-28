@@ -2,7 +2,9 @@ import Link from "next/link";
 import { A5PublicApiDocsPanel } from "@/components/admin/A5PublicApiDocsPanel";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { AdminApiIntegrationRequestsPanel } from "@/components/admin/AdminApiIntegrationRequestsPanel";
+import { InnopayPgIntegrationPanel } from "@/components/admin/InnopayPgIntegrationPanel";
 import { AdminNurseryPartnerSyncPanel } from "@/components/admin/AdminNurseryPartnerSyncPanel";
+import { AdminRoomsTable, AdminTabletsTable } from "@/components/admin/AdminRoomDeviceTables";
 import { AdminProductDraftRequestsPanel } from "@/components/admin/AdminProductDraftRequestsPanel";
 import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
 import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
@@ -297,19 +299,7 @@ export function AdminRoomsPage() {
 
   return (
     <AdminShell title="객실 관리" subtitle="QR 출처 저장 기준인 nursery_id, room_id를 관리합니다.">
-      <DataTable
-        columns={["객실", "조리원", "층", "현장수령", "연결 태블릿"]}
-        rows={mockApi.rooms().map((room) => ({
-          id: room.id,
-          cells: [
-            <span key="name" className="font-bold text-slate-950">{room.name}</span>,
-            nurseries.find((nursery) => nursery.id === room.nurseryId)?.name ?? room.nurseryId,
-            room.floor,
-            room.pickupEnabled ? "가능" : "불가",
-            room.activeTabletId ?? "미연결",
-          ],
-        }))}
-      />
+      <AdminRoomsTable rooms={mockApi.rooms()} nurseries={nurseries} />
     </AdminShell>
   );
 }
@@ -319,19 +309,7 @@ export function AdminTabletsPage() {
 
   return (
     <AdminShell title="태블릿 관리" subtitle="조리원 폐쇄몰 접근 장치와 객실 연결 상태를 확인합니다.">
-      <DataTable
-        columns={["태블릿", "객실", "상태", "마지막 접속", "세션 출처"]}
-        rows={mockApi.tablets().map((tablet) => ({
-          id: tablet.id,
-          cells: [
-            <span key="label" className="font-bold text-slate-950">{tablet.label}</span>,
-            rooms.find((room) => room.id === tablet.roomId)?.name ?? tablet.roomId,
-            tablet.status,
-            formatDateTime(tablet.lastSeenAt),
-            "nursery_id + room_id + tablet_id",
-          ],
-        }))}
-      />
+      <AdminTabletsTable rooms={rooms} tablets={mockApi.tablets()} />
     </AdminShell>
   );
 }
@@ -415,6 +393,17 @@ export function AdminPaymentsPage() {
           }))}
         />
       </div>
+    </AdminShell>
+  );
+}
+
+export function AdminPgIntegrationPage() {
+  return (
+    <AdminShell
+      title="PG 연동"
+      subtitle="인피니 REST API 경로, MID, Merchant-Key, licenseKey, cancelPwd, Noti URL을 한 화면에서 설계하고 저장합니다."
+    >
+      <InnopayPgIntegrationPanel />
     </AdminShell>
   );
 }

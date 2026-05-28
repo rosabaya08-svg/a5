@@ -1,6 +1,15 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { getAdminDb } from "../firebaseAdmin";
-import { getPgServerReadiness } from "./providerRuntime";
+import {
+  getPgServerReadiness,
+  isInnopaySmsApiMode,
+} from "./providerRuntime";
+import {
+  InnopayRestClient,
+  readInnopayTransactionAmount,
+  readInnopayTransactionId,
+  readInnopayTransactionStatus,
+} from "./innopayRestClient";
 import type { PaymentProviderId, PgApproval } from "./types";
 
 export type PgProviderCandidate = "infiny" | "toss" | "portone" | "kcp" | "nice" | "unknown";
@@ -74,6 +83,8 @@ export type ProviderCancelInput = {
   paymentKey?: string;
   amount: number;
   reason: string;
+  merchantId?: string;
+  cancelPwd?: string;
   secretKey?: string;
 };
 
@@ -201,13 +212,16 @@ export async function confirmPaymentWithConfiguredProvider(input: ProviderConfir
 }
 
 async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<ProviderConfirmResult> {
+  if (isInnopaySmsApiMode("infiny")) {
+    return confirmInnopaySmsPaymentByLookup(input);
+  }
+
   const runtimeConfig = await readFirestorePgRuntimeConfig();
   const readiness = getPgServerReadiness();
   const endpoint =
     readiness.confirmUrl ||
     runtimeConfig.confirmUrl ||
-    readEnv("INFINY_CONFIRM_URL") ||
-    joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/confirm");
+    readEnv("INFINY_CONFIRM_URL");
   if (!input.secretKey && input.secretKeyRef) {
     return blocked("confirmPayment", "Company PG secret reference exists but no decrypted server secret was supplied. Enter the issued key in admin PG settings or wire a Secret Manager resolver before calling real PG.");
   }
@@ -215,7 +229,7 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
   const secretKey = input.secretKey || readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
 
   if (!endpoint) {
-    return blocked("confirmPayment", "INFINY_CONFIRM_URL or INFINY_API_BASE_URL is missing. No PG API was called.");
+    return blocked("confirmPayment", "INFINY_CONFIRM_URL is missing for non-InnoPay SDK confirm mode. No undocumented provider endpoint was called.");
   }
 
   if (!secretKey) {
@@ -308,6 +322,58 @@ async function confirmInfinyPayment(input: ProviderConfirmInput): Promise<Provid
   }
 }
 
+async function confirmInnopaySmsPaymentByLookup(input: ProviderConfirmInput): Promise<ProviderConfirmResult> {
+  const merchantKey = input.signKey || readEnv("INNOPAY_DEFAULT_MERCHANT_KEY") || readEnv("INNOPAY_MERCHANT_KEY");
+  const mid = input.merchantId || readEnv("INNOPAY_DEFAULT_MID") || readEnv("PG_MERCHANT_ID");
+
+  if (!mid) {
+    return blocked("confirmPayment", "InnoPay MID is missing. No transaction lookup was called.");
+  }
+
+  if (!merchantKey) {
+    return blocked("confirmPayment", "InnoPay Merchant-Key is missing. Store it as the company sign key or set INNOPAY_DEFAULT_MERCHANT_KEY.");
+  }
+
+  const client = new InnopayRestClient();
+  const lookup = input.transactionId
+    ? await client.getTransactionByTid({ mid, merchantKey, tid: input.transactionId })
+    : await client.getTransactionByMoid({ mid, merchantKey, moid: input.orderNo });
+
+  if (!lookup.ok) {
+    return blocked("confirmPayment", `InnoPay transaction lookup failed: ${lookup.resultMsg}`);
+  }
+
+  const transactionStatus = readInnopayTransactionStatus(lookup.data);
+  if (transactionStatus !== "approved") {
+    return blocked("confirmPayment", `InnoPay transaction is not approved yet. status=${transactionStatus}`);
+  }
+
+  const confirmedAmount = readInnopayTransactionAmount(lookup.data);
+  if (typeof confirmedAmount === "number" && confirmedAmount !== input.amount) {
+    return blocked("confirmPayment", `InnoPay approved amount mismatch. server=${input.amount}, provider=${confirmedAmount}`);
+  }
+
+  const approvedAt = new Date().toISOString();
+  const transactionId = readInnopayTransactionId(lookup.data) || input.transactionId || input.orderNo;
+
+  return {
+    ok: true,
+    candidate: "infiny",
+    operation: "confirmPayment",
+    realPgCalled: true,
+    approval: {
+      provider: "infiny",
+      status: "approved",
+      mockTid: transactionId,
+      paymentKey: transactionId,
+      transactionId,
+      realPgCalled: true,
+      approvedAt,
+      message: "InnoPay SMS card payment was confirmed by transaction lookup.",
+    },
+  };
+}
+
 export async function handleProviderWebhook(input: ProviderWebhookInput): Promise<ProviderActionResult> {
   const readiness = getPgServerReadiness();
   const candidate = resolveProviderCandidate(readiness.provider);
@@ -387,10 +453,48 @@ async function callProviderPaymentAction(
   const runtimeConfig = await readFirestorePgRuntimeConfig();
   const readiness = getPgServerReadiness();
   const candidate = resolveProviderCandidate(readiness.provider);
+
+  if (operation === "cancelPayment" && candidate === "infiny" && isInnopaySmsApiMode("infiny")) {
+    const mid = input.merchantId || readEnv("INNOPAY_DEFAULT_MID") || readEnv("PG_MERCHANT_ID");
+    const cancelPwd = input.cancelPwd || readEnv("INNOPAY_DEFAULT_CANCEL_PWD") || readEnv("INNOPAY_CANCEL_PWD");
+    const tid = input.paymentKey || "";
+
+    if (!mid) return blocked(operation, "InnoPay MID is missing. No cancel API was called.");
+    if (!tid) return blocked(operation, "InnoPay TID is required for cancelApi.");
+    if (!cancelPwd) return blocked(operation, "InnoPay cancelPwd is missing. Store it as merchant password or set INNOPAY_DEFAULT_CANCEL_PWD.");
+
+    const result = await new InnopayRestClient().cancelTransaction({
+      mid,
+      tid,
+      svcCd: "01",
+      cancelAmt: String(input.amount),
+      cancelMsg: input.reason,
+      cancelPwd,
+      partialCancelCode: "0",
+    });
+
+    if (!result.ok) {
+      return blocked(operation, `InnoPay cancelApi failed: ${result.resultMsg}`);
+    }
+
+    return {
+      ok: true,
+      candidate,
+      operation,
+      realPgCalled: true,
+      paymentKey: tid,
+      transactionId: readString(result.data.pgTid) || tid,
+      status: "cancelled",
+      amount: readNumber(result.data.pgApprovalAmt) ?? input.amount,
+      message: result.resultMsg || "InnoPay cancelApi succeeded.",
+      raw: maskProviderPayload(result.rawMasked),
+    };
+  }
+
   const endpoint =
     operation === "cancelPayment"
-      ? readiness.cancelUrl || runtimeConfig.cancelUrl || readEnv("INFINY_CANCEL_URL") || joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/cancel")
-      : readiness.cancelUrl || runtimeConfig.cancelUrl || readEnv("INFINY_REFUND_URL") || readEnv("INFINY_CANCEL_URL") || joinUrl(runtimeConfig.apiBaseUrl || readEnv("INFINY_API_BASE_URL") || readEnv("PG_API_BASE_URL"), "/payments/refund");
+      ? readiness.cancelUrl || runtimeConfig.cancelUrl || readEnv("INFINY_CANCEL_URL")
+      : readEnv("INFINY_REFUND_URL");
   const secretKey = input.secretKey || readEnv("PG_SECRET_KEY") || readEnv("INFINY_SECRET_KEY");
 
   if (candidate === "unknown" || readiness.provider.trim().toLowerCase() === "mock") {

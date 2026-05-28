@@ -41,18 +41,22 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   const paymentData = paymentSnapshot?.data() ?? {};
   const orderSnapshot = await db.collection("orders").doc(orderNo).get();
   const orderData = orderSnapshot.data() ?? {};
-  const paymentKey = String(body.paymentKey ?? paymentData.provider_payment_key ?? paymentData.paymentKey ?? "");
+  const paymentKey = String(body.paymentKey ?? paymentData.provider_payment_key ?? paymentData.provider_transaction_id ?? paymentData.paymentKey ?? "");
   const cancelAmount = Number(body.amount ?? paymentData.amount ?? 0);
   const companyId = String(paymentData.company_id ?? orderData.company_id ?? "");
   const credentialSnapshot = companyId ? await db.collection("company_pg_credentials").doc(companyId).get() : undefined;
   const secretKey = decryptCredential(credentialSnapshot?.data()?.encrypted_secret_key);
+  const cancelPwd = decryptCredential(credentialSnapshot?.data()?.encrypted_merchant_password);
+  const merchantId = String(paymentData.merchant_id ?? orderData.merchant_id ?? credentialSnapshot?.data()?.mid ?? credentialSnapshot?.data()?.merchant_id ?? "");
   const cancelItems = normalizeCartItems(body.items);
-  const providerResult = (pgReadiness.readyForAdapter || secretKey)
+  const providerResult = (pgReadiness.readyForAdapter || secretKey || cancelPwd)
     ? await cancelProviderPayment({
         orderNo,
         paymentKey,
         amount: cancelAmount,
         reason: body.reason ?? "No reason supplied",
+        merchantId,
+        cancelPwd,
         secretKey,
       })
     : undefined;

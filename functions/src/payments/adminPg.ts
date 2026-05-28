@@ -2,7 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "../firebaseAdmin";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { canUseCredentialVault, encryptCredential, type EncryptedCredential } from "./credentialCrypto";
-import { getPgServerReadiness } from "./providerRuntime";
+import { getPgServerReadiness, isInnopaySmsApiMode } from "./providerRuntime";
 import {
   readObjectBody,
   requirePost,
@@ -113,6 +113,7 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
   const hasMerchantPassword = Boolean(encryptedMerchantPassword || isEncryptedCredentialShape(existingCredential.encrypted_merchant_password) || effectiveMerchantPasswordRef);
   const hasSignKey = Boolean(encryptedSignKey || isEncryptedCredentialShape(existingCredential.encrypted_sign_key) || effectiveSignKeyRef);
   const hasWebhookSecret = Boolean(encryptedWebhookSecret || isEncryptedCredentialShape(existingCredential.encrypted_webhook_secret) || effectiveWebhookSecretRef);
+  const smsApiMode = isInnopaySmsApiMode(provider);
   const existingStatus = allowedStatuses.includes(existingCredential.status as CompanyMerchantProfile["merchantStatus"])
     ? (existingCredential.status as CompanyMerchantProfile["merchantStatus"])
     : allowedStatuses.includes(existingCredential.credential_status as CompanyMerchantProfile["merchantStatus"])
@@ -135,7 +136,9 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
   const requestedStatus = allowedStatuses.includes(body.status as CompanyMerchantProfile["merchantStatus"])
     ? (body.status as CompanyMerchantProfile["merchantStatus"])
     : existingStatus ?? "mid_issued";
-  const credentialReady = Boolean(effectiveMerchantId && effectiveMerchantSerialNo && effectiveModuleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
+  const credentialReady = smsApiMode
+    ? Boolean(effectiveMerchantId)
+    : Boolean(effectiveMerchantId && effectiveMerchantSerialNo && effectiveModuleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
   const protectedRequestedStatus = requestedStatus === "not_applied" && existingStatus === "active" && !incomingHasAnyCredentialValue ? "active" : requestedStatus;
   const status = protectedRequestedStatus === "active" && !credentialReady ? "mid_issued" : protectedRequestedStatus;
   const encryptedCredentialStored = Boolean(
@@ -285,15 +288,16 @@ export async function adminPgConnectionTestHandler(request: HttpRequestLike, res
   const credential = credentialSnapshot.data() ?? {};
   const runtimeReadiness = await readFirestorePgRuntimeReadiness();
   const pgReadiness = getPgServerReadiness();
+  const smsApiMode = isInnopaySmsApiMode(String(credential.provider ?? "infiny"));
   const blockers = [
     ...runtimeReadiness.blockers,
     !text(credential.mid ?? credential.merchant_id) ? "company MID" : "",
-    !text(credential.merchant_serial_no) ? "merchant serial number" : "",
-    !text(credential.module_key) ? "module key" : "",
-    !hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) ? "secret key" : "",
-    !hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) ? "merchant password" : "",
+    !smsApiMode && !text(credential.merchant_serial_no) ? "merchant serial number" : "",
+    !smsApiMode && !text(credential.module_key) ? "module key" : "",
+    !smsApiMode && !hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) ? "secret key" : "",
+    !smsApiMode && !hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) ? "merchant password" : "",
     !hasCredential(credential.encrypted_sign_key, credential.sign_key_ref) ? "sign key" : "",
-    !hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref) ? "webhook secret" : "",
+    !smsApiMode && !hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref) ? "webhook secret" : "",
   ].filter(Boolean);
   const ready = blockers.length === 0;
 
@@ -333,14 +337,15 @@ export async function adminPgActivationHandler(request: HttpRequestLike, respons
   const credentialSnapshot = await db.collection("company_pg_credentials").doc(companyId).get();
   const credential = credentialSnapshot.data() ?? {};
   const runtimeReadiness = await readFirestorePgRuntimeReadiness();
+  const smsApiMode = isInnopaySmsApiMode(String(credential.provider ?? "infiny"));
   const canActivate = Boolean(
     text(credential.mid ?? credential.merchant_id) &&
-      text(credential.merchant_serial_no) &&
-      text(credential.module_key) &&
-      hasCredential(credential.encrypted_secret_key, credential.secret_key_ref) &&
-      hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref) &&
+      (smsApiMode || text(credential.merchant_serial_no)) &&
+      (smsApiMode || text(credential.module_key)) &&
+      (smsApiMode || hasCredential(credential.encrypted_secret_key, credential.secret_key_ref)) &&
+      (smsApiMode || hasCredential(credential.encrypted_merchant_password, credential.merchant_password_ref)) &&
       hasCredential(credential.encrypted_sign_key, credential.sign_key_ref) &&
-      hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref) &&
+      (smsApiMode || hasCredential(credential.encrypted_webhook_secret, credential.webhook_secret_ref)) &&
       runtimeReadiness.ready,
   );
 
@@ -403,17 +408,19 @@ async function readFirestorePgRuntimeReadiness(): Promise<{ ready: boolean; bloc
       ...(legacySnapshot.exists ? legacySnapshot.data() ?? {} : {}),
       ...(providerSnapshot.exists ? providerSnapshot.data() ?? {} : {}),
     };
+    const provider = text(data.provider) || text(process.env.PG_PROVIDER) || "infiny";
+    const smsApiMode = isInnopaySmsApiMode(provider);
     const hasConfirmEndpoint = Boolean(text(data.confirm_url ?? data.confirmUrl) || text(data.api_base_url ?? data.apiBaseUrl));
     const blockers = [
-      !text(data.provider) ? "PG provider" : "",
-      !text(data.public_client_key ?? data.client_key ?? data.publicClientKey) ? "public client key" : "",
-      !text(data.channel_key ?? data.channelKey) ? "channel key" : "",
-      !text(data.script_url ?? data.scriptUrl) ? "browser SDK script URL" : "",
-      !text(data.request_function_name ?? data.requestFunctionName ?? data.request_method ?? data.requestMethod) ? "browser payment function name" : "",
-      !hasConfirmEndpoint ? "Infiny confirm endpoint or API base URL" : "",
-      !text(data.webhook_url ?? data.webhookUrl) ? "A5 webhook URL" : "",
-      !text(data.success_url ?? data.successUrl) ? "success URL" : "",
-      !text(data.fail_url ?? data.failUrl) ? "fail URL" : "",
+      !provider ? "PG provider" : "",
+      !smsApiMode && !text(data.public_client_key ?? data.client_key ?? data.publicClientKey) ? "public client key" : "",
+      !smsApiMode && !text(data.channel_key ?? data.channelKey) ? "channel key" : "",
+      !smsApiMode && !text(data.script_url ?? data.scriptUrl) ? "browser SDK script URL" : "",
+      !smsApiMode && !text(data.request_function_name ?? data.requestFunctionName ?? data.request_method ?? data.requestMethod) ? "browser payment function name" : "",
+      !smsApiMode && !hasConfirmEndpoint ? "Infiny confirm endpoint or API base URL" : "",
+      !smsApiMode && !text(data.webhook_url ?? data.webhookUrl) ? "A5 webhook URL" : "",
+      !smsApiMode && !text(data.success_url ?? data.successUrl) ? "success URL" : "",
+      !smsApiMode && !text(data.fail_url ?? data.failUrl) ? "fail URL" : "",
     ].filter(Boolean);
 
     return { ready: blockers.length === 0, blockers };

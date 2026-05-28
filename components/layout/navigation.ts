@@ -12,7 +12,10 @@ export type NavSection = {
 export const adminNavItems: NavSection[] = [
   {
     title: "운영 대시보드",
-    items: [{ href: "/admin/dashboard", label: "통합 대시보드" }],
+    items: [
+      { href: "/admin/dashboard", label: "통합 대시보드" },
+      { href: "/admin/pg-integration", label: "PG 연동" },
+    ],
   },
   {
     title: "입점사/계정",
@@ -45,7 +48,6 @@ export const adminNavItems: NavSection[] = [
     items: [
       { href: "/admin/orders", label: "주문 관리" },
       { href: "/admin/payments", label: "결제 관리" },
-      { href: "/admin/pg-settings", label: "PG 설정" },
       { href: "/admin/settlements", label: "정산 검토" },
     ],
   },

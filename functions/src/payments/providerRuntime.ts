@@ -28,27 +28,41 @@ function joinUrl(base: string, path: string): string {
 function readEndpoint(provider: string, key: "confirm" | "cancel" | "status"): string {
   const upper = key.toUpperCase();
   const providerUpper = provider.trim().toUpperCase();
+  const innopayMode = isInnopayRestApiMode(provider);
   const direct =
     readEnv(`PG_${upper}_URL`) ||
     readEnv(`${providerUpper}_${upper}_URL`) ||
     readEnv(`INFINY_${upper}_URL`);
+
+  if (direct) return direct;
+  if (innopayMode) {
+    if (key === "cancel") return joinUrl(readInnopayApiBaseUrl(), "/api/cancelApi");
+    if (key === "status") return joinUrl(readInnopayApiBaseUrl(), "/v1/transactions");
+    return "";
+  }
+
   const base = readEnv("PG_API_BASE_URL") || readEnv(`${providerUpper}_API_BASE_URL`) || readEnv("INFINY_API_BASE_URL");
   const path = readEnv(`PG_${upper}_PATH`) || readEnv(`${providerUpper}_${upper}_PATH`) || `/payments/${key}`;
 
-  return direct || joinUrl(base, path);
+  return joinUrl(base, path);
 }
 
 export function getPgServerReadiness(): PgServerReadiness {
   const provider = readEnv("PG_PROVIDER") || readEnv("NEXT_PUBLIC_PG_PROVIDER") || "mock";
   const normalizedProvider = provider.trim().toLowerCase();
-  const apiBaseUrl = readEnv("PG_API_BASE_URL") || readEnv("INFINY_API_BASE_URL");
+  const smsApiMode = isInnopaySmsApiMode(provider);
+  const apiBaseUrl = readInnopayApiBaseUrl();
   const confirmUrl = readEndpoint(provider, "confirm");
   const cancelUrl = readEndpoint(provider, "cancel");
   const statusUrl = readEndpoint(provider, "status");
   const webhookUrl = readEnv("PAYMENT_WEBHOOK_URL");
   const missingKeys: string[] = normalizedProvider === "mock"
     ? []
-    : [
+    : smsApiMode
+      ? [
+          !isInnopayRealCallEnabled() ? "INNOPAY_SMS_API_ENABLED, INNOPAY_VBANK_API_ENABLED, or INNOPAY_REAL_CALLS_ENABLED" : "",
+        ].filter(Boolean)
+      : [
         ...requiredSecretKeys.filter((key) => !readEnv(key)),
         !webhookUrl ? "PAYMENT_WEBHOOK_URL" : "",
         !apiBaseUrl && !confirmUrl ? "PG_API_BASE_URL or PG_CONFIRM_URL" : "",
@@ -71,9 +85,44 @@ export function getPgServerReadiness(): PgServerReadiness {
     webhookSignatureHeader: readEnv("PG_WEBHOOK_SIGNATURE_HEADER") || "x-pg-signature",
     webhookSignatureAlgorithm,
     message: readyForAdapter
-      ? "PG server keys and confirm endpoint are present. Real provider adapter can call the configured PG."
-      : "PG server keys, webhook URL, confirm endpoint, or provider mode is not ready for real PG calls.",
+      ? smsApiMode
+        ? "InnoPay REST API mode is enabled. The server can call documented /api/* endpoints and transaction lookup."
+        : "PG server keys and confirm endpoint are present. Real provider adapter can call the configured PG."
+      : smsApiMode
+        ? "InnoPay REST API mode is blocked until INNOPAY_SMS_API_ENABLED, INNOPAY_VBANK_API_ENABLED, or INNOPAY_REAL_CALLS_ENABLED is true."
+        : "PG server keys, webhook URL, confirm endpoint, or provider mode is not ready for real PG calls.",
   };
+}
+
+export function isInnopaySmsApiMode(providerName?: string): boolean {
+  return isInnopayRestApiMode(providerName);
+}
+
+export function isInnopayRestApiMode(providerName?: string): boolean {
+  const provider = (providerName || readEnv("PG_PROVIDER") || readEnv("NEXT_PUBLIC_PG_PROVIDER") || "").trim().toLowerCase();
+  const mode = readEnv("INNOPAY_PAYMENT_MODE").toLowerCase();
+  const base = readInnopayApiBaseUrl().toLowerCase();
+
+  return (provider === "infiny" || provider === "infini" || provider.includes("innopay")) &&
+    (
+      mode === "sms" ||
+      mode === "vbank" ||
+      mode === "rest" ||
+      mode === "innopay" ||
+      base.includes("api.innopay.co.kr") ||
+      readEnv("INNOPAY_SMS_API_ENABLED").toLowerCase() === "true" ||
+      readEnv("INNOPAY_REAL_CALLS_ENABLED").toLowerCase() === "true"
+    );
+}
+
+export function isInnopayRealCallEnabled(): boolean {
+  return readEnv("INNOPAY_SMS_API_ENABLED").toLowerCase() === "true" ||
+    readEnv("INNOPAY_VBANK_API_ENABLED").toLowerCase() === "true" ||
+    readEnv("INNOPAY_REAL_CALLS_ENABLED").toLowerCase() === "true";
+}
+
+export function readInnopayApiBaseUrl(): string {
+  return readEnv("INNOPAY_API_BASE_URL") || readEnv("PG_API_BASE_URL") || readEnv("INFINY_API_BASE_URL") || "https://api.innopay.co.kr";
 }
 
 export function getPgAdapterHandoffPlan(): string[] {

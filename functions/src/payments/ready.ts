@@ -4,7 +4,7 @@ import { validateFirestoreQrSession } from "../qr/validateQrSession";
 import { assertAmount } from "../utils/assertAmount";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPaymentReadyTransactionPlan } from "../utils/firestoreTransaction";
-import { getPgAdapterHandoffPlan, getPgServerReadiness } from "./providerRuntime";
+import { getPgAdapterHandoffPlan, getPgServerReadiness, isInnopaySmsApiMode } from "./providerRuntime";
 import {
   calculateItemsAmount,
   makeOrderNo,
@@ -128,9 +128,9 @@ export async function paymentsReadyHandler(request: HttpRequestLike, response: H
       : merchantProfile.provider;
   const realPgRequested = resolvedProvider !== "mock";
   const firestoreRuntimeReady = await hasFirestorePgRuntimeEndpoint();
-  const realPgRuntimeReady = firestoreRuntimeReady || pgReadiness.readyForAdapter;
+  const realPgRuntimeReady = isInnopaySmsApiMode(merchantProfile.provider) || firestoreRuntimeReady || pgReadiness.readyForAdapter;
 
-  if (realPgRequested && !firestoreRuntimeReady && !pgReadiness.confirmUrl && !pgReadiness.apiBaseUrl) {
+  if (realPgRequested && !isInnopaySmsApiMode(merchantProfile.provider) && !firestoreRuntimeReady && !pgReadiness.confirmUrl && !pgReadiness.apiBaseUrl) {
     sendJson(response, 409, {
       ok: false,
       error: {
@@ -386,6 +386,7 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
   );
   const signKeyRef = optionalString(data.sign_key_ref ?? data.signKeyRef ?? pgProfile.signKeyRef);
   const webhookSecretRef = optionalString(data.webhook_secret_ref ?? data.webhookSecretRef ?? pgProfile.webhookSecretRef);
+  const smsApiMode = isInnopaySmsApiMode(data.pg_provider ?? pgProfile.provider ?? "infiny");
   const hasSecretKey = Boolean(secretKeyRef || hasEncryptedCredential(data.encrypted_secret_key));
   const hasMerchantPassword = Boolean(merchantPasswordRef || hasEncryptedCredential(data.encrypted_merchant_password));
   const hasSignKey = Boolean(signKeyRef || hasEncryptedCredential(data.encrypted_sign_key));
@@ -411,7 +412,9 @@ async function readCompanyMerchantProfile(companyId: string): Promise<CompanyMer
     signKeyRef,
     webhookSecretRef,
     merchantStatus,
-    paymentReady: Boolean(merchantId && moduleKey && merchantSerialNo && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret && merchantStatus === "active"),
+    paymentReady: smsApiMode
+      ? Boolean(merchantId && merchantStatus === "active")
+      : Boolean(merchantId && moduleKey && merchantSerialNo && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret && merchantStatus === "active"),
   };
 }
 

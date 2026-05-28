@@ -453,12 +453,18 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       updatedAt: now,
     };
 
-    saveLocalCompanySignupRequest(request);
-
     try {
       await saveCompanySignupRequest(request);
-    } catch {
-      // Local request remains available for the admin review screen.
+      saveLocalCompanySignupRequest(request);
+    } catch (error) {
+      saveLocalCompanySignupRequest(request);
+      setSaving(false);
+      setMessage(
+        `회원가입 요청을 Firestore에 저장하지 못했습니다. 최고관리자 큐에 반영되지 않았으니 다시 시도해 주세요. ${
+          error instanceof Error ? error.message : ""
+        }`.trim(),
+      );
+      return;
     }
 
     setSaving(false);

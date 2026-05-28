@@ -2,6 +2,7 @@ import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, signInAnonymously, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { initializeFirebaseAppCheck } from "@/lib/firebase/appCheck";
 
 const defaultProjectId = "a5-closed-mall";
 const defaultFirebasePublicConfig = {
@@ -58,7 +59,9 @@ export function getFirebaseApp(): FirebaseApp | null {
     return null;
   }
 
-  return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  initializeFirebaseAppCheck(app);
+  return app;
 }
 
 export function getFirebaseDb(): Firestore | null {

@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   adminAuditOperations,
   adminContentSlots,
-  companyApprovalQueue,
   orderMonitorItems,
   paymentMonitorItems,
   productApprovalQueue,
@@ -23,8 +22,8 @@ import type { AdminApprovalStatus, CompanyApprovalItem } from "@/types/admin";
 
 const approvalLabel: Record<AdminApprovalStatus, string> = {
   pending_review: "검토 대기",
-  approved_mock: "모의 승인",
-  rejected_mock: "모의 반려",
+  approved_mock: "승인",
+  rejected_mock: "반려",
   needs_fix: "수정 요청",
   blocked: "차단",
 };
@@ -120,7 +119,7 @@ function companyApprovalFromSignupRequest(request: CompanySignupRequestPayload):
 }
 
 function mergeCompanyApprovalRows(signupRows: CompanyApprovalItem[]) {
-  const merged = [...signupRows, ...companyApprovalQueue];
+  const merged = [...signupRows];
   const seen = new Set<string>();
 
   return merged.filter((item) => {
@@ -173,19 +172,6 @@ function useCompanyApprovalRows() {
   return { rows, loading, errorMessage };
 }
 
-function DisabledActionButtons() {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <button type="button" disabled className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white disabled:opacity-60">
-        승인
-      </button>
-      <button type="button" disabled className="rounded-md bg-red-50 px-3 py-2 text-xs font-black text-red-700 ring-1 ring-red-200 disabled:opacity-60">
-        반려
-      </button>
-    </div>
-  );
-}
-
 export function CompanyApprovalQueuePanel() {
   const { rows, loading, errorMessage } = useCompanyApprovalRows();
 
@@ -199,7 +185,7 @@ export function CompanyApprovalQueuePanel() {
         searchPlaceholder="상호, 사업자등록번호, 통신판매업 신고번호"
       />
       <DataTable
-        columns={["입점사", "사업자/통신판매", "서류", "위험", "상태", "저장 경로", "작업"]}
+        columns={["입점사", "사업자/통신판매", "서류", "위험", "상태", "저장 경로"]}
         isLoading={loading}
         errorMessage={errorMessage ? `가입 요청 Firestore 조회 실패: ${errorMessage}` : undefined}
         rows={rows.map((company) => ({
@@ -221,15 +207,14 @@ export function CompanyApprovalQueuePanel() {
             </div>,
             <ApprovalStatusBadge key="status" status={company.status} />,
             <code key="path" className="text-xs text-slate-600">{company.repositoryPath}</code>,
-            <DisabledActionButtons key="actions" />,
           ],
         }))}
         sortLabel="정렬: 제출일 최신순"
         paginationLabel={`1-${rows.length} / ${rows.length}`}
       />
-      <div className="mt-4">
-        <SuperAdminWriteGate />
-      </div>
+      <p className="mt-3 text-xs font-bold text-slate-500">
+        승인, 보류, 반려, MID 저장은 상단의 회원가입 승인대기 영역에서 서버 함수로 처리됩니다.
+      </p>
     </section>
   );
 }
@@ -270,7 +255,7 @@ export function ProductApprovalQueuePanel() {
             </div>,
             <ApprovalStatusBadge key="status" status={product.status} />,
             <code key="path" className="text-xs text-slate-600">{product.repositoryPath}</code>,
-            <DisabledActionButtons key="actions" />,
+            <span key="actions" className="text-xs font-bold text-slate-500">상품 승인 패널에서 처리</span>,
           ],
         }))}
         sortLabel="정렬: 위험도, 제출일"
@@ -316,7 +301,7 @@ export function CmsOperationsPanel() {
             </div>,
             <Link key="link" href={slot.linkUrl} className="font-bold text-blue-700">{slot.linkUrl}</Link>,
             <Pill key="status" tone={slot.status === "approved" || slot.status === "scheduled" ? "green" : slot.status === "pending_approval" ? "amber" : "slate"}>{slot.status}</Pill>,
-            <DisabledActionButtons key="actions" />,
+            <span key="actions" className="text-xs font-bold text-slate-500">CMS 편성 화면에서 처리</span>,
           ],
         }))}
       />

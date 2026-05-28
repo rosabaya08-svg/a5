@@ -3,11 +3,11 @@ import {
   ReCaptchaV3Provider,
   type AppCheck,
 } from "firebase/app-check";
-import { getFirebaseApp } from "@/lib/firebase/client";
+import type { FirebaseApp } from "firebase/app";
 
 let appCheckInstance: AppCheck | null = null;
 
-export function initializeFirebaseAppCheck(): AppCheck | null {
+export function initializeFirebaseAppCheck(app: FirebaseApp): AppCheck | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -16,10 +16,9 @@ export function initializeFirebaseAppCheck(): AppCheck | null {
     return appCheckInstance;
   }
 
-  const app = getFirebaseApp();
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY;
 
-  if (!app || !siteKey) {
+  if (!siteKey) {
     return null;
   }
 

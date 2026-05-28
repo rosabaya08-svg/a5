@@ -11,7 +11,8 @@ import {
   type QueryDocumentSnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuthClient, getFirebaseDb } from "@/lib/firebase/client";
+import { getPaymentFunctionUrl } from "@/lib/payments/paymentEndpoints";
 import { maskMerchantId } from "@/lib/payments/infinySettlementPolicy";
 import { normalizeBusinessNo } from "@/lib/auth/session";
 import type { PgMerchantStatus } from "@/types/commerce";
@@ -220,6 +221,18 @@ export type CompanyPgApprovalPayload = {
   reviewMemo?: string;
 };
 
+export type CompanySignupReviewAction = "mark_sent" | "approve" | "hold" | "reject";
+
+export type CompanySignupReviewPayload = {
+  requestId: string;
+  action: CompanySignupReviewAction;
+  companyId?: string;
+  merchantId?: string;
+  moduleKey?: string;
+  merchantStatus?: PgMerchantStatus;
+  reviewMemo?: string;
+};
+
 export async function saveCompanySignupRequest(payload: CompanySignupRequestPayload) {
   const db = getFirebaseDb();
 
@@ -257,6 +270,38 @@ export async function saveCompanySignupRequest(payload: CompanySignupRequestPayl
   );
 
   return { mode: "firestore" as const, message: "Signup request saved." };
+}
+
+export async function reviewCompanySignupRequest(payload: CompanySignupReviewPayload) {
+  const auth = getFirebaseAuthClient();
+  const token = auth?.currentUser ? await auth.currentUser.getIdToken() : "";
+  const endpoint = getPaymentFunctionUrl("companySignupReview");
+
+  if (!endpoint) {
+    throw new Error("Firebase Functions endpoint is not configured.");
+  }
+
+  if (!token) {
+    throw new Error("최고관리자 Google 로그인 토큰이 필요합니다.");
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null) as
+    | { ok?: boolean; message?: string; error?: { message?: string; code?: string } }
+    | null;
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error?.message || data?.message || `가입 요청 처리 실패: ${response.status}`);
+  }
+
+  return data;
 }
 
 export async function saveCompanyPgApproval(payload: CompanyPgApprovalPayload) {

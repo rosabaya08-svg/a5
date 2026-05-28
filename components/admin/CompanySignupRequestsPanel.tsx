@@ -2,34 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  readLocalCompanySignupRequests,
-  saveCompanyPgApproval,
+  reviewCompanySignupRequest,
   subscribeCompanySignupRequests,
   type CompanySignupRequestPayload,
 } from "@/lib/firebase/signupRequestRepository";
 import { maskMerchantId } from "@/lib/payments/infinySettlementPolicy";
 import type { PgMerchantStatus } from "@/types/commerce";
-
-const seedRequests: CompanySignupRequestPayload[] = [
-  {
-    id: "company-request-100410041004-seed",
-    companyName: "A5 테스트 기업",
-    businessRegistrationNumber: "1004-1004-1004",
-    representativeName: "테스트 대표",
-    managerName: "테스트 담당자",
-    managerPhone: "010-1004-1004",
-    managerEmail: "test-company@a5.local",
-    commerceLicenseNo: "제2026-A5-1004호",
-    csPhone: "02-1004-1004",
-    returnAddress: "서울시 강남구 테스트로 1004",
-    documentNames: ["business-license.pdf", "bankbook.pdf"],
-    status: "pending_review",
-    infinyTransferStatus: "not_sent",
-    pgMerchantStatus: "not_applied",
-    createdAt: "2026-05-26T18:30:00+09:00",
-    updatedAt: "2026-05-26T18:30:00+09:00",
-  },
-];
 
 type PgReviewDraft = {
   transferStatus: NonNullable<CompanySignupRequestPayload["infinyTransferStatus"]>;
@@ -83,54 +61,27 @@ function requestSummaryForInfiny(request: CompanySignupRequestPayload) {
   ];
 }
 
-function persistLocalReview(request: CompanySignupRequestPayload, draft: PgReviewDraft, status: CompanySignupRequestPayload["status"]) {
-  const key = "a5.company-signup-requests";
-  const current = readLocalCompanySignupRequests();
-  const reviewed: CompanySignupRequestPayload = {
-    ...request,
-    status,
-    infinyTransferStatus: draft.transferStatus,
-    pgMerchantId: draft.merchantId,
-    pgModuleKey: draft.moduleKey,
-    pgMerchantStatus: draft.merchantStatus,
-    approvedCompanyId: companyIdFor(request),
-    reviewedAt: new Date().toISOString(),
-    reviewMemo: draft.memo,
-    updatedAt: new Date().toISOString(),
-  };
-
-  window.localStorage.setItem(key, JSON.stringify([reviewed, ...current.filter((item) => item.id !== request.id)]));
-  return reviewed;
-}
-
 export function CompanySignupRequestsPanel() {
-  const [requests, setRequests] = useState<CompanySignupRequestPayload[]>(seedRequests);
+  const [requests, setRequests] = useState<CompanySignupRequestPayload[]>([]);
   const [drafts, setDrafts] = useState<Record<string, PgReviewDraft>>({});
   const [sourceMessage, setSourceMessage] = useState("가입 요청을 불러오고 있습니다.");
 
   useEffect(() => {
     const mergeRequests = (remoteRequests: CompanySignupRequestPayload[]) => {
-      const remoteById = new Map(remoteRequests.map((request) => [request.id, request]));
-      const localRequests = readLocalCompanySignupRequests().filter((request) => !remoteById.has(request.id));
-      const seedRows = seedRequests.filter((request) => !remoteById.has(request.id) && !localRequests.some((local) => local.id === request.id));
-      const nextRequests = [...remoteRequests, ...localRequests, ...seedRows];
-
-      setRequests(nextRequests);
+      setRequests(remoteRequests);
       setDrafts((current) => ({
-        ...Object.fromEntries(nextRequests.map((request) => [request.id, draftFor(request)])),
+        ...Object.fromEntries(remoteRequests.map((request) => [request.id, draftFor(request)])),
         ...current,
       }));
     };
-
-    const localTimer = window.setTimeout(() => mergeRequests([]), 0);
 
     const unsubscribe = subscribeCompanySignupRequests(
       (remoteRequests) => {
         mergeRequests(remoteRequests);
         setSourceMessage(
           remoteRequests.length > 0
-            ? "Firestore 가입 요청과 로컬 임시 요청을 함께 표시합니다."
-            : "Firestore 요청이 없어 로컬/기본 검토 항목만 표시합니다.",
+            ? "Firestore 가입 요청을 실시간으로 표시합니다."
+            : "아직 접수된 기업 회원가입 요청이 없습니다.",
         );
       },
       (error) => {
@@ -140,7 +91,6 @@ export function CompanySignupRequestsPanel() {
     );
 
     return () => {
-      window.clearTimeout(localTimer);
       unsubscribe();
     };
   }, []);
@@ -159,9 +109,23 @@ export function CompanySignupRequestsPanel() {
 
   async function markSent(request: CompanySignupRequestPayload) {
     const draft = { ...(drafts[request.id] ?? draftFor(request)), transferStatus: "sent" as const, merchantStatus: "in_review" as const };
-    const reviewed = persistLocalReview(request, draft, "infiny_sent");
-    setRequests((current) => current.map((item) => (item.id === request.id ? reviewed : item)));
-    updateDraft(request.id, { ...draft, result: "인피니 전달 상태로 표시했습니다." });
+
+    updateDraft(request.id, { ...draft, result: "서버에 인피니 전달 상태를 기록하는 중입니다." });
+
+    try {
+      await reviewCompanySignupRequest({
+        requestId: request.id,
+        action: "mark_sent",
+        companyId: companyIdFor(request),
+        merchantId: draft.merchantId,
+        moduleKey: draft.moduleKey,
+        merchantStatus: draft.merchantStatus,
+        reviewMemo: draft.memo,
+      });
+      updateDraft(request.id, { ...draft, result: "인피니 전달 상태를 Firestore와 감사 로그에 기록했습니다." });
+    } catch (error) {
+      updateDraft(request.id, { ...draft, result: error instanceof Error ? error.message : "인피니 전달 상태 저장에 실패했습니다." });
+    }
   }
 
   async function approveWithMid(request: CompanySignupRequestPayload) {
@@ -177,23 +141,21 @@ export function CompanySignupRequestsPanel() {
       transferStatus: "approved" as const,
       merchantStatus: draft.merchantStatus === "active" ? draft.merchantStatus : "mid_issued" as PgMerchantStatus,
     };
-    const reviewed = persistLocalReview(request, nextDraft, "approved");
-    setRequests((current) => current.map((item) => (item.id === request.id ? reviewed : item)));
+    updateDraft(request.id, { ...nextDraft, result: "서버에서 기업 승인과 MID 저장을 처리하는 중입니다." });
 
     try {
-      await saveCompanyPgApproval({
-        request,
+      await reviewCompanySignupRequest({
+        requestId: request.id,
+        action: "approve",
         companyId: companyIdFor(request),
         merchantId: nextDraft.merchantId,
         moduleKey: nextDraft.moduleKey,
         merchantStatus: nextDraft.merchantStatus,
-        transferStatus: nextDraft.transferStatus,
-        reviewStatus: "approved",
         reviewMemo: nextDraft.memo,
       });
-      updateDraft(request.id, { ...nextDraft, result: "기업 승인과 기업별 MID/결제 모듈 키를 저장했습니다." });
-    } catch {
-      updateDraft(request.id, { ...nextDraft, result: "로컬 승인 처리됨. Firestore 저장은 권한 또는 네트워크 확인이 필요합니다." });
+      updateDraft(request.id, { ...nextDraft, result: "기업 승인, MID 저장, 권한 준비, 감사 로그 기록을 완료했습니다." });
+    } catch (error) {
+      updateDraft(request.id, { ...nextDraft, result: error instanceof Error ? error.message : "기업 승인 처리에 실패했습니다." });
     }
   }
 
@@ -213,6 +175,11 @@ export function CompanySignupRequestsPanel() {
       </div>
 
       <div className="mt-4 grid gap-3">
+        {requests.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-sm font-bold text-slate-500">
+            접수된 기업 회원가입 요청이 없습니다.
+          </div>
+        ) : null}
         {requests.map((request) => {
           const draft = drafts[request.id] ?? draftFor(request);
           const companyId = companyIdFor(request);

@@ -5,6 +5,7 @@ import { a4NurseryBulkSignupHandler } from "./a4/bulkSignupNurseries";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
 import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
+import { companySignupReviewHandler } from "./company/signupReview";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
 import { ordersCreateHandler } from "./orders/createOrderSnapshot";
@@ -42,6 +43,7 @@ export const paymentsStatus = onRequest(paymentFunctionOptions, paymentsStatusHa
 export const adminPgCredentialSave = onRequest(paymentFunctionOptions, adminPgCredentialSaveHandler);
 export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgConnectionTestHandler);
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
+export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
 export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
 export const qrLookup = onRequest(paymentFunctionOptions, qrLookupHandler);

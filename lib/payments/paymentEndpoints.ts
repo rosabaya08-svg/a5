@@ -11,7 +11,8 @@ export type PaymentFunctionKey =
   | "diagnostics"
   | "adminPgCredentialSave"
   | "adminPgConnectionTest"
-  | "adminPgActivation";
+  | "adminPgActivation"
+  | "companySignupReview";
 
 const functionNames: Record<PaymentFunctionKey, string> = {
   ready: "paymentsReady",
@@ -27,6 +28,7 @@ const functionNames: Record<PaymentFunctionKey, string> = {
   adminPgCredentialSave: "adminPgCredentialSave",
   adminPgConnectionTest: "adminPgConnectionTest",
   adminPgActivation: "adminPgActivation",
+  companySignupReview: "companySignupReview",
 };
 
 function trimSlash(value: string) {
@@ -71,6 +73,7 @@ export function getPaymentEndpointReadiness() {
       adminPgCredentialSave: getPaymentFunctionUrl("adminPgCredentialSave"),
       adminPgConnectionTest: getPaymentFunctionUrl("adminPgConnectionTest"),
       adminPgActivation: getPaymentFunctionUrl("adminPgActivation"),
+      companySignupReview: getPaymentFunctionUrl("companySignupReview"),
     },
     missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL or NEXT_PUBLIC_FIREBASE_PROJECT_ID"],
   };

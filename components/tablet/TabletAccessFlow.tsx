@@ -3,11 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { tabletNurseryAccess } from "@/data/accessCredentials";
 import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
-import { portalLoginPaths, readPortalSession, type PortalSession } from "@/lib/auth/session";
+import { readLinkedNurseryProfileByBusinessNo } from "@/lib/firebase/nurseryAutoSignupClient";
+import { NURSERY_DEFAULT_PASSWORD, type NurseryAutoSignupProfile } from "@/lib/nursery/nurseryAutoSignup";
 
 const roomKey = "a5.tablet.room";
+const tabletNurseryAccessKey = "a5.tablet.nursery-access";
 const legacyTabletLoginKey = "a5.tablet.login";
 const roomEditUnlockKey = "a5.tablet.room-edit-unlocked";
+
+type TabletNurseryAccessSession = {
+  nurseryId: string;
+  businessNo: string;
+  businessName: string;
+  registeredAddress?: string;
+  defaultPassword: string;
+  signedInAt: string;
+};
 
 export type TabletRoomSession = {
   nurseryId: string;
@@ -21,23 +32,40 @@ export type TabletRoomSession = {
   updatedAt: string;
 };
 
-function readNurserySession(): PortalSession | null {
-  const session = readPortalSession("nursery");
-  if (!session || session.role !== "nursery") return null;
-  if (!session.nurseryId || !session.businessNo) return null;
-  if (!session.termsAcceptedAt || !session.privacyAcceptedAt || !session.marketingConsentAt) return null;
-  return session;
+function buildTabletNurseryAccess(profile: NurseryAutoSignupProfile): TabletNurseryAccessSession {
+  return {
+    nurseryId: profile.nurseryId,
+    businessNo: profile.businessRegistrationNo,
+    businessName: profile.nurseryName,
+    registeredAddress: profile.businessAddress,
+    defaultPassword: profile.defaultPassword || NURSERY_DEFAULT_PASSWORD,
+    signedInAt: new Date().toISOString(),
+  };
 }
 
-function nurseryLoginNextPath() {
-  return `${portalLoginPaths.nursery}?next=${encodeURIComponent("/tablet/room-setup")}`;
+function readTabletNurseryAccess(): TabletNurseryAccessSession | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(tabletNurseryAccessKey);
+    const session = raw ? (JSON.parse(raw) as TabletNurseryAccessSession) : null;
+    if (!session?.nurseryId || !session.businessNo) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function saveTabletNurseryAccess(session: TabletNurseryAccessSession) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(tabletNurseryAccessKey, JSON.stringify(session));
 }
 
 function normalizeRoomName(roomNumber: string) {
   return roomNumber.endsWith("호") ? roomNumber : `${roomNumber}호`;
 }
 
-function getNurseryMapping(session: PortalSession | null) {
+function getNurseryMapping(session: TabletNurseryAccessSession | null) {
   return nurseryExternalMappings.find(
     (item) =>
       item.nurseryId === session?.nurseryId ||
@@ -62,7 +90,7 @@ export function readTabletRoomSession(): TabletRoomSession | null {
   const session = readStoredRoomSession();
   if (!session) return null;
 
-  const nurserySession = readNurserySession();
+  const nurserySession = readTabletNurseryAccess();
   if (!nurserySession) return session;
 
   const sameNursery = session.nurseryId === nurserySession.nurseryId;
@@ -90,7 +118,7 @@ export function TabletAccessGate({ children }: { children: React.ReactNode }) {
     const timer = window.setTimeout(() => {
       window.localStorage.removeItem(legacyTabletLoginKey);
 
-      const nurserySession = readNurserySession();
+      const nurserySession = readTabletNurseryAccess();
       const roomSession = readTabletRoomSession();
       const ok = Boolean(nurserySession && roomSession);
 
@@ -98,7 +126,7 @@ export function TabletAccessGate({ children }: { children: React.ReactNode }) {
       setReady(true);
 
       if (!nurserySession) {
-        window.location.replace(nurseryLoginNextPath());
+        window.location.replace("/tablet/login");
         return;
       }
 
@@ -215,30 +243,91 @@ export function TabletContextBadge() {
 }
 
 export function TabletLoginPage() {
+  const [businessNo, setBusinessNo] = useState("");
+  const [password, setPassword] = useState(NURSERY_DEFAULT_PASSWORD);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     window.localStorage.removeItem(legacyTabletLoginKey);
 
-    const nurserySession = readNurserySession();
+    const nurserySession = readTabletNurseryAccess();
     const roomSession = readTabletRoomSession();
 
-    if (!nurserySession) {
-      window.location.replace(nurseryLoginNextPath());
-      return;
-    }
-
-    if (!roomSession) {
+    if (nurserySession && !roomSession) {
       window.location.replace("/tablet/room-setup");
       return;
     }
 
-    window.location.replace("/tablet/products");
+    if (nurserySession && roomSession) {
+      window.location.replace("/tablet/products");
+    }
   }, []);
 
+  async function submitTabletLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (password !== NURSERY_DEFAULT_PASSWORD) {
+      setMessage("비밀번호가 일치하지 않습니다. 폐쇄몰 기본 비밀번호는 1004입니다.");
+      return;
+    }
+
+    setSaving(true);
+    const profile = await readLinkedNurseryProfileByBusinessNo(businessNo);
+    setSaving(false);
+
+    if (!profile) {
+      setMessage("등록된 사업자번호를 찾지 못했습니다. A2에서 구글 로그인 후 프로필 입력을 완료하고 최고관리자 연동 자료가 생성된 뒤 다시 로그인해 주세요.");
+      return;
+    }
+
+    if (profile.status === "suspended") {
+      setMessage("정지된 산후조리원 계정입니다. 최고관리자에게 문의해 주세요.");
+      return;
+    }
+
+    saveTabletNurseryAccess(buildTabletNurseryAccess(profile));
+    const roomSession = readTabletRoomSession();
+    window.location.replace(roomSession ? "/tablet/products" : "/tablet/room-setup");
+  }
+
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
-      <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
-        <p className="text-sm font-bold text-slate-500">조리원 로그인 확인 중</p>
-        <h1 className="mt-2 text-2xl font-black">객실 선택으로 이동합니다</h1>
+    <main className="grid min-h-screen place-items-center bg-slate-950 px-4 py-10 text-white">
+      <section className="w-full max-w-sm rounded-md bg-white p-6 text-slate-950 shadow-2xl">
+        <p className="text-xs font-black tracking-[0.16em] text-rose-600">HANSANYEON HOT DEAL</p>
+        <h1 className="mt-2 text-3xl font-black">폐쇄몰 태블릿 로그인</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          A2 프로필 입력 후 최고관리자에 연동된 산후조리원 사업자번호와 비밀번호 1004로 접속합니다.
+        </p>
+        <form onSubmit={submitTabletLogin} className="mt-6 grid gap-4">
+          <label className="grid gap-2 text-sm font-black">
+            사업자등록번호
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={businessNo}
+              onChange={(event) => setBusinessNo(event.target.value)}
+              className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold outline-none focus:border-slate-950"
+              placeholder="1004-1004-1004"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-black">
+            비밀번호
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold outline-none focus:border-slate-950"
+              placeholder="1004"
+            />
+          </label>
+          {message ? <p className="rounded-md bg-blue-50 p-3 text-sm font-bold text-blue-800">{message}</p> : null}
+          <button disabled={saving} type="submit" className="h-12 rounded-md bg-slate-950 text-sm font-black text-white disabled:opacity-60">
+            {saving ? "확인 중" : "폐쇄몰 열기"}
+          </button>
+        </form>
       </section>
     </main>
   );
@@ -246,7 +335,7 @@ export function TabletLoginPage() {
 
 export function TabletRoomSetupPage() {
   const rooms = useMemo(() => nurseryRoomSelections, []);
-  const [nurserySession, setNurserySession] = useState<PortalSession | null>(null);
+  const [nurserySession, setNurserySession] = useState<TabletNurseryAccessSession | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.roomId ?? "");
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [requiresUnlock, setRequiresUnlock] = useState(false);
@@ -258,9 +347,9 @@ export function TabletRoomSetupPage() {
     const timer = window.setTimeout(() => {
       window.localStorage.removeItem(legacyTabletLoginKey);
 
-      const session = readNurserySession();
+      const session = readTabletNurseryAccess();
       if (!session) {
-        window.location.replace(nurseryLoginNextPath());
+        window.location.replace("/tablet/login");
         return;
       }
 
@@ -293,8 +382,8 @@ export function TabletRoomSetupPage() {
     const session: TabletRoomSession = {
       nurseryId: nurserySession.nurseryId ?? tabletNurseryAccess.nurseryId,
       businessNo: nurserySession.businessNo ?? tabletNurseryAccess.businessNo,
-      businessName: nurserySession.displayName || tabletNurseryAccess.businessName,
-      registeredAddress: nurseryMapping?.registeredAddress,
+      businessName: nurserySession.businessName || tabletNurseryAccess.businessName,
+      registeredAddress: nurseryMapping?.registeredAddress ?? nurserySession.registeredAddress,
       roomId: room.roomId,
       roomName: normalizeRoomName(room.roomNumber),
       tabletId: room.activeTabletId ?? tabletNurseryAccess.defaultTabletId,
@@ -357,7 +446,7 @@ export function TabletRoomSetupPage() {
         <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">room setup</p>
         <h1 className="mt-2 text-4xl font-black">객실 선택</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          {nurserySession?.displayName ?? "조리원"} 로그인 확인이 완료되었습니다. 등록된 객실 중 하나를 선택하면 이 태블릿의 주문 출처가 고정됩니다.
+          {nurserySession?.businessName ?? "조리원"} 로그인 확인이 완료되었습니다. 등록된 객실 중 하나를 선택하면 이 태블릿의 주문 출처가 고정됩니다.
         </p>
 
         <form onSubmit={saveRoom} className="mt-6 grid gap-4">

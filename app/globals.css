@@ -46,6 +46,24 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.a5-console-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.a5-console-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.a5-console-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.a5-console-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
 @keyframes a5-cart-pop {
   0% {
     transform: translateY(0) scale(1);

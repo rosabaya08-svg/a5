@@ -37,7 +37,7 @@ function CompanyShell({
       sectionTitle="기업 관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="입점사 업무 범위"
+      scopeLabel="입점사 업무 콘솔"
       navItems={companyNavItems}
       accent="company"
     >
@@ -48,12 +48,19 @@ function CompanyShell({
 
 function CompanyNoticePanel() {
   return (
-    <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-      <h2 className="text-lg font-black">입점사 운영 기준</h2>
-      <p className="mt-2 text-sm leading-6">
-        상품, 주문, 재고, 정산 정보는 로그인한 기업 범위로만 표시합니다. 상품은 최고관리자 승인 후 조리원/태블릿 폐쇄몰에 노출됩니다.
-      </p>
-      <CompanyConsentSummary />
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">seller scope</p>
+          <h2 className="mt-1 text-lg font-black text-slate-950">입점사 운영 기준</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            상품, 주문, 재고, 정산 정보는 로그인한 기업 범위로만 표시됩니다. 승인된 상품만 조리원 태블릿 폐쇄몰에 노출됩니다.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4">
+        <CompanyConsentSummary />
+      </div>
     </section>
   );
 }
@@ -137,13 +144,13 @@ export function CompanyDashboardPage() {
   const orders = companyOrders();
 
   return (
-    <CompanyShell title="기업 대시보드" subtitle="상품, 주문, 재고, 입금 예정 상태를 확인합니다.">
+    <CompanyShell title="기업 대시보드" subtitle="상품, 주문, 재고, API 연동, 입금 예정 상태를 한 화면에서 확인합니다.">
       <CompanyNoticePanel />
       <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <Link href="/company/products/new" className="rounded-md bg-emerald-600 px-4 py-3 text-sm font-black text-white">
+        <Link href="/company/products/new" className="rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white">
           상품 등록
         </Link>
-        <Link href="/company/excel" className="rounded-md bg-white px-4 py-3 text-sm font-black text-slate-950 ring-1 ring-emerald-200">
+        <Link href="/company/excel" className="rounded-md bg-white px-4 py-3 text-sm font-black text-slate-950 ring-1 ring-slate-200">
           사방넷 엑셀 다운로드
         </Link>
         <Link href="/company/api-integration" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
@@ -162,7 +169,7 @@ export function CompanyDashboardPage() {
         <section>
           <FilterBar title="최근 상품" filters={["전체", "승인완료", "승인요청", "재고부족"]} resultCount={products.length} />
           <DataTable
-            columns={["상품", "상태", "가격", "재고"]}
+            columns={["상품", "상태", "판매가", "재고"]}
             rows={products.map((product) => ({
               id: product.id,
               cells: [product.name, <StatusBadge key="status" status={product.status} />, formatCurrency(product.price), product.stock],
@@ -177,7 +184,7 @@ export function CompanyDashboardPage() {
             rows={orders.map((order) => ({
               id: order.id,
               cells: [
-                <Link key="order" href="/company/orders" className="font-semibold text-emerald-700">
+                <Link key="order" href="/company/orders" className="font-bold text-emerald-700">
                   {order.orderNo}
                 </Link>,
                 order.customerName,
@@ -198,7 +205,7 @@ export function CompanyProductsPage() {
   const options = mockApi.productOptions();
 
   return (
-    <CompanyShell title="상품 관리" subtitle="상품 승인 상태, 옵션, 재고, 외부 상품코드를 관리합니다.">
+    <CompanyShell title="상품 목록" subtitle="상품 승인 상태, 옵션, 재고, 외부 상품코드를 관리합니다.">
       <div className="mb-4 flex flex-wrap justify-end gap-2">
         <Link href="/company/products/new" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
           상품 등록
@@ -249,20 +256,12 @@ export function CompanyOnboardingRequirementsPage() {
         <CompanyDocumentUploadPanel
           companyId={companyId}
           companyName={companyName}
-          title="입점 서류 실제 업로드"
-          description="사업자등록증, 통신판매업 신고증, 정산 통장 사본 등 입점 필수 파일을 실제 Storage에 저장하고 qsc0921@gmail.com Gmail 발송 큐에 등록합니다."
+          title="입점 서류 업로드"
+          description="사업자등록증, 통장 사본, 통신판매업 신고증, 정산 통장 사본 등 입점 필수 파일을 제출합니다."
           documents={companyOnboardingDocuments}
           destinationEmail="qsc0921@gmail.com"
           deliveryMode="gmail"
         />
-      </div>
-      <div className="hidden">
-        {["사업자등록증", "통장 사본", "담당자 연락처", "CS 연락처", "반품지 주소", "브랜드 로고"].map((item) => (
-          <div key={item} className="rounded-md border border-slate-200 bg-white p-4">
-            <p className="font-black text-slate-950">{item}</p>
-            <p className="mt-1 text-sm font-semibold text-emerald-700">확인 대기</p>
-          </div>
-        ))}
       </div>
     </CompanyShell>
   );
@@ -272,7 +271,7 @@ export function CompanyOrdersPage() {
   const items = companyOrderItems();
 
   return (
-    <CompanyShell title="주문 관리" subtitle="입점사에 배정된 주문 상품을 확인하고 출고 상태를 관리합니다.">
+    <CompanyShell title="주문 목록" subtitle="입점사에 배정된 주문 상품을 확인하고 출고 상태를 관리합니다.">
       <DataTable
         columns={["주문", "상품", "옵션", "수량", "배송상태", "판매금액", "정산기준"]}
         rows={items.map((item) => ({
@@ -295,7 +294,7 @@ export function CompanyExcelIntegrationPage() {
 
 export function CompanyApiIntegrationPage() {
   return (
-    <CompanyShell title="API 요청/다운로드" subtitle="기업 ERP, WMS, 사방넷, 자체 프로그램에서 주문 API 배포를 요청하고 승인 후 연동 문서를 내려받습니다.">
+    <CompanyShell title="API 연동 요청/다운로드" subtitle="기업 ERP, WMS, 사방넷 프로그램에서 A5 주문 API 배포를 요청하고 승인 후 문서를 내려받습니다.">
       <CompanyApiIntegrationPanel companyId={companyId} companyName={companyName} />
     </CompanyShell>
   );
@@ -303,7 +302,7 @@ export function CompanyApiIntegrationPage() {
 
 export function CompanyInventoryPage() {
   return (
-    <CompanyShell title="재고 관리" subtitle="SKU와 옵션별 재고 상태를 관리합니다.">
+    <CompanyShell title="재고 현황" subtitle="SKU와 옵션별 재고 상태를 관리합니다.">
       <DataTable
         columns={["상품", "현재재고", "외부 상품코드", "동기화 방식", "상태"]}
         rows={companyProducts().map((product) => ({
@@ -344,7 +343,7 @@ export function CompanySalesPage() {
   const total = companyOrderItems().reduce((sum, item) => sum + item.settlementAmount, 0);
 
   return (
-    <CompanyShell title="매출" subtitle="확정 매출과 환불 보류 금액을 확인합니다.">
+    <CompanyShell title="매출 현황" subtitle="확정 매출과 환불 보류 금액을 확인합니다.">
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard metric={{ label: "주문 수", value: String(orders.length), tone: "blue", helper: "기업 배정 주문 기준" }} />
         <StatCard metric={{ label: "정산 기준 금액", value: formatCurrency(total), tone: "green", helper: "주문상품 기준" }} />
@@ -357,7 +356,7 @@ export function CompanySalesPage() {
             id: order.id,
             cells: [order.orderNo, formatDateTime(order.createdAt), <StatusBadge key="status" status={order.status} />, formatCurrency(order.totalAmount)],
           }))}
-          emptyMessage="매출로 집계할 주문이 없습니다."
+          emptyMessage="매출로 집계된 주문이 없습니다."
         />
       </div>
     </CompanyShell>
@@ -368,8 +367,8 @@ export function CompanyPayoutsPage() {
   const total = companyOrderItems().reduce((sum, item) => sum + item.settlementAmount, 0);
 
   return (
-    <CompanyShell title="입금" subtitle="입금 예정액, 수수료, 정산서 다운로드 상태를 확인합니다.">
-      <section className="rounded-md border border-slate-200 bg-white p-4">
+    <CompanyShell title="입금 예정" subtitle="입금 예정액, 수수료, 정산서 다운로드 상태를 확인합니다.">
+      <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-4">
           <div>
             <p className="text-xs font-black text-slate-500">확정 매출</p>

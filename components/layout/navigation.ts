@@ -17,7 +17,7 @@ export const adminNavItems: NavSection[] = [
   {
     title: "입점사/계정",
     items: [
-      { href: "/admin/companies", label: "입점사 관리" },
+      { href: "/admin/companies", label: "입점사 관리/가입 요청" },
       { href: "/admin/permissions", label: "권한/계정" },
     ],
   },
@@ -45,19 +45,23 @@ export const adminNavItems: NavSection[] = [
     items: [
       { href: "/admin/orders", label: "주문 관리" },
       { href: "/admin/payments", label: "결제 관리" },
-      { href: "/admin/settlements", label: "정산 검산" },
+      { href: "/admin/pg-settings", label: "PG 설정" },
+      { href: "/admin/settlements", label: "정산 검토" },
     ],
   },
   {
-    title: "연동/문서 배포",
+    title: "연동/API",
     items: [
       { href: "/admin/integrations", label: "외부 연동 센터" },
-      { href: "/admin/public-api-docs", label: "A5 공개 API 문서" },
+      { href: "/admin/public-api-docs", label: "A5 공개 API 문서/기업 요청" },
     ],
   },
   {
     title: "감사/시스템",
-    items: [{ href: "/admin/audit-logs", label: "감사 로그" }],
+    items: [
+      { href: "/admin/audit-logs", label: "감사 로그" },
+      { href: "/admin/feature-status", label: "개발 점검" },
+    ],
   },
 ];
 
@@ -70,7 +74,7 @@ export const companyNavItems: NavSection[] = [
     ],
   },
   {
-    title: "상품 관리",
+    title: "상품",
     items: [
       { href: "/company/products", label: "상품 목록" },
       { href: "/company/products/new", label: "상품 등록" },
@@ -82,18 +86,15 @@ export const companyNavItems: NavSection[] = [
     items: [
       { href: "/company/orders", label: "주문 목록" },
       { href: "/company/deliveries", label: "배송/현장수령" },
-    ],
-  },
-  {
-    title: "재고/엑셀 연동",
-    items: [
-      { href: "/company/inventory", label: "재고 현황" },
       { href: "/company/excel", label: "사방넷 엑셀 다운로드" },
     ],
   },
   {
-    title: "API 연동",
-    items: [{ href: "/company/api-integration", label: "API 요청/다운로드" }],
+    title: "재고/연동",
+    items: [
+      { href: "/company/inventory", label: "재고 현황" },
+      { href: "/company/api-integration", label: "API 연동 요청/다운로드" },
+    ],
   },
   {
     title: "매출/정산",
@@ -121,7 +122,7 @@ export const nurseryNavItems: NavSection[] = [
   {
     title: "객실/태블릿",
     items: [
-      { href: "/nursery/rooms", label: "객실 관리" },
+      { href: "/nursery/rooms", label: "객실 관리/자동 연동" },
       { href: "/nursery/tablets", label: "태블릿 관리" },
     ],
   },

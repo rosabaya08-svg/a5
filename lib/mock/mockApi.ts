@@ -36,10 +36,10 @@ export const mockApi = {
     ).length;
 
     return [
-      { label: "오늘 모의 매출", value: formatCurrency(paidAmount), helper: "실결제 아님", tone: "green" },
-      { label: "활성 QR", value: formatNumber(activeQr), helper: "2~3시간 만료 대상", tone: "blue" },
+      { label: "오늘 매출", value: formatCurrency(paidAmount), helper: "결제 완료 주문 기준", tone: "green" },
+      { label: "활성 QR", value: formatNumber(activeQr), helper: "만료 전 결제 대기 QR", tone: "blue" },
       { label: "승인 대기 상품", value: formatNumber(pendingProducts), helper: "관리자 검수 필요", tone: "amber" },
-      { label: "정산 보류", value: formatNumber(blockedSettlements), helper: "실지급 금지", tone: "red" },
+      { label: "정산 보류", value: formatNumber(blockedSettlements), helper: "지급 전 확인 필요", tone: "red" },
     ];
   },
 
@@ -50,8 +50,8 @@ export const mockApi = {
     const products = mockProducts.filter((product) => product.companyId === companyId);
 
     return [
-      { label: "입점사 모의 매출", value: formatCurrency(sales), helper: "order_items 기준", tone: "green" },
-      { label: "예상 입금", value: formatCurrency(payout), helper: "인피니 7% 공제 / 실지급 아님", tone: "blue" },
+      { label: "입점사 매출", value: formatCurrency(sales), helper: "order_items 기준", tone: "green" },
+      { label: "예상 입금", value: formatCurrency(payout), helper: "인피니 7% 공제 기준", tone: "blue" },
       { label: "상품 수", value: formatNumber(products.length), helper: "승인/대기 포함", tone: "neutral" },
       {
         label: "재고 부족",
@@ -71,7 +71,7 @@ export const mockApi = {
     );
 
     return [
-      { label: "객실", value: formatNumber(rooms.length), helper: "모의 등록 객실", tone: "neutral" },
+      { label: "객실", value: formatNumber(rooms.length), helper: "등록 객실", tone: "neutral" },
       { label: "태블릿", value: formatNumber(tablets.length), helper: "활성/점검 포함", tone: "blue" },
       { label: "QR 이력", value: formatNumber(qr.length), helper: "출처 추적", tone: "purple" },
       { label: "현장수령", value: formatNumber(pickupOrders.length), helper: "조리원 처리", tone: "green" },
@@ -82,31 +82,31 @@ export const mockApi = {
     return [
       {
         id: "risk-payment-prod",
-        title: "운영 PG 연결 금지",
+        title: "운영 PG 연결 확인",
         severity: "high",
-        owner: "대표님 승인",
-        detail: "계약, 테스트 MID, 공식 문서 전까지 모의 어댑터만 허용.",
+        owner: "최고관리자",
+        detail: "계약, 테스트 MID, 공식 문서, webhook 검증 완료 후 실제 결제를 열어야 합니다.",
       },
       {
         id: "risk-firebase",
-        title: "Firebase write 권한 미확정",
+        title: "저장 권한 확인",
         severity: "high",
         owner: "운영/개발",
-        detail: "products read 외 orders/payments/qr_sessions write는 보안 규칙 확정 전 연결 금지.",
+        detail: "orders, payments, qr_sessions 쓰기는 보안 규칙과 Functions 권한을 기준으로 제한합니다.",
       },
       {
         id: "risk-pg-server",
         title: "PG 서버 confirm 계층 필요",
         severity: "high",
-        owner: "개발/PG사",
-        detail: "Static export 화면에서는 secret key를 사용할 수 없어 Functions, Cloud Run, Workers 중 하나가 필요.",
+        owner: "개발/PG",
+        detail: "Static export 화면에서 secret key를 직접 사용하지 않고 Firebase Functions를 통해 승인합니다.",
       },
       {
         id: "risk-payout",
-        title: "정산 지급 차단",
+        title: "정산 지급 검토",
         severity: "medium",
         owner: "재무 검토",
-        detail: "베타는 order_items 기준 계산 초안만 표시.",
+        detail: "order_items 기준 계산 결과를 확인한 뒤 지급 실행 시스템과 연결합니다.",
       },
     ];
   },

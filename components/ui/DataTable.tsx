@@ -18,7 +18,7 @@ type DataTableProps = {
 export function DataTable({
   columns,
   rows,
-  emptyMessage = "표시할 모의 데이터가 없습니다.",
+  emptyMessage = "표시할 데이터가 없습니다.",
   isLoading = false,
   errorMessage,
   sortLabel,
@@ -27,14 +27,14 @@ export function DataTable({
   return (
     <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
       {(sortLabel || paginationLabel) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600">
           <span>{sortLabel ?? "정렬: 최신 업데이트순"}</span>
           <span>{paginationLabel ?? `1-${Math.max(rows.length, 1)} / ${rows.length}`}</span>
         </div>
       )}
       {errorMessage ? (
         <div className="m-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-          <p className="font-black">오류 상태 모의 화면</p>
+          <p className="font-black">오류가 발생했습니다</p>
           <p className="mt-1 leading-6">{errorMessage}</p>
         </div>
       ) : isLoading ? (
@@ -49,30 +49,30 @@ export function DataTable({
           <p className="mt-2 text-sm text-slate-600">{emptyMessage}</p>
         </div>
       ) : (
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-sm">
-          <thead className="bg-slate-100 text-xs font-black uppercase text-slate-500">
-            <tr>
-              {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap px-4 py-3">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((row) => (
-              <tr key={row.id} className="align-top transition hover:bg-slate-50">
-                {row.cells.map((cell, index) => (
-                  <td key={`${row.id}-${index}`} className="px-4 py-3 text-slate-700">
-                    {cell}
-                  </td>
+        <div className="a5-console-scrollbar overflow-x-auto">
+          <table className="min-w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-[11px] font-black uppercase tracking-[0.08em] text-slate-500">
+              <tr>
+                {columns.map((column) => (
+                  <th key={column} className="whitespace-nowrap border-b border-slate-200 px-4 py-3">
+                    {column}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((row) => (
+                <tr key={row.id} className="align-top transition hover:bg-slate-50/80">
+                  {row.cells.map((cell, index) => (
+                    <td key={`${row.id}-${index}`} className="px-4 py-3 text-slate-700">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

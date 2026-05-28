@@ -19,7 +19,7 @@ function AdminContentShell({
   children: React.ReactNode;
 }) {
   return (
-    <AppShell sectionTitle="최고관리자" title={title} subtitle={subtitle} scopeLabel="콘텐츠 승인" navItems={adminNavItems} accent="admin">
+    <AppShell sectionTitle="최고관리자" title={title} subtitle={subtitle} scopeLabel="콘텐츠 검수" navItems={adminNavItems} accent="admin">
       {children}
     </AppShell>
   );
@@ -45,8 +45,8 @@ function RequestCards({ items }: { items: Array<{ title: string; body: string; s
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
-        <article key={item.title} className="rounded-md border border-slate-200 bg-white p-4">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{item.status}</p>
+        <article key={item.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{item.status}</p>
           <h2 className="mt-2 text-lg font-black text-slate-950">{item.title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
         </article>
@@ -57,13 +57,13 @@ function RequestCards({ items }: { items: Array<{ title: string; body: string; s
 
 export async function AdminBannerManagementPage() {
   return (
-    <AdminContentShell title="배너 광고 관리" subtitle="입점사가 제출한 배너 소재의 노출 위치와 승인 상태를 관리합니다.">
+    <AdminContentShell title="배너/광고 관리" subtitle="입점사가 제출한 배너 소재의 노출 위치와 승인 상태를 관리합니다.">
       <FilterBar title="배너 필터" filters={["전체", "승인대기", "운영중", "반려"]} resultCount={2} mode="toolbar" />
       <DataTable
         columns={["소재", "노출 위치", "대상", "기간", "상태", "소유자"]}
         rows={[
-          { id: "banner-1", cells: ["산후 케어 기획 배너", "태블릿 홈", "전체 조리원", "상시", "승인대기", "A5 테스트 기업"] },
-          { id: "banner-2", cells: ["프리미엄 수유용품 배너", "상품 목록", "701호", "이번 달", "운영중", "A5 테스트 기업"] },
+          { id: "banner-1", cells: ["산후 케어 기획 배너", "태블릿 홈", "전체 조리원", "상시", "승인대기", "테스트 기업"] },
+          { id: "banner-2", cells: ["프리미엄 수유용품 배너", "상품 목록", "701호", "이번 달", "운영중", "테스트 기업"] },
         ]}
       />
     </AdminContentShell>
@@ -76,7 +76,7 @@ export async function AdminVideoManagementPage() {
       <FilterBar title="영상 소재 필터" filters={["전체", "승인대기", "반려", "태블릿 홈"]} resultCount={1} mode="toolbar" />
       <DataTable
         columns={["소재", "노출 위치", "길이", "상태", "소유자"]}
-        rows={[{ id: "video-1", cells: ["산모 케어 안내 영상", "태블릿 홈", "15초", "승인대기", "A5 테스트 기업"] }]}
+        rows={[{ id: "video-1", cells: ["산모 케어 안내 영상", "태블릿 홈", "15초", "승인대기", "테스트 기업"] }]}
       />
     </AdminContentShell>
   );
@@ -86,7 +86,7 @@ export async function AdminBrandManagementPage() {
   return (
     <AdminContentShell title="브랜드관 관리" subtitle="공식 파트너 브랜드 정보와 노출 상태를 관리합니다.">
       <DataTable
-        columns={["브랜드", "대표 상품", "상태", "노출 위치"]}
+        columns={["브랜드", "대상 상품", "상태", "노출 위치"]}
         rows={mockApi.products().map((product) => ({
           id: product.id,
           cells: [product.brand ?? "A5 Partner", product.name, "운영중", "태블릿 상품 목록"],
@@ -98,12 +98,12 @@ export async function AdminBrandManagementPage() {
 
 export function AdminHomeEditorPage() {
   return (
-    <AdminContentShell title="홈 편집" subtitle="태블릿 산후조리원 핫딜 홈 섹션과 노출 순서를 관리합니다.">
+    <AdminContentShell title="홈 편집" subtitle="태블릿 폐쇄몰 홈 섹션과 노출 순서를 관리합니다.">
       <RequestCards
         items={[
           { title: "메인 배너", body: "대표 기획전 배너와 연결 상품을 관리합니다.", status: "운영중" },
           { title: "추천 상품", body: "조리원 객실에 노출할 추천 상품 묶음을 관리합니다.", status: "승인완료" },
-          { title: "브랜드관", body: "입점사 브랜드관 노출 순서를 관리합니다.", status: "검토중" },
+          { title: "브랜드관", body: "입점사 브랜드관 노출 순서를 관리합니다.", status: "검수중" },
         ]}
       />
     </AdminContentShell>

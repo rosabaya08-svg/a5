@@ -14,6 +14,14 @@ type AppShellProps = {
   children: ReactNode;
 };
 
+const roleTitles = {
+  admin: "최고관리자",
+  company: "기업 관리자",
+  nursery: "조리원 관리자",
+  tablet: "태블릿",
+  guest: "고객",
+} satisfies Record<NonNullable<AppShellProps["accent"]>, string>;
+
 export function AppShell({
   title,
   subtitle,
@@ -25,23 +33,16 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const isDark = surface === "dark";
-  const sidebarTitle =
-    accent === "admin"
-      ? "최고관리자"
-      : accent === "company"
-        ? "기업 관리자"
-        : accent === "nursery"
-          ? "조리원 관리자"
-          : sectionTitle;
+  const sidebarTitle = accent ? roleTitles[accent] : sectionTitle;
   const guardedRole = accent === "admin" || accent === "company" || accent === "nursery" ? accent : null;
 
   const shell = (
-    <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-[#f6f7f9] text-slate-950"}`}>
+    <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-[#f5f7fb] text-slate-950"}`}>
       <div className="flex min-h-screen">
         <AdminSidebar title={sidebarTitle} navItems={navItems} accent={accent} surface={surface} />
         <div className="min-w-0 flex-1">
           <TopBar title={title} subtitle={subtitle} scopeLabel={scopeLabel} surface={surface} />
-          <main className="px-4 py-5 md:px-6 md:py-6">{children}</main>
+          <main className="px-4 py-5 md:px-6 md:py-6 xl:px-8">{children}</main>
         </div>
       </div>
     </div>

@@ -28,7 +28,6 @@ import {
   INFINY_PG_FEE_RATE,
   INFINY_TOTAL_FEE_RATE,
 } from "@/lib/payments/infinySettlementPolicy";
-import { mockPreviewRoutes } from "@/data/mockPreviewRoutes";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
 import { mockApi } from "@/lib/mock/mockApi";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
@@ -49,7 +48,7 @@ function AdminShell({
       sectionTitle="최고관리자"
       title={title}
       subtitle={subtitle}
-      scopeLabel="최고관리자"
+      scopeLabel="운영 관리 콘솔"
       navItems={adminNavItems}
       accent="admin"
     >
@@ -60,17 +59,17 @@ function AdminShell({
 
 function AdminOperationMap() {
   const items = [
-    { title: "산후조리원 핫딜 홈 디자인", body: "메인 배너, 광고 배너, 브랜드 로고, 기획전 섹션을 모의 콘텐츠 관리로 편성", href: "/admin/home-editor" },
-    { title: "광고 소재 승인", body: "이미지, 영상, GIF 등록 위치와 승인/반려 상태를 운영자가 검토", href: "/admin/marketing/banners" },
-    { title: "기업 관리자 발급", body: "비밀번호 평문 발급 금지. Firebase Auth 초대/비밀번호 재설정/권한 클레임으로 설계", href: "/admin/companies" },
-    { title: "PG 전환 게이트", body: "결제 키 입력 후에도 서버 금액 재계산과 승인 엔드포인트 없이는 실결제 차단", href: "/admin/payments" },
+    { title: "입점사 승인", body: "회원가입 요청, 사업자 서류, MID/PG 준비 상태를 확인합니다.", href: "/admin/companies" },
+    { title: "상품 검수", body: "상품 등록 요청, 고시정보, KC/증빙, 가격 정책을 검수합니다.", href: "/admin/products" },
+    { title: "외부 연동 센터", body: "사방넷, ERP, WMS, 기업 공개 API 요청과 문서 배포를 관리합니다.", href: "/admin/integrations" },
+    { title: "결제/정산", body: "PG 상태, 결제 로그, 정산 검토와 감사 기록을 확인합니다.", href: "/admin/payments" },
   ];
 
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <Link key={item.title} href={item.href} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <p className="text-xs font-black uppercase text-blue-600">운영 제어</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-700">operation</p>
           <h3 className="mt-2 text-lg font-black text-slate-950">{item.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
         </Link>
@@ -79,118 +78,102 @@ function AdminOperationMap() {
   );
 }
 
-const featureGroups = [
-  {
-    title: "최고관리자",
-    description: "입점사, 조리원, 상품, 주문, 결제, 정산, 외부 연동을 전체 관리합니다.",
-    links: [
-      { href: "/admin/dashboard", label: "대시보드", body: "주문, 상품 승인, QR, 정산 보류 요약" },
-      { href: "/admin/companies", label: "입점사", body: "회원가입 요청, 기업 승인, MID, 권한 확인" },
-      { href: "/admin/nurseries", label: "조리원", body: "조리원 계정, 객실, 태블릿 현황" },
-      { href: "/admin/products", label: "상품 승인", body: "승인 대기 상품, 고시, KC, 가격 검토" },
-      { href: "/admin/orders", label: "주문", body: "전체 주문과 QR 출처, order_items 확인" },
-      { href: "/admin/integrations", label: "외부 연동 센터", body: "사방넷, ERP, WMS, 공개 API 연동 관리" },
-      { href: "/admin/payments", label: "결제", body: "PG 상태, 승인/실패, 결제 로그 확인" },
-      { href: "/admin/settlements", label: "정산 검토", body: "입점사별 수수료와 입금 예정 검산" },
-      { href: "/admin/audit-logs", label: "감사 로그", body: "권한, 금액, 상태 변경 이력" },
-    ],
-  },
-  {
-    title: "기업 관리자",
-    description: "입점사가 자기 상품, 주문, 재고, 배송, 매출, 입금을 처리합니다.",
-    links: [
-      { href: "/company/dashboard", label: "대시보드", body: "상품, 주문, 재고, 입금 예정 요약" },
-      { href: "/company/onboarding", label: "입점 신청", body: "사업자 서류와 운영 정보 확인" },
-      { href: "/company/products", label: "상품 관리", body: "상품 상태, 옵션, 외부 상품코드, 재고" },
-      { href: "/company/products/new", label: "상품 등록", body: "상품 정보 작성과 승인 요청" },
-      { href: "/company/orders", label: "주문 관리", body: "자기 회사 주문상품 확인" },
-      { href: "/company/inventory", label: "재고 관리", body: "SKU/옵션별 재고와 품절 상태" },
-      { href: "/company/deliveries", label: "배송/수령", body: "송장 등록과 현장수령 처리" },
-      { href: "/company/sales", label: "매출", body: "확정 매출과 환불 보류" },
-      { href: "/company/payouts", label: "입금", body: "수수료, 입금 예정액, 정산서" },
-    ],
-  },
-  {
-    title: "조리원 관리자",
-    description: "조리원이 자기 객실, 태블릿, QR, 현장수령, 주문 이력을 확인합니다.",
-    links: [
-      { href: "/nursery/dashboard", label: "대시보드", body: "객실, 태블릿, QR, 현장수령 요약" },
-      { href: "/nursery/rooms", label: "객실", body: "A4 객실 가져오기와 A5 객실 운영본" },
-      { href: "/nursery/tablets", label: "태블릿", body: "객실별 단말 연결 상태" },
-      { href: "/nursery/pickups", label: "현장수령", body: "조리원에서 받을 주문 확인" },
-      { href: "/nursery/qr-history", label: "QR 이력", body: "QR 생성, 만료, 결제 상태" },
-      { href: "/nursery/orders", label: "주문 이력", body: "조리원 객실에서 발생한 주문" },
-    ],
-  },
-  {
-    title: "태블릿 / 고객",
-    description: "객실 태블릿에서 상품을 담고 고객 모바일 QR 결제와 주문조회로 이어집니다.",
-    links: [
-      { href: "/tablet/login", label: "태블릿 로그인", body: "사업자번호 확인과 객실 선택" },
-      { href: "/tablet/products", label: "상품 목록", body: "객실 고정 산후조리원 핫딜 상품 탐색" },
-      { href: "/tablet/cart", label: "장바구니", body: "객실/태블릿별 장바구니" },
-      { href: "/tablet/qr", label: "QR 생성", body: "고객 모바일 결제 QR 표시" },
-      { href: "/orders/guest", label: "비회원 주문조회", body: "주문번호 기반 주문 상태 확인" },
-      { href: "/q/SANHO701", label: "고객 QR", body: "QR 스캔 후 모바일 결제 진입" },
-    ],
-  },
-];
+function AccountProvisioningPanel() {
+  const rows = [
+    ["초대 방식", "Firebase Auth 초대 또는 비밀번호 재설정 링크"],
+    ["권한 클레임", "role, company_id, nursery_id, room_id, tablet_id"],
+    ["운영 금지", "관리자가 평문 비밀번호를 저장하거나 전달하지 않음"],
+    ["운영 점검", "계정 회수 정책, 2단계 인증, 감사 로그 확인"],
+  ];
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-lg font-black text-slate-950">기업 관리자 계정 발급 기준</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        운영자는 계정 생성 권한만 갖고, 비밀번호는 사용자 재설정 흐름으로 관리합니다.
+      </p>
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-black text-blue-700">{label}</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PgReadinessPanel() {
+  const readiness = getPaymentReadiness();
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-black text-slate-950">PG 연동 준비 상태</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            기업별 MID와 인피니 PG 키값을 입력한 뒤 서버 승인, webhook 검증, 주문/재고 기록까지 확인해야 실제 결제를 열 수 있습니다.
+          </p>
+        </div>
+        <span className="rounded-md bg-amber-50 px-3 py-1 text-xs font-black text-amber-900 ring-1 ring-amber-200">{readiness.label}</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs font-black text-slate-500">결제사</p>
+          <p className="mt-1 font-black text-slate-950">{readiness.provider}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs font-black text-slate-500">부족한 키</p>
+          <p className="mt-1 break-words text-sm font-bold text-slate-950">{readiness.missingKeys.join(", ") || "없음"}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs font-black text-slate-500">필수 서버</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">Firebase Functions 결제 모듈</p>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function AdminFeatureStatusPage() {
-  const reviewGroups = [
+  const groups = [
     {
-      title: "승인/검수",
-      description: "기업이 작성한 상품, 콘텐츠, 입점 요청을 최고관리자가 검토하는 영역입니다.",
+      title: "검수/승인",
       links: [
-        { href: "/admin/products", label: "상품 승인", body: "기업 상품 등록 요청, 고시정보, KC/증빙, 가격 정책을 승인/반려합니다." },
-        { href: "/admin/companies", label: "입점사 승인", body: "회원가입 요청, 사업자 서류, 정산 계좌, 기업 상태를 검토합니다." },
-        { href: "/admin/marketing/banners", label: "배너/광고 검수", body: "기업이 제출한 광고 소재의 노출 위치와 승인 상태를 관리합니다." },
-        { href: "/admin/exhibitions", label: "기획전 검수", body: "기획전 참여 신청과 노출 기간, 대상 상품을 승인합니다." },
+        { href: "/admin/products", label: "상품 승인", body: "기업 상품 등록 요청과 검수 상태를 확인합니다." },
+        { href: "/admin/companies", label: "입점사 승인", body: "회원가입 요청과 사업자 서류를 검토합니다." },
+        { href: "/admin/marketing/banners", label: "광고 검수", body: "배너, 영상, GIF 소재 노출 상태를 관리합니다." },
       ],
     },
     {
-      title: "배포/연동",
-      description: "기업 요청을 운영 승인한 뒤 외부 시스템과 연결할 문서와 키를 배포하는 영역입니다.",
+      title: "연동/배포",
       links: [
-        { href: "/admin/public-api-docs", label: "기업 API 요청 승인/배포", body: "기업 ERP, WMS, 사방넷 연동 요청을 승인하고 다운로드 패키지를 배포합니다." },
+        { href: "/admin/public-api-docs", label: "A5 공개 API 문서", body: "기업 연동 API 문서를 승인 후 배포합니다." },
         { href: "/admin/integrations", label: "외부 연동 센터", body: "사방넷, 네이버, 카페24, 쿠팡, WMS, ERP 커넥터를 관리합니다." },
-        { href: "/admin/companies", label: "인피니 MID 입력", body: "회원가입 승인대기 목록에서 기업별 MID와 결제 모듈 키를 입력합니다." },
+        { href: "/admin/payments", label: "PG 결제", body: "기업별 MID와 키값 입력 상태를 점검합니다." },
       ],
     },
     {
       title: "운영 감사",
-      description: "주문, 정산, 권한 변경처럼 분쟁 근거가 되는 운영 기록을 확인하는 영역입니다.",
       links: [
-        { href: "/admin/orders", label: "전체 주문", body: "QR 출처와 order_items 기준 주문 흐름을 점검합니다." },
-        { href: "/admin/settlements", label: "정산 검산", body: "수수료, 입금 예정액, 정산 보류 상태를 검산합니다." },
+        { href: "/admin/orders", label: "전체 주문", body: "QR 출처와 order_items 기준 주문 흐름을 확인합니다." },
+        { href: "/admin/settlements", label: "정산 검토", body: "수수료, 환불 보류, 입금 예정 금액을 확인합니다." },
         { href: "/admin/audit-logs", label: "감사 로그", body: "승인, 반려, 권한, 금액 변경 이력을 확인합니다." },
       ],
     },
   ];
 
   return (
-    <AdminShell
-      title="운영 검수 현황"
-      subtitle="최고관리자 내부에서는 승인, 배포, 정산, 외부 연동 준비 상태만 점검합니다."
-    >
+    <AdminShell title="운영 점검" subtitle="승인, 배포, 결제, 정산, 외부 연동 준비 상태를 최고관리자 내부에서 확인합니다.">
       <div className="grid gap-4">
-        {reviewGroups.map((group) => (
+        {groups.map((group) => (
           <section key={group.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">admin review</p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">{group.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{group.description}</p>
-              </div>
-            </div>
+            <h2 className="text-lg font-black text-slate-950">{group.title}</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {group.links.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-md border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md"
-                >
-                  <p className="text-base font-black text-slate-950">{item.label}</p>
+                <Link key={item.href} href={item.href} className="rounded-md border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-400 hover:bg-white">
+                  <p className="font-black text-slate-950">{item.label}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
                   <p className="mt-3 text-xs font-black text-blue-700">{item.href}</p>
                 </Link>
@@ -204,130 +187,12 @@ export function AdminFeatureStatusPage() {
 }
 
 export function AdminFeatureStatusLegacyPage() {
-  return (
-    <AdminShell
-      title="기능 현황"
-      subtitle="첫 화면에서 빠졌던 기능 목록을 최고관리자 내부에서 다시 확인합니다."
-    >
-      <div className="grid gap-4">
-        {featureGroups.slice(0, 1).map((group) => (
-          <section key={group.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">A5 기능 묶음</p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">{group.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{group.description}</p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{group.links.length}개 기능</span>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {group.links.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-md border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md"
-                >
-                  <p className="text-base font-black text-slate-950">{item.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
-                  <p className="mt-3 text-xs font-black text-blue-700">{item.href}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">내부 점검</p>
-              <h2 className="mt-1 text-xl font-black">이전 미리보기/진행 점검 화면</h2>
-              <p className="mt-2 text-sm leading-6">
-                운영 사용자 첫 화면에서는 숨기고, 최고관리자 내부에서만 접근해 화면 상태와 경로를 점검합니다.
-              </p>
-            </div>
-            <Link href="/mock-ui/status" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
-              진행 상태 열기
-            </Link>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {mockPreviewRoutes.map((route) => (
-              <Link key={route.id} href={route.href} className="rounded-md bg-white p-4 text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                <p className="text-sm font-black">{route.title}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{route.description}</p>
-                <p className="mt-3 text-xs font-black text-amber-700">{route.href}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
-    </AdminShell>
-  );
-}
-
-function AccountProvisioningPanel() {
-  const rows = [
-    ["초대 방식", "Firebase Auth 이메일 초대 또는 비밀번호 재설정 링크"],
-    ["권한 클레임", "role, company_id, nursery_id, room_id, tablet_id"],
-    ["금지", "관리자가 임시 비밀번호를 평문 저장하거나 전달하는 방식"],
-    ["운영 전 확인", "대표 승인, 계정 회수 정책, 2단계 인증 권고"],
-  ];
-
-  return (
-    <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
-      <h2 className="text-lg font-black">기업 관리자 아이디/비밀번호 부여 설계</h2>
-      <p className="mt-2 text-sm leading-6">
-        운영자는 계정 생성 권한만 갖고, 비밀번호 자체는 Firebase Auth 초대/재설정 흐름으로 사용자가 설정해야 합니다.
-      </p>
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="rounded-md bg-white p-3">
-            <p className="text-xs font-black text-blue-600">{label}</p>
-            <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PgReadinessPanel() {
-  const readiness = getPaymentReadiness();
-
-  return (
-    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black">PG 연동 준비 상태</h2>
-          <p className="mt-2 text-sm leading-6">
-            PG 키를 받아도 이 화면에서 바로 실결제를 실행하지 않습니다. 서버 confirm, webhook 검증, 주문 snapshot, 재고 차감, audit log가 먼저 필요합니다.
-          </p>
-        </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-900">{readiness.label}</span>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-md bg-white p-3">
-          <p className="text-xs font-black text-slate-500">결제사</p>
-          <p className="mt-1 font-black text-slate-950">{readiness.provider}</p>
-        </div>
-        <div className="rounded-md bg-white p-3">
-          <p className="text-xs font-black text-slate-500">누락 키</p>
-          <p className="mt-1 break-words text-sm font-bold text-slate-950">{readiness.missingKeys.join(", ") || "없음"}</p>
-        </div>
-        <div className="rounded-md bg-white p-3">
-          <p className="text-xs font-black text-slate-500">필수 서버</p>
-          <p className="mt-1 text-sm font-bold text-slate-950">Functions / Cloud Run / Workers 중 확정 필요</p>
-        </div>
-      </div>
-    </section>
-  );
+  return <AdminFeatureStatusPage />;
 }
 
 export function AdminIndexPage() {
   return (
-    <AdminShell
-      title="운영 콘솔"
-      subtitle="산후조리원 핫딜 베타의 모의 운영 지표와 차단 항목을 확인합니다."
-    >
+    <AdminShell title="운영 콘솔" subtitle="입점사, 조리원, 상품, 주문, 결제, 정산, 외부 연동 상태를 관리합니다.">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.adminMetrics().map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -339,8 +204,8 @@ export function AdminIndexPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <RiskAlert risks={mockApi.risks()} />
         <ConfirmBox
-          title="운영 전환 차단"
-          description="이 콘솔은 Firebase, PG, 알림톡, 배송조회, 외부 재고 API에 연결하지 않는 개발용 모의/테스트 화면입니다."
+          title="운영 전환 점검"
+          description="권한, PG, 외부 연동, API 문서, 감사 로그가 실제 운영 기준으로 연결되어 있는지 확인합니다."
         />
       </div>
     </AdminShell>
@@ -351,10 +216,7 @@ export function AdminDashboardPage() {
   const orders = mockApi.orders().slice(0, 5);
 
   return (
-    <AdminShell
-      title="통합 대시보드"
-      subtitle="주문, QR, 상품 승인, 정산 보류를 한 화면에서 점검합니다."
-    >
+    <AdminShell title="통합 대시보드" subtitle="주문, QR, 상품 승인, 정산 보류, 외부 연동 상태를 한 화면에서 확인합니다.">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {mockApi.adminMetrics().map((metric) => (
           <StatCard key={metric.label} metric={metric} />
@@ -368,13 +230,13 @@ export function AdminDashboardPage() {
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
         <section>
-          <FilterBar title="최근 주문" filters={["오늘", "모의 결제", "QR 출처 포함"]} />
+          <FilterBar title="최근 주문" filters={["전체", "오늘", "QR 출처", "정산 확인"]} />
           <DataTable
             columns={["주문번호", "고객", "상태", "금액", "생성"]}
             rows={orders.map((order) => ({
               id: order.id,
               cells: [
-                <Link key="order" href={`/orders/guest/${order.orderNo}`} className="font-semibold text-blue-700">
+                <Link key="order" href={`/orders/guest/${order.orderNo}`} className="font-bold text-blue-700">
                   {order.orderNo}
                 </Link>,
                 order.customerName,
@@ -393,7 +255,7 @@ export function AdminDashboardPage() {
 
 export function AdminCompaniesPage() {
   return (
-    <AdminShell title="입점사 관리" subtitle="회원가입 승인대기에서 기업 정보를 인피니에 전달하고, 기업별 MID/결제 모듈 키를 입력합니다.">
+    <AdminShell title="입점사 관리/가입 요청" subtitle="회원가입 요청, 기업 승인, MID/PG 입력, 권한 발급을 관리합니다.">
       <CompanySignupRequestsPanel />
       <div className="mt-4" />
       <AccountProvisioningPanel />
@@ -406,7 +268,7 @@ export function AdminCompaniesPage() {
         rows={mockApi.companies().map((company) => ({
           id: company.id,
           cells: [
-            <span key="name" className="font-semibold text-slate-950">{company.name}</span>,
+            <span key="name" className="font-bold text-slate-950">{company.name}</span>,
             company.managerName,
             company.status,
             `${company.pgProfile?.providerLabel ?? "인피니 PG"} / ${company.pgProfile?.merchantIdMasked ?? "MID 발급 대기"}`,
@@ -423,14 +285,14 @@ export function AdminCompaniesPage() {
 
 export function AdminNurseriesPage() {
   return (
-    <AdminShell title="산후조리원 관리" subtitle="조리원별 객실, 태블릿, 승인 상태를 확인합니다.">
+    <AdminShell title="조리원 관리" subtitle="조리원 계정, 사업자번호, 객실, 태블릿 승인 상태를 확인합니다.">
       <FilterBar title="조리원 필터" filters={["전체", "서울/경기", "승인", "대기"]} />
       <DataTable
         columns={["조리원", "지역", "담당자", "상태", "객실", "태블릿"]}
         rows={mockApi.nurseries().map((nursery) => ({
           id: nursery.id,
           cells: [
-            <span key="name" className="font-semibold text-slate-950">{nursery.name}</span>,
+            <span key="name" className="font-bold text-slate-950">{nursery.name}</span>,
             nursery.region,
             nursery.managerName,
             nursery.status,
@@ -447,13 +309,13 @@ export function AdminRoomsPage() {
   const nurseries = mockApi.nurseries();
 
   return (
-    <AdminShell title="객실 관리" subtitle="QR 출처 저장 기준인 nursery_id, room_id를 점검합니다.">
+    <AdminShell title="객실 관리" subtitle="QR 출처 저장 기준인 nursery_id, room_id를 관리합니다.">
       <DataTable
         columns={["객실", "조리원", "층", "현장수령", "연결 태블릿"]}
         rows={mockApi.rooms().map((room) => ({
           id: room.id,
           cells: [
-            <span key="name" className="font-semibold text-slate-950">{room.name}</span>,
+            <span key="name" className="font-bold text-slate-950">{room.name}</span>,
             nurseries.find((nursery) => nursery.id === room.nurseryId)?.name ?? room.nurseryId,
             room.floor,
             room.pickupEnabled ? "가능" : "불가",
@@ -469,13 +331,13 @@ export function AdminTabletsPage() {
   const rooms = mockApi.rooms();
 
   return (
-    <AdminShell title="태블릿 관리" subtitle="산후조리원 핫딜 접근 장치와 객실 연결 상태를 확인합니다.">
+    <AdminShell title="태블릿 관리" subtitle="조리원 폐쇄몰 접근 장치와 객실 연결 상태를 확인합니다.">
       <DataTable
-        columns={["태블릿", "객실", "상태", "마지막 접속", "세션 원칙"]}
+        columns={["태블릿", "객실", "상태", "마지막 접속", "세션 출처"]}
         rows={mockApi.tablets().map((tablet) => ({
           id: tablet.id,
           cells: [
-            <span key="label" className="font-semibold text-slate-950">{tablet.label}</span>,
+            <span key="label" className="font-bold text-slate-950">{tablet.label}</span>,
             rooms.find((room) => room.id === tablet.roomId)?.name ?? tablet.roomId,
             tablet.status,
             formatDateTime(tablet.lastSeenAt),
@@ -491,18 +353,18 @@ export function AdminProductsPage() {
   const companies = mockApi.companies();
 
   return (
-    <AdminShell title="상품 승인" subtitle="기업 어드민이 제출한 상품 draft를 검수하고 승인/반려만 처리합니다.">
+    <AdminShell title="상품 승인" subtitle="기업 어드민이 제출한 상품 draft를 검수하고 승인/반려합니다.">
       <AdminProductDraftRequestsPanel />
       <div className="mt-4" />
       <ProductApprovalQueuePanel />
       <div className="mt-4" />
       <FilterBar title="상품 필터" filters={["전체", "승인대기", "승인완료", "재고부족"]} />
       <DataTable
-        columns={["상품", "입점사", "카테고리", "상태", "산후조리원 핫딜가", "재고"]}
+        columns={["상품", "입점사", "카테고리", "상태", "폐쇄몰가", "재고"]}
         rows={mockApi.products().map((product) => ({
           id: product.id,
           cells: [
-            <span key="name" className="font-semibold text-slate-950">{product.name}</span>,
+            <span key="name" className="font-bold text-slate-950">{product.name}</span>,
             companies.find((company) => company.id === product.companyId)?.name ?? product.companyId,
             product.category,
             <StatusBadge key="status" status={product.status} />,
@@ -517,7 +379,7 @@ export function AdminProductsPage() {
 
 export function AdminOrdersPage() {
   return (
-    <AdminShell title="전체 주문" subtitle="QR 출처와 order_items 기준 정산 원장을 함께 확인합니다.">
+    <AdminShell title="주문 관리" subtitle="QR 출처와 order_items 기준 정산 저장 흐름을 확인합니다.">
       <OrderMonitorPanel />
       <div className="mt-4" />
       <DataTable
@@ -525,7 +387,7 @@ export function AdminOrdersPage() {
         rows={mockApi.orders().map((order) => ({
           id: order.id,
           cells: [
-            <Link key="order" href={`/orders/guest/${order.orderNo}`} className="font-semibold text-blue-700">
+            <Link key="order" href={`/orders/guest/${order.orderNo}`} className="font-bold text-blue-700">
               {order.orderNo}
             </Link>,
             order.customerName,
@@ -542,18 +404,18 @@ export function AdminOrdersPage() {
 
 export function AdminPaymentsPage() {
   return (
-    <AdminShell title="결제" subtitle="인피니 PG 전환 전까지 모의 결제 상태와 TID 형식만 확인합니다.">
+    <AdminShell title="결제 관리" subtitle="인피니 PG 전환 전후 결제 상태와 승인/실패 로그를 확인합니다.">
       <PgReadinessPanel />
       <div className="mt-4" />
       <PaymentMonitorPanel />
       <div className="mt-4" />
       <ConfirmBox
-        title="인피니 MID 승인 전 실결제 차단"
-        description="기업별 MID, 결제 모듈 키, 테스트 승인, webhook 검증 전까지 실제 결제 모듈은 열지 않습니다. MID 입력은 입점사 승인대기 목록의 각 기업 행에서만 처리합니다."
+        title="기업별 MID/키값 검증 필요"
+        description="기업별 MID, 시리얼번호, 모듈키, secret key, sign key, webhook secret 입력 후 테스트 승인 1건이 성공해야 실제 결제를 열 수 있습니다."
       />
       <div className="mt-4">
         <DataTable
-          columns={["주문번호", "상태", "금액", "모의 거래번호", "승인시각"]}
+          columns={["주문번호", "상태", "금액", "거래번호", "승인시각"]}
           rows={mockApi.payments().map((payment) => ({
             id: payment.id,
             cells: [
@@ -584,8 +446,8 @@ export function AdminIntegrationsPage() {
 export function AdminPublicApiDocsPage() {
   return (
     <AdminShell
-      title="A5 공개 API 문서"
-      subtitle="기업 개발자가 자기 플랫폼에 A5 주문내역 상세 실시간 연동 API를 붙일 수 있도록 공유 문서를 내려받습니다."
+      title="A5 공개 API 문서/기업 요청"
+      subtitle="기업 개발자가 자체 플랫폼에 A5 주문 상세 실시간 연동 API를 붙일 수 있도록 요청 승인과 문서 배포를 관리합니다."
     >
       <AdminApiIntegrationRequestsPanel />
       <div className="mt-4" />
@@ -598,14 +460,14 @@ export function AdminSettlementsPage() {
   const companies = mockApi.companies();
 
   return (
-    <AdminShell title="인피니 정산 검산" subtitle="order_items 기준 인피니 공제율을 확인하며 우리 시스템 지급은 차단합니다.">
+    <AdminShell title="정산 검토" subtitle="order_items 기준 인피니 PG 공제율과 A5 주문 수수료를 확인합니다.">
       <ConfirmBox
-        title="우리 시스템 정산 지급 실행 금지"
-        description={`인피니가 PG 수수료 ${formatPercent(INFINY_PG_FEE_RATE)}와 우리 주문 수수료 ${formatPercent(A5_PLATFORM_FEE_RATE)}를 합산해 총 ${formatPercent(INFINY_TOTAL_FEE_RATE)} 공제 후 기업사에 정산합니다. 이 화면은 검산과 조회만 제공합니다.`}
+        title="최고관리자 정산 검토"
+        description={`인피니 PG 수수료 ${formatPercent(INFINY_PG_FEE_RATE)}와 A5 수수료 ${formatPercent(A5_PLATFORM_FEE_RATE)}를 합산해 총 ${formatPercent(INFINY_TOTAL_FEE_RATE)} 공제 후 기업사에 정산합니다.`}
       />
       <div className="mt-4">
         <DataTable
-          columns={["기간", "입점사", "상태", "총액", "인피니 2.5%", "A5 4.5%", "환불보류", "예상입금"]}
+          columns={["기간", "입점사", "상태", "총액", "인피니 PG", "A5 수수료", "환불보류", "예상입금"]}
           rows={mockApi.settlements().map((settlement) => {
             const fees = calculateInfinySettlement(settlement.grossAmount);
 
@@ -631,7 +493,7 @@ export function AdminSettlementsPage() {
 
 export function AdminAuditLogsPage() {
   return (
-    <AdminShell title="감사 로그" subtitle="권한, 금액, 상태 변경은 audit log로 보존한다는 원칙을 확인합니다.">
+    <AdminShell title="감사 로그" subtitle="권한, 금액, 상태 변경 이력을 audit log로 보존하고 추적합니다.">
       <AuditLogViewerPanel />
       <div className="mt-4" />
       <DataTable
@@ -654,12 +516,12 @@ export function AdminAuditLogsPage() {
 
 export function AdminPermissionsPage() {
   return (
-    <AdminShell title="권한/계정 발급" subtitle="Firebase Auth 초대, 권한 클레임, 역할별 접근 범위를 운영자가 검토합니다.">
+    <AdminShell title="권한/계정" subtitle="Firebase Auth 초대, 권한 클레임, 역할별 접근 범위를 운영자가 검토합니다.">
       <AdminInvitePanel />
       <div className="mt-4" />
       <ConfirmBox
-        title="실제 계정 대량 생성 금지"
-        description="이 화면은 운영 설계와 초대 흐름을 표시합니다. 대량 사용자 생성, 평문 비밀번호 저장, Secret Key 노출은 금지합니다."
+        title="실제 계정 평문 저장 금지"
+        description="이 화면은 운영 설계와 초대 흐름을 표시합니다. 테스트 계정 외 평문 비밀번호 저장과 secret 노출은 금지합니다."
         confirmLabel="SUPER_ADMIN 승인 필요"
       />
     </AdminShell>

@@ -74,6 +74,14 @@ export function readTabletRoomSession(): TabletRoomSession | null {
   return null;
 }
 
+export function saveTabletRoomSession(session: TabletRoomSession) {
+  if (typeof window === "undefined") return false;
+
+  window.localStorage.setItem(roomKey, JSON.stringify(session));
+  window.dispatchEvent(new CustomEvent("a5-tablet-room-session-change"));
+  return true;
+}
+
 export function TabletAccessGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);

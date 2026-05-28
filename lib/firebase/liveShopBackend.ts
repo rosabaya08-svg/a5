@@ -26,6 +26,10 @@ type CreateQrSessionResponse = {
   shortCode: string;
   status: QrPaymentSession["status"];
   expiresAt: string;
+  nurseryId?: string;
+  roomId?: string;
+  tabletId?: string;
+  scopeRepaired?: boolean;
   totalAmount: number;
   items?: CartItemSnapshot[];
   amountMismatch?: {
@@ -192,9 +196,9 @@ export async function createBackendQrSession(input: {
     shortCode: result.data.shortCode,
     type: "purchase",
     status: result.data.status,
-    nurseryId: input.nurseryId,
-    roomId: input.roomId,
-    tabletId: input.tabletId,
+    nurseryId: result.data.nurseryId || input.nurseryId,
+    roomId: result.data.roomId || input.roomId,
+    tabletId: result.data.tabletId || input.tabletId,
     cartId: input.cartId,
     createdAt: now,
     expiresAt: result.data.expiresAt,

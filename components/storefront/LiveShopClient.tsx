@@ -10,7 +10,7 @@ import {
   initialQrReceiverFormValue,
   type QrReceiverFormValue,
 } from "@/components/storefront/QrReceiverForm";
-import { readTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
+import { readTabletRoomSession, saveTabletRoomSession } from "@/components/tablet/TabletAccessFlow";
 import { mockCompanies } from "@/data/mockCompanies";
 import { createBackendQrSession, readBackendQrSessionByShortCode } from "@/lib/firebase/liveShopBackend";
 import {
@@ -690,6 +690,17 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     }
 
     const liveSession = { ...backend.session, pickupLocation: backend.session.pickupLocation ?? pickupLocation };
+
+    if (liveSession.roomId !== tabletSession.roomId || liveSession.tabletId !== tabletSession.tabletId) {
+      saveTabletRoomSession({
+        ...tabletSession,
+        roomId: liveSession.roomId,
+        tabletId: liveSession.tabletId,
+        roomName: liveSession.pickupLocation?.roomName ?? tabletSession.roomName,
+        updatedAt: nowIso(),
+      });
+    }
+
     const savedSession = writeJson(`${qrPrefix}${liveSession.shortCode}`, liveSession);
     const savedPointer = writeText(currentLastQrKey(), liveSession.shortCode);
 

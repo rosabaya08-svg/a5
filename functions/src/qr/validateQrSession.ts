@@ -50,6 +50,13 @@ type PricedCartItem = CartItemInput & {
   source: "firestore_products";
 };
 
+type TabletScope = {
+  nurseryId: string;
+  roomId: string;
+  tabletId: string;
+  repaired?: boolean;
+};
+
 class QrCreateHttpError extends Error {
   constructor(
     public readonly code: string,
@@ -148,7 +155,12 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
     }
 
     const db = getAdminDb();
-    await validateTabletScope(db, { nurseryId, roomId, tabletId });
+    const tabletScope = await resolveTabletScope(db, {
+      nurseryId,
+      roomId,
+      tabletId,
+      pickupLocation: body.pickupLocation,
+    });
 
     const pricedItems = await priceCartItemsFromFirestore(db, items);
     const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
@@ -174,7 +186,10 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
     const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
     const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
     const deliveryMethod = body.deliveryMethod === "delivery" ? "delivery" : "pickup";
-    const pickupLocation = normalizePickupLocation(body.pickupLocation, { nurseryId, roomId });
+    const pickupLocation = normalizePickupLocation(body.pickupLocation, {
+      nurseryId: tabletScope.nurseryId,
+      roomId: tabletScope.roomId,
+    });
     const auditRef = db.collection("audit_logs").doc();
     const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
 
@@ -184,9 +199,9 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
         qr_session_id: qrSessionId,
         short_code: shortCode,
         cart_id: body.cartId ?? null,
-        nursery_id: nurseryId,
-        room_id: roomId,
-        tablet_id: tabletId,
+        nursery_id: tabletScope.nurseryId,
+        room_id: tabletScope.roomId,
+        tablet_id: tabletScope.tabletId,
         type: "purchase",
         status: "active",
         delivery_method: deliveryMethod,
@@ -216,9 +231,9 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
               message: "QR payment session created by Firebase Functions after server-side scope, product, option, inventory, and amount validation.",
             }),
           ),
-          nursery_id: nurseryId,
-          room_id: roomId,
-          tablet_id: tabletId,
+          nursery_id: tabletScope.nurseryId,
+          room_id: tabletScope.roomId,
+          tablet_id: tabletScope.tabletId,
           short_code: shortCode,
           client_amount_hint: clientAmount ?? null,
           total_amount_snapshot: totalAmount,
@@ -238,6 +253,10 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
       shortCode,
       status: "active",
       expiresAt,
+      nurseryId: tabletScope.nurseryId,
+      roomId: tabletScope.roomId,
+      tabletId: tabletScope.tabletId,
+      scopeRepaired: Boolean(tabletScope.repaired),
       totalAmount,
       items: pricedItems.map(toClientCartItem),
       amountMismatch,
@@ -437,6 +456,92 @@ async function validateTabletScope(
       tabletStatus,
     });
   }
+}
+
+async function resolveTabletScope(
+  db: Firestore,
+  input: { nurseryId: string; roomId: string; tabletId: string; pickupLocation?: unknown },
+): Promise<TabletScope> {
+  try {
+    await validateTabletScope(db, input);
+    return input;
+  } catch (error) {
+    if (!(error instanceof QrCreateHttpError)) throw error;
+    if (!["ROOM_SCOPE_INVALID", "TABLET_SCOPE_INVALID"].includes(error.code)) throw error;
+  }
+
+  const nursery = await readRequiredDocument(db, "nurseries", input.nurseryId, "ROOM_SCOPE_INVALID");
+  const nurseryStatus = fieldString(nursery, "status") ?? "approved";
+
+  if (!["approved", "active"].includes(nurseryStatus)) {
+    throw new QrCreateHttpError("ROOM_SCOPE_INVALID", "Nursery is not active for QR creation.", 403, {
+      nurseryId: input.nurseryId,
+      status: nurseryStatus,
+    });
+  }
+
+  const roomNumber = resolveRoomNumber(input.roomId, input.pickupLocation);
+
+  if (!roomNumber) {
+    throw new QrCreateHttpError("ROOM_SCOPE_INVALID", "Room scope could not be repaired because room number is missing.", 403, {
+      nurseryId: input.nurseryId,
+      roomId: input.roomId,
+      tabletId: input.tabletId,
+    });
+  }
+
+  const nurserySegment = toDocumentSegment(input.nurseryId.replace(/^nursery-/, "")) || "nursery";
+  const roomSegment = toDocumentSegment(roomNumber);
+  const repairedRoomId = `room-${nurserySegment}-${roomSegment}`;
+  const repairedTabletId = `tablet-${nurserySegment}-${roomSegment}-a`;
+  const pickup = asRecord(input.pickupLocation);
+  const roomName = fieldString(pickup, "roomName", "room_name") ?? `${roomNumber}호`;
+  const now = FieldValue.serverTimestamp();
+
+  await db.collection("rooms").doc(repairedRoomId).set(
+    {
+      room_id: repairedRoomId,
+      nursery_id: input.nurseryId,
+      name: roomName,
+      room_number: roomNumber,
+      floor: inferRoomFloor(roomNumber),
+      pickup_enabled: true,
+      active_tablet_id: repairedTabletId,
+      status: "active",
+      import_source: "QR_SCOPE_REPAIR",
+      legacy_room_id: input.roomId,
+      legacy_tablet_id: input.tabletId,
+      created_at: now,
+      updated_at: now,
+    },
+    { merge: true },
+  );
+
+  await db.collection("tablets").doc(repairedTabletId).set(
+    {
+      tablet_id: repairedTabletId,
+      nursery_id: input.nurseryId,
+      room_id: repairedRoomId,
+      label: `${roomName} 태블릿`,
+      status: "active",
+      import_source: "QR_SCOPE_REPAIR",
+      legacy_room_id: input.roomId,
+      legacy_tablet_id: input.tabletId,
+      created_at: now,
+      updated_at: now,
+    },
+    { merge: true },
+  );
+
+  const repairedScope = {
+    nurseryId: input.nurseryId,
+    roomId: repairedRoomId,
+    tabletId: repairedTabletId,
+    repaired: true,
+  };
+
+  await validateTabletScope(db, repairedScope);
+  return repairedScope;
 }
 
 async function priceCartItemsFromFirestore(db: Firestore, items: CartItemInput[]): Promise<PricedCartItem[]> {
@@ -738,6 +843,25 @@ function toIsoString(value: unknown): string | undefined {
 function optionalString(value: unknown): string | undefined {
   const text = String(value ?? "").trim();
   return text ? text : undefined;
+}
+
+function resolveRoomNumber(roomId: string, pickupLocation: unknown): string {
+  const pickup = asRecord(pickupLocation);
+  const fromPickup = fieldString(pickup, "roomName", "room_name", "roomId", "room_id") ?? "";
+  const fromRoomId = roomId.replace(/^room-/i, "");
+  return (fromPickup || fromRoomId).replace(/[^0-9A-Za-z가-힣]/g, "");
+}
+
+function toDocumentSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/[^0-9A-Za-z가-힣_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function inferRoomFloor(roomNumber: string): string {
+  const digits = roomNumber.replace(/[^0-9]/g, "");
+  return digits.length >= 3 ? `${digits.slice(0, -2)}F` : "";
 }
 
 function clampNumber(value: number, min: number, max: number): number {

@@ -1,4 +1,4 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, type DocumentSnapshot, type Firestore } from "firebase-admin/firestore";
 import { getAdminDb } from "../firebaseAdmin";
 import {
   calculateItemsAmount,
@@ -57,6 +57,18 @@ type TabletScope = {
   repaired?: boolean;
 };
 
+type QrSessionLookupInput = {
+  shortCode?: string;
+  qrSessionId?: string;
+};
+
+type QrSessionLookupResult = {
+  snapshot: DocumentSnapshot | null;
+  triedDocIds: string[];
+  triedShortCodes: string[];
+  triedSessionFields: string[];
+};
+
 class QrCreateHttpError extends Error {
   constructor(
     public readonly code: string,
@@ -97,9 +109,9 @@ export function validateQrSession(input: QrSessionValidationInput): QrSessionVal
 }
 
 export async function readQrSession(qrSessionId: string): Promise<FirestoreQrSession | null> {
-  const snapshot = await getAdminDb().collection("qr_payment_sessions").doc(qrSessionId).get();
+  const { snapshot } = await findQrSessionDocument(getAdminDb(), { qrSessionId });
 
-  if (!snapshot.exists) return null;
+  if (!snapshot?.exists) return null;
 
   const data = snapshot.data() ?? {};
   return {
@@ -390,15 +402,8 @@ export async function qrLookupHandler(request: HttpRequestLike, response: HttpRe
     return;
   }
 
-  const db = getAdminDb();
-  const snapshot = qrSessionId
-    ? await db.collection("qr_payment_sessions").doc(qrSessionId).get()
-    : (
-        await db.collection("qr_payment_sessions")
-          .where("short_code", "==", shortCode)
-          .limit(1)
-          .get()
-      ).docs[0];
+  const lookup = await findQrSessionDocument(getAdminDb(), { shortCode, qrSessionId });
+  const snapshot = lookup.snapshot;
 
   if (!snapshot?.exists) {
     sendJson(response, 404, {
@@ -407,7 +412,13 @@ export async function qrLookupHandler(request: HttpRequestLike, response: HttpRe
         code: "QR_SESSION_NOT_FOUND",
         message: "QR session document was not found.",
         httpStatus: 404,
-        details: { shortCode, qrSessionId },
+        details: {
+          shortCode,
+          qrSessionId,
+          triedDocIds: lookup.triedDocIds.slice(0, 12),
+          triedShortCodes: lookup.triedShortCodes.slice(0, 12),
+          triedSessionFields: lookup.triedSessionFields.slice(0, 12),
+        },
       },
     });
     return;
@@ -418,6 +429,92 @@ export async function qrLookupHandler(request: HttpRequestLike, response: HttpRe
     session: toPublicQrSession(snapshot.id, asRecord(snapshot.data())),
     source: "firebase_functions_qr_lookup",
   });
+}
+
+async function findQrSessionDocument(db: Firestore, input: QrSessionLookupInput): Promise<QrSessionLookupResult> {
+  const collection = db.collection("qr_payment_sessions");
+  const triedDocIds: string[] = [];
+  const triedShortCodes: string[] = [];
+  const triedSessionFields: string[] = [];
+
+  for (const documentId of getQrLookupDocumentIds(input)) {
+    triedDocIds.push(documentId);
+    const snapshot = await collection.doc(documentId).get();
+    if (snapshot.exists) return { snapshot, triedDocIds, triedShortCodes, triedSessionFields };
+  }
+
+  for (const field of ["short_code", "shortCode"]) {
+    for (const code of getQrLookupCodes(input)) {
+      triedShortCodes.push(`${field}:${code}`);
+      const snapshot = await collection.where(field, "==", code).limit(1).get();
+      const found = snapshot.docs[0];
+      if (found?.exists) return { snapshot: found, triedDocIds, triedShortCodes, triedSessionFields };
+    }
+  }
+
+  for (const field of ["qr_session_id", "qrSessionId", "id"]) {
+    for (const sessionId of getQrLookupDocumentIds(input)) {
+      triedSessionFields.push(`${field}:${sessionId}`);
+      const snapshot = await collection.where(field, "==", sessionId).limit(1).get();
+      const found = snapshot.docs[0];
+      if (found?.exists) return { snapshot: found, triedDocIds, triedShortCodes, triedSessionFields };
+    }
+  }
+
+  return { snapshot: null, triedDocIds, triedShortCodes, triedSessionFields };
+}
+
+function getQrLookupCodes(input: QrSessionLookupInput): string[] {
+  const shortCode = normalizeQrLookupToken(input.shortCode);
+  const qrSessionId = normalizeQrLookupToken(input.qrSessionId);
+
+  return uniqueLookupValues([shortCode, removeQrDocumentPrefix(shortCode), qrSessionId, removeQrDocumentPrefix(qrSessionId)]);
+}
+
+function getQrLookupDocumentIds(input: QrSessionLookupInput): string[] {
+  const qrSessionId = normalizeQrLookupToken(input.qrSessionId);
+  const codes = getQrLookupCodes(input);
+
+  return uniqueLookupValues([
+    qrSessionId,
+    removeQrDocumentPrefix(qrSessionId),
+    ...codes,
+    ...codes.map((code) => makeQrSessionId(removeQrDocumentPrefix(code) ?? code)),
+  ]);
+}
+
+function normalizeQrLookupToken(value: string | undefined): string | undefined {
+  const text = optionalString(value);
+  if (!text) return undefined;
+
+  if (!/^https?:\/\//i.test(text)) return text;
+
+  try {
+    const url = new URL(text);
+    return optionalString(url.searchParams.get("code") ?? url.searchParams.get("shortCode") ?? url.searchParams.get("qrSessionId")) ?? text;
+  } catch {
+    return text;
+  }
+}
+
+function removeQrDocumentPrefix(value: string | undefined): string | undefined {
+  const text = optionalString(value);
+  if (!text) return undefined;
+  return text.toLowerCase().startsWith("qr-") ? text.slice(3) : text;
+}
+
+function uniqueLookupValues(values: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const text = optionalString(value);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    result.push(text);
+  }
+
+  return result;
 }
 
 async function validateTabletScope(
@@ -704,13 +801,9 @@ function readClientAmount(body: Partial<QrCreateRequest>): number | undefined {
 function buildCustomerUrl(request: HttpRequestLike, path: string): string {
   const configuredBase = (process.env.NEXT_PUBLIC_A5_PUBLIC_BASE_URL || process.env.A5_PUBLIC_BASE_URL || "").replace(/\/$/, "");
   const inferredBase = inferOriginFromRequest(request);
-  const base = configuredBase || (isLocalOrigin(inferredBase) ? inferredBase : defaultA5PublicOrigin) || inferredBase;
+  const base = configuredBase || inferredBase || defaultA5PublicOrigin;
 
   return base ? `${base}${path}` : path;
-}
-
-function isLocalOrigin(origin: string): boolean {
-  return origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
 }
 
 function inferOriginFromRequest(request: HttpRequestLike): string {

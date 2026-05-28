@@ -26,7 +26,14 @@ const pgCredentialEncryptionKey = defineSecret("PG_CREDENTIAL_ENCRYPTION_KEY");
 
 const paymentFunctionOptions = {
   region: "asia-northeast3",
-  cors: [/^http:\/\/localhost:\d+$/, /^https:\/\/.*\.pages\.dev$/, "https://with-commerce.pages.dev", "https://a5-closed-mall.pages.dev"],
+  cors: [
+    /^http:\/\/localhost:\d+$/,
+    /^https:\/\/.*\.pages\.dev$/,
+    /^https:\/\/.*\.signage-ai-a5\.co\.kr$/,
+    "https://signage-ai-a5.co.kr",
+    "https://with-commerce.pages.dev",
+    "https://a5-closed-mall.pages.dev",
+  ],
   maxInstances: 10,
   secrets: [pgCredentialEncryptionKey],
 };

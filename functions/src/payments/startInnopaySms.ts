@@ -3,7 +3,8 @@ import { getAdminDb } from "../firebaseAdmin";
 import { assertAmount } from "../utils/assertAmount";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { InnopayRestClient } from "./innopayRestClient";
-import { isInnopayRealCallEnabled, isInnopaySmsApiMode } from "./providerRuntime";
+import { readInnopayCompanyCredentials, readInnopayRuntimeSettings } from "./innopayRuntime";
+import { isInnopaySmsApiMode } from "./providerRuntime";
 import {
   calculateItemsAmount,
   normalizeCartItems,
@@ -50,12 +51,15 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
     return;
   }
 
-  if (!isInnopaySmsApiMode("infiny") || !isInnopayRealCallEnabled()) {
+  const db = getAdminDb();
+  const runtime = await readInnopayRuntimeSettings(db);
+
+  if (!isInnopaySmsApiMode("infiny") || (!runtime.smsEnabled && !runtime.realCallsEnabled)) {
     sendJson(response, 409, {
       ok: false,
       error: {
         code: "INNOPAY_SMS_DISABLED",
-        message: "Set INNOPAY_SMS_API_ENABLED=true or INNOPAY_REAL_CALLS_ENABLED=true in Firebase Functions before calling smsPayApi.",
+        message: "PG 연동 탭에서 SMS API 사용 또는 실 PG 호출 허용을 켠 뒤 저장해야 smsPayApi를 호출할 수 있습니다.",
         httpStatus: 409,
       },
     });
@@ -78,7 +82,6 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
     return;
   }
 
-  const db = getAdminDb();
   const intentRef = db.collection("payment_intents").doc(paymentIntentId);
   const intentSnapshot = await intentRef.get();
   const intent = intentSnapshot.data() ?? {};
@@ -123,7 +126,8 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
   }
 
   const companyId = text(intent.company_id ?? intent.companyId);
-  const mid = text(intent.merchant_id ?? intent.merchantId) || readEnv("INNOPAY_DEFAULT_MID") || readEnv("PG_MERCHANT_ID");
+  const credential = await readInnopayCompanyCredentials(companyId, db);
+  const mid = text(intent.merchant_id ?? intent.merchantId) || credential.mid;
   const orderNo = text(body.orderNoCandidate) || text(intent.order_no_candidate ?? intent.orderNoCandidate);
   const intentAmount = numberValue(intent.recalculated_amount ?? intent.amount);
   const items = normalizeCartItems(body.items).length ? normalizeCartItems(body.items) : normalizeCartItems(intent.items);
@@ -169,9 +173,8 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
     );
   });
 
-  const credential = companyId ? (await db.collection("company_pg_credentials").doc(companyId).get()).data() ?? {} : {};
-  const userId = text(intent.company_name) || companyId || text(credential.company_name);
-  const client = new InnopayRestClient();
+  const userId = text(intent.company_name) || companyId || credential.companyName || text(credential.raw.company_name);
+  const client = new InnopayRestClient({ baseUrl: runtime.apiBaseUrl });
   const innopayResult = await client.createSmsPaymentRequest({
     mid,
     payExpDate: readEnv("INNOPAY_SMS_PAY_EXP_DATE"),
@@ -183,7 +186,7 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
     buyerName,
     buyerTel,
     buyerEmail,
-    svcPrdtCd: readSvcPrdtCd(),
+    svcPrdtCd: runtime.smsSvcPrdtCd,
   });
 
   const now = new Date().toISOString();
@@ -324,11 +327,6 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
     buyerPhoneMasked,
     message: "인피니 SMS 카드결제 요청을 전송했습니다. 고객은 문자 링크에서 결제하고, 이후 거래조회로 승인 확정합니다.",
   });
-}
-
-function readSvcPrdtCd(): "03" | "04" {
-  const value = readEnv("INNOPAY_SMS_SVC_PRDT_CD");
-  return value === "04" ? "04" : "03";
 }
 
 function makeGoodsName(items: CartItemInput[], orderNo: string): string {

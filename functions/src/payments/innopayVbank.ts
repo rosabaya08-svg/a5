@@ -1,9 +1,8 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "../firebaseAdmin";
 import { assertAmount } from "../utils/assertAmount";
-import { decryptCredential } from "./credentialCrypto";
 import { InnopayRestClient } from "./innopayRestClient";
-import { isInnopayRealCallEnabled } from "./providerRuntime";
+import { readInnopayCompanyCredentials, readInnopayRuntimeSettings } from "./innopayRuntime";
 import { paymentsConfirmHandler } from "./confirm";
 import {
   calculateItemsAmount,
@@ -49,19 +48,21 @@ export async function paymentsStartInnopayVbankHandler(request: HttpRequestLike,
     return;
   }
 
-  if (!isInnopayRealCallEnabled()) {
+  const db = getAdminDb();
+  const runtime = await readInnopayRuntimeSettings(db);
+
+  if (!runtime.vbankEnabled && !runtime.realCallsEnabled) {
     sendJson(response, 409, {
       ok: false,
       error: {
         code: "INNOPAY_VBANK_DISABLED",
-        message: "Set INNOPAY_VBANK_API_ENABLED=true or INNOPAY_REAL_CALLS_ENABLED=true before calling vbankApi.",
+        message: "PG 연동 탭에서 가상계좌 API 사용 또는 실 PG 호출 허용을 켠 뒤 저장해야 vbankApi를 호출할 수 있습니다.",
         httpStatus: 409,
       },
     });
     return;
   }
 
-  const db = getAdminDb();
   const intentRef = db.collection("payment_intents").doc(paymentIntentId);
   const intentSnapshot = await intentRef.get();
   const intent = intentSnapshot.data() ?? {};
@@ -92,9 +93,9 @@ export async function paymentsStartInnopayVbankHandler(request: HttpRequestLike,
   }
 
   const companyId = text(intent.company_id ?? intent.companyId);
-  const credential = companyId ? (await db.collection("company_pg_credentials").doc(companyId).get()).data() ?? {} : {};
-  const mid = text(intent.merchant_id ?? intent.merchantId) || text(credential.mid ?? credential.merchant_id) || readEnv("INNOPAY_DEFAULT_MID") || readEnv("PG_MERCHANT_ID");
-  const licenseKey = decryptCredential(credential.encrypted_secret_key) || readEnv("INNOPAY_DEFAULT_LICENSE_KEY") || readEnv("INNOPAY_LICENSE_KEY");
+  const credential = await readInnopayCompanyCredentials(companyId, db);
+  const mid = text(intent.merchant_id ?? intent.merchantId) || credential.mid;
+  const licenseKey = credential.licenseKey;
   const orderNo = text(intent.order_no ?? intent.order_no_candidate ?? intent.orderNoCandidate);
   const amount = numberValue(intent.recalculated_amount ?? intent.amount);
   const items = normalizeCartItems(intent.items);
@@ -128,7 +129,7 @@ export async function paymentsStartInnopayVbankHandler(request: HttpRequestLike,
 
   await intentRef.set({ status: "vbank_requesting", updated_at: FieldValue.serverTimestamp() }, { merge: true });
 
-  const result = await new InnopayRestClient().createVbank({
+  const result = await new InnopayRestClient({ baseUrl: runtime.apiBaseUrl }).createVbank({
     mid,
     licenseKey,
     moid: orderNo,

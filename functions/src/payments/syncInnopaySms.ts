@@ -1,12 +1,12 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "../firebaseAdmin";
-import { decryptCredential } from "./credentialCrypto";
 import {
   InnopayRestClient,
   readInnopayTransactionAmount,
   readInnopayTransactionId,
   readInnopayTransactionStatus,
 } from "./innopayRestClient";
+import { readInnopayCompanyCredentials, readInnopayRuntimeSettings } from "./innopayRuntime";
 import { paymentsConfirmHandler } from "./confirm";
 import {
   normalizeCartItems,
@@ -44,6 +44,7 @@ export async function paymentsSyncInnopaySmsHandler(request: HttpRequestLike, re
   }
 
   const db = getAdminDb();
+  const runtime = await readInnopayRuntimeSettings(db);
   const paymentSnapshot = paymentIntentId
     ? await db.collection("payments").doc(paymentIntentId).get()
     : (await db.collection("payments").where("order_no", "==", orderNoInput).limit(1).get()).docs[0];
@@ -65,10 +66,10 @@ export async function paymentsSyncInnopaySmsHandler(request: HttpRequestLike, re
   }
 
   const companyId = text(payment.company_id ?? intent.company_id);
-  const mid = text(payment.merchant_id ?? intent.merchant_id) || readEnv("INNOPAY_DEFAULT_MID") || readEnv("PG_MERCHANT_ID");
+  const credential = await readInnopayCompanyCredentials(companyId, db);
+  const mid = text(payment.merchant_id ?? intent.merchant_id) || credential.mid;
   const orderNo = text(payment.order_no ?? intent.order_no ?? intent.order_no_candidate) || orderNoInput;
-  const credential = companyId ? (await db.collection("company_pg_credentials").doc(companyId).get()).data() ?? {} : {};
-  const merchantKey = decryptCredential(credential.encrypted_sign_key) || readEnv("INNOPAY_DEFAULT_MERCHANT_KEY") || readEnv("INNOPAY_MERCHANT_KEY");
+  const merchantKey = credential.merchantKey;
 
   if (!mid || !merchantKey || !orderNo) {
     sendJson(response, 409, {
@@ -87,8 +88,8 @@ export async function paymentsSyncInnopaySmsHandler(request: HttpRequestLike, re
   }
 
   const lookup = tidInput
-    ? await new InnopayRestClient().getTransactionByTid({ mid, merchantKey, tid: tidInput })
-    : await new InnopayRestClient().getTransactionByMoid({ mid, merchantKey, moid: orderNo });
+    ? await new InnopayRestClient({ baseUrl: runtime.apiBaseUrl }).getTransactionByTid({ mid, merchantKey, tid: tidInput })
+    : await new InnopayRestClient({ baseUrl: runtime.apiBaseUrl }).getTransactionByMoid({ mid, merchantKey, moid: orderNo });
 
   if (!lookup.ok) {
     sendJson(response, 502, {
@@ -180,8 +181,4 @@ function numberValue(value: unknown): number {
 
 function text(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "";
-}
-
-function readEnv(name: string): string {
-  return process.env[name]?.trim() ?? "";
 }

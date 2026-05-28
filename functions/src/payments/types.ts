@@ -137,7 +137,7 @@ export type ServerPricedItem = CartItemInput & {
   inventory: number;
   reservedInventory: number;
   availableInventory: number;
-  source: "firestore_products";
+  source: "firestore_products" | "mock_products";
 };
 
 export type OrderCreateRequest = PaymentReadyRequest & {

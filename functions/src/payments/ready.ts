@@ -4,6 +4,7 @@ import { validateFirestoreQrSession } from "../qr/validateQrSession";
 import { assertAmount } from "../utils/assertAmount";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPaymentReadyTransactionPlan } from "../utils/firestoreTransaction";
+import { priceCartItemsFromCatalog } from "./catalogPricing";
 import { getPgAdapterHandoffPlan, getPgServerReadiness, isInnopaySmsApiMode } from "./providerRuntime";
 import {
   calculateItemsAmount,
@@ -482,45 +483,7 @@ async function hasFirestorePgRuntimeEndpoint(): Promise<boolean> {
 }
 
 async function readServerPricedItems(items: CartItemInput[]): Promise<ServerPricedItem[]> {
-  const db = getAdminDb();
-  const pricedItems: ServerPricedItem[] = [];
-
-  for (const item of items) {
-    const snapshot = await db.collection("products").doc(item.productId).get();
-
-    if (!snapshot.exists) {
-      throw new Error(`Product ${item.productId} was not found.`);
-    }
-
-    const data = snapshot.data() ?? {};
-    const status = String(data.status ?? "");
-
-    if (status !== "active" && status !== "approved") {
-      throw new Error(`Product ${item.productId} is not active or approved.`);
-    }
-
-    const inventory = asNumber(data.inventory ?? data.stock, 0);
-    const reservedInventory = asNumber(data.reserved_inventory, 0);
-    const availableInventory = inventory - reservedInventory;
-
-    if (availableInventory < item.quantity) {
-      throw new Error(`Product ${item.productId} is out of stock.`);
-    }
-
-    pricedItems.push({
-      ...item,
-      productName: String(data.title ?? data.name ?? item.productName),
-      unitPrice: asNumber(data.closed_mall_price ?? data.price, item.unitPrice),
-      companyId: String(data.company_id ?? item.companyId),
-      status,
-      inventory,
-      reservedInventory,
-      availableInventory,
-      source: "firestore_products",
-    });
-  }
-
-  return pricedItems;
+  return priceCartItemsFromCatalog(getAdminDb(), items);
 }
 
 function toSnapshotItem(item: ServerPricedItem) {

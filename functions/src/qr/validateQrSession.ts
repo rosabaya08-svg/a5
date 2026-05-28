@@ -14,6 +14,7 @@ import {
   type QrCreateRequest,
   type QrExpireRequest,
 } from "../payments/types";
+import { CatalogPricingError, priceCartItemsFromCatalog } from "../payments/catalogPricing";
 import { createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getQrTransactionPlan } from "../utils/firestoreTransaction";
 
@@ -47,7 +48,7 @@ type PricedCartItem = CartItemInput & {
   reservedInventory: number;
   availableInventory: number;
   lineAmount: number;
-  source: "firestore_products";
+  source: "firestore_products" | "mock_products";
 };
 
 type TabletScope = {
@@ -642,49 +643,18 @@ async function resolveTabletScope(
 }
 
 async function priceCartItemsFromFirestore(db: Firestore, items: CartItemInput[]): Promise<PricedCartItem[]> {
-  const pricedItems: PricedCartItem[] = [];
-
-  for (const item of items) {
-    const product = await readProductForCart(db, item.productId);
-    const option = item.optionId ? await readOptionForCart(db, item.productId, item.optionId) : undefined;
-    const productPrice = resolveProductPrice(product);
-    const priceDelta = option ? fieldNumber(option, "price_delta", "priceDelta") ?? 0 : 0;
-    const unitPrice = productPrice + priceDelta;
-    const productStock = fieldNumber(product, "stock", "inventory", "available_stock", "availableStock") ?? 0;
-    const optionStock = option ? fieldNumber(option, "stock", "inventory", "available_stock", "availableStock") : undefined;
-    const stock = optionStock ?? productStock;
-    const reservedInventory = option
-      ? fieldNumber(option, "reserved_inventory", "reservedInventory") ?? 0
-      : fieldNumber(product, "reserved_inventory", "reservedInventory") ?? 0;
-    const availableInventory = Math.max(0, stock - reservedInventory);
-
-    if (item.quantity > availableInventory) {
-      throw new QrCreateHttpError("INVENTORY_SHORTAGE", "Inventory is not enough to create QR session.", 409, {
-        productId: item.productId,
-        optionId: item.optionId,
-        requestedQuantity: item.quantity,
-        availableInventory,
-      });
+  try {
+    return (await priceCartItemsFromCatalog(db, items)).map((item) => ({
+      ...item,
+      lineAmount: item.unitPrice * item.quantity,
+    }));
+  } catch (error) {
+    if (error instanceof CatalogPricingError) {
+      throw new QrCreateHttpError(error.code, error.message, error.httpStatus, error.details);
     }
 
-    pricedItems.push({
-      productId: item.productId,
-      optionId: item.optionId,
-      productName: fieldString(product, "title", "name") ?? item.productName,
-      optionName: option ? fieldString(option, "name", "option_name", "optionName") ?? item.optionName : item.optionName,
-      unitPrice,
-      quantity: item.quantity,
-      companyId: fieldString(product, "company_id", "companyId") ?? item.companyId,
-      status: fieldString(product, "status") ?? "active",
-      inventory: stock,
-      reservedInventory,
-      availableInventory,
-      lineAmount: unitPrice * item.quantity,
-      source: "firestore_products",
-    });
+    throw error;
   }
-
-  return pricedItems;
 }
 
 async function readProductForCart(db: Firestore, productId: string): Promise<Record<string, unknown>> {
@@ -857,7 +827,7 @@ function toSnapshotItem(item: ReturnType<typeof normalizeCartItems>[number]) {
     quantity: item.quantity,
     company_id: item.companyId,
     line_amount: item.unitPrice * item.quantity,
-    source: "firestore_products",
+    source: (item as { source?: string }).source ?? "firestore_products",
   };
 }
 

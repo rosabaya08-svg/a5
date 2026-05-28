@@ -32,6 +32,18 @@ type AdminPgCredentialRequest = {
   signKey?: string;
   webhookSecret?: string;
   status?: CompanyMerchantProfile["merchantStatus"];
+  runtimeSettings?: AdminPgRuntimeSettingsRequest;
+};
+
+type AdminPgRuntimeSettingsRequest = {
+  apiBaseUrl?: string;
+  paymentMode?: "sms" | "vbank" | "rest";
+  smsEnabled?: boolean;
+  vbankEnabled?: boolean;
+  realCallsEnabled?: boolean;
+  smsSvcPrdtCd?: "03" | "04";
+  vbankNotiUrl?: string;
+  documentedEndpoints?: unknown[];
 };
 
 type AdminPgActivationRequest = {
@@ -41,6 +53,7 @@ type AdminPgActivationRequest = {
 
 const allowedProviders: PaymentProviderId[] = ["mock", "pg_contract", "infiny", "toss", "portone", "kcp", "nice"];
 const allowedStatuses: CompanyMerchantProfile["merchantStatus"][] = ["not_applied", "in_review", "mid_issued", "active", "blocked"];
+const masterAdminEmail = "rosabaya08@gmail.com";
 
 export async function adminPgCredentialSaveHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
   if (!requirePost(request, response)) return;
@@ -192,8 +205,13 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
     vault_ready: canUseCredentialVault(),
     updated_at: FieldValue.serverTimestamp(),
   };
+  const runtimeSettingsDoc = normalizeInnopayRuntimeSettings(body.runtimeSettings, provider);
 
   await db.runTransaction(async (transaction) => {
+    if (runtimeSettingsDoc) {
+      transaction.set(db.collection("pg_provider_settings").doc("infiny"), runtimeSettingsDoc, { merge: true });
+    }
+
     transaction.set(db.collection("company_pg_credentials").doc(companyId), credentialDoc, { merge: true });
     transaction.set(
       db.collection("companies").doc(companyId),
@@ -397,6 +415,34 @@ function firstText(...values: unknown[]): string {
   return "";
 }
 
+function normalizeInnopayRuntimeSettings(input: AdminPgRuntimeSettingsRequest | undefined, provider: PaymentProviderId) {
+  if (!input || provider !== "infiny") return undefined;
+
+  const apiBaseUrl = text(input.apiBaseUrl) || "https://api.innopay.co.kr";
+  const paymentMode = input.paymentMode === "vbank" || input.paymentMode === "rest" ? input.paymentMode : "sms";
+  const smsSvcPrdtCd = input.smsSvcPrdtCd === "04" ? "04" : "03";
+  const documentedEndpoints = Array.isArray(input.documentedEndpoints) ? input.documentedEndpoints.slice(0, 20) : [];
+
+  return {
+    provider: "infiny",
+    environment: "test",
+    mode: "innopay_rest",
+    status: input.realCallsEnabled ? "active" : "draft",
+    api_base_url: apiBaseUrl,
+    apiBaseUrl,
+    payment_mode: paymentMode,
+    innopay_sms_api_enabled: Boolean(input.smsEnabled),
+    innopay_vbank_api_enabled: Boolean(input.vbankEnabled),
+    innopay_real_calls_enabled: Boolean(input.realCallsEnabled),
+    sms_svc_prdt_cd: smsSvcPrdtCd,
+    vbank_noti_url: text(input.vbankNotiUrl),
+    documented_endpoints: documentedEndpoints,
+    raw_secret_stored: false,
+    secret_storage_policy: "functions_encrypted_vault_or_secret_manager",
+    updated_at: FieldValue.serverTimestamp(),
+  };
+}
+
 async function readFirestorePgRuntimeReadiness(): Promise<{ ready: boolean; blockers: string[] }> {
   try {
     const db = getAdminDb();
@@ -474,7 +520,8 @@ async function requireSuperAdmin(request: HttpRequestLike, response: HttpRespons
   try {
     const decoded = await getAdminAuth().verifyIdToken(token);
     const role = String(decoded.role ?? "");
-    const allowed = role === "SUPER_ADMIN" || role === "seed_admin" || decoded.seed_admin === true;
+    const email = String(decoded.email ?? "").trim().toLowerCase();
+    const allowed = role === "SUPER_ADMIN" || role === "seed_admin" || decoded.seed_admin === true || email === masterAdminEmail;
 
     if (allowed) return true;
   } catch {

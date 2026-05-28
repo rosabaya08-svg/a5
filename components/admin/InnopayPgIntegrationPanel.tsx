@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { mockCompanies } from "@/data/mockCompanies";
-import { getFirebaseAuthClient, getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuthClient } from "@/lib/firebase/client";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { maskMerchantId } from "@/lib/payments/infinySettlementPolicy";
 
@@ -128,7 +127,10 @@ function readinessFor(row: CredentialInput, runtime: RuntimeConfig) {
 async function postAdminPaymentFunction(url: string, payload: Record<string, unknown>) {
   if (!url) throw new Error("Firebase Functions 결제 모듈 URL이 설정되지 않았습니다.");
   const auth = getFirebaseAuthClient();
-  const idToken = await auth?.currentUser?.getIdToken();
+  if (!auth?.currentUser) {
+    throw new Error("최고관리자 Google 로그인 세션을 다시 확인해 주세요. PG 저장은 Firebase 인증 토큰이 필요합니다.");
+  }
+  const idToken = await auth.currentUser.getIdToken();
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -198,35 +200,20 @@ export function InnopayPgIntegrationPanel() {
   }
 
   async function saveIntegration() {
-    const db = getFirebaseDb();
     setSaveState({ status: "saving", message: "인피니 PG 연동값을 저장하는 중입니다." });
 
     try {
-      if (!db) throw new Error("Firebase web config is missing.");
-
       window.localStorage.setItem(storageKey, JSON.stringify({ runtime, credentials }));
-
-      await setDoc(
-        doc(db, "pg_provider_settings", "infiny"),
-        {
-          provider: "infiny",
-          environment: "test",
-          mode: "innopay_rest",
-          api_base_url: runtime.apiBaseUrl,
-          apiBaseUrl: runtime.apiBaseUrl,
-          payment_mode: runtime.paymentMode,
-          innopay_sms_api_enabled: runtime.smsEnabled,
-          innopay_vbank_api_enabled: runtime.vbankEnabled,
-          innopay_real_calls_enabled: runtime.realCallsEnabled,
-          sms_svc_prdt_cd: runtime.smsSvcPrdtCd,
-          vbank_noti_url: runtime.vbankNotiUrl,
-          documented_endpoints: endpointRows.map(([label, method, path, successCode]) => ({ label, method, path, successCode })),
-          raw_secret_stored: false,
-          secret_storage_policy: "functions_encrypted_vault_or_secret_manager",
-          updated_at: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      const runtimeSettings = {
+        apiBaseUrl: runtime.apiBaseUrl,
+        paymentMode: runtime.paymentMode,
+        smsEnabled: runtime.smsEnabled,
+        vbankEnabled: runtime.vbankEnabled,
+        realCallsEnabled: runtime.realCallsEnabled,
+        smsSvcPrdtCd: runtime.smsSvcPrdtCd,
+        vbankNotiUrl: runtime.vbankNotiUrl,
+        documentedEndpoints: endpointRows.map(([label, method, path, successCode]) => ({ label, method, path, successCode })),
+      };
 
       await Promise.all(
         credentials.map((row) =>
@@ -241,6 +228,7 @@ export function InnopayPgIntegrationPanel() {
             signKey: row.merchantKey || undefined,
             webhookSecret: row.webhookSecret || undefined,
             status: row.status,
+            runtimeSettings,
           }),
         ),
       );

@@ -15,6 +15,9 @@ export type CompanySignupRequestPayload = {
   csPhone: string;
   returnAddress: string;
   documentNames: string[];
+  documentUploadIds?: string[];
+  documentStoragePaths?: string[];
+  gmailDeliveryStatus?: "not_requested" | "queued";
   status: "pending_review" | "infiny_sent" | "approved" | "on_hold" | "rejected";
   infinyTransferStatus?: "not_sent" | "sent" | "approved" | "rejected";
   pgMerchantId?: string;
@@ -58,6 +61,13 @@ export async function saveCompanySignupRequest(payload: CompanySignupRequestPayl
       cs_phone: payload.csPhone,
       return_address: payload.returnAddress,
       document_names: payload.documentNames,
+      document_upload_ids: payload.documentUploadIds ?? [],
+      document_storage_paths: payload.documentStoragePaths ?? [],
+      gmail_delivery_status: payload.gmailDeliveryStatus ?? "not_requested",
+      guest_write_enabled: true,
+      source: "cms_beta",
+      source_app: "company",
+      source_channel: "company_signup_request",
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     },

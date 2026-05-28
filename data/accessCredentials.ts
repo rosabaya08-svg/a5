@@ -3,6 +3,7 @@ import type { PortalRole } from "@/lib/auth/session";
 export type BetaAccessAccount = {
   id: string;
   role: Extract<PortalRole, "company" | "nursery">;
+  loginId?: string;
   businessNo: string;
   displayName: string;
   defaultPassword: string;
@@ -13,6 +14,7 @@ export const betaAccessAccounts: BetaAccessAccount[] = [
   {
     id: "company-test-1004",
     role: "company",
+    loginId: "1004",
     businessNo: "1004-1004-1004",
     displayName: "A5 테스트 기업",
     defaultPassword: "1004",
@@ -21,6 +23,7 @@ export const betaAccessAccounts: BetaAccessAccount[] = [
   {
     id: "nursery-test-1004",
     role: "nursery",
+    loginId: "1004",
     businessNo: "1004-1004-1004",
     displayName: "A5 테스트 산후조리원",
     defaultPassword: "1004",

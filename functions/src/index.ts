@@ -1,6 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
+import { a4NurseryBulkSignupHandler } from "./a4/bulkSignupNurseries";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
 import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
@@ -42,6 +43,7 @@ export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReser
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
 export const a4NurseryAutoSignup = onRequest(paymentFunctionOptions, a4NurseryAutoSignupHandler);
+export const a4NurseryBulkSignup = onRequest(paymentFunctionOptions, a4NurseryBulkSignupHandler);
 export const companyDocumentInboxDelivery = onDocumentCreated(
   {
     document: "a1_company_document_inbox/{uploadId}",

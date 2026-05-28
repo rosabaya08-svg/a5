@@ -124,6 +124,20 @@ service cloud.firestore {
         data.source_channel == "company_admin_file_upload";
     }
 
+    function betaCompanySignupWrite(data) {
+      return ("guest_write_enabled" in data) &&
+        data.guest_write_enabled == true &&
+        ("source" in data) &&
+        data.source == "cms_beta" &&
+        ("source_app" in data) &&
+        data.source_app == "company" &&
+        ("source_channel" in data) &&
+        data.source_channel == "company_signup_request" &&
+        ("updated_at" in data) &&
+        ("status" in data) &&
+        data.status in ["pending_review", "infiny_sent", "approved", "on_hold", "rejected"];
+    }
+
     // Public storefront catalog. Write is limited to SUPER_ADMIN/seed_admin beta operations.
     match /products/{productId} {
       allow get, list: if activeProduct(resource.data) || companyScoped(resource.data) || isSuperOrSeedAdmin();
@@ -253,7 +267,7 @@ service cloud.firestore {
 
     match /company_signup_requests/{requestId} {
       allow get, list: if isSuperOrSeedAdmin();
-      allow create: if betaCmsWrite(request.resource.data) || isSuperOrSeedAdmin();
+      allow create: if betaCompanySignupWrite(request.resource.data) || isSuperOrSeedAdmin();
       allow update: if isSuperOrSeedAdmin();
       allow delete: if false;
     }

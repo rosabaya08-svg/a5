@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { betaAccessAccounts, type BetaAccessAccount } from "@/data/accessCredentials";
+import { uploadCompanyDocument, type UploadedCompanyDocument } from "@/lib/company/documentUploadClient";
 import { normalizeBusinessNo, portalHomePaths, writePortalSession } from "@/lib/auth/session";
 import { saveCmsRecord } from "@/lib/firebase/contentRepository";
 import { requestSignagePartnerNurseryAutoSignup } from "@/lib/firebase/nurseryAutoSignupClient";
@@ -13,11 +14,13 @@ import {
   createManualNurseryProfile,
   findLocalNurseryProfile,
   NURSERY_DEFAULT_PASSWORD,
+  NURSERY_LOGIN_BUSINESS_DRAFT_KEY,
   saveNurseryAutoSignupProfile,
   validateNurseryProfileInput,
   type NurseryAutoSignupInput,
   type NurseryAutoSignupProfile,
 } from "@/lib/nursery/nurseryAutoSignup";
+import type { CompanyDocumentType } from "@/types/company";
 
 type BetaAdminLoginProps = {
   role: BetaAccessAccount["role"];
@@ -35,8 +38,6 @@ type SignupState = {
   commerceLicenseNo: string;
   csPhone: string;
   returnAddress: string;
-  businessLicenseName: string;
-  bankbookName: string;
   agreed: boolean;
 };
 
@@ -56,8 +57,6 @@ const initialSignup: SignupState = {
   commerceLicenseNo: "",
   csPhone: "",
   returnAddress: "",
-  businessLicenseName: "",
-  bankbookName: "",
   agreed: false,
 };
 
@@ -73,11 +72,69 @@ const initialNurserySignup: NurserySignupState = {
   password: NURSERY_DEFAULT_PASSWORD,
 };
 
-function findAccount(role: BetaAccessAccount["role"], businessNo: string) {
-  const normalized = normalizeBusinessNo(businessNo);
-  return betaAccessAccounts.find(
-    (account) => account.role === role && normalizeBusinessNo(account.businessNo) === normalized,
-  );
+type CompanySignupDocumentSlot = {
+  id: "businessLicense" | "bankbookCopy" | "commerceLicense" | "csPolicy";
+  type: CompanyDocumentType;
+  label: string;
+  required: boolean;
+  helper: string;
+  accept: string;
+};
+
+const companySignupDocumentSlots = [
+  {
+    id: "businessLicense",
+    type: "business_license",
+    label: "사업자등록증",
+    required: true,
+    helper: "상호, 대표자, 사업자등록번호가 확인되는 PDF 또는 이미지",
+    accept: "image/*,.pdf",
+  },
+  {
+    id: "bankbookCopy",
+    type: "bankbook_copy",
+    label: "정산 통장 사본",
+    required: true,
+    helper: "인피니 정산 확인용 예금주/은행/계좌 식별 자료",
+    accept: "image/*,.pdf",
+  },
+  {
+    id: "commerceLicense",
+    type: "commerce_license",
+    label: "통신판매업 신고증",
+    required: true,
+    helper: "상품 상세 판매자 정보와 대조할 신고번호 증빙",
+    accept: "image/*,.pdf",
+  },
+  {
+    id: "csPolicy",
+    type: "cs_policy",
+    label: "CS 연락처/반품지/AS 정책",
+    required: true,
+    helper: "고객 응대 연락처, 반품지 주소, 교환/환불/AS 기준 문서",
+    accept: "image/*,.pdf,.doc,.docx,.xls,.xlsx",
+  },
+] satisfies CompanySignupDocumentSlot[];
+
+type CompanySignupDocumentSlotId = (typeof companySignupDocumentSlots)[number]["id"];
+type CompanySignupFiles = Partial<Record<CompanySignupDocumentSlotId, File>>;
+
+function findAccount(role: BetaAccessAccount["role"], loginValue: string) {
+  const normalized = normalizeBusinessNo(loginValue);
+  const raw = loginValue.trim().toLowerCase();
+
+  return betaAccessAccounts.find((account) => {
+    if (account.role !== role) return false;
+
+    const matchesBusinessNo = normalized.length > 0 && normalizeBusinessNo(account.businessNo) === normalized;
+    const matchesLoginId = account.loginId
+      ? (normalized.length > 0 && normalizeBusinessNo(account.loginId) === normalized) ||
+        (raw.length > 0 && account.loginId.toLowerCase() === raw)
+      : false;
+    const matchesAccountId = raw.length > 0 && account.id.toLowerCase() === raw;
+
+    return matchesBusinessNo || matchesLoginId || matchesAccountId;
+  });
 }
 
 function saveSignupRequestLocal(request: CompanySignupRequestPayload) {
@@ -96,6 +153,17 @@ export function readLocalCompanySignupRequests() {
   } catch {
     return [];
   }
+}
+
+function companySignupIdFromBusinessNo(businessNo: string) {
+  const normalized = normalizeBusinessNo(businessNo);
+  return normalized ? `company-${normalized}` : `company-signup-${Date.now()}`;
+}
+
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
+  if (size >= 1024) return `${Math.round(size / 1024)}KB`;
+  return `${size}B`;
 }
 
 function buildNurseryProfileFromBetaAccount(matched: BetaAccessAccount): NurseryAutoSignupProfile {
@@ -134,14 +202,23 @@ async function persistNurseryProfile(profile: NurseryAutoSignupProfile) {
   }
 }
 
+function readNurseryLoginBusinessDraft(role: BetaAccessAccount["role"]) {
+  if (role !== "nursery" || typeof window === "undefined") return "";
+
+  return window.sessionStorage.getItem(NURSERY_LOGIN_BUSINESS_DRAFT_KEY) ?? "";
+}
+
 export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const params = useSearchParams();
   const account = useMemo(() => betaAccessAccounts.find((item) => item.role === role), [role]);
-  const [businessNo, setBusinessNo] = useState("");
+  const [businessNo, setBusinessNo] = useState(() =>
+    role === "company" ? account?.loginId ?? "1004" : readNurseryLoginBusinessDraft(role),
+  );
   const [password, setPassword] = useState(account?.defaultPassword ?? NURSERY_DEFAULT_PASSWORD);
   const [message, setMessage] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [signup, setSignup] = useState<SignupState>(initialSignup);
+  const [signupFiles, setSignupFiles] = useState<CompanySignupFiles>({});
   const [nurserySignup, setNurserySignup] = useState<NurserySignupState>({
     ...initialNurserySignup,
     businessRegistrationNo: "",
@@ -157,8 +234,18 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const isCompany = role === "company";
   const title = isCompany ? "기업 관리자 로그인" : "산후조리원 어드민 로그인";
   const subtitle = isCompany
-    ? "사업자등록번호와 비밀번호로 기업 운영 화면에 접속합니다."
+    ? "테스트 아이디 1004와 비밀번호 1004로 기업 운영 화면에 접속합니다."
     : "사업자등록번호로 signage-partner 등록 여부를 확인하고 산후조리원 운영 화면에 접속합니다.";
+
+  useEffect(() => {
+    if (role !== "nursery" || typeof window === "undefined") return;
+
+    if (businessNo.trim()) {
+      window.sessionStorage.setItem(NURSERY_LOGIN_BUSINESS_DRAFT_KEY, businessNo);
+    } else {
+      window.sessionStorage.removeItem(NURSERY_LOGIN_BUSINESS_DRAFT_KEY);
+    }
+  }, [businessNo, role]);
 
   function completeCompanyLogin(matched: BetaAccessAccount, consentedAt: string) {
     writePortalSession(role, {
@@ -178,6 +265,10 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   }
 
   function completeNurseryLogin(profile: NurseryAutoSignupProfile, consentedAt: string) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(NURSERY_LOGIN_BUSINESS_DRAFT_KEY);
+    }
+
     writePortalSession("nursery", {
       role: "nursery",
       accountId: profile.businessRegistrationNo,
@@ -245,8 +336,8 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
       await persistNurseryProfile(profile);
 
-      if (profile.status !== "approved") {
-        setMessage("자동 가입 요청이 접수되어 검토 중입니다. 승인 후 이용할 수 있습니다.");
+      if (profile.status === "suspended") {
+        setMessage("정지된 조리원 계정입니다. 최고관리자에게 문의해 주세요.");
         return;
       }
 
@@ -258,7 +349,12 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     const matched = findAccount(role, businessNo);
 
     if (!matched || password !== matched.defaultPassword) {
-      setMessage("사업자등록번호 또는 비밀번호가 일치하지 않습니다.");
+      setMessage("아이디 또는 비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    if (role === "company") {
+      completeCompanyLogin(matched, new Date().toISOString());
       return;
     }
 
@@ -268,6 +364,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
   async function handleCompanySignup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage("");
 
     if (!signup.companyName || !signup.businessNo || !signup.managerName || !signup.managerPhone || !signup.managerEmail) {
       setMessage("필수 정보를 입력해 주세요.");
@@ -284,8 +381,50 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       return;
     }
 
+    const missingDocuments = companySignupDocumentSlots
+      .filter((slot) => slot.required && !signupFiles[slot.id])
+      .map((slot) => slot.label);
+
+    if (missingDocuments.length > 0) {
+      setMessage(`필수 서류를 선택해 주세요: ${missingDocuments.join(", ")}`);
+      return;
+    }
+
     const now = new Date().toISOString();
     const id = `company-request-${normalizeBusinessNo(signup.businessNo)}-${Date.now()}`;
+    const signupCompanyId = companySignupIdFromBusinessNo(signup.businessNo);
+    const uploadedDocuments: UploadedCompanyDocument[] = [];
+
+    setSaving(true);
+
+    try {
+      for (const slot of companySignupDocumentSlots) {
+        const file = signupFiles[slot.id];
+        if (!file) continue;
+
+        const upload = await uploadCompanyDocument({
+          companyId: signupCompanyId,
+          companyName: signup.companyName,
+          documentType: slot.type,
+          documentLabel: slot.label,
+          file,
+          destinationEmail: "qsc0921@gmail.com",
+          sendToGmail: true,
+          createA1Inbox: true,
+        });
+
+        uploadedDocuments.push(upload);
+      }
+    } catch (error) {
+      setSaving(false);
+      setMessage(
+        error instanceof Error
+          ? `서류 Gmail 접수 중 오류가 발생했습니다: ${error.message}`
+          : "서류 Gmail 접수 중 오류가 발생했습니다.",
+      );
+      return;
+    }
+
     const request: CompanySignupRequestPayload = {
       id,
       companyName: signup.companyName,
@@ -297,7 +436,10 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       commerceLicenseNo: signup.commerceLicenseNo,
       csPhone: signup.csPhone,
       returnAddress: signup.returnAddress,
-      documentNames: [signup.businessLicenseName, signup.bankbookName].filter(Boolean),
+      documentNames: uploadedDocuments.map((document) => document.fileName),
+      documentUploadIds: uploadedDocuments.map((document) => document.id),
+      documentStoragePaths: uploadedDocuments.map((document) => document.storagePath),
+      gmailDeliveryStatus: "queued",
       status: "pending_review",
       createdAt: now,
       updatedAt: now,
@@ -311,9 +453,11 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       // Local request remains available for the admin review screen.
     }
 
+    setSaving(false);
     setSignup(initialSignup);
+    setSignupFiles({});
     setMode("login");
-    setMessage("회원가입 요청이 접수되었습니다. 최고관리자 승인 후 이용할 수 있습니다.");
+    setMessage("회원가입 요청과 필수 서류 Gmail 접수가 완료되었습니다. 최고관리자 승인 후 이용할 수 있습니다.");
   }
 
   async function handleNurserySignup(event: React.FormEvent<HTMLFormElement>) {
@@ -364,17 +508,15 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     await persistNurseryProfile(profile);
     setSaving(false);
 
-    if (profile.status === "approved") {
-      setBusinessNo(profile.businessRegistrationNo);
-      setPendingNurseryProfile(profile);
-      setMessage("");
-      setNurseryStep("agreements");
+    if (profile.status === "suspended") {
+      setMessage("정지된 조리원 계정입니다. 최고관리자에게 문의해 주세요.");
       return;
     }
 
-    setNurserySignup(initialNurserySignup);
-    setMode("login");
-    setMessage("자동 가입 요청이 접수되었습니다. 사업자 확인 후 이용할 수 있습니다.");
+    setBusinessNo(profile.businessRegistrationNo);
+    setPendingNurseryProfile(profile);
+    setMessage("자동 가입이 완료되었습니다. 최초 이용 동의를 진행해 주세요.");
+    setNurseryStep("agreements");
   }
 
   async function handleAgreementNext() {
@@ -431,8 +573,6 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     ["commerceLicenseNo", "통신판매업 신고번호", ""],
     ["csPhone", "CS 연락처", ""],
     ["returnAddress", "반품지 주소", ""],
-    ["businessLicenseName", "사업자등록증 파일명", ""],
-    ["bankbookName", "통장 사본 파일명", ""],
   ];
 
   const nurserySignupFields: Array<[keyof NurserySignupState, string, string]> = [
@@ -494,9 +634,9 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
           <p className="mt-4 text-sm leading-6 text-slate-300">{subtitle}</p>
           <div className="mt-6 grid gap-3 rounded-md bg-white/10 p-4 text-sm text-slate-200">
             <p className="font-black">아이디</p>
-            <p>{isCompany ? "기업 사업자등록번호" : "signage-partner에 등록된 산후조리원 사업자등록번호"}</p>
+            <p>{isCompany ? "테스트 아이디 1004" : "signage-partner에 등록된 산후조리원 사업자등록번호"}</p>
             <p className="font-black">기본 비밀번호</p>
-            <p>{isCompany ? "승인된 기업 계정 비밀번호" : NURSERY_DEFAULT_PASSWORD}</p>
+            <p>{isCompany ? "1004" : NURSERY_DEFAULT_PASSWORD}</p>
           </div>
         </div>
 
@@ -526,15 +666,19 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
           {mode === "login" ? (
             <form onSubmit={handleLogin}>
-              <h2 className="text-2xl font-black">사업자 계정 확인</h2>
+              <h2 className="text-2xl font-black">계정 로그인</h2>
               <div className="mt-5 grid gap-4">
                 <label className="grid gap-2 text-sm font-black">
-                  사업자등록번호
+                  {isCompany ? "아이디" : "사업자등록번호"}
                   <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    enterKeyHint="done"
                     value={businessNo}
                     onChange={(event) => setBusinessNo(event.target.value)}
                     className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold outline-none focus:border-slate-950"
-                    placeholder="1004-1004-1004"
+                    placeholder={isCompany ? "1004" : "1004-1004-1004"}
                   />
                 </label>
                 <label className="grid gap-2 text-sm font-black">
@@ -570,6 +714,44 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
                   </label>
                 ))}
               </div>
+              <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-black text-slate-950">입점 필수 서류</h3>
+                    <p className="mt-1 text-xs font-bold leading-5 text-emerald-900">
+                      파일을 선택한 뒤 회원가입 요청을 누르면 Firebase Storage 저장 후 Gmail 발송 큐에 등록됩니다.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800 ring-1 ring-emerald-200">
+                    Gmail: qsc0921@gmail.com
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {companySignupDocumentSlots.map((slot) => {
+                    const file = signupFiles[slot.id];
+
+                    return (
+                      <label key={slot.id} className="grid gap-2 rounded-md bg-white p-3 text-sm font-black ring-1 ring-emerald-100">
+                        <span>
+                          {slot.label}
+                          {slot.required ? <span className="ml-1 text-red-600">*</span> : null}
+                        </span>
+                        <span className="text-xs font-bold leading-5 text-slate-500">{slot.helper}</span>
+                        <input
+                          type="file"
+                          accept={slot.accept}
+                          className="text-xs font-bold text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
+                          onChange={(event) => {
+                            const selectedFile = event.target.files?.[0];
+                            setSignupFiles((current) => ({ ...current, [slot.id]: selectedFile }));
+                          }}
+                        />
+                        {file ? <span className="text-xs font-bold text-emerald-800">{`${file.name} · ${formatFileSize(file.size)}`}</span> : null}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <label className="mt-4 flex items-center gap-3 rounded-md border border-slate-200 p-3 text-sm font-bold">
                 <input
                   type="checkbox"
@@ -579,15 +761,15 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
                 개인정보 및 운영 약관에 동의합니다.
               </label>
               {message ? <p className="mt-4 rounded-md bg-blue-50 p-3 text-sm font-bold text-blue-800">{message}</p> : null}
-              <button type="submit" className="mt-6 h-12 w-full rounded-md bg-slate-950 text-sm font-black text-white">
-                회원가입 요청
+              <button disabled={saving} type="submit" className="mt-6 h-12 w-full rounded-md bg-slate-950 text-sm font-black text-white disabled:opacity-60">
+                {saving ? "서류 접수 중" : "회원가입 요청"}
               </button>
             </form>
           ) : (
             <form onSubmit={handleNurserySignup}>
               <h2 className="text-2xl font-black">산후조리원 자동 가입</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                사업자등록번호가 signage-partner에 등록되어 있으면 즉시 계정을 만들고, 확인되지 않으면 가입 요청으로 접수합니다.
+                사업자등록번호가 signage-partner에 등록되어 있으면 즉시 계정을 만들고, 확인되지 않으면 입력한 프로필로 A5 조리원 계정을 생성합니다.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {nurserySignupFields.map(([key, label, placeholder]) => (
@@ -595,6 +777,8 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
                     {label}
                     <input
                       type={key === "password" ? "password" : "text"}
+                      inputMode={key === "businessRegistrationNo" || key === "roomCount" ? "numeric" : undefined}
+                      autoComplete="off"
                       value={String(nurserySignup[key] ?? "")}
                       readOnly={key === "password"}
                       onChange={(event) => setNurserySignup((current) => ({ ...current, [key]: event.target.value }))}

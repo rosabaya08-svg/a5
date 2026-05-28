@@ -9,7 +9,7 @@ const entryCards = [
     cta: "관리자 로그인",
   },
   {
-    href: "/company",
+    href: "/company/login",
     eyebrow: "COMPANY",
     title: "기업 관리자",
     description: "상품 등록, 주문 처리, 재고, 배송, 매출과 입금 예정 내역을 확인합니다.",

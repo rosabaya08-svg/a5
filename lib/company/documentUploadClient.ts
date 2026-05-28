@@ -147,7 +147,15 @@ export async function uploadCompanyDocument(input: UploadCompanyDocumentInput): 
     },
   });
 
-  const downloadUrl = await getDownloadURL(uploadRef);
+  let downloadUrl = "";
+
+  try {
+    downloadUrl = await getDownloadURL(uploadRef);
+  } catch {
+    const bucket = storage.app.options.storageBucket;
+    downloadUrl = bucket ? `gs://${bucket}/${storagePath}` : storagePath;
+  }
+
   const shouldCreateA1Inbox = input.createA1Inbox ?? input.sendToGmail ?? false;
   const shouldSendToGmail = input.sendToGmail ?? false;
   const upload: UploadedCompanyDocument = {

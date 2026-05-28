@@ -2,6 +2,7 @@ import Link from "next/link";
 import { A5PublicApiDocsPanel } from "@/components/admin/A5PublicApiDocsPanel";
 import { AdminInvitePanel } from "@/components/admin/AdminInvitePanel";
 import { AdminApiIntegrationRequestsPanel } from "@/components/admin/AdminApiIntegrationRequestsPanel";
+import { AdminNurseryPartnerSyncPanel } from "@/components/admin/AdminNurseryPartnerSyncPanel";
 import { AdminProductDraftRequestsPanel } from "@/components/admin/AdminProductDraftRequestsPanel";
 import { CompanySignupRequestsPanel } from "@/components/admin/CompanySignupRequestsPanel";
 import { ExternalIntegrationCenterPanel } from "@/components/admin/ExternalIntegrationCenterPanel";
@@ -285,22 +286,8 @@ export function AdminCompaniesPage() {
 
 export function AdminNurseriesPage() {
   return (
-    <AdminShell title="조리원 관리" subtitle="조리원 계정, 사업자번호, 객실, 태블릿 승인 상태를 확인합니다.">
-      <FilterBar title="조리원 필터" filters={["전체", "서울/경기", "승인", "대기"]} />
-      <DataTable
-        columns={["조리원", "지역", "담당자", "상태", "객실", "태블릿"]}
-        rows={mockApi.nurseries().map((nursery) => ({
-          id: nursery.id,
-          cells: [
-            <span key="name" className="font-bold text-slate-950">{nursery.name}</span>,
-            nursery.region,
-            nursery.managerName,
-            nursery.status,
-            nursery.roomCount,
-            nursery.tabletCount,
-          ],
-        }))}
-      />
+    <AdminShell title="조리원 관리" subtitle="A1/A2 가입자 자료를 A5 조리원 계정으로 일괄 연동하고, 객실/태블릿 운영 상태를 관리합니다.">
+      <AdminNurseryPartnerSyncPanel />
     </AdminShell>
   );
 }

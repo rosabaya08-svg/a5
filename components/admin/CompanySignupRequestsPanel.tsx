@@ -200,6 +200,10 @@ export function CompanySignupRequestsPanel() {
                     {request.managerName} / {request.managerPhone} / {request.managerEmail}
                   </p>
                   <p className="mt-2 text-xs font-bold text-slate-500">서류: {request.documentNames.join(", ") || "제출 파일명 없음"}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    Gmail: {request.gmailDeliveryStatus === "queued" ? "발송 큐 등록" : "미등록"} / 업로드 ID:{" "}
+                    {request.documentUploadIds?.join(", ") || "-"}
+                  </p>
                   <p className="mt-2 text-xs font-bold text-slate-500">승인 companyId: {companyId}</p>
                 </div>
 

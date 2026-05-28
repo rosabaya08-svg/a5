@@ -901,10 +901,10 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
       </div>
       <div className="grid gap-3">
         <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">기업별 결제 QR</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">인피니 PG 결제 QR</p>
           <h2 className="mt-1 text-lg font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
           <p className="mt-2 text-sm leading-6">
-            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 결제합니다. 다른 업체 상품은 장바구니에서 별도 QR로 이어집니다.
+            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 담고, 촬영하면 인피니 QR 결제 화면으로 이어집니다. MID가 아직 없어도 고객 화면은 먼저 확인할 수 있습니다.
           </p>
         </section>
         {session.items.map((item) => (
@@ -1039,11 +1039,11 @@ export function LiveQrCheckoutPage() {
     <main className="min-h-screen bg-[#f5f1eb] px-4 py-5 text-slate-950">
       <section className="mx-auto grid max-w-md gap-4 md:max-w-4xl">
         <section className="rounded-md bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase text-rose-600">Firebase QR checkout</p>
-          <h1 className="mt-2 text-3xl font-black">{session.shortCode}</h1>
-          <p className="mt-2 text-sm text-slate-600">{COMPANY_GROUP_PURCHASE_MESSAGE}</p>
+          <p className="text-xs font-black uppercase text-rose-600">InnoPay QR checkout</p>
+          <h1 className="mt-2 text-3xl font-black">인피니 QR 결제</h1>
+          <p className="mt-2 text-sm font-bold text-slate-600">QR 코드 {session.shortCode}</p>
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
-            고객 결제는 Firebase Functions ready/confirm을 통해 서버 금액 검증 후 진행됩니다. PG 키가 비어 있으면 결제창은 대기 상태로 유지됩니다.
+            상품 확인, 수령 정보 입력, 인피니 결제 준비까지 한 화면에서 진행합니다. MID가 발급 전이어도 화면은 열리고, 실제 결제요청 버튼만 PG 연동값 저장 후 활성화됩니다.
           </div>
           <div className="mt-4 grid gap-3">
             {session.items.map((item) => (

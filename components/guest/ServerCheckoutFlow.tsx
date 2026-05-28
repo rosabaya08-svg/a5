@@ -72,6 +72,19 @@ type ConfirmResponse = {
   message: string;
 };
 
+type StartInnopaySmsResponse = {
+  ok: true;
+  provider: "infiny";
+  status: "pending_payment_link";
+  paymentIntentId: string;
+  orderNo: string;
+  amount?: number;
+  resultCode: string;
+  resultMsg: string;
+  buyerPhoneMasked?: string;
+  message: string;
+};
+
 type StatusResponse = {
   ok: true;
   source: "firebase_functions";
@@ -100,7 +113,7 @@ type StoredPaymentFlow = {
   paymentIntentId?: string;
   orderNo?: string;
   amount: number;
-  status: "idle" | "ready" | "confirmed_mock" | "confirmed" | "failed";
+  status: "idle" | "ready" | "pending_payment_link" | "confirmed_mock" | "confirmed" | "failed";
   source: "firebase_functions" | "local_ui";
   message: string;
   updatedAt: string;
@@ -141,6 +154,7 @@ function receiverPayload(receiver?: QrReceiverFormValue) {
 
   return {
     customerName: receiver.customerName.trim(),
+    customerPhone: receiver.customerPhone.trim(),
     customerPhoneMasked: maskCustomerPhone(receiver.customerPhone),
     deliveryMethod: receiver.deliveryMethod,
     receiverAddress: receiver.address,
@@ -445,18 +459,45 @@ export function ServerCheckoutFlow({
   const readiness = useMemo(() => getPaymentReadiness(), []);
   const [ready, setReady] = useState<ReadyResponse>();
   const [confirm, setConfirm] = useState<ConfirmResponse>();
+  const [smsStart, setSmsStart] = useState<StartInnopaySmsResponse>();
   const [error, setError] = useState<CheckoutApiError>();
-  const [pending, setPending] = useState<"ready" | "pg" | "confirm" | "amount-test" | "">("");
+  const [pending, setPending] = useState<"ready" | "pg" | "sms" | "sync" | "confirm" | "amount-test" | "">("");
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const pgClientConfig = ready?.pgClientConfig;
   const bridge = useMemo(() => getPgBridgeStatus(pgClientConfig), [pgClientConfig]);
   const effectiveProvider = ready?.provider ?? readiness.provider;
   const providerIsMock = effectiveProvider === "mock";
+  const providerIsInnopaySms = effectiveProvider === "infiny";
   const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
   const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked || !receiverComplete || !activeQr;
+  const innopayCheckoutReady = Boolean(ready && !providerIsMock && ready.pgReady && providerIsInnopaySms);
+  const innopayPrimaryDisabled = Boolean(pending) ||
+    !activeQr ||
+    !receiverComplete ||
+    pgPolicyBlocked ||
+    !endpoints.ready ||
+    Boolean(ready && (!innopayCheckoutReady || !endpoints.endpoints.startInnopaySms));
+  const innopayStatusLabel = smsStart
+    ? "SMS 결제요청 완료"
+    : innopayCheckoutReady
+      ? "인피니 결제 준비 완료"
+      : ready
+        ? "MID/키 입력 대기"
+        : "결제 준비 전";
+  const innopayBlockedReason = !activeQr
+    ? "QR이 만료되었거나 이미 사용되었습니다."
+    : !receiverComplete
+      ? "고객명, 연락처, 주소와 동의 체크가 필요합니다."
+      : pgPolicyBlocked
+        ? "여러 기업 MID가 섞여 있어 기업별 QR로 나누어야 합니다."
+        : ready && !innopayCheckoutReady
+          ? "아직 MID 또는 인피니 키값이 저장되지 않아 실제 결제요청은 대기 중입니다."
+          : !ready
+            ? "결제하기를 누르면 서버 금액 검증 후 인피니 단계로 넘어갑니다."
+            : "";
 
   const pgPayload = useMemo(
     () =>
@@ -636,6 +677,121 @@ export function ServerCheckoutFlow({
     router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(ready.paymentIntentId)}`);
   }
 
+  async function runInnopaySmsPayment() {
+    if (!ready) return;
+    if (receiver && !isQrReceiverFormComplete(receiver)) {
+      setError({
+        code: "RECEIVER_REQUIRED",
+        message: "고객명, 연락처, 주소와 개인정보 동의를 먼저 입력해야 SMS 결제요청을 보낼 수 있습니다.",
+      });
+      return;
+    }
+
+    setPending("sms");
+    setError(undefined);
+
+    const result = await postPaymentFunction<StartInnopaySmsResponse>(endpoints.endpoints.startInnopaySms, {
+      ...checkoutPayload(session, ready.recalculatedAmount),
+      paymentIntentId: ready.paymentIntentId,
+      orderNoCandidate: ready.orderNoCandidate,
+      ...receiverPayload(receiver),
+    });
+
+    setPending("");
+
+    if (!result.ok) {
+      setError(result.error);
+      writeStoredFlow({
+        shortCode: session.shortCode,
+        qrSessionId: session.id,
+        paymentIntentId: ready.paymentIntentId,
+        orderNo: ready.orderNoCandidate,
+        amount: ready.recalculatedAmount,
+        status: "failed",
+        source: "firebase_functions",
+        message: result.error.message,
+        updatedAt: new Date().toISOString(),
+        error: result.error,
+      });
+      return;
+    }
+
+    setSmsStart(result.data);
+    writeStoredFlow({
+      shortCode: session.shortCode,
+      qrSessionId: session.id,
+      paymentIntentId: ready.paymentIntentId,
+      orderNo: result.data.orderNo,
+      amount: result.data.amount ?? ready.recalculatedAmount,
+      status: "pending_payment_link",
+      source: "firebase_functions",
+      message: result.data.message,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async function runInnopaySmsSync() {
+    const paymentIntentId = smsStart?.paymentIntentId ?? ready?.paymentIntentId;
+    const orderNo = smsStart?.orderNo ?? ready?.orderNoCandidate;
+    if (!paymentIntentId && !orderNo) return;
+
+    setPending("sync");
+    setError(undefined);
+
+    const result = await postPaymentFunction<ConfirmResponse | { ok: true; status: "pending_payment_link"; message: string; transactionStatus?: string }>(
+      endpoints.endpoints.syncInnopaySms,
+      {
+        paymentIntentId,
+        orderNo,
+      },
+    );
+
+    setPending("");
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    if ("approval" in result.data) {
+      const confirmedPaymentIntentId = paymentIntentId ?? result.data.approval.transactionId ?? "";
+      setConfirm(result.data);
+      writeStoredFlow({
+        shortCode: session.shortCode,
+        qrSessionId: session.id,
+        paymentIntentId: confirmedPaymentIntentId,
+        orderNo: result.data.orderNo,
+        amount: result.data.recalculatedAmount,
+        status: result.data.approval.realPgCalled ? "confirmed" : "confirmed_mock",
+        source: "firebase_functions",
+        message: result.data.message,
+        updatedAt: new Date().toISOString(),
+      });
+      router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(confirmedPaymentIntentId)}`);
+      return;
+    }
+
+    setError({
+      code: "INNOPAY_SMS_STILL_PENDING",
+      message: result.data.message,
+      details: { transactionStatus: result.data.transactionStatus },
+    });
+  }
+
+  function runInnopayPrimary() {
+    if (!ready) {
+      void runReady();
+      return;
+    }
+
+    if (smsStart) {
+      void runInnopaySmsSync();
+      return;
+    }
+
+    void (providerIsInnopaySms ? runInnopaySmsPayment() : runProviderPayment());
+  }
+
   const flowStates = [
     {
       label: "1단계",
@@ -663,6 +819,65 @@ export function ServerCheckoutFlow({
 
   return (
     <section className="grid gap-4">
+      <section className="rounded-md border border-slate-900 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">InnoPay payment</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 QR 결제</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+              QR 상품 금액을 서버에서 다시 확인한 뒤 인피니 SMS 결제요청으로 이어집니다. MID가 아직 없으면 이 화면은 그대로 열리고 결제요청만 대기 상태로 표시됩니다.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{innopayStatusLabel}</span>
+        </div>
+
+        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+          <div className="rounded-md bg-slate-50 p-3">
+            <p className="text-xs font-black text-slate-500">결제 금액</p>
+            <p className="mt-1 text-xl font-black text-rose-600">{formatCurrency(ready?.recalculatedAmount ?? session.totalAmount)}</p>
+          </div>
+          <div className="rounded-md bg-slate-50 p-3">
+            <p className="text-xs font-black text-slate-500">결제수단</p>
+            <p className="mt-1 font-black text-slate-950">인피니 SMS 카드결제</p>
+          </div>
+          <div className="rounded-md bg-slate-50 p-3">
+            <p className="text-xs font-black text-slate-500">MID 상태</p>
+            <p className="mt-1 font-black text-slate-950">
+              {ready?.merchantProfile?.merchantIdMasked ?? merchantAnalysis.companyLines[0]?.merchantIdMasked ?? "MID 발급 대기"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <button
+            type="button"
+            onClick={runInnopayPrimary}
+            disabled={innopayPrimaryDisabled}
+            className="rounded-md bg-blue-700 px-4 py-4 text-base font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {pending === "ready"
+              ? "결제 정보 확인 중"
+              : pending === "sms"
+                ? "인피니 결제요청 전송 중"
+                : pending === "sync"
+                  ? "결제 완료 확인 중"
+                  : !ready
+                    ? "인피니 결제 준비"
+                    : smsStart
+                      ? "결제완료 확인"
+                      : "인피니 SMS 결제요청"}
+          </button>
+          {innopayBlockedReason ? (
+            <p className="rounded-md bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">{innopayBlockedReason}</p>
+          ) : null}
+          {smsStart ? (
+            <p className="rounded-md bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-950">
+              인피니 응답코드 {smsStart.resultCode}. 고객 휴대폰 {smsStart.buyerPhoneMasked ?? "-"}로 결제 링크 요청을 보냈습니다.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -741,11 +956,19 @@ export function ServerCheckoutFlow({
           </button>
           <button
             type="button"
-            onClick={() => void runProviderPayment()}
-            disabled={Boolean(pending) || !ready || providerIsMock || !ready.pgReady || !bridge.configured || !receiverComplete}
+            onClick={() => void (providerIsInnopaySms ? runInnopaySmsPayment() : runProviderPayment())}
+            disabled={Boolean(pending) || !ready || providerIsMock || !ready.pgReady || !receiverComplete || (providerIsInnopaySms ? !endpoints.endpoints.startInnopaySms : !bridge.configured)}
             className="rounded-md bg-blue-700 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {pending === "pg" ? "PG 결제창 호출 중" : pending === "confirm" ? "PG 승인 처리 중" : "2. PG 결제창 열기"}
+            {pending === "sms"
+              ? "SMS 결제요청 전송 중"
+              : pending === "pg"
+                ? "PG 결제창 호출 중"
+                : pending === "confirm"
+                  ? "PG 승인 처리 중"
+                  : providerIsInnopaySms
+                    ? "2. 인피니 SMS 결제요청"
+                    : "2. PG 결제창 열기"}
           </button>
           <button
             type="button"
@@ -769,6 +992,28 @@ export function ServerCheckoutFlow({
             <span className="rounded-full bg-white px-3 py-2 font-black">paymentIntentId: {ready.paymentIntentId}</span>
             <span className="rounded-full bg-white px-3 py-2 font-black">orderNo: {ready.orderNoCandidate}</span>
             <span className="rounded-full bg-white px-3 py-2 font-black">serverAmount: {formatCurrency(ready.recalculatedAmount)}</span>
+          </div>
+        </section>
+      ) : null}
+
+      {smsStart ? (
+        <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-black">인피니 SMS 결제요청 전송 완료</h3>
+              <p className="mt-2 text-sm leading-6">{smsStart.message}</p>
+              <p className="mt-2 text-xs font-bold">
+                주문번호 {smsStart.orderNo} / 결과코드 {smsStart.resultCode} / 수신번호 {smsStart.buyerPhoneMasked ?? "-"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void runInnopaySmsSync()}
+              disabled={Boolean(pending)}
+              className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {pending === "sync" ? "승인 확인 중" : "결제완료 확인"}
+            </button>
           </div>
         </section>
       ) : null}

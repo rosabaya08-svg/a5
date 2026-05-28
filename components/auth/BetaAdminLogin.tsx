@@ -6,7 +6,7 @@ import { betaAccessAccounts, type BetaAccessAccount } from "@/data/accessCredent
 import { uploadCompanyDocument, type UploadedCompanyDocument } from "@/lib/company/documentUploadClient";
 import { normalizeBusinessNo, portalHomePaths, writePortalSession } from "@/lib/auth/session";
 import { saveCmsRecord } from "@/lib/firebase/contentRepository";
-import { requestSignagePartnerNurseryAutoSignup } from "@/lib/firebase/nurseryAutoSignupClient";
+import { readLinkedNurseryProfileByBusinessNo } from "@/lib/firebase/nurseryAutoSignupClient";
 import {
   readLocalCompanySignupRequests as readStoredCompanySignupRequests,
   saveCompanySignupRequest,
@@ -15,14 +15,9 @@ import {
 } from "@/lib/firebase/signupRequestRepository";
 import {
   buildNurseryAutoSignupCmsRecord,
-  buildNurseryProfileFromSignagePartnerFallback,
-  createManualNurseryProfile,
-  findLocalNurseryProfile,
   NURSERY_DEFAULT_PASSWORD,
   NURSERY_LOGIN_BUSINESS_DRAFT_KEY,
   saveNurseryAutoSignupProfile,
-  validateNurseryProfileInput,
-  type NurseryAutoSignupInput,
   type NurseryAutoSignupProfile,
 } from "@/lib/nursery/nurseryAutoSignup";
 import type { CompanyDocumentType } from "@/types/company";
@@ -46,10 +41,6 @@ type SignupState = {
   agreed: boolean;
 };
 
-type NurserySignupState = NurseryAutoSignupInput & {
-  password: string;
-};
-
 const initialSignup: SignupState = {
   companyName: "",
   businessNo: "",
@@ -63,18 +54,6 @@ const initialSignup: SignupState = {
   csPhone: "",
   returnAddress: "",
   agreed: false,
-};
-
-const initialNurserySignup: NurserySignupState = {
-  nurseryName: "",
-  businessRegistrationNo: "",
-  representativeName: "",
-  managerName: "",
-  managerPhone: "",
-  managerEmail: "",
-  businessAddress: "",
-  roomCount: "",
-  password: NURSERY_DEFAULT_PASSWORD,
 };
 
 type CompanySignupDocumentSlot = {
@@ -157,42 +136,6 @@ function formatFileSize(size: number) {
   return `${size}B`;
 }
 
-function buildNurseryProfileFromBetaAccount(matched: BetaAccessAccount): NurseryAutoSignupProfile {
-  const fallback = buildNurseryProfileFromSignagePartnerFallback(matched.businessNo);
-  const now = new Date().toISOString();
-
-  return (
-    fallback ?? {
-      id: matched.businessNo,
-      nurseryId: matched.id,
-      businessRegistrationNo: matched.businessNo,
-      businessRegistrationNoNormalized: normalizeBusinessNo(matched.businessNo),
-      nurseryName: matched.displayName,
-      representativeName: "",
-      managerName: "",
-      managerPhone: "",
-      managerEmail: "",
-      businessAddress: "",
-      roomCount: "",
-      defaultPassword: matched.defaultPassword,
-      source: "manual_profile",
-      status: "approved",
-      createdAt: now,
-      updatedAt: now,
-    }
-  );
-}
-
-async function persistNurseryProfile(profile: NurseryAutoSignupProfile) {
-  saveNurseryAutoSignupProfile(profile);
-
-  try {
-    await saveCmsRecord("nursery_auto_signup_profiles", buildNurseryAutoSignupCmsRecord(profile));
-  } catch {
-    // Local session remains usable; Firestore can be synced again from the login flow.
-  }
-}
-
 function readNurseryLoginBusinessDraft(role: BetaAccessAccount["role"]) {
   if (role !== "nursery" || typeof window === "undefined") return "";
 
@@ -210,10 +153,6 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [signup, setSignup] = useState<SignupState>(initialSignup);
   const [signupFiles, setSignupFiles] = useState<CompanySignupFiles>({});
-  const [nurserySignup, setNurserySignup] = useState<NurserySignupState>({
-    ...initialNurserySignup,
-    businessRegistrationNo: "",
-  });
   const [companyStep, setCompanyStep] = useState<"login" | "agreements">("login");
   const [pendingCompanyAccount, setPendingCompanyAccount] = useState<BetaAccessAccount | null>(null);
   const [nurseryStep, setNurseryStep] = useState<"login" | "agreements">("login");
@@ -223,10 +162,11 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
   const nextPath = params.get("next") || portalHomePaths[role];
   const isCompany = role === "company";
+  const effectiveMode = isCompany ? mode : "login";
   const title = isCompany ? "기업 관리자 로그인" : "산후조리원 어드민 로그인";
   const subtitle = isCompany
     ? "테스트 아이디 1004와 비밀번호 1004로 기업 운영 화면에 접속합니다."
-    : "사업자등록번호로 signage-partner 등록 여부를 확인하고 산후조리원 운영 화면에 접속합니다.";
+    : "A2에서 프로필 입력 후 최고관리자에 연동된 사업자등록번호와 비밀번호 1004로 접속합니다.";
 
   useEffect(() => {
     if (role !== "nursery" || typeof window === "undefined") return;
@@ -277,31 +217,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   }
 
   async function resolveNurseryProfile() {
-    const matched = findAccount("nursery", businessNo);
-
-    if (matched) {
-      return buildNurseryProfileFromBetaAccount(matched);
-    }
-
-    const approvedLocal = findLocalNurseryProfile(businessNo);
-
-    if (approvedLocal?.status === "approved") {
-      return approvedLocal;
-    }
-
-    const remoteProfile = await requestSignagePartnerNurseryAutoSignup(businessNo);
-
-    if (remoteProfile) {
-      return remoteProfile;
-    }
-
-    const fallbackProfile = buildNurseryProfileFromSignagePartnerFallback(businessNo);
-
-    if (fallbackProfile) {
-      return fallbackProfile;
-    }
-
-    return approvedLocal;
+    return readLinkedNurseryProfileByBusinessNo(businessNo);
   }
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -319,13 +235,9 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       setSaving(false);
 
       if (!profile) {
-        setNurserySignup((current) => ({ ...current, businessRegistrationNo: businessNo }));
-        setMode("signup");
-        setMessage("등록된 사업자번호를 찾지 못했습니다. 자동 가입 정보를 입력해 주세요.");
+        setMessage("등록된 사업자번호를 찾지 못했습니다. A2에서 구글 로그인 후 프로필 입력을 완료하고, 최고관리자 연동 자료가 생성된 뒤 다시 로그인해 주세요.");
         return;
       }
-
-      await persistNurseryProfile(profile);
 
       if (profile.status === "suspended") {
         setMessage("정지된 조리원 계정입니다. 최고관리자에게 문의해 주세요.");
@@ -478,65 +390,6 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     );
   }
 
-  async function handleNurserySignup(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
-
-    const input: NurseryAutoSignupInput = {
-      businessRegistrationNo: nurserySignup.businessRegistrationNo,
-      nurseryName: nurserySignup.nurseryName,
-      representativeName: nurserySignup.representativeName,
-      managerName: nurserySignup.managerName,
-      managerPhone: nurserySignup.managerPhone,
-      managerEmail: nurserySignup.managerEmail,
-      businessAddress: nurserySignup.businessAddress,
-      roomCount: nurserySignup.roomCount,
-    };
-    const missing = validateNurseryProfileInput(input);
-
-    if (missing.length > 0) {
-      setMessage(`필수 정보를 입력해 주세요: ${missing.join(", ")}`);
-      return;
-    }
-
-    if (nurserySignup.password !== NURSERY_DEFAULT_PASSWORD) {
-      setMessage("산후조리원 기본 비밀번호는 1004로 고정됩니다.");
-      return;
-    }
-
-    setSaving(true);
-    const remoteProfile =
-      (await requestSignagePartnerNurseryAutoSignup(input.businessRegistrationNo)) ??
-      buildNurseryProfileFromSignagePartnerFallback(input.businessRegistrationNo);
-    const profile: NurseryAutoSignupProfile = remoteProfile
-      ? {
-          ...remoteProfile,
-          nurseryName: input.nurseryName || remoteProfile.nurseryName,
-          representativeName: input.representativeName || remoteProfile.representativeName,
-          managerName: input.managerName || remoteProfile.managerName,
-          managerPhone: input.managerPhone || remoteProfile.managerPhone,
-          managerEmail: input.managerEmail || remoteProfile.managerEmail,
-          businessAddress: input.businessAddress || remoteProfile.businessAddress,
-          roomCount: input.roomCount || remoteProfile.roomCount,
-          status: "approved",
-          updatedAt: new Date().toISOString(),
-        }
-      : createManualNurseryProfile(input);
-
-    await persistNurseryProfile(profile);
-    setSaving(false);
-
-    if (profile.status === "suspended") {
-      setMessage("정지된 조리원 계정입니다. 최고관리자에게 문의해 주세요.");
-      return;
-    }
-
-    setBusinessNo(profile.businessRegistrationNo);
-    setPendingNurseryProfile(profile);
-    setMessage("자동 가입이 완료되었습니다. 최초 이용 동의를 진행해 주세요.");
-    setNurseryStep("agreements");
-  }
-
   async function handleAgreementNext() {
     if (!agreement.service || !agreement.privacy || !agreement.marketing) {
       setMessage("운영 약관, 개인정보 처리방침, 마케팅 정보 수신 동의를 모두 체크해야 이용할 수 있습니다.");
@@ -593,18 +446,6 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     ["returnAddress", "반품지 주소", ""],
   ];
 
-  const nurserySignupFields: Array<[keyof NurserySignupState, string, string]> = [
-    ["nurseryName", "산후조리원명 *필수", "예: A5 테스트 산후조리원"],
-    ["businessRegistrationNo", "사업자등록번호 *필수", "1004-1004-1004"],
-    ["representativeName", "대표자명 *필수", ""],
-    ["managerName", "담당자명 *필수", ""],
-    ["managerPhone", "담당자 연락처 *필수", "010-0000-0000"],
-    ["managerEmail", "담당자 이메일 *필수", "manager@example.com"],
-    ["businessAddress", "사업장 주소 *필수", ""],
-    ["roomCount", "객실 수 *필수", "예: 20"],
-    ["password", "기본 비밀번호", NURSERY_DEFAULT_PASSWORD],
-  ];
-
   if ((role === "nursery" && nurseryStep === "agreements") || (role === "company" && companyStep === "agreements")) {
     const consentDisplayName =
       role === "company" ? pendingCompanyAccount?.displayName : pendingNurseryProfile?.nurseryName;
@@ -652,13 +493,14 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
           <p className="mt-4 text-sm leading-6 text-slate-300">{subtitle}</p>
           <div className="mt-6 grid gap-3 rounded-md bg-white/10 p-4 text-sm text-slate-200">
             <p className="font-black">아이디</p>
-            <p>{isCompany ? "테스트 아이디 1004" : "signage-partner에 등록된 산후조리원 사업자등록번호"}</p>
+            <p>{isCompany ? "테스트 아이디 1004" : "A2 프로필 입력 후 최고관리자에 연동된 산후조리원 사업자등록번호"}</p>
             <p className="font-black">기본 비밀번호</p>
             <p>{isCompany ? "1004" : NURSERY_DEFAULT_PASSWORD}</p>
           </div>
         </div>
 
         <section className="rounded-md bg-white p-6 text-slate-950 shadow-2xl">
+          {isCompany ? (
           <div className="mb-5 grid grid-cols-2 gap-2 rounded-md bg-slate-100 p-1">
             <button
               type="button"
@@ -678,11 +520,12 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
               }}
               className={`h-10 rounded-md text-sm font-black ${mode === "signup" ? "bg-white shadow-sm" : "text-slate-500"}`}
             >
-              {isCompany ? "회원가입 요청" : "자동 가입"}
+              회원가입 요청
             </button>
           </div>
+          ) : null}
 
-          {mode === "login" ? (
+          {effectiveMode === "login" ? (
             <form onSubmit={handleLogin}>
               <h2 className="text-2xl font-black">계정 로그인</h2>
               <div className="mt-5 grid gap-4">
@@ -783,35 +626,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
                 {saving ? "서류 접수 중" : "회원가입 요청"}
               </button>
             </form>
-          ) : (
-            <form onSubmit={handleNurserySignup}>
-              <h2 className="text-2xl font-black">산후조리원 자동 가입</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                사업자등록번호가 signage-partner에 등록되어 있으면 즉시 계정을 만들고, 확인되지 않으면 입력한 프로필로 A5 조리원 계정을 생성합니다.
-              </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {nurserySignupFields.map(([key, label, placeholder]) => (
-                  <label key={key} className="grid gap-2 text-sm font-black">
-                    {label}
-                    <input
-                      type={key === "password" ? "password" : "text"}
-                      inputMode={key === "businessRegistrationNo" || key === "roomCount" ? "numeric" : undefined}
-                      autoComplete="off"
-                      value={String(nurserySignup[key] ?? "")}
-                      readOnly={key === "password"}
-                      onChange={(event) => setNurserySignup((current) => ({ ...current, [key]: event.target.value }))}
-                      className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold outline-none focus:border-slate-950 read-only:bg-slate-50"
-                      placeholder={placeholder}
-                    />
-                  </label>
-                ))}
-              </div>
-              {message ? <p className="mt-4 rounded-md bg-blue-50 p-3 text-sm font-bold text-blue-800">{message}</p> : null}
-              <button disabled={saving} type="submit" className="mt-6 h-12 w-full rounded-md bg-slate-950 text-sm font-black text-white disabled:opacity-60">
-                {saving ? "확인 중" : "자동 가입 진행"}
-              </button>
-            </form>
-          )}
+          ) : null}
         </section>
       </section>
     </main>

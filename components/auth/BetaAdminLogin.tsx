@@ -6,7 +6,7 @@ import { betaAccessAccounts, type BetaAccessAccount } from "@/data/accessCredent
 import { uploadCompanyDocument, type UploadedCompanyDocument } from "@/lib/company/documentUploadClient";
 import { normalizeBusinessNo, portalHomePaths, writePortalSession } from "@/lib/auth/session";
 import { saveCmsRecord } from "@/lib/firebase/contentRepository";
-import { readLinkedNurseryProfileByBusinessNo } from "@/lib/firebase/nurseryAutoSignupClient";
+import { lookupLinkedNurseryProfileByBusinessNo } from "@/lib/firebase/nurseryAutoSignupClient";
 import {
   readLocalCompanySignupRequests as readStoredCompanySignupRequests,
   saveCompanySignupRequest,
@@ -142,6 +142,23 @@ function readNurseryLoginBusinessDraft(role: BetaAccessAccount["role"]) {
   return window.sessionStorage.getItem(NURSERY_LOGIN_BUSINESS_DRAFT_KEY) ?? "";
 }
 
+function withClientTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const params = useSearchParams();
   const account = useMemo(() => betaAccessAccounts.find((item) => item.role === role), [role]);
@@ -164,9 +181,6 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   const isCompany = role === "company";
   const effectiveMode = isCompany ? mode : "login";
   const title = isCompany ? "기업 관리자 로그인" : "산후조리원 어드민 로그인";
-  const subtitle = isCompany
-    ? "테스트 아이디 1004와 비밀번호 1004로 기업 운영 화면에 접속합니다."
-    : "A2에서 프로필 입력 후 최고관리자에 연동된 사업자등록번호와 비밀번호 1004로 접속합니다.";
 
   useEffect(() => {
     if (role !== "nursery" || typeof window === "undefined") return;
@@ -217,7 +231,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   }
 
   async function resolveNurseryProfile() {
-    return readLinkedNurseryProfileByBusinessNo(businessNo, password);
+    return lookupLinkedNurseryProfileByBusinessNo(businessNo, password);
   }
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -231,13 +245,16 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
       }
 
       setSaving(true);
-      const profile = await resolveNurseryProfile();
+      const lookup = await resolveNurseryProfile();
       setSaving(false);
 
-      if (!profile) {
-        setMessage("등록된 사업자번호를 찾지 못했습니다. A2에서 구글 로그인 후 프로필 입력을 완료하고, 최고관리자 연동 자료가 생성된 뒤 다시 로그인해 주세요.");
+      if (!lookup.profile) {
+        const detail = lookup.error?.code ? ` (${lookup.error.code})` : "";
+        setMessage(`등록된 사업자번호를 찾지 못했습니다. 최고관리자 조리원 관리에 등록된 사업자번호와 다시 대조해 주세요.${detail}`);
         return;
       }
+
+      const profile = lookup.profile;
 
       if (profile.status === "suspended") {
         setMessage("정지된 조리원 계정입니다. 최고관리자에게 문의해 주세요.");
@@ -422,7 +439,10 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
     saveNurseryAutoSignupProfile(consentedProfile);
 
     try {
-      await saveCmsRecord("nursery_auto_signup_profiles", buildNurseryAutoSignupCmsRecord(consentedProfile));
+      await withClientTimeout(
+        saveCmsRecord("nursery_auto_signup_profiles", buildNurseryAutoSignupCmsRecord(consentedProfile)),
+        2500,
+      );
     } catch {
       // The local session still carries the consent record for the nursery admin page.
     }
@@ -447,18 +467,12 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   ];
 
   if ((role === "nursery" && nurseryStep === "agreements") || (role === "company" && companyStep === "agreements")) {
-    const consentDisplayName =
-      role === "company" ? pendingCompanyAccount?.displayName : pendingNurseryProfile?.nurseryName;
     const consentRoleLabel = role === "company" ? "기업 관리자" : "산후조리원 관리자";
 
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
         <section className="mx-auto max-w-xl rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-          <p className="text-xs font-black tracking-[0.16em] text-slate-500">with.commerce</p>
-          <h1 className="mt-2 text-3xl font-black">최초 이용 동의</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {consentDisplayName} 계정으로 {consentRoleLabel} 화면을 시작하기 전에 필수 동의를 확인합니다.
-          </p>
+          <h1 className="text-3xl font-black">최초 이용 동의</h1>
           <div className="mt-6 grid gap-3">
             {[
               ["service", "운영 약관 동의"],
@@ -486,17 +500,9 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-md border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-          <p className="text-xs font-black tracking-[0.18em] text-rose-300">with.commerce</p>
-          <h1 className="mt-3 text-4xl font-black">{title}</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-300">{subtitle}</p>
-          <div className="mt-6 grid gap-3 rounded-md bg-white/10 p-4 text-sm text-slate-200">
-            <p className="font-black">아이디</p>
-            <p>{isCompany ? "테스트 아이디 1004" : "A2 프로필 입력 후 최고관리자에 연동된 산후조리원 사업자등록번호"}</p>
-            <p className="font-black">기본 비밀번호</p>
-            <p>{isCompany ? "1004" : NURSERY_DEFAULT_PASSWORD}</p>
-          </div>
+      <section className={`mx-auto grid gap-6 ${effectiveMode === "login" ? "max-w-md" : "max-w-3xl"}`}>
+        <div className="sr-only">
+          <h1>{title}</h1>
         </div>
 
         <section className="rounded-md bg-white p-6 text-slate-950 shadow-2xl">
@@ -527,8 +533,8 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
 
           {effectiveMode === "login" ? (
             <form onSubmit={handleLogin}>
-              <h2 className="text-2xl font-black">계정 로그인</h2>
-              <div className="mt-5 grid gap-4">
+              <h2 className="sr-only">계정 로그인</h2>
+              <div className="grid gap-4">
                 <label className="grid gap-2 text-sm font-black">
                   {isCompany ? "아이디" : "사업자등록번호"}
                   <input

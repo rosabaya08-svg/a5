@@ -35,11 +35,12 @@ export function AppShell({
   const isDark = surface === "dark";
   const sidebarTitle = accent ? roleTitles[accent] : sectionTitle;
   const guardedRole = accent === "admin" || accent === "company" || accent === "nursery" ? accent : null;
+  const sidebarLogoutRole = accent === "company" || accent === "nursery" ? accent : undefined;
 
   const shell = (
     <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-[#f5f7fb] text-slate-950"}`}>
       <div className="flex min-h-screen">
-        <AdminSidebar title={sidebarTitle} navItems={navItems} accent={accent} surface={surface} />
+        <AdminSidebar title={sidebarTitle} navItems={navItems} accent={accent} surface={surface} logoutRole={sidebarLogoutRole} />
         <div className="min-w-0 flex-1">
           <TopBar title={title} subtitle={subtitle} scopeLabel={scopeLabel} surface={surface} />
           <main className="px-4 py-5 md:px-6 md:py-6 xl:px-8">{children}</main>

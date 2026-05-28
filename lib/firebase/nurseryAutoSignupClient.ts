@@ -17,6 +17,14 @@ type NurseryLoginFunctionResponse = {
   };
 };
 
+export type NurseryProfileLookupResult = {
+  profile: NurseryAutoSignupProfile | null;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+
 function getFunctionsBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL ?? "https://asia-northeast3-a5-closed-mall.cloudfunctions.net"
@@ -69,7 +77,7 @@ function normalizeFunctionProfile(
 async function requestTabletNurseryLoginProfile(
   businessRegistrationNo: string,
   password: string,
-): Promise<NurseryAutoSignupProfile | null> {
+): Promise<NurseryProfileLookupResult> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 12000);
 
@@ -85,11 +93,34 @@ async function requestTabletNurseryLoginProfile(
     });
     const data = (await response.json()) as NurseryLoginFunctionResponse;
 
-    if (!response.ok || !data.ok) return null;
+    if (!response.ok || !data.ok) {
+      return {
+        profile: null,
+        error: {
+          code: data.error?.code ?? `HTTP_${response.status}`,
+          message: data.error?.message ?? "Firebase server nursery lookup failed.",
+        },
+      };
+    }
 
-    return normalizeFunctionProfile(data.profile, businessRegistrationNo);
+    const profile = normalizeFunctionProfile(data.profile, businessRegistrationNo);
+    return profile
+      ? { profile }
+      : {
+          profile: null,
+          error: {
+            code: "TABLET_NURSERY_LOGIN_PROFILE_INVALID",
+            message: "Firebase server returned an invalid nursery profile.",
+          },
+        };
   } catch {
-    return null;
+    return {
+      profile: null,
+      error: {
+        code: "TABLET_NURSERY_LOGIN_NETWORK_ERROR",
+        message: "Firebase server nursery lookup request failed.",
+      },
+    };
   } finally {
     window.clearTimeout(timeout);
   }
@@ -108,23 +139,65 @@ export async function readLinkedNurseryProfileByBusinessNo(
   businessRegistrationNo: string,
   password = NURSERY_DEFAULT_PASSWORD,
 ): Promise<NurseryAutoSignupProfile | null> {
-  if (typeof window === "undefined") return null;
+  const result = await lookupLinkedNurseryProfileByBusinessNo(businessRegistrationNo, password);
+  return result.profile;
+}
+
+export async function lookupLinkedNurseryProfileByBusinessNo(
+  businessRegistrationNo: string,
+  password = NURSERY_DEFAULT_PASSWORD,
+): Promise<NurseryProfileLookupResult> {
+  if (typeof window === "undefined") {
+    return {
+      profile: null,
+      error: {
+        code: "CLIENT_RUNTIME_REQUIRED",
+        message: "Nursery profile lookup must run in the browser.",
+      },
+    };
+  }
 
   const normalized = normalizeBusinessNo(businessRegistrationNo);
-  if (!normalized) return null;
+  if (!normalized) {
+    return {
+      profile: null,
+      error: {
+        code: "BUSINESS_NO_MISSING",
+        message: "Business registration number is required.",
+      },
+    };
+  }
+
+  let serverError: NurseryProfileLookupResult["error"];
 
   try {
-    const serverProfile = await requestTabletNurseryLoginProfile(businessRegistrationNo, password);
-    if (serverProfile) return serverProfile;
+    const serverResult = await requestTabletNurseryLoginProfile(businessRegistrationNo, password);
+    if (serverResult.profile) return serverResult;
+    serverError = serverResult.error;
 
     await ensureAnonymousFirebaseUser();
-    return (
+    const profile =
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "business_registration_no_normalized", normalized)) ??
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "businessRegistrationNoNormalized", normalized)) ??
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "business_registration_no", businessRegistrationNo.trim())) ??
-      (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "businessRegistrationNo", businessRegistrationNo.trim()))
-    );
+      (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "businessRegistrationNo", businessRegistrationNo.trim()));
+
+    return profile
+      ? { profile }
+      : {
+          profile: null,
+          error: serverError ?? {
+            code: "NURSERY_PROFILE_NOT_FOUND",
+            message: "No nursery profile matched the business registration number.",
+          },
+        };
   } catch {
-    return null;
+    return {
+      profile: null,
+      error: serverError ?? {
+        code: "NURSERY_PROFILE_LOOKUP_FAILED",
+        message: "Nursery profile lookup failed.",
+      },
+    };
   }
 }

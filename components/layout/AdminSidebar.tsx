@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
+import { PortalLogoutButton } from "@/components/auth/PortalLogoutButton";
+import type { PortalRole } from "@/lib/auth/session";
 import type { NavSection } from "@/components/layout/navigation";
 
 export type { NavItem, NavSection } from "@/components/layout/navigation";
@@ -12,6 +14,7 @@ type AdminSidebarProps = {
   navItems: NavSection[];
   accent?: "admin" | "company" | "nursery" | "tablet" | "guest";
   surface?: "light" | "dark";
+  logoutRole?: Extract<PortalRole, "company" | "nursery">;
 };
 
 const accentTokens = {
@@ -65,6 +68,7 @@ export function AdminSidebar({
   navItems,
   accent = "admin",
   surface = "light",
+  logoutRole,
 }: AdminSidebarProps) {
   const isDark = surface === "dark";
   const pathname = usePathname();
@@ -152,6 +156,11 @@ export function AdminSidebar({
           );
         })}
       </nav>
+      {logoutRole ? (
+        <div className={`shrink-0 border-t p-3 ${isDark ? "border-white/10" : "border-slate-200"}`}>
+          <PortalLogoutButton role={logoutRole} surface={surface} className="w-full" />
+        </div>
+      ) : null}
     </aside>
   );
 }

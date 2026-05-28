@@ -54,7 +54,7 @@ export async function paymentsStartInnopaySmsHandler(request: HttpRequestLike, r
   const db = getAdminDb();
   const runtime = await readInnopayRuntimeSettings(db);
 
-  if (!isInnopaySmsApiMode("infiny") || (!runtime.smsEnabled && !runtime.realCallsEnabled)) {
+  if (!isInnopaySmsApiMode("infiny") || !runtime.smsEnabled || !runtime.realCallsEnabled) {
     sendJson(response, 409, {
       ok: false,
       error: {

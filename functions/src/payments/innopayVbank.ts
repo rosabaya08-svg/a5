@@ -51,7 +51,7 @@ export async function paymentsStartInnopayVbankHandler(request: HttpRequestLike,
   const db = getAdminDb();
   const runtime = await readInnopayRuntimeSettings(db);
 
-  if (!runtime.vbankEnabled && !runtime.realCallsEnabled) {
+  if (!runtime.vbankEnabled || !runtime.realCallsEnabled) {
     sendJson(response, 409, {
       ok: false,
       error: {

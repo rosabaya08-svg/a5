@@ -53,12 +53,36 @@ const businessNoFields = [
   process.env.A4_ROOMS_BUSINESS_FIELD,
   "business_registration_no",
   "businessRegistrationNo",
+  "business_registration_number",
+  "businessRegistrationNumber",
+  "business_number",
+  "businessNumber",
   "business_no",
   "businessNo",
   "biz_no",
   "bizNo",
+  "biz_num",
+  "bizNum",
+  "biznum",
+  "business_license_no",
+  "businessLicenseNo",
+  "business_license_number",
+  "businessLicenseNumber",
+  "license_no",
+  "licenseNo",
+  "license_number",
+  "licenseNumber",
+  "brn",
+  "registration_no",
+  "registrationNo",
   "company_registration_no",
+  "companyRegistrationNo",
+  "company_registration_number",
+  "companyRegistrationNumber",
   "registration_number",
+  "사업자등록번호",
+  "사업자번호",
+  "사업자등록증번호",
 ];
 
 const nurseryIdFields = [
@@ -66,6 +90,11 @@ const nurseryIdFields = [
   process.env.A4_ROOMS_NURSERY_FIELD,
   "external_nursery_id",
   "externalNurseryId",
+  "owner_uid",
+  "ownerUid",
+  "uid",
+  "user_id",
+  "userId",
   "nursery_id",
   "nurseryId",
   "center_id",
@@ -81,13 +110,43 @@ function optionalString(value: unknown): string | undefined {
   return text ? text : undefined;
 }
 
+function normalizeKey(value: string) {
+  return value.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
+}
+
+function deepFieldString(value: unknown, names: Array<string | undefined>, path: string[] = [], depth = 0): string {
+  if (depth > 5 || typeof value !== "object" || value === null) return "";
+
+  const aliases = unique(names).map(normalizeKey);
+  const entries = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item] as const)
+    : Object.entries(value as Record<string, unknown>);
+
+  for (const [key, child] of entries) {
+    const normalizedKey = normalizeKey(key);
+    const normalizedPath = normalizeKey([...path, key].join("."));
+
+    if (aliases.includes(normalizedKey) || aliases.includes(normalizedPath)) {
+      const text = optionalString(child);
+      if (text) return text;
+    }
+  }
+
+  for (const [key, child] of entries) {
+    const text = deepFieldString(child, names, [...path, key], depth + 1);
+    if (text) return text;
+  }
+
+  return "";
+}
+
 function fieldString(data: Record<string, unknown>, ...names: string[]) {
   for (const name of names) {
     const value = optionalString(data[name]);
     if (value) return value;
   }
 
-  return "";
+  return deepFieldString(data, names);
 }
 
 function fieldBoolean(data: Record<string, unknown>, fallback: boolean) {
@@ -229,11 +288,55 @@ function sourceNurseryCollections() {
     "signage_partners",
     "partners",
     "companies",
+    "users",
+    "members",
+    "clients",
+    "branches",
+    "profiles",
+    "businesses",
   ]);
 }
 
 function sourceRoomCollections() {
-  return splitConfigList(process.env.A4_ROOMS_COLLECTION_PATHS ?? process.env.A4_ROOMS_COLLECTION_PATH, ["rooms"]);
+  return splitConfigList(process.env.A4_ROOMS_COLLECTION_PATHS ?? process.env.A4_ROOMS_COLLECTION_PATH, ["rooms", "customers", "devices"]);
+}
+
+function isNurseryProfileCollection(collectionPath: string) {
+  const name = collectionPath.toLowerCase();
+  const blocked = [
+    "customers",
+    "orders",
+    "rooms",
+    "devices",
+    "tasks",
+    "notices",
+    "ad_assets",
+    "app_release_files",
+    "app_release_history",
+    "app_releases",
+    "global_campaigns",
+    "branch_link_codes",
+  ];
+
+  if (blocked.includes(name) || name.includes("audit") || name.includes("release")) return false;
+
+  return ["nursery", "partner", "business", "company", "user", "member", "client", "branch", "profile"].some((keyword) =>
+    name.includes(keyword),
+  );
+}
+
+async function discoverSourceNurseryCollections(sourceDb: Firestore) {
+  const configured = sourceNurseryCollections();
+  const maxCollections = Math.min(Math.max(Number(process.env.A4_SOURCE_COLLECTION_DISCOVERY_LIMIT ?? 60) || 60, 1), 120);
+
+  try {
+    const discovered = await sourceDb.listCollections();
+    return unique([...configured, ...discovered.map((collection) => collection.id)])
+      .filter(isNurseryProfileCollection)
+      .slice(0, maxCollections);
+  } catch {
+    return configured.filter(isNurseryProfileCollection);
+  }
 }
 
 function mapSourceNursery(doc: QueryDocumentSnapshot, matchedBusinessField: string, businessRegistrationNo: string) {
@@ -258,7 +361,7 @@ async function findSourceNurseryByBusinessNo(
   const fields = unique(businessNoFields);
   const candidates = businessNoCandidates(businessRegistrationNo);
   const collectionGroupName = process.env.A4_NURSERIES_COLLECTION_GROUP?.trim();
-  const collectionPaths = collectionGroupName ? [""] : sourceNurseryCollections();
+  const collectionPaths = collectionGroupName ? [""] : await discoverSourceNurseryCollections(sourceDb);
 
   for (const collectionPath of collectionPaths) {
     for (const field of fields) {
@@ -295,7 +398,8 @@ function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
   const data = doc.data();
   const externalRoomId = fieldString(data, "external_room_id", "externalRoomId", "room_id", "roomId") || doc.id;
   const roomNumber =
-    fieldString(data, "room_number", "roomNumber", "room_no", "roomNo", "number", "name", "label", "title") || doc.id;
+    fieldString(data, "room_number", "roomNumber", "room_no", "roomNo", "room_name", "roomName", "device_name", "deviceName", "number", "name", "label", "title") ||
+    doc.id;
 
   if (!externalRoomId || !roomNumber) {
     return null;
@@ -303,7 +407,7 @@ function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
 
   const fallbackTargetId = `room-${normalizeRoomNumber(roomNumber) || safeDocumentId(externalRoomId, doc.id)}`;
   const targetRoomId = safeDocumentId(fieldString(data, "a5_room_id", "target_room_id", "targetRoomId"), fallbackTargetId);
-  const name = fieldString(data, "name", "room_name", "roomName", "label", "title") || roomNumber;
+  const name = fieldString(data, "name", "room_name", "roomName", "device_name", "deviceName", "label", "title") || roomNumber;
   const floor = fieldString(data, "floor", "floor_name", "floorName") || inferFloor(roomNumber);
   const externalTabletId = fieldString(data, "external_tablet_id", "externalTabletId", "tablet_id", "tabletId");
   const activeTabletId = fieldString(data, "a5_tablet_id", "active_tablet_id", "activeTabletId");

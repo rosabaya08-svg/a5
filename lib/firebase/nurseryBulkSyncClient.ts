@@ -105,7 +105,22 @@ export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncRes
       body: JSON.stringify({ source: "a2_signage_partner", password: NURSERY_DEFAULT_PASSWORD }),
       signal: controller.signal,
     });
-    const data = (await response.json()) as A2NurseryBulkSignupResponse;
+    const rawBody = await response.text();
+    let data: A2NurseryBulkSignupResponse;
+
+    try {
+      data = rawBody ? (JSON.parse(rawBody) as A2NurseryBulkSignupResponse) : { ok: false };
+    } catch {
+      return {
+        ok: false,
+        source: "firebase_functions",
+        error: {
+          code: "A2_NURSERY_BULK_SYNC_NON_JSON_RESPONSE",
+          message: `A2 연동 함수가 JSON이 아닌 응답을 반환했습니다. ${rawBody.slice(0, 160) || "응답 본문 없음"}`,
+        },
+      };
+    }
+
     const profiles = (data.profiles ?? []).map(normalizeProfile).filter(Boolean) as NurseryAutoSignupProfile[];
 
     if (!response.ok || !data.ok) {

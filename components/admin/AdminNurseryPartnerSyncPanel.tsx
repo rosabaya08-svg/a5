@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DataTable } from "@/components/ui/DataTable";
 import { tabletNurseryAccess } from "@/data/accessCredentials";
 import { mockApi } from "@/lib/mock/mockApi";
-import { buildLocalA2NurseryBulkSyncResult, requestA2NurseryBulkSignup } from "@/lib/firebase/nurseryBulkSyncClient";
+import { requestA2NurseryBulkSignup } from "@/lib/firebase/nurseryBulkSyncClient";
 import { saveCmsRecord, subscribeCmsRecords } from "@/lib/firebase/contentRepository";
 import {
   buildNurseryAutoSignupCmsRecord,
@@ -119,19 +119,17 @@ export function AdminNurseryPartnerSyncPanel() {
     setMessage("A2/signage-partner 가입자 자료를 A5 조리원 계정으로 연동하는 중입니다.");
 
     const remote = await requestA2NurseryBulkSignup();
-    const result = remote.ok ? remote : buildLocalA2NurseryBulkSyncResult(`일괄 연동 함수 호출 실패: ${remote.error.message}.`);
-
-    await persistProfiles(result.profiles);
-    setSyncing(false);
-    setMessage(
-      result.source === "firebase_functions"
-        ? `연동 완료: A2 자료 ${result.importedCount}건 반영, ${result.skippedCount}건 건너뜀.`
-        : result.message,
-    );
 
     if (!remote.ok) {
-      setErrorMessage("Functions 배포 전이거나 호출 권한이 없어서 현재 A5에 포함된 A2 매핑 자료만 우선 반영했습니다.");
+      setSyncing(false);
+      setMessage("A2/signage-partner 가입자 연동에 실패했습니다. 권한과 Functions 배포 상태를 확인해 주세요.");
+      setErrorMessage(`${remote.error.code}: ${remote.error.message}`);
+      return;
     }
+
+    await persistProfiles(remote.profiles);
+    setSyncing(false);
+    setMessage(`연동 완료: A2 자료 ${remote.importedCount}건 반영, ${remote.skippedCount}건 건너뜀.`);
   }
 
   async function setAccountStatus(profile: NurseryAutoSignupProfile, status: NurseryAutoSignupProfile["status"]) {

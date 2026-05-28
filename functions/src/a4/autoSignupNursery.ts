@@ -19,12 +19,36 @@ const businessNoFields = [
   process.env.A4_NURSERY_BUSINESS_FIELD,
   "business_registration_no",
   "businessRegistrationNo",
+  "business_registration_number",
+  "businessRegistrationNumber",
+  "business_number",
+  "businessNumber",
   "business_no",
   "businessNo",
   "biz_no",
   "bizNo",
+  "biz_num",
+  "bizNum",
+  "biznum",
+  "business_license_no",
+  "businessLicenseNo",
+  "business_license_number",
+  "businessLicenseNumber",
+  "license_no",
+  "licenseNo",
+  "license_number",
+  "licenseNumber",
+  "brn",
+  "registration_no",
+  "registrationNo",
   "company_registration_no",
+  "companyRegistrationNo",
+  "company_registration_number",
+  "companyRegistrationNumber",
   "registration_number",
+  "사업자등록번호",
+  "사업자번호",
+  "사업자등록증번호",
 ];
 
 const nurseryNameFields = [
@@ -36,16 +60,49 @@ const nurseryNameFields = [
   "branchName",
   "company_name",
   "companyName",
+  "business_name",
+  "businessName",
+  "store_name",
+  "storeName",
+  "hospital_name",
+  "hospitalName",
+  "partner_name",
+  "partnerName",
+  "facility_name",
+  "facilityName",
+  "기관명",
+  "상호",
+  "업체명",
+  "조리원명",
   "name",
   "title",
 ];
 
-const representativeFields = ["representative_name", "representativeName", "owner_name", "ownerName", "ceo_name", "ceoName"];
-const managerFields = ["manager_name", "managerName", "contact_name", "contactName", "admin_name", "adminName"];
-const phoneFields = ["manager_phone", "managerPhone", "phone", "tel", "contact_phone", "contactPhone"];
-const emailFields = ["manager_email", "managerEmail", "email", "contact_email", "contactEmail"];
-const addressFields = ["business_address", "businessAddress", "registered_address", "registeredAddress", "address"];
-const roomCountFields = ["room_count", "roomCount", "rooms_count", "roomsCount"];
+const representativeFields = [
+  "representative_name",
+  "representativeName",
+  "owner_name",
+  "ownerName",
+  "ceo_name",
+  "ceoName",
+  "대표자명",
+  "대표자",
+];
+const managerFields = ["manager_name", "managerName", "contact_name", "contactName", "admin_name", "adminName", "담당자명", "담당자"];
+const phoneFields = ["manager_phone", "managerPhone", "phone", "tel", "contact_phone", "contactPhone", "mobile", "담당자연락처", "연락처", "전화번호"];
+const emailFields = ["manager_email", "managerEmail", "email", "contact_email", "contactEmail", "담당자이메일", "이메일"];
+const addressFields = [
+  "business_address",
+  "businessAddress",
+  "registered_address",
+  "registeredAddress",
+  "road_address",
+  "roadAddress",
+  "address",
+  "주소",
+  "사업장주소",
+];
+const roomCountFields = ["room_count", "roomCount", "rooms_count", "roomsCount", "room_total", "roomTotal", "객실수"];
 const externalNurseryIdFields = [
   "external_nursery_id",
   "externalNurseryId",
@@ -64,6 +121,36 @@ function optionalString(value: unknown): string | undefined {
   return text ? text : undefined;
 }
 
+function normalizeKey(value: string) {
+  return value.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
+}
+
+function deepFieldString(value: unknown, names: Array<string | undefined>, path: string[] = [], depth = 0): string {
+  if (depth > 5 || typeof value !== "object" || value === null) return "";
+
+  const aliases = unique(names).map(normalizeKey);
+  const entries = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item] as const)
+    : Object.entries(value as Record<string, unknown>);
+
+  for (const [key, child] of entries) {
+    const normalizedKey = normalizeKey(key);
+    const normalizedPath = normalizeKey([...path, key].join("."));
+
+    if (aliases.includes(normalizedKey) || aliases.includes(normalizedPath)) {
+      const text = optionalString(child);
+      if (text) return text;
+    }
+  }
+
+  for (const [key, child] of entries) {
+    const text = deepFieldString(child, names, [...path, key], depth + 1);
+    if (text) return text;
+  }
+
+  return "";
+}
+
 function fieldString(data: Record<string, unknown>, ...names: Array<string | undefined>) {
   for (const name of names) {
     if (!name) continue;
@@ -71,7 +158,7 @@ function fieldString(data: Record<string, unknown>, ...names: Array<string | und
     if (value) return value;
   }
 
-  return "";
+  return deepFieldString(data, names);
 }
 
 function unique(items: Array<string | undefined>) {
@@ -128,7 +215,51 @@ function sourceNurseryCollections() {
     "signage_partners",
     "partners",
     "companies",
+    "users",
+    "members",
+    "clients",
+    "branches",
+    "profiles",
+    "businesses",
   ]);
+}
+
+function isNurseryProfileCollection(collectionPath: string) {
+  const name = collectionPath.toLowerCase();
+  const blocked = [
+    "customers",
+    "orders",
+    "rooms",
+    "devices",
+    "tasks",
+    "notices",
+    "ad_assets",
+    "app_release_files",
+    "app_release_history",
+    "app_releases",
+    "global_campaigns",
+    "branch_link_codes",
+  ];
+
+  if (blocked.includes(name) || name.includes("audit") || name.includes("release")) return false;
+
+  return ["nursery", "partner", "business", "company", "user", "member", "client", "branch", "profile"].some((keyword) =>
+    name.includes(keyword),
+  );
+}
+
+async function discoverSourceNurseryCollections(sourceDb: Firestore) {
+  const configured = sourceNurseryCollections();
+  const maxCollections = Math.min(Math.max(Number(process.env.A4_SOURCE_COLLECTION_DISCOVERY_LIMIT ?? 60) || 60, 1), 120);
+
+  try {
+    const discovered = await sourceDb.listCollections();
+    return unique([...configured, ...discovered.map((collection) => collection.id)])
+      .filter(isNurseryProfileCollection)
+      .slice(0, maxCollections);
+  } catch {
+    return configured.filter(isNurseryProfileCollection);
+  }
 }
 
 async function queryFirstByBusinessNo(sourceDb: Firestore, collectionPath: string, businessRegistrationNo: string) {
@@ -161,7 +292,7 @@ async function scanFirstByBusinessNo(sourceDb: Firestore, collectionPath: string
 }
 
 async function findSourceNurseryByBusinessNo(sourceDb: Firestore, businessRegistrationNo: string) {
-  for (const collectionPath of sourceNurseryCollections()) {
+  for (const collectionPath of await discoverSourceNurseryCollections(sourceDb)) {
     const queried = await queryFirstByBusinessNo(sourceDb, collectionPath, businessRegistrationNo);
     if (queried) return { ...queried, sourceNurseryPath: queried.doc.ref.path };
 

@@ -9,6 +9,7 @@ import { companySignupReviewHandler } from "./company/signupReview";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
 import { ordersCreateHandler } from "./orders/createOrderSnapshot";
+import { tabletNurseryLoginHandler } from "./nursery/tabletNurseryLogin";
 import { paymentsCancelHandler } from "./payments/cancel";
 import { paymentsConfirmHandler } from "./payments/confirm";
 import { adminPgActivationHandler, adminPgConnectionTestHandler, adminPgCredentialSaveHandler } from "./payments/adminPg";
@@ -45,6 +46,7 @@ export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgCo
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
 export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
+export const tabletNurseryLogin = onRequest(paymentFunctionOptions, tabletNurseryLoginHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
 export const qrLookup = onRequest(paymentFunctionOptions, qrLookupHandler);
 export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);

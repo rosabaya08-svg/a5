@@ -274,7 +274,7 @@ export function TabletLoginPage() {
     }
 
     setSaving(true);
-    const profile = await readLinkedNurseryProfileByBusinessNo(businessNo);
+    const profile = await readLinkedNurseryProfileByBusinessNo(businessNo, password);
     setSaving(false);
 
     if (!profile) {

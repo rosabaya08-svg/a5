@@ -217,7 +217,7 @@ export function BetaAdminLogin({ role }: BetaAdminLoginProps) {
   }
 
   async function resolveNurseryProfile() {
-    return readLinkedNurseryProfileByBusinessNo(businessNo);
+    return readLinkedNurseryProfileByBusinessNo(businessNo, password);
   }
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {

@@ -5,6 +5,7 @@ import { cancelProviderPayment } from "./providerAdapter";
 import { getAdminDb } from "../firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { decryptCredential } from "./credentialCrypto";
+import { readInnopayRuntimeSettings } from "./innopayRuntime";
 import {
   normalizeCartItems,
   readObjectBody,
@@ -35,6 +36,7 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
 
   const pgReadiness = getPgServerReadiness();
   const db = getAdminDb();
+  const innopayRuntime = await readInnopayRuntimeSettings(db);
   const paymentSnapshot = (
     await db.collection("payments").where("order_no", "==", orderNo).limit(1).get()
   ).docs[0];
@@ -49,7 +51,8 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   const cancelPwd = decryptCredential(credentialSnapshot?.data()?.encrypted_merchant_password);
   const merchantId = String(paymentData.merchant_id ?? orderData.merchant_id ?? credentialSnapshot?.data()?.mid ?? credentialSnapshot?.data()?.merchant_id ?? "");
   const cancelItems = normalizeCartItems(body.items);
-  const providerResult = (pgReadiness.readyForAdapter || secretKey || cancelPwd)
+  const canCallProviderCancel = innopayRuntime.realCallsEnabled && Boolean(pgReadiness.readyForAdapter || secretKey || cancelPwd);
+  const providerResult = canCallProviderCancel
     ? await cancelProviderPayment({
         orderNo,
         paymentKey,
@@ -155,8 +158,13 @@ export async function paymentsCancelHandler(request: HttpRequestLike, response: 
   sendJson(response, 200, {
     ok: Boolean(providerResult?.ok),
     provider: pgReadiness.provider,
-    pgReady: Boolean(pgReadiness.readyForAdapter || secretKey),
+    pgReady: canCallProviderCancel,
     pgReadiness,
+    innopayRuntime: {
+      smsEnabled: innopayRuntime.smsEnabled,
+      vbankEnabled: innopayRuntime.vbankEnabled,
+      realCallsEnabled: innopayRuntime.realCallsEnabled,
+    },
     status: providerResult?.ok ? "cancelled" : "manual_review_required",
     orderNo,
     pgCancelCalled: Boolean(providerResult?.ok && providerResult.realPgCalled),

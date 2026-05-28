@@ -45,6 +45,23 @@ export async function paymentsSyncInnopaySmsHandler(request: HttpRequestLike, re
 
   const db = getAdminDb();
   const runtime = await readInnopayRuntimeSettings(db);
+
+  if (!runtime.smsEnabled || !runtime.realCallsEnabled) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "INNOPAY_SMS_SYNC_DISABLED",
+        message: "InnoPay SMS transaction lookup is blocked until SMS API and real PG calls are enabled in admin PG settings.",
+        httpStatus: 409,
+        details: {
+          smsEnabled: runtime.smsEnabled,
+          realCallsEnabled: runtime.realCallsEnabled,
+        },
+      },
+    });
+    return;
+  }
+
   const paymentSnapshot = paymentIntentId
     ? await db.collection("payments").doc(paymentIntentId).get()
     : (await db.collection("payments").where("order_no", "==", orderNoInput).limit(1).get()).docs[0];

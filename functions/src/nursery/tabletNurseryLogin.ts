@@ -238,6 +238,10 @@ function baseCollections() {
     "nursery_partners",
     "signage_partners",
     "partners",
+    "companies",
+    "users",
+    "members",
+    "clients",
     "branches",
     "profiles",
     "businesses",
@@ -246,7 +250,9 @@ function baseCollections() {
 
 function isPossibleNurseryCollection(collectionId: string) {
   const name = collectionId.toLowerCase();
-  return ["nursery", "partner", "branch", "profile", "business"].some((keyword) => name.includes(keyword));
+  return ["nursery", "partner", "company", "user", "member", "client", "branch", "profile", "business"].some((keyword) =>
+    name.includes(keyword),
+  );
 }
 
 async function collectionCandidates(db: Firestore) {

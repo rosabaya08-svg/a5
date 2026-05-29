@@ -154,6 +154,7 @@ export async function uploadCmsFile(
   recordId: string,
   file: File,
   scope?: CmsUploadScope,
+  metadata?: Record<string, string>,
 ): Promise<{ url: string; path: string; assetType: string }> {
   await prepareCmsSession();
 
@@ -174,6 +175,7 @@ export async function uploadCmsFile(
       recordId,
       assetType,
       source: "a5-cms-beta",
+      ...metadata,
     },
   });
 

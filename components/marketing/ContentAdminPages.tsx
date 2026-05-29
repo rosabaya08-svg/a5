@@ -1,9 +1,9 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
 import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
+import { FirebaseCmsManager } from "@/components/firebase/FirebaseCmsManager";
 import type { NavSection } from "@/components/layout/AdminSidebar";
 import { DataTable } from "@/components/ui/DataTable";
-import { FilterBar } from "@/components/ui/FilterBar";
 import { mockApi } from "@/lib/mock/mockApi";
 
 export const legacyAdminMarketingNav: NavSection[] = adminNavItems;
@@ -57,27 +57,16 @@ function RequestCards({ items }: { items: Array<{ title: string; body: string; s
 
 export async function AdminBannerManagementPage() {
   return (
-    <AdminContentShell title="배너/광고 관리" subtitle="입점사가 제출한 배너 소재의 노출 위치와 승인 상태를 관리합니다.">
-      <FilterBar title="배너 필터" filters={["전체", "승인대기", "운영중", "반려"]} resultCount={2} mode="toolbar" />
-      <DataTable
-        columns={["소재", "노출 위치", "대상", "기간", "상태", "소유자"]}
-        rows={[
-          { id: "banner-1", cells: ["산후 케어 기획 배너", "태블릿 홈", "전체 조리원", "상시", "승인대기", "테스트 기업"] },
-          { id: "banner-2", cells: ["프리미엄 수유용품 배너", "상품 목록", "701호", "이번 달", "운영중", "테스트 기업"] },
-        ]}
-      />
+    <AdminContentShell title="배너/광고 관리" subtitle="폐쇄몰 배너 이미지를 등록하고 노출 위치와 승인 상태를 관리합니다.">
+      <FirebaseCmsManager mode="admin" defaultTab="banners" />
     </AdminContentShell>
   );
 }
 
 export async function AdminVideoManagementPage() {
   return (
-    <AdminContentShell title="영상/GIF 관리" subtitle="영상 소재의 승인 상태와 노출 위치를 관리합니다.">
-      <FilterBar title="영상 소재 필터" filters={["전체", "승인대기", "반려", "태블릿 홈"]} resultCount={1} mode="toolbar" />
-      <DataTable
-        columns={["소재", "노출 위치", "길이", "상태", "소유자"]}
-        rows={[{ id: "video-1", cells: ["산모 케어 안내 영상", "태블릿 홈", "15초", "승인대기", "테스트 기업"] }]}
-      />
+    <AdminContentShell title="영상/GIF 관리" subtitle="폐쇄몰 영상 소재를 등록하고 노출 기간과 승인 상태를 관리합니다.">
+      <FirebaseCmsManager mode="admin" defaultTab="videos" />
     </AdminContentShell>
   );
 }
@@ -98,14 +87,8 @@ export async function AdminBrandManagementPage() {
 
 export function AdminHomeEditorPage() {
   return (
-    <AdminContentShell title="홈 편집" subtitle="태블릿 폐쇄몰 홈 섹션과 노출 순서를 관리합니다.">
-      <RequestCards
-        items={[
-          { title: "메인 배너", body: "대표 기획전 배너와 연결 상품을 관리합니다.", status: "운영중" },
-          { title: "추천 상품", body: "조리원 객실에 노출할 추천 상품 묶음을 관리합니다.", status: "승인완료" },
-          { title: "브랜드관", body: "입점사 브랜드관 노출 순서를 관리합니다.", status: "검수중" },
-        ]}
-      />
+    <AdminContentShell title="홈 편집" subtitle="태블릿 폐쇄몰 홈 배너, 영상, 브랜드관, 노출 순서를 관리합니다.">
+      <FirebaseCmsManager mode="admin" defaultTab="banners" />
     </AdminContentShell>
   );
 }

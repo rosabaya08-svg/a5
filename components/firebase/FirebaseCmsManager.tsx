@@ -12,6 +12,11 @@ import {
   type CmsRecord,
   type CmsUploadScope,
 } from "@/lib/firebase/contentRepository";
+import {
+  optimizeUploadAsset,
+  type OptimizedUploadAsset,
+  type UploadAssetKind,
+} from "@/lib/media/optimizeUploadAsset";
 
 type CmsMode = "admin" | "company" | "nursery" | "tablet";
 type CmsTab = "banners" | "videos" | "brands" | "detail" | "theme" | "exposure";
@@ -43,42 +48,42 @@ const tabs: Array<{
     label: "배너",
     collection: "marketing_banners",
     prefix: "banner",
-    helper: "메인 히어로, 기획전, 팝업, 태블릿 배너를 Firebase에 등록/수정합니다.",
+    helper: "메인 히어로, 기획전, 팝업, 태블릿 배너를 등록하고 노출 위치를 관리합니다.",
   },
   {
     id: "videos",
     label: "영상/GIF",
     collection: "marketing_videos",
     prefix: "video",
-    helper: "광고 영상, GIF, 썸네일, 노출 기간과 승인 상태를 Firebase에 등록/수정합니다.",
+    helper: "광고 영상, GIF, 썸네일, 노출 기간과 승인 상태를 관리합니다.",
   },
   {
     id: "brands",
     label: "브랜드",
     collection: "brands",
     prefix: "brand",
-    helper: "브랜드 로고, 브랜드관 링크, 카테고리와 노출 상태를 Firebase에 등록/수정합니다.",
+    helper: "브랜드 로고, 브랜드관 링크, 카테고리와 노출 상태를 관리합니다.",
   },
   {
     id: "detail",
     label: "상세페이지",
     collection: "product_detail_pages",
     prefix: "detail",
-    helper: "입점사 상품 상세페이지 본문과 미디어를 Firebase에 등록/수정합니다.",
+    helper: "입점사 상품 상세페이지 본문과 미디어를 등록합니다.",
   },
   {
     id: "theme",
     label: "홈 디자인",
     collection: "home_sections",
     prefix: "theme",
-    helper: "산후조리원 핫딜 홈 섹션, 테마 모드, 노출 순서를 Firebase에 등록/수정합니다.",
+    helper: "산후조리원 핫딜 홈 섹션, 테마 모드, 노출 순서를 관리합니다.",
   },
   {
     id: "exposure",
     label: "노출대상",
     collection: "tablet_home_configs",
     prefix: "target",
-    helper: "조리원, 객실, 태블릿, QR 세션별 노출 정책을 Firebase에 등록/수정합니다.",
+    helper: "조리원, 객실, 태블릿, QR 세션별 노출 정책을 관리합니다.",
   },
 ];
 
@@ -183,10 +188,43 @@ function defaultTabForRoute(defaultTab: CmsTab): CmsTab {
 
   if (path.includes("/brands")) return "brands";
   if (path.includes("/videos")) return "videos";
-  if (path.includes("/home-editor")) return "theme";
+  if (path.includes("/home-editor")) return defaultTab;
   if (path.includes("/products")) return "detail";
 
   return defaultTab;
+}
+
+function mediaKindForTab(tab: CmsTab): UploadAssetKind {
+  if (tab === "videos") return "video";
+  if (tab === "banners" || tab === "brands" || tab === "theme") return "image";
+  return "auto";
+}
+
+function fileAcceptForTab(tab: CmsTab) {
+  if (tab === "videos") return "video/*,image/gif";
+  if (tab === "banners" || tab === "brands" || tab === "theme") return "image/*";
+  return "image/*,video/*";
+}
+
+function formatBytes(value: number) {
+  if (!value) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / 1024 ** index).toLocaleString("ko-KR", {
+    maximumFractionDigits: index === 0 ? 0 : 1,
+  })}${units[index]}`;
+}
+
+function formatDimensions(asset?: { width?: number; height?: number; duration?: number }) {
+  const dimensions = asset?.width && asset.height ? `${asset.width}x${asset.height}` : "";
+  const duration = asset?.duration ? `${Math.round(asset.duration)}초` : "";
+  return [dimensions, duration].filter(Boolean).join(" / ");
+}
+
+function metadataString(value: unknown) {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
 }
 
 export function FirebaseCmsManager({
@@ -202,6 +240,9 @@ export function FirebaseCmsManager({
   const [activeTab, setActiveTab] = useState<CmsTab>(() => defaultTabForRoute(defaultTab));
   const [form, setForm] = useState<FormState>(emptyForm);
   const [file, setFile] = useState<File | null>(null);
+  const [optimizedAsset, setOptimizedAsset] = useState<OptimizedUploadAsset | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [records, setRecords] = useState<Record<CmsCollectionName, CmsRecord[]>>({
     marketing_banners: [],
     marketing_videos: [],
@@ -217,6 +258,8 @@ export function FirebaseCmsManager({
   const [saving, setSaving] = useState(false);
 
   const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const uploadFile = optimizedAsset?.file ?? file;
+  const uploadTooLarge = Boolean(uploadFile && uploadFile.size >= 25 * 1024 * 1024);
 
   useEffect(() => {
     if (!runtime.configured) {
@@ -236,8 +279,50 @@ export function FirebaseCmsManager({
     };
   }, [runtime.configured]);
 
+  useEffect(() => {
+    return () => {
+      if (optimizedAsset?.previewUrl) {
+        URL.revokeObjectURL(optimizedAsset.previewUrl);
+      }
+    };
+  }, [optimizedAsset?.previewUrl]);
+
   function updateForm(key: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function clearSelectedAsset() {
+    setFile(null);
+    setOptimizedAsset(null);
+    setFileInputKey((current) => current + 1);
+  }
+
+  function switchTab(tab: CmsTab) {
+    setActiveTab(tab);
+    clearSelectedAsset();
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0] ?? null;
+    setMessage("");
+    setFile(selectedFile);
+    setOptimizedAsset(null);
+
+    if (!selectedFile) {
+      return;
+    }
+
+    setOptimizing(true);
+    try {
+      const optimized = await optimizeUploadAsset(selectedFile, mediaKindForTab(activeTab));
+      setFile(optimized.file);
+      setOptimizedAsset(optimized);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "파일 최적화에 실패했습니다.");
+      setFile(selectedFile);
+    } finally {
+      setOptimizing(false);
+    }
   }
 
   function editRecord(record: CmsRecord) {
@@ -256,6 +341,7 @@ export function FirebaseCmsManager({
       themeMode: valueOf(record, "mode") || emptyForm.themeMode,
     });
     setActiveTab(activeTab);
+    clearSelectedAsset();
     setMessage(`${record.id} 수정 모드입니다.`);
   }
 
@@ -263,7 +349,7 @@ export function FirebaseCmsManager({
     event.preventDefault();
 
     if (!runtime.configured) {
-      setMessage(`Firebase 환경변수 누락: ${runtime.missing.join(", ")}`);
+      setMessage(`저장소 연결값 누락: ${runtime.missing.join(", ")}`);
       return;
     }
 
@@ -294,24 +380,47 @@ export function FirebaseCmsManager({
 
       await saveCmsRecord(active.collection, payload);
 
-      if (file) {
+      if (uploadFile) {
         const uploadScope = scopeForMode(mode, form.productId || id);
-        const uploaded = await uploadCmsFile(active.collection, id, file, uploadScope);
+        const uploaded = await uploadCmsFile(active.collection, id, uploadFile, uploadScope, {
+          originalName: optimizedAsset?.original.name ?? uploadFile.name,
+          originalSize: String(optimizedAsset?.original.size ?? uploadFile.size),
+          optimizedName: optimizedAsset?.optimized.name ?? uploadFile.name,
+          optimizedSize: String(optimizedAsset?.optimized.size ?? uploadFile.size),
+          optimizedWidth: String(optimizedAsset?.optimized.width ?? ""),
+          optimizedHeight: String(optimizedAsset?.optimized.height ?? ""),
+        });
         await saveCmsRecord(active.collection, {
           id,
           ...firestoreScopeForMode(mode),
           asset_url: uploaded.url,
           asset_path: uploaded.path,
           asset_type: uploaded.assetType,
+          asset_original_name: optimizedAsset?.original.name ?? uploadFile.name,
+          asset_original_size: optimizedAsset?.original.size ?? uploadFile.size,
+          asset_optimized_name: optimizedAsset?.optimized.name ?? uploadFile.name,
+          asset_optimized_size: optimizedAsset?.optimized.size ?? uploadFile.size,
+          asset_width: optimizedAsset?.optimized.width,
+          asset_height: optimizedAsset?.optimized.height,
+          asset_duration: optimizedAsset?.optimized.duration,
+          asset_reduction_ratio: optimizedAsset?.reductionRatio ?? 0,
+          asset_optimization_notes: optimizedAsset?.notes ?? [],
           source_app: mode,
         });
         await saveCmsRecord("media_assets", {
           id: `asset-${id}`,
           ...firestoreScopeForMode(mode),
-          title: file.name,
+          title: uploadFile.name,
           asset_type: uploaded.assetType,
           asset_url: uploaded.url,
           asset_path: uploaded.path,
+          original_name: optimizedAsset?.original.name ?? uploadFile.name,
+          original_size: optimizedAsset?.original.size ?? uploadFile.size,
+          optimized_size: optimizedAsset?.optimized.size ?? uploadFile.size,
+          width: optimizedAsset?.optimized.width,
+          height: optimizedAsset?.optimized.height,
+          duration: optimizedAsset?.optimized.duration,
+          reduction_ratio: optimizedAsset?.reductionRatio ?? 0,
           source_collection: active.collection,
           source_record_id: id,
           owner_type: mode,
@@ -321,10 +430,10 @@ export function FirebaseCmsManager({
       }
 
       setForm(emptyForm);
-      setFile(null);
-      setMessage(`${active.collection}에 ${id} 저장 완료.`);
+      clearSelectedAsset();
+      setMessage(`${active.label} 콘텐츠 ${id} 저장 완료.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Firebase 저장 실패.");
+      setMessage(error instanceof Error ? error.message : "저장 실패.");
     } finally {
       setSaving(false);
     }
@@ -347,11 +456,10 @@ export function FirebaseCmsManager({
     <section className="my-5 rounded-md border border-slate-200 bg-white p-4 text-slate-950 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase text-slate-500">파이어베이스 실시간 CMS</p>
-          <h2 className="mt-1 text-2xl font-black">with.commerce 디자인/콘텐츠 등록</h2>
+          <p className="text-xs font-black uppercase text-slate-500">콘텐츠 업로드 센터</p>
+          <h2 className="mt-1 text-2xl font-black">폐쇄몰 배너/영상 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-            배너, 브랜드 로고, 영상/GIF, 상세페이지, 홈 섹션을 Firestore와 Firebase Storage에 바로 등록/수정합니다.
-            PG, 주문, 정산, 외부 API는 서버 승인 로직 완료 전까지 차단됩니다.
+            이미지와 영상을 태블릿 폐쇄몰 노출 규격에 맞춰 자동 경량화하고, 저장 전후 미리보기까지 확인합니다.
           </p>
         </div>
         <ThemeModeToggle />
@@ -359,22 +467,22 @@ export function FirebaseCmsManager({
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">프로젝트</p>
-          <p className="mt-1 font-black">{runtime.projectId}</p>
+          <p className="text-xs font-bold uppercase text-slate-500">현재 탭</p>
+          <p className="mt-1 font-black">{active.label}</p>
         </div>
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">스토리지</p>
-          <p className="mt-1 break-all text-sm font-bold">{runtime.storageBucket}</p>
+          <p className="text-xs font-bold uppercase text-slate-500">등록 항목</p>
+          <p className="mt-1 font-black">{records[active.collection].length}건</p>
         </div>
         <div className={`rounded-md p-3 ${runtime.configured ? "bg-emerald-50" : "bg-amber-50"}`}>
-          <p className="text-xs font-bold uppercase text-slate-500">연결</p>
-          <p className="mt-1 font-black">{runtime.configured ? "등록 가능" : "환경변수 필요"}</p>
+          <p className="text-xs font-bold uppercase text-slate-500">업로드</p>
+          <p className="mt-1 font-black">{runtime.configured ? "등록 가능" : "저장소 설정 필요"}</p>
         </div>
       </div>
 
       {!runtime.configured ? (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-          `.env.local`에 Firebase Web App 값을 넣어야 등록/수정이 활성화됩니다: {runtime.missing.join(", ")}
+          저장소 연결값이 없어 등록/수정이 비활성화되어 있습니다: {runtime.missing.join(", ")}
         </div>
       ) : null}
 
@@ -383,7 +491,7 @@ export function FirebaseCmsManager({
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => switchTab(tab.id)}
             className={`shrink-0 rounded-md px-3 py-2 text-sm font-black ${
               activeTab === tab.id ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700"
             }`}
@@ -514,24 +622,64 @@ export function FirebaseCmsManager({
             <label className="grid gap-1 text-sm font-bold">
               이미지 / 영상 파일
               <input
+                key={fileInputKey}
                 type="file"
-                accept="image/*,video/*"
-                onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
+                accept={fileAcceptForTab(activeTab)}
+                onChange={handleFileChange}
                 className="rounded-md border border-slate-200 bg-white px-3 py-2"
               />
             </label>
+            {optimizing ? (
+              <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm font-black text-blue-900">
+                파일을 업로드 규격에 맞게 최적화하는 중입니다.
+              </div>
+            ) : null}
+            {optimizedAsset ? (
+              <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase text-slate-500">업로드 전 미리보기</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{optimizedAsset.optimized.name}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {formatBytes(optimizedAsset.original.size)} → {formatBytes(optimizedAsset.optimized.size)}
+                      {optimizedAsset.reductionRatio > 0 ? ` / ${optimizedAsset.reductionRatio}% 경량화` : ""}
+                    </p>
+                  </div>
+                  <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-800">
+                    {formatDimensions(optimizedAsset.optimized) || "규격 확인"}
+                  </span>
+                </div>
+                {optimizedAsset.optimized.type.startsWith("video/") ? (
+                  <video src={optimizedAsset.previewUrl} className="aspect-video w-full rounded-md bg-slate-950" controls muted playsInline />
+                ) : (
+                  <img src={optimizedAsset.previewUrl} alt="" className="aspect-video w-full rounded-md object-cover" />
+                )}
+                {optimizedAsset.notes.length ? (
+                  <div className="grid gap-1 text-xs font-semibold text-slate-600">
+                    {optimizedAsset.notes.map((note) => (
+                      <p key={note}>{note}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {uploadTooLarge ? (
+                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-black text-rose-800">
+                    업로드 가능 용량을 초과했습니다. 더 짧은 영상 또는 더 낮은 해상도 파일을 선택하세요.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <button
-                disabled={saving || !runtime.configured}
+                disabled={saving || optimizing || uploadTooLarge || !runtime.configured}
                 className="rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {saving ? "저장 중..." : form.id ? "파이어베이스 수정" : "파이어베이스 등록"}
+                {saving ? "저장 중..." : form.id ? "수정 저장" : "등록 저장"}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setForm(emptyForm);
-                  setFile(null);
+                  clearSelectedAsset();
                 }}
                 className="rounded-md bg-white px-4 py-2 text-sm font-black text-slate-700 ring-1 ring-slate-200"
               >
@@ -544,7 +692,7 @@ export function FirebaseCmsManager({
         <div className="rounded-md border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">파이어베이스 등록 목록</p>
+              <p className="text-xs font-black uppercase text-slate-500">등록 목록</p>
               <h3 className="text-lg font-black">{cmsCollectionLabels[active.collection]}</h3>
             </div>
             <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
@@ -555,7 +703,7 @@ export function FirebaseCmsManager({
           <div className="mt-3 grid gap-3">
             {records[active.collection].length === 0 ? (
               <div className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">
-                아직 등록된 Firebase 문서가 없습니다. 위 폼에서 등록하면 이 영역에 바로 표시됩니다.
+                아직 등록된 콘텐츠가 없습니다. 위 폼에서 등록하면 이 영역에 바로 표시됩니다.
               </div>
             ) : (
               records[active.collection].map((record) => (
@@ -579,6 +727,14 @@ export function FirebaseCmsManager({
                     ) : (
                       <img src={record.asset_url} alt="" className="mt-3 aspect-video w-full rounded-md object-cover" />
                     )
+                  ) : null}
+                  {record.asset_optimized_size || record.asset_width || record.asset_height ? (
+                    <p className="mt-2 text-xs font-semibold text-slate-500">
+                      {metadataString(record.asset_optimized_size) ? `용량 ${formatBytes(Number(record.asset_optimized_size))}` : ""}
+                      {metadataString(record.asset_width) && metadataString(record.asset_height)
+                        ? ` / ${metadataString(record.asset_width)}x${metadataString(record.asset_height)}`
+                        : ""}
+                    </p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button

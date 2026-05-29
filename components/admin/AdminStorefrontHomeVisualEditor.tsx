@@ -146,6 +146,7 @@ export function AdminStorefrontHomeVisualEditor() {
   const [brandCount, setBrandCount] = useState(Math.min(8, mallBrands.length));
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
 
   const selectedSlot = useMemo(
@@ -275,6 +276,77 @@ export function AdminStorefrontHomeVisualEditor() {
     });
   }
 
+  async function saveSlotRecord(slot: EditableSlot, slotDraft: SlotDraft, assetPatch: Partial<CmsRecord> = {}) {
+    const currentRecord = activeRecordForSlot(homeSections, slot);
+
+    await saveCmsRecord("home_sections", {
+      id: slot.recordId,
+      section_type: slot.kind === "hero" ? "hero_banner" : "promo_banner",
+      slot_id: slot.id,
+      source_banner_id: slot.fallback.id,
+      placement: slot.placement,
+      title: slotDraft.title,
+      eyebrow: slotDraft.eyebrow,
+      subtitle: slotDraft.subtitle,
+      href: slotDraft.href,
+      click_target: slotDraft.href,
+      display_order: slot.displayOrder,
+      asset_url: recordText(currentRecord, "asset_url", slot.fallback.imageUrl),
+      asset_type: recordText(currentRecord, "asset_type", "image"),
+      status: slotDraft.status,
+      approval_status: slotDraft.status,
+      source_app: "admin",
+      ...assetPatch,
+    });
+  }
+
+  async function saveMediaAsset(slot: EditableSlot, title: string, assetUrl: string, assetPatch: Partial<CmsRecord> = {}) {
+    if (!assetUrl) return;
+
+    await saveCmsRecord("media_assets", {
+      id: `asset-${slot.recordId}`,
+      title,
+      source_collection: "home_sections",
+      source_record_id: slot.recordId,
+      asset_type: "image",
+      asset_url: assetUrl,
+      owner_type: "admin",
+      status: "uploaded",
+      source_app: "admin",
+      ...assetPatch,
+    });
+  }
+
+  async function registerVisibleBanners() {
+    if (!runtime.configured) {
+      setMessage("Firebase 설정값이 없어 저장할 수 없습니다.");
+      return;
+    }
+
+    setBulkSaving(true);
+    setMessage("");
+
+    try {
+      for (const { slot, banner } of renderedBanners) {
+        const slotDraft = draftBySlot[slot.id] ?? draftFromBanner(banner, recordText(activeRecordForSlot(homeSections, slot), "status", "live"));
+        await saveSlotRecord(slot, slotDraft, {
+          asset_url: banner.imageUrl,
+          asset_type: "image",
+        });
+        await saveMediaAsset(slot, slotDraft.title, banner.imageUrl, {
+          external_url: banner.imageUrl,
+        });
+      }
+
+      await saveBrandCount();
+      setMessage("현재 좌측 미리보기의 배너 슬롯을 실제 홈 배너로 등록했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "배너 일괄 등록에 실패했습니다.");
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
   async function applySelectedSlot() {
     if (!runtime.configured) {
       setMessage("Firebase 설정값이 없어 저장할 수 없습니다.");
@@ -285,32 +357,14 @@ export function AdminStorefrontHomeVisualEditor() {
     setMessage("");
 
     try {
-      const payload: CmsRecord = {
-        id: selectedSlot.recordId,
-        section_type: selectedSlot.kind === "hero" ? "hero_banner" : "promo_banner",
-        slot_id: selectedSlot.id,
-        source_banner_id: selectedSlot.fallback.id,
-        placement: selectedSlot.placement,
-        title: draft.title,
-        eyebrow: draft.eyebrow,
-        subtitle: draft.subtitle,
-        href: draft.href,
-        click_target: draft.href,
-        display_order: selectedSlot.displayOrder,
-        status: draft.status,
-        approval_status: draft.status,
-        source_app: "admin",
-      };
-
-      await saveCmsRecord("home_sections", payload);
+      let uploadedPatch: Partial<CmsRecord> = {};
 
       if (uploadedFile) {
         const uploaded = await uploadCmsFile("home_sections", selectedSlot.recordId, uploadedFile, {
           productId: selectedSlot.recordId,
         });
 
-        await saveCmsRecord("home_sections", {
-          id: selectedSlot.recordId,
+        uploadedPatch = {
           asset_url: uploaded.url,
           asset_path: uploaded.path,
           asset_type: uploaded.assetType,
@@ -321,18 +375,10 @@ export function AdminStorefrontHomeVisualEditor() {
           asset_width: optimizedAsset?.optimized.width,
           asset_height: optimizedAsset?.optimized.height,
           asset_reduction_ratio: optimizedAsset?.reductionRatio ?? 0,
-          status: draft.status,
-          approval_status: draft.status,
-          source_app: "admin",
-        });
+        };
 
-        await saveCmsRecord("media_assets", {
-          id: `asset-${selectedSlot.recordId}`,
-          title: uploadedFile.name,
-          source_collection: "home_sections",
-          source_record_id: selectedSlot.recordId,
+        await saveMediaAsset(selectedSlot, uploadedFile.name, uploaded.url, {
           asset_type: uploaded.assetType,
-          asset_url: uploaded.url,
           asset_path: uploaded.path,
           original_name: optimizedAsset?.original.name ?? uploadedFile.name,
           original_size: optimizedAsset?.original.size ?? uploadedFile.size,
@@ -340,14 +386,14 @@ export function AdminStorefrontHomeVisualEditor() {
           width: optimizedAsset?.optimized.width,
           height: optimizedAsset?.optimized.height,
           reduction_ratio: optimizedAsset?.reductionRatio ?? 0,
-          owner_type: "admin",
-          status: "uploaded",
-          source_app: "admin",
         });
       }
 
+      const persistedImageUrl = recordText(selectedRecord, "asset_url", selectedSlot.fallback.imageUrl);
+      await saveSlotRecord(selectedSlot, draft, uploadedPatch);
+      await saveMediaAsset(selectedSlot, draft.title, recordText(uploadedPatch as CmsRecord, "asset_url", persistedImageUrl), uploadedPatch);
       await saveBrandCount();
-      setMessage(`${selectedSlot.label} 설정을 적용했습니다. 태블릿 홈에 실시간 반영됩니다.`);
+      setMessage(`${selectedSlot.label} 배너를 실제 홈 배너로 등록하고 적용했습니다.`);
       clearSelectedUpload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "배너 적용에 실패했습니다.");
@@ -364,66 +410,104 @@ export function AdminStorefrontHomeVisualEditor() {
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">tablet home preview</p>
             <h2 className="mt-1 text-lg font-black text-slate-950">미리보기에서 영역을 선택하세요</h2>
           </div>
-          <span className="rounded-md bg-slate-950 px-3 py-1.5 text-xs font-black text-white">클릭 편집</span>
+          <button
+            type="button"
+            onClick={registerVisibleBanners}
+            disabled={bulkSaving || !runtime.configured}
+            className="rounded-md bg-slate-950 px-3 py-1.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {bulkSaving ? "등록 중" : "현재 미리보기 전체 등록"}
+          </button>
         </div>
 
         <div className="max-h-[calc(100vh-250px)] overflow-auto bg-white p-5">
-          <div className="mx-auto max-w-5xl rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm">
-            <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
-                <div>
-                  <p className="text-sm font-black tracking-[0.18em]">HANSANYEON</p>
-                  <p className="text-xs font-black text-rose-600">전용 멤버십 산후조리원 혜택</p>
-                </div>
+          <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)]">
+            <aside className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">배너 선택</p>
+              <div className="mt-3 grid gap-2">
+                {renderedBanners.map(({ slot }) => {
+                  const isSelected = selectedSlotId === slot.id;
+                  const registered = Boolean(activeRecordForSlot(homeSections, slot));
+
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => selectSlot(slot.id)}
+                      className={`rounded-md px-3 py-2 text-left text-sm font-black ${
+                        isSelected ? "bg-slate-950 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"
+                      }`}
+                    >
+                      <span className="block">{slot.label}</span>
+                      <span className={`mt-1 block text-[11px] ${isSelected ? "text-blue-100" : registered ? "text-emerald-700" : "text-slate-400"}`}>
+                        {registered ? "등록됨" : "미등록"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-sm font-black">산후조리원 / 새봄관</p>
-            </header>
+              <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+                좌측 목록 또는 우측 미리보기 배너를 클릭하면 오른쪽 옵션 패널이 해당 배너로 바뀝니다.
+              </p>
+            </aside>
 
-            <div className="grid gap-7 p-5">
-              <button
-                type="button"
-                onClick={() => selectSlot(hero.slot.id)}
-                className="block text-left"
-                aria-label={`${hero.slot.label} 선택`}
-              >
-                <div className="aspect-[16/6]">
-                  <AdminSlotImage banner={hero.banner} selected={selectedSlotId === hero.slot.id} />
+            <div className="rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm">
+              <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
+                  <div>
+                    <p className="text-sm font-black tracking-[0.18em]">HANSANYEON</p>
+                    <p className="text-xs font-black text-rose-600">전용 멤버십 산후조리원 혜택</p>
+                  </div>
                 </div>
-              </button>
+                <p className="text-sm font-black">산후조리원 / 새봄관</p>
+              </header>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {promos.map(({ slot, banner }) => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => selectSlot(slot.id)}
-                    className="block text-left"
-                    aria-label={`${slot.label} 선택`}
-                  >
-                    <div className="aspect-[16/7]">
-                      <AdminSlotImage banner={banner} selected={selectedSlotId === slot.id} />
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <div className="grid gap-7 p-5">
+                <button
+                  type="button"
+                  onClick={() => selectSlot(hero.slot.id)}
+                  className="block text-left"
+                  aria-label={`${hero.slot.label} 선택`}
+                >
+                  <div className="aspect-[16/6]">
+                    <AdminSlotImage banner={hero.banner} selected={selectedSlotId === hero.slot.id} />
+                  </div>
+                </button>
 
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">공식 입점 브랜드</p>
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">{brandCount}개 노출</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  {officialBrands.map((brand) => (
-                    <div key={brand.id} className="rounded-md border border-slate-200 bg-white p-3 text-center shadow-sm">
-                      <div className="flex h-14 items-center justify-center">
-                        <img src={brand.logoUrl} alt={brand.name} className="max-h-10 max-w-full object-contain" />
+                <div className="grid gap-4 md:grid-cols-2">
+                  {promos.map(({ slot, banner }) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => selectSlot(slot.id)}
+                      className="block text-left"
+                      aria-label={`${slot.label} 선택`}
+                    >
+                      <div className="aspect-[16/7]">
+                        <AdminSlotImage banner={banner} selected={selectedSlotId === slot.id} />
                       </div>
-                      <p className="mt-2 text-xs font-bold text-slate-500">{brand.category}</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
-              </div>
+
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">공식 입점 브랜드</p>
+                    <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">{brandCount}개 노출</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {officialBrands.map((brand) => (
+                      <div key={brand.id} className="rounded-md border border-slate-200 bg-white p-3 text-center shadow-sm">
+                        <div className="flex h-14 items-center justify-center">
+                          <img src={brand.logoUrl} alt={brand.name} className="max-h-10 max-w-full object-contain" />
+                        </div>
+                        <p className="mt-2 text-xs font-bold text-slate-500">{brand.category}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            </div>
             </div>
           </div>
         </div>
@@ -480,6 +564,17 @@ export function AdminStorefrontHomeVisualEditor() {
               onChange={(event) => updateDraft("href", event.target.value)}
               className="rounded-md border border-slate-200 px-3 py-2"
             />
+          </label>
+          <label className="grid gap-1 text-sm font-black">
+            노출 상태
+            <select
+              value={draft.status}
+              onChange={(event) => updateDraft("status", event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2"
+            >
+              <option value="live">노출중</option>
+              <option value="paused">일시중지</option>
+            </select>
           </label>
           <label className="grid gap-1 text-sm font-black">
             배너 이미지 등록

@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     ".codex/**",
     "out/**",
     "build/**",
+    "_deploy_db_match/**",
     "functions/lib/**",
     "functions/node_modules/**",
     "next-env.d.ts",

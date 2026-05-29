@@ -47,21 +47,19 @@ function fallbackData(nurseryId: string): NurseryRuntimeData {
   };
 }
 
+function readNurseryRuntimeScope(): NurseryRuntimeScope {
+  const session = readPortalSession("nursery");
+  if (!session?.nurseryId) return fallbackNurseryScope;
+
+  return {
+    nurseryId: session.nurseryId,
+    businessRegistrationNo: session.businessNo ?? fallbackNurseryScope.businessRegistrationNo,
+    displayName: session.displayName || fallbackNurseryScope.displayName,
+  };
+}
+
 function useNurseryRuntimeScope() {
-  const [scope, setScope] = useState<NurseryRuntimeScope>(fallbackNurseryScope);
-
-  useEffect(() => {
-    const session = readPortalSession("nursery");
-    if (!session?.nurseryId) return;
-
-    setScope({
-      nurseryId: session.nurseryId,
-      businessRegistrationNo: session.businessNo ?? fallbackNurseryScope.businessRegistrationNo,
-      displayName: session.displayName || fallbackNurseryScope.displayName,
-    });
-  }, []);
-
-  return scope;
+  return useMemo(() => readNurseryRuntimeScope(), []);
 }
 
 function useNurseryRuntimeData(nurseryId: string) {
@@ -69,7 +67,6 @@ function useNurseryRuntimeData(nurseryId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    setData(fallbackData(nurseryId));
 
     async function load() {
       const [rooms, tablets, orders, qrSessions] = await Promise.all([

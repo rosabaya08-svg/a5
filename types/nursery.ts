@@ -83,6 +83,10 @@ export type A4RoomSyncSuccessResponse = {
   sourceBusinessField?: string;
   sourceReadCount: number;
   importedCount: number;
+  importedTabletCount?: number;
+  cleanedMalformedCount?: number;
+  resetImportedRoomCount?: number;
+  resetImportedTabletCount?: number;
   skippedCount: number;
   nurseryId: string;
   externalNurseryId: string;

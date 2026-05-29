@@ -51,11 +51,6 @@ function normalizeRoomNumber(value: string) {
   return value.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
 }
 
-function inferFloor(roomNumber: string) {
-  const digits = roomNumber.replace(/[^0-9]/g, "");
-  return digits.length >= 3 ? `${digits.slice(0, -2)}F` : "";
-}
-
 function makeLocalRoomId(roomNumber: string) {
   return `room-local-${normalizeRoomNumber(roomNumber) || Date.now()}`;
 }
@@ -154,7 +149,7 @@ export function A4RoomImportPanel({
       nurseryId,
       roomNumber: room.roomNumber,
       name: room.name,
-      floor: room.floor,
+      floor: "",
       pickupEnabled: room.pickupEnabled,
       activeTabletId: room.activeTabletId,
       externalNurseryId: result.externalNurseryId,
@@ -199,7 +194,7 @@ export function A4RoomImportPanel({
         nurseryId,
         roomNumber: roomNumber || name,
         name,
-        floor: inferFloor(roomNumber || name),
+        floor: "",
         pickupEnabled: true,
         importSource: "A5_LOCAL",
         importedAt: now,
@@ -331,7 +326,7 @@ export function A4RoomImportPanel({
       </section>
 
       <DataTable
-        columns={["객실", "층", "현장수령", "출처", "객실명 변경"]}
+        columns={["객실", "현장수령", "출처", "객실명 변경"]}
         rows={localRooms.map((room) => ({
           id: room.id,
           cells: [
@@ -339,7 +334,6 @@ export function A4RoomImportPanel({
               <p className="font-black text-slate-950">{room.name}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">{room.id}</p>
             </div>,
-            room.floor || "-",
             room.pickupEnabled ? "가능" : "불가",
             room.importSource === "A4_READ_ONLY" ? (room.localOnly ? "A4 임시" : "A4 연동") : "A5 추가",
             <input

@@ -23,6 +23,7 @@ export type NurseryAutoSignupProfile = {
   roomCount: string;
   defaultPassword: string;
   externalNurseryId?: string;
+  sourceCategory?: string;
   source: NurseryAutoSignupSource;
   status: NurseryAutoSignupStatus;
   createdAt: string;
@@ -178,10 +179,19 @@ export function buildNurseryProfileFromCmsRecord(record: CmsRecord): NurseryAuto
     managerName: asString(record.manager_name ?? record.managerName),
     managerPhone: asString(record.manager_phone ?? record.managerPhone),
     managerEmail: asString(record.manager_email ?? record.managerEmail),
-    businessAddress: asString(record.business_address ?? record.businessAddress),
+    businessAddress: asString(
+      record.business_address ??
+        record.businessAddress ??
+        record.registered_address ??
+        record.registeredAddress ??
+        record.road_address ??
+        record.roadAddress ??
+        record.address,
+    ),
     roomCount: asString(record.room_count ?? record.roomCount),
     defaultPassword: NURSERY_DEFAULT_PASSWORD,
     externalNurseryId: asString(record.external_nursery_id ?? record.externalNurseryId ?? record.a4_external_nursery_id ?? record.a4ExternalNurseryId),
+    sourceCategory: asString(record.source_category ?? record.sourceCategory ?? record.matched_category_text ?? record.matchedCategoryText) || undefined,
     source: asSource(record.signup_source ?? record.signupSource),
     status: asStatus(record.account_status ?? record.accountStatus ?? record.status),
     createdAt: asDateString(record.created_at ?? record.createdAt, now),
@@ -267,6 +277,7 @@ export function buildNurseryAutoSignupCmsRecord(profile: NurseryAutoSignupProfil
     room_count: profile.roomCount,
     default_password_policy: NURSERY_DEFAULT_PASSWORD,
     external_nursery_id: profile.externalNurseryId,
+    source_category: profile.sourceCategory,
     source_project_id: profile.source === "signage_partner" ? "signage-partner" : "a5-manual",
     signup_source: profile.source,
     created_at: profile.createdAt,

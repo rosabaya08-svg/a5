@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { tabletNurseryAccess } from "@/data/accessCredentials";
-import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
-import { readLinkedNurseryProfileByBusinessNo } from "@/lib/firebase/nurseryAutoSignupClient";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  lookupLinkedNurseryProfileByBusinessNo,
+  type TabletNurseryRoomOption,
+} from "@/lib/firebase/nurseryAutoSignupClient";
 import { NURSERY_DEFAULT_PASSWORD, type NurseryAutoSignupProfile } from "@/lib/nursery/nurseryAutoSignup";
 
 const roomKey = "a5.tablet.room";
 const tabletNurseryAccessKey = "a5.tablet.nursery-access";
+const tabletRoomOptionsKey = "a5.tablet.live-room-options";
 const legacyTabletLoginKey = "a5.tablet.login";
 const roomEditUnlockKey = "a5.tablet.room-edit-unlocked";
 
@@ -62,15 +64,46 @@ function saveTabletNurseryAccess(session: TabletNurseryAccessSession) {
 }
 
 function normalizeRoomName(roomNumber: string) {
-  return roomNumber.endsWith("호") ? roomNumber : `${roomNumber}호`;
+  const text = String(roomNumber ?? "").trim();
+  if (!text) return "";
+  return text.endsWith("호") ? text : `${text}호`;
 }
 
-function getNurseryMapping(session: TabletNurseryAccessSession | null) {
-  return nurseryExternalMappings.find(
-    (item) =>
-      item.nurseryId === session?.nurseryId ||
-      item.businessRegistrationNo.replace(/[^0-9]/g, "") === String(session?.businessNo ?? "").replace(/[^0-9]/g, ""),
-  );
+type TabletRoomOptionsCache = {
+  nurseryId: string;
+  businessNo: string;
+  rooms: TabletNurseryRoomOption[];
+  updatedAt: string;
+};
+
+function sameBusinessNo(left: string, right: string) {
+  return left.replace(/[^0-9]/g, "") === right.replace(/[^0-9]/g, "");
+}
+
+function readTabletRoomOptions(session: TabletNurseryAccessSession | null): TabletNurseryRoomOption[] {
+  if (typeof window === "undefined" || !session) return [];
+
+  try {
+    const raw = window.localStorage.getItem(tabletRoomOptionsKey);
+    const cache = raw ? (JSON.parse(raw) as TabletRoomOptionsCache) : null;
+    if (!cache || cache.nurseryId !== session.nurseryId || !sameBusinessNo(cache.businessNo, session.businessNo)) return [];
+    return Array.isArray(cache.rooms) ? cache.rooms : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTabletRoomOptions(session: TabletNurseryAccessSession, rooms: TabletNurseryRoomOption[]) {
+  if (typeof window === "undefined") return;
+
+  const cache: TabletRoomOptionsCache = {
+    nurseryId: session.nurseryId,
+    businessNo: session.businessNo,
+    rooms,
+    updatedAt: new Date().toISOString(),
+  };
+
+  window.localStorage.setItem(tabletRoomOptionsKey, JSON.stringify(cache));
 }
 
 function readStoredRoomSession(): TabletRoomSession | null {
@@ -94,9 +127,17 @@ export function readTabletRoomSession(): TabletRoomSession | null {
   if (!nurserySession) return session;
 
   const sameNursery = session.nurseryId === nurserySession.nurseryId;
-  const sameBusiness = session.businessNo.replace(/[^0-9]/g, "") === nurserySession.businessNo?.replace(/[^0-9]/g, "");
+  const sameBusiness = sameBusinessNo(session.businessNo, nurserySession.businessNo ?? "");
 
-  if (sameNursery && sameBusiness) return session;
+  if (sameNursery && sameBusiness) {
+    const roomOptions = readTabletRoomOptions(nurserySession);
+    if (roomOptions.length === 0 || !roomOptions.some((room) => room.roomId === session.roomId)) {
+      window.localStorage.removeItem(roomKey);
+      return null;
+    }
+
+    return session;
+  }
 
   window.localStorage.removeItem(roomKey);
   return null;
@@ -182,7 +223,7 @@ export function TabletContextBadge() {
   function unlockRoomEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (editPassword !== tabletNurseryAccess.defaultPassword) {
+    if (editPassword !== NURSERY_DEFAULT_PASSWORD) {
       setEditMessage("조리원 비밀번호를 확인해 주세요.");
       return;
     }
@@ -274,11 +315,12 @@ export function TabletLoginPage() {
     }
 
     setSaving(true);
-    const profile = await readLinkedNurseryProfileByBusinessNo(businessNo, password);
+    const lookup = await lookupLinkedNurseryProfileByBusinessNo(businessNo, password);
+    const profile = lookup.profile;
     setSaving(false);
 
     if (!profile) {
-      setMessage("등록된 사업자번호를 찾지 못했습니다. A2에서 구글 로그인 후 프로필 입력을 완료하고 최고관리자 연동 자료가 생성된 뒤 다시 로그인해 주세요.");
+      setMessage("등록된 사업자번호를 찾지 못했습니다.");
       return;
     }
 
@@ -287,7 +329,15 @@ export function TabletLoginPage() {
       return;
     }
 
-    saveTabletNurseryAccess(buildTabletNurseryAccess(profile));
+    const accessSession = buildTabletNurseryAccess(profile);
+    saveTabletNurseryAccess(accessSession);
+    saveTabletRoomOptions(accessSession, lookup.rooms ?? []);
+    if (Array.isArray(lookup.rooms)) {
+      const currentRoomSession = readStoredRoomSession();
+      if (currentRoomSession && !lookup.rooms.some((room) => room.roomId === currentRoomSession.roomId)) {
+        window.localStorage.removeItem(roomKey);
+      }
+    }
     const roomSession = readTabletRoomSession();
     window.location.replace(roomSession ? "/tablet/products" : "/tablet/room-setup");
   }
@@ -295,11 +345,7 @@ export function TabletLoginPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-950 px-4 py-10 text-white">
       <section className="w-full max-w-sm rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-        <p className="text-xs font-black tracking-[0.16em] text-rose-600">HANSANYEON HOT DEAL</p>
-        <h1 className="mt-2 text-3xl font-black">폐쇄몰 태블릿 로그인</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          A2 프로필 입력 후 최고관리자에 연동된 산후조리원 사업자번호와 비밀번호 1004로 접속합니다.
-        </p>
+        <h1 className="text-3xl font-black">폐쇄몰 태블릿 로그인</h1>
         <form onSubmit={submitTabletLogin} className="mt-6 grid gap-4">
           <label className="grid gap-2 text-sm font-black">
             사업자등록번호
@@ -334,14 +380,58 @@ export function TabletLoginPage() {
 }
 
 export function TabletRoomSetupPage() {
-  const rooms = useMemo(() => nurseryRoomSelections, []);
   const [nurserySession, setNurserySession] = useState<TabletNurseryAccessSession | null>(null);
-  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.roomId ?? "");
+  const [rooms, setRooms] = useState<TabletNurseryRoomOption[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [roomSearch, setRoomSearch] = useState("");
+  const [isRoomListOpen, setIsRoomListOpen] = useState(false);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomMessage, setRoomMessage] = useState("");
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [requiresUnlock, setRequiresUnlock] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [editPassword, setEditPassword] = useState("");
   const [editMessage, setEditMessage] = useState("");
+
+  const visibleRooms = useMemo(() => {
+    const keyword = roomSearch.trim().toLowerCase();
+    if (!keyword) return rooms;
+
+    return rooms.filter((room) => {
+      const haystack = `${room.roomName} ${room.roomNumber} ${room.floor} ${room.activeTabletId}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [roomSearch, rooms]);
+  const selectedRoom = rooms.find((room) => room.roomId === selectedRoomId) ?? null;
+
+  const refreshRoomOptions = useCallback(async (session: TabletNurseryAccessSession, preferredRoomId = "") => {
+    setRoomsLoading(true);
+    setRoomMessage("");
+
+    const lookup = await lookupLinkedNurseryProfileByBusinessNo(session.businessNo, session.defaultPassword || NURSERY_DEFAULT_PASSWORD);
+    setRoomsLoading(false);
+
+    if (!lookup.profile) {
+      setRoomMessage(lookup.error?.message ?? "연동된 조리원 정보를 다시 확인하지 못했습니다.");
+      return;
+    }
+
+    const nextSession = buildTabletNurseryAccess(lookup.profile);
+    const liveRooms = lookup.rooms ?? [];
+    saveTabletNurseryAccess(nextSession);
+    setNurserySession(nextSession);
+    saveTabletRoomOptions(nextSession, liveRooms);
+    setRooms(liveRooms);
+
+    if (liveRooms.length === 0) {
+      setSelectedRoomId("");
+      setRoomMessage("A5에 실제 연동된 객실이 없습니다. 산후조리원 관리자에서 객실 연동을 먼저 완료해 주세요.");
+      return;
+    }
+
+    const preferred = liveRooms.find((room) => room.roomId === preferredRoomId);
+    setSelectedRoomId(preferred?.roomId ?? liveRooms[0].roomId);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -354,8 +444,10 @@ export function TabletRoomSetupPage() {
       }
 
       const saved = readTabletRoomSession();
+      const cachedRooms = readTabletRoomOptions(session);
       setNurserySession(session);
-      setSelectedRoomId(saved?.roomId ?? rooms[0]?.roomId ?? "");
+      setRooms(cachedRooms);
+      setSelectedRoomId(saved?.roomId ?? cachedRooms[0]?.roomId ?? "");
 
       if (saved) {
         setRequiresUnlock(true);
@@ -366,27 +458,27 @@ export function TabletRoomSetupPage() {
       }
 
       setIsBootstrapped(true);
+      void refreshRoomOptions(session, saved?.roomId ?? cachedRooms[0]?.roomId ?? "");
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [rooms]);
+  }, [refreshRoomOptions]);
 
   function saveRoom(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!nurserySession) return;
 
-    const room = rooms.find((item) => item.roomId === selectedRoomId) ?? rooms[0];
+    const room = rooms.find((item) => item.roomId === selectedRoomId);
     if (!room) return;
 
-    const nurseryMapping = getNurseryMapping(nurserySession);
     const session: TabletRoomSession = {
-      nurseryId: nurserySession.nurseryId ?? tabletNurseryAccess.nurseryId,
-      businessNo: nurserySession.businessNo ?? tabletNurseryAccess.businessNo,
-      businessName: nurserySession.businessName || tabletNurseryAccess.businessName,
-      registeredAddress: nurseryMapping?.registeredAddress ?? nurserySession.registeredAddress,
+      nurseryId: nurserySession.nurseryId,
+      businessNo: nurserySession.businessNo,
+      businessName: nurserySession.businessName,
+      registeredAddress: nurserySession.registeredAddress,
       roomId: room.roomId,
-      roomName: normalizeRoomName(room.roomNumber),
-      tabletId: room.activeTabletId ?? tabletNurseryAccess.defaultTabletId,
+      roomName: normalizeRoomName(room.roomName || room.roomNumber),
+      tabletId: room.activeTabletId || `tablet-${room.roomId}`,
       fixedLogin: true,
       updatedAt: new Date().toISOString(),
     };
@@ -399,7 +491,7 @@ export function TabletRoomSetupPage() {
   function unlockRoomEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (editPassword !== tabletNurseryAccess.defaultPassword) {
+    if (editPassword !== (nurserySession?.defaultPassword || NURSERY_DEFAULT_PASSWORD)) {
       setEditMessage("조리원 비밀번호를 확인해 주세요.");
       return;
     }
@@ -450,22 +542,71 @@ export function TabletRoomSetupPage() {
         </p>
 
         <form onSubmit={saveRoom} className="mt-6 grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {rooms.map((room) => (
-              <button
-                key={room.roomId}
-                type="button"
-                onClick={() => setSelectedRoomId(room.roomId)}
-                className={`rounded-md border p-5 text-left transition ${
-                  selectedRoomId === room.roomId ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-950"
-                }`}
-              >
-                <p className="text-3xl font-black">{normalizeRoomName(room.roomNumber)}</p>
-                <p className="mt-2 text-sm font-bold opacity-70">{room.activeTabletId ?? "태블릿 미지정"}</p>
-              </button>
-            ))}
+          <div className="rounded-md border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsRoomListOpen((current) => !current)}
+              className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+              aria-expanded={isRoomListOpen}
+            >
+              <span>
+                <span className="block text-xs font-black uppercase tracking-[0.12em] text-rose-600">객실 선택</span>
+                <span className="mt-1 block text-lg font-black text-slate-950">
+                  {selectedRoom ? normalizeRoomName(selectedRoom.roomName || selectedRoom.roomNumber) : roomsLoading ? "객실 불러오는 중" : "객실을 선택해 주세요"}
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                {isRoomListOpen ? "닫기" : "열기"}
+              </span>
+            </button>
+
+            {isRoomListOpen ? (
+              <div className="border-t border-slate-200 p-3">
+                <input
+                  type="search"
+                  value={roomSearch}
+                  onChange={(event) => setRoomSearch(event.target.value)}
+                  placeholder="객실명, 층, 태블릿 검색"
+                  className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-bold outline-none focus:border-slate-950"
+                />
+                <div className="mt-3 max-h-[420px] overflow-y-auto rounded-md border border-slate-200">
+                  {visibleRooms.length > 0 ? (
+                    visibleRooms.map((room) => (
+                      <button
+                        key={room.roomId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRoomId(room.roomId);
+                          setIsRoomListOpen(false);
+                        }}
+                        className={`grid w-full grid-cols-[1fr_auto] gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 ${
+                          selectedRoomId === room.roomId ? "bg-slate-950 text-white" : "bg-white text-slate-950 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>
+                          <span className="block text-lg font-black">{normalizeRoomName(room.roomName || room.roomNumber)}</span>
+                          <span className="mt-1 block text-xs font-bold opacity-70">{room.floor || "층 미지정"}</span>
+                        </span>
+                        <span className="self-center text-xs font-black opacity-70">{room.activeTabletId || "태블릿 미지정"}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-4 py-8 text-center text-sm font-bold text-slate-500">
+                      {roomsLoading ? "실제 연동 객실을 불러오는 중입니다." : "표시할 객실이 없습니다."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
-          <button type="submit" className="h-12 rounded-md bg-rose-600 text-sm font-black text-white">
+
+          {roomMessage ? <p className="rounded-md bg-amber-50 p-3 text-sm font-bold text-amber-900">{roomMessage}</p> : null}
+
+          <button
+            type="submit"
+            disabled={!selectedRoom || roomsLoading}
+            className="h-12 rounded-md bg-rose-600 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
             적용하고 폐쇄몰 열기
           </button>
         </form>

@@ -71,6 +71,7 @@ function normalizeProfile(profile: Partial<NurseryAutoSignupProfile>): NurseryAu
     roomCount: String(profile.roomCount ?? ""),
     defaultPassword: NURSERY_DEFAULT_PASSWORD,
     externalNurseryId: profile.externalNurseryId ? String(profile.externalNurseryId) : undefined,
+    sourceCategory: profile.sourceCategory ? String(profile.sourceCategory) : undefined,
     source: profile.source === "manual_profile" ? "manual_profile" : "signage_partner",
     status: profile.status === "suspended" ? "suspended" : "approved",
     createdAt: String(profile.createdAt ?? now),
@@ -82,12 +83,12 @@ function normalizeProfile(profile: Partial<NurseryAutoSignupProfile>): NurseryAu
   };
 }
 
-export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncResult> {
+export async function requestSignagePartnerNurseryBulkSignup(): Promise<A2NurseryBulkSyncResult> {
   if (typeof window === "undefined") {
     return {
       ok: false,
       source: "firebase_functions",
-      error: { code: "BROWSER_REQUIRED", message: "브라우저에서만 조리원 일괄 연동을 실행할 수 있습니다." },
+      error: { code: "BROWSER_REQUIRED", message: "브라우저에서만 조리원 카테고리 연동을 실행할 수 있습니다." },
     };
   }
 
@@ -102,7 +103,11 @@ export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncRes
         "X-A5-Client": "super-admin",
         "X-A5-Nursery-Bulk-Sync": "enabled",
       },
-      body: JSON.stringify({ source: "a2_signage_partner", password: NURSERY_DEFAULT_PASSWORD }),
+      body: JSON.stringify({
+        source: "signage_partner_nursery_category",
+        category: "산후조리원",
+        password: NURSERY_DEFAULT_PASSWORD,
+      }),
       signal: controller.signal,
     });
     const rawBody = await response.text();
@@ -115,8 +120,8 @@ export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncRes
         ok: false,
         source: "firebase_functions",
         error: {
-          code: "A2_NURSERY_BULK_SYNC_NON_JSON_RESPONSE",
-          message: `A2 연동 함수가 JSON이 아닌 응답을 반환했습니다. ${rawBody.slice(0, 160) || "응답 본문 없음"}`,
+          code: "SIGNAGE_PARTNER_NURSERY_BULK_SYNC_NON_JSON_RESPONSE",
+          message: `signage-partner 조리원 연동 함수가 JSON이 아닌 응답을 반환했습니다. ${rawBody.slice(0, 160) || "응답 본문 없음"}`,
         },
       };
     }
@@ -128,8 +133,8 @@ export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncRes
         ok: false,
         source: "firebase_functions",
         error: {
-          code: data.error?.code ?? "A2_NURSERY_BULK_SYNC_FAILED",
-          message: data.error?.message ?? "A2 산후조리원 가입자 일괄 연동에 실패했습니다.",
+          code: data.error?.code ?? "SIGNAGE_PARTNER_NURSERY_BULK_SYNC_FAILED",
+          message: data.error?.message ?? "signage-partner 산후조리원 카테고리 업체 연동에 실패했습니다.",
         },
       };
     }
@@ -140,21 +145,23 @@ export async function requestA2NurseryBulkSignup(): Promise<A2NurseryBulkSyncRes
       importedCount: data.importedCount ?? profiles.length,
       skippedCount: data.skippedCount ?? 0,
       profiles,
-      message: data.message ?? "A2 산후조리원 가입자 자료를 A5로 연동했습니다.",
+      message: data.message ?? "signage-partner 산후조리원 카테고리 업체 자료를 A5로 연동했습니다.",
     };
   } catch (error) {
     return {
       ok: false,
       source: "firebase_functions",
       error: {
-        code: "A2_NURSERY_BULK_SYNC_UNAVAILABLE",
-        message: error instanceof Error ? error.message : "A2 산후조리원 가입자 일괄 연동 함수를 호출할 수 없습니다.",
+        code: "SIGNAGE_PARTNER_NURSERY_BULK_SYNC_UNAVAILABLE",
+        message: error instanceof Error ? error.message : "signage-partner 산후조리원 카테고리 연동 함수를 호출할 수 없습니다.",
       },
     };
   } finally {
     window.clearTimeout(timeout);
   }
 }
+
+export const requestA2NurseryBulkSignup = requestSignagePartnerNurseryBulkSignup;
 
 export function buildLocalA2NurseryBulkSyncResult(reason: string): A2NurseryBulkSyncSuccess {
   const profiles = buildNurseryProfilesFromA2Mappings();

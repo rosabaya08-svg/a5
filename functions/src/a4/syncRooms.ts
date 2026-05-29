@@ -1,4 +1,4 @@
-import { FieldValue, type Firestore, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { FieldValue, type DocumentReference, type Firestore, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb, getAdminDbForProject } from "../firebaseAdmin";
 import { readObjectBody, requirePost, sendJson, type HttpRequestLike, type HttpResponseLike } from "../payments/types";
 
@@ -23,6 +23,10 @@ type SourceRoom = {
   name: string;
   floor: string;
   pickupEnabled: boolean;
+  allowDuplicateRoomNumber: boolean;
+  sourceStatus?: string;
+  sourceGrade?: string;
+  currentCustomer?: string;
   activeTabletId?: string;
   externalTabletId?: string;
 };
@@ -103,7 +107,52 @@ const nurseryIdFields = [
   "branchId",
   "partner_id",
   "partnerId",
+  "hospital_id",
+  "hospitalId",
+  "center_uid",
+  "centerUid",
+  "branch_uid",
+  "branchUid",
+  "store_id",
+  "storeId",
+  "shop_id",
+  "shopId",
+  "customer_id",
+  "customerId",
+  "company_id",
+  "companyId",
+  "owner_id",
+  "ownerId",
 ];
+
+const externalRoomIdFields = ["external_room_id", "externalRoomId", "room_id", "roomId", "room_uid", "roomUid"];
+const roomNumberFields = [
+  "device_name",
+  "deviceName",
+  "device_label",
+  "deviceLabel",
+  "room_number",
+  "roomNumber",
+  "room_no",
+  "roomNo",
+  "room_num",
+  "roomNum",
+  "room",
+  "room_label",
+  "roomLabel",
+  "unit",
+  "unit_no",
+  "unitNo",
+  "bed_no",
+  "bedNo",
+  "객실번호",
+  "객실명",
+  "객실",
+  "호실",
+];
+const roomNameFields = ["room_name", "roomName", "room_title", "roomTitle", "label", "title"];
+const externalTabletIdFields = ["external_tablet_id", "externalTabletId", "tablet_id", "tabletId", "device_id", "deviceId", "device_uid", "deviceUid"];
+const activeTabletIdFields = ["a5_tablet_id", "active_tablet_id", "activeTabletId"];
 
 function optionalString(value: unknown): string | undefined {
   const text = String(value ?? "").trim();
@@ -183,9 +232,34 @@ function normalizeRoomNumber(value: string) {
   return value.replace(/[^0-9A-Za-z]/g, "").toLowerCase();
 }
 
-function inferFloor(roomNumber: string) {
-  const digits = roomNumber.replace(/[^0-9]/g, "");
-  return digits.length >= 3 ? `${digits.slice(0, -2)}F` : "";
+function looksLikeRoomDocumentId(value: string) {
+  const normalized = normalizeRoomNumber(value);
+  return normalized.length > 0 && normalized.length <= 8 && /\d/.test(normalized);
+}
+
+function isGenericDeviceLabel(value: string) {
+  const normalized = value.replace(/[\s_-]+/g, "").toLowerCase();
+  return [
+    "새로운기기",
+    "newdevice",
+    "newtablet",
+    "device",
+    "tablet",
+    "smartdevice",
+    "smarttablet",
+  ].includes(normalized);
+}
+
+function isDeviceCollection(doc: QueryDocumentSnapshot) {
+  return doc.ref.parent.id.toLowerCase().includes("device");
+}
+
+function sourceStatusString(data: Record<string, unknown>) {
+  return fieldString(data, "status", "device_status", "deviceStatus");
+}
+
+function sourceGradeString(data: Record<string, unknown>) {
+  return fieldString(data, "grade", "grade_name", "gradeName", "room_grade", "roomGrade");
 }
 
 function safeDocumentId(value: string, fallback: string) {
@@ -224,6 +298,7 @@ function setCorsHeaders(response: HttpResponseLike) {
 async function authorizeRoomSync(request: HttpRequestLike, nurseryId: string) {
   const authorization = getHeader(request, "authorization");
   const token = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
+  let tokenFailureReason = "";
 
   if (token) {
     try {
@@ -240,7 +315,7 @@ async function authorizeRoomSync(request: HttpRequestLike, nurseryId: string) {
         return { ok: true as const, actor: role };
       }
     } catch {
-      return { ok: false as const, reason: "Firebase ID token verification failed." };
+      tokenFailureReason = "Firebase ID token verification failed.";
     }
   }
 
@@ -253,7 +328,7 @@ async function authorizeRoomSync(request: HttpRequestLike, nurseryId: string) {
 
   return {
     ok: false as const,
-    reason: "Room sync requires SUPER_ADMIN/NURSERY_ADMIN Firebase claims or A5_ALLOW_BETA_ROOM_SYNC=true.",
+    reason: tokenFailureReason || "Room sync requires SUPER_ADMIN/NURSERY_ADMIN Firebase claims or A5_ALLOW_BETA_ROOM_SYNC=true.",
   };
 }
 
@@ -298,7 +373,10 @@ function sourceNurseryCollections() {
 }
 
 function sourceRoomCollections() {
-  return splitConfigList(process.env.A4_ROOMS_COLLECTION_PATHS ?? process.env.A4_ROOMS_COLLECTION_PATH, ["rooms", "customers", "devices"]);
+  return splitConfigList(process.env.A4_ROOMS_COLLECTION_PATHS ?? process.env.A4_ROOMS_COLLECTION_PATH, [
+    "devices",
+    "rooms",
+  ]);
 }
 
 function isNurseryProfileCollection(collectionPath: string) {
@@ -336,6 +414,30 @@ async function discoverSourceNurseryCollections(sourceDb: Firestore) {
       .slice(0, maxCollections);
   } catch {
     return configured.filter(isNurseryProfileCollection);
+  }
+}
+
+function isRoomCollection(collectionPath: string) {
+  const name = collectionPath.toLowerCase();
+  return (
+    name.includes("device") ||
+    name.includes("room") ||
+    name.includes("객실") ||
+    false
+  );
+}
+
+async function discoverSourceRoomCollections(sourceDb: Firestore) {
+  const configured = sourceRoomCollections();
+  const maxCollections = Math.min(Math.max(Number(process.env.A4_SOURCE_COLLECTION_DISCOVERY_LIMIT ?? 60) || 60, 1), 120);
+
+  try {
+    const discovered = await sourceDb.listCollections();
+    return unique([...configured, ...discovered.map((collection) => collection.id)])
+      .filter(isRoomCollection)
+      .slice(0, maxCollections);
+  } catch {
+    return configured.filter(isRoomCollection);
   }
 }
 
@@ -396,32 +498,55 @@ async function findSourceNurseryByBusinessNo(
 
 function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
   const data = doc.data();
-  const externalRoomId = fieldString(data, "external_room_id", "externalRoomId", "room_id", "roomId") || doc.id;
-  const roomNumber =
-    fieldString(data, "room_number", "roomNumber", "room_no", "roomNo", "room_name", "roomName", "device_name", "deviceName", "number", "name", "label", "title") ||
-    doc.id;
+  const isDevice = isDeviceCollection(doc);
+  const externalRoomId = fieldString(data, ...externalRoomIdFields) || doc.id;
+  const explicitRoomNumber = fieldString(data, ...roomNumberFields);
+  const explicitRoomName = fieldString(data, ...roomNameFields);
+  const roomNumber = explicitRoomNumber || explicitRoomName || (looksLikeRoomDocumentId(doc.id) ? doc.id : "");
 
   if (!externalRoomId || !roomNumber) {
     return null;
   }
 
-  const fallbackTargetId = `room-${normalizeRoomNumber(roomNumber) || safeDocumentId(externalRoomId, doc.id)}`;
+  if (!isDevice && !explicitRoomNumber && isGenericDeviceLabel(roomNumber)) {
+    return null;
+  }
+
+  const fallbackTargetId = isDevice
+    ? `room-${safeDocumentId(externalRoomId, doc.id)}`
+    : `room-${normalizeRoomNumber(roomNumber) || safeDocumentId(externalRoomId, doc.id)}`;
   const targetRoomId = safeDocumentId(fieldString(data, "a5_room_id", "target_room_id", "targetRoomId"), fallbackTargetId);
-  const name = fieldString(data, "name", "room_name", "roomName", "device_name", "deviceName", "label", "title") || roomNumber;
-  const floor = fieldString(data, "floor", "floor_name", "floorName") || inferFloor(roomNumber);
-  const externalTabletId = fieldString(data, "external_tablet_id", "externalTabletId", "tablet_id", "tabletId");
-  const activeTabletId = fieldString(data, "a5_tablet_id", "active_tablet_id", "activeTabletId");
+  const rawName = explicitRoomName || roomNumber;
+  const name = isGenericDeviceLabel(rawName) ? roomNumber : rawName;
+  const externalTabletId = fieldString(data, ...externalTabletIdFields) || (isDevice ? doc.id : "");
+  const activeTabletId = fieldString(data, ...activeTabletIdFields);
 
   return {
     externalRoomId,
     targetRoomId,
     roomNumber,
     name,
-    floor,
+    floor: "",
     pickupEnabled: fieldBoolean(data, true),
+    allowDuplicateRoomNumber: isDevice,
+    sourceStatus: sourceStatusString(data) || undefined,
+    sourceGrade: sourceGradeString(data) || undefined,
+    currentCustomer: fieldString(data, "customer", "customer_name", "customerName") || undefined,
     activeTabletId: activeTabletId || undefined,
     externalTabletId: externalTabletId || undefined,
   };
+}
+
+function fallbackTabletIdForRoom(room: SourceRoom) {
+  const roomSuffix = room.targetRoomId.replace(/^room-/, "");
+  if (room.externalTabletId) {
+    return safeDocumentId(`a4-device-${room.externalTabletId}`, `a4-device-${roomSuffix}`);
+  }
+  return safeDocumentId(room.externalTabletId || `tablet-${roomSuffix}-a`, `tablet-${normalizeRoomNumber(room.roomNumber) || roomSuffix}-a`);
+}
+
+function hasUsableRoomDocs(docs: QueryDocumentSnapshot[]) {
+  return docs.some((doc) => Boolean(mapSourceRoom(doc)));
 }
 
 async function queryRoomsByField(
@@ -464,7 +589,7 @@ async function readSourceRooms(
   options: { externalNurseryId?: string; businessRegistrationNo: string },
 ): Promise<SourceRoomRead> {
   const collectionGroupName = process.env.A4_ROOMS_COLLECTION_GROUP?.trim();
-  const collectionPaths = collectionGroupName ? [""] : sourceRoomCollections();
+  const collectionPaths = collectionGroupName ? [""] : await discoverSourceRoomCollections(sourceDb);
   const nurseryFields = unique(nurseryIdFields);
   const businessFields = unique(businessNoFields);
 
@@ -475,7 +600,7 @@ async function readSourceRooms(
       if (resolvedPath !== collectionPath) {
         const snapshot = await sourceDb.collection(resolvedPath).get();
 
-        if (!snapshot.empty) {
+        if (!snapshot.empty && hasUsableRoomDocs(snapshot.docs)) {
           return { sourcePath: resolvedPath, docs: snapshot.docs };
         }
       }
@@ -483,7 +608,7 @@ async function readSourceRooms(
       for (const field of nurseryFields) {
         const docs = await queryRoomsByField(sourceDb, collectionPath, collectionGroupName, field, [options.externalNurseryId]);
 
-        if (docs.length > 0) {
+        if (docs.length > 0 && hasUsableRoomDocs(docs)) {
           return {
             sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
             sourceNurseryField: field,
@@ -496,7 +621,7 @@ async function readSourceRooms(
     for (const field of businessFields) {
       const docs = await queryRoomsByField(sourceDb, collectionPath, collectionGroupName, field, businessNoCandidates(options.businessRegistrationNo));
 
-      if (docs.length > 0) {
+      if (docs.length > 0 && hasUsableRoomDocs(docs)) {
         return {
           sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
           sourceBusinessField: field,
@@ -506,7 +631,7 @@ async function readSourceRooms(
     }
 
     const scannedDocs = await scanRoomsByBusinessNo(sourceDb, collectionPath, collectionGroupName, options.businessRegistrationNo);
-    if (scannedDocs.length > 0) {
+    if (scannedDocs.length > 0 && hasUsableRoomDocs(scannedDocs)) {
       return {
         sourcePath: collectionGroupName ? `collectionGroup:${collectionGroupName}` : collectionPath,
         sourceBusinessField: "scan",
@@ -547,6 +672,69 @@ async function readExistingA5Rooms(targetDb: Firestore, nurseryId: string) {
   });
 
   return { byId, byNumber, byExternalRoomId };
+}
+
+async function commitDeleteRefs(targetDb: Firestore, refs: DocumentReference[]) {
+  const uniqueRefs = [...new Map(refs.map((ref) => [ref.path, ref])).values()];
+
+  for (let index = 0; index < uniqueRefs.length; index += 450) {
+    const batch = targetDb.batch();
+    uniqueRefs.slice(index, index + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+async function resetImportedRoomsForSource(
+  targetDb: Firestore,
+  nurseryId: string,
+  businessRegistrationNo: string,
+  selectedExternalRoomIds?: Set<string>,
+) {
+  const normalizedBusinessNo = normalizeBusinessRegistrationNo(businessRegistrationNo);
+  const roomSnapshot = await targetDb.collection("rooms").where("nursery_id", "==", nurseryId).get();
+  const refs: DocumentReference[] = [];
+  const tabletIds = new Set<string>();
+  let roomDeleteCount = 0;
+
+  roomSnapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const importSource = fieldString(data, "import_source", "importSource");
+    const roomBusinessNo = fieldString(data, "business_registration_no", "businessRegistrationNo");
+    const externalRoomId = fieldString(data, "external_room_id", "externalRoomId");
+    const sameBusiness = !roomBusinessNo || normalizeBusinessRegistrationNo(roomBusinessNo) === normalizedBusinessNo;
+    const selectedMatch = !selectedExternalRoomIds?.size || selectedExternalRoomIds.has(externalRoomId);
+
+    if (importSource === "SIGNAGE_PARTNER_BUSINESS_NO" && sameBusiness && selectedMatch) {
+      const activeTabletId = fieldString(data, "active_tablet_id", "activeTabletId");
+      refs.push(doc.ref);
+      roomDeleteCount += 1;
+
+      if (activeTabletId) {
+        tabletIds.add(activeTabletId);
+      }
+    }
+  });
+
+  const tabletSnapshot = await targetDb.collection("tablets").where("nursery_id", "==", nurseryId).get();
+  let tabletDeleteCount = 0;
+
+  tabletSnapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const importSource = fieldString(data, "import_source", "importSource");
+    const tabletBusinessNo = fieldString(data, "business_registration_no", "businessRegistrationNo");
+    const externalRoomId = fieldString(data, "external_room_id", "externalRoomId");
+    const sameBusiness = !tabletBusinessNo || normalizeBusinessRegistrationNo(tabletBusinessNo) === normalizedBusinessNo;
+    const selectedMatch = !selectedExternalRoomIds?.size || selectedExternalRoomIds.has(externalRoomId);
+
+    if (tabletIds.has(doc.id) || (importSource === "SIGNAGE_PARTNER_BUSINESS_NO" && sameBusiness && selectedMatch)) {
+      refs.push(doc.ref);
+      tabletDeleteCount += 1;
+    }
+  });
+
+  await commitDeleteRefs(targetDb, refs);
+
+  return { roomDeleteCount, tabletDeleteCount };
 }
 
 export async function a4RoomsSyncHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
@@ -643,6 +831,13 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
     .filter((room): room is SourceRoom => Boolean(room))
     .filter((room) => selectedIds.size === 0 || selectedIds.has(room.externalRoomId));
   const missingSelected = [...selectedIds].filter((id) => !sourceRooms.some((room) => room.externalRoomId === id));
+  const resetImported = await resetImportedRoomsForSource(
+    targetDb,
+    nurseryId,
+    businessRegistrationNo,
+    selectedIds.size > 0 ? selectedIds : undefined,
+  );
+  const cleanedMalformedCount = 0;
   const existing = await readExistingA5Rooms(targetDb, nurseryId);
   const imported: SourceRoom[] = [];
   const skipped: SkippedRoom[] = missingSelected.map((externalRoomId) => ({
@@ -661,7 +856,7 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
   for (const room of sourceRooms) {
     const numberKey = normalizeRoomNumber(room.roomNumber);
     const externalMatch = existing.byExternalRoomId.get(room.externalRoomId);
-    const numberMatch = existing.byNumber.get(numberKey);
+    const numberMatch = room.allowDuplicateRoomNumber ? undefined : existing.byNumber.get(numberKey);
     const idMatch = existing.byId.has(room.targetRoomId);
 
     if (externalMatch) {
@@ -694,6 +889,8 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
       continue;
     }
 
+    const activeTabletId = room.activeTabletId || fallbackTabletIdForRoom(room);
+    const roomWithTablet: SourceRoom = { ...room, activeTabletId };
     const docRef = targetDb.collection("rooms").doc(room.targetRoomId);
     batch.set(docRef, {
       room_id: room.targetRoomId,
@@ -702,11 +899,14 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
       room_number: room.roomNumber,
       floor: room.floor,
       pickup_enabled: room.pickupEnabled,
-      active_tablet_id: room.activeTabletId ?? null,
+      active_tablet_id: activeTabletId,
       external_project_id: sourceProjectId,
       external_nursery_id: externalNurseryId,
       external_room_id: room.externalRoomId,
       external_tablet_id: room.externalTabletId ?? null,
+      external_device_status: room.sourceStatus ?? null,
+      external_room_grade: room.sourceGrade ?? null,
+      external_current_customer: room.currentCustomer ?? null,
       business_registration_no: businessRegistrationNo,
       import_source: "SIGNAGE_PARTNER_BUSINESS_NO",
       local_editable: true,
@@ -716,7 +916,30 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
       updated_at: now,
     });
 
-    imported.push(room);
+    batch.set(
+      targetDb.collection("tablets").doc(activeTabletId),
+      {
+        tablet_id: activeTabletId,
+        nursery_id: nurseryId,
+        room_id: room.targetRoomId,
+        label: `${room.name} 태블릿`,
+        status: "active",
+        last_seen_at: now,
+        external_project_id: sourceProjectId,
+        external_nursery_id: externalNurseryId,
+        external_room_id: room.externalRoomId,
+        external_tablet_id: room.externalTabletId ?? null,
+        external_device_status: room.sourceStatus ?? null,
+        business_registration_no: businessRegistrationNo,
+        import_source: "SIGNAGE_PARTNER_BUSINESS_NO",
+        created_at: now,
+        imported_at: now,
+        updated_at: now,
+      },
+      { merge: true },
+    );
+
+    imported.push(roomWithTablet);
     existing.byId.add(room.targetRoomId);
     existing.byNumber.set(numberKey, room.targetRoomId);
     existing.byExternalRoomId.set(room.externalRoomId, room.targetRoomId);
@@ -736,6 +959,10 @@ export async function a4RoomsSyncHandler(request: HttpRequestLike, response: Htt
     sourceBusinessField: sourceRead.sourceBusinessField ?? sourceNursery?.matchedBusinessField,
     sourceReadCount: sourceRead.docs.length,
     importedCount: imported.length,
+    importedTabletCount: imported.filter((room) => room.activeTabletId).length,
+    cleanedMalformedCount,
+    resetImportedRoomCount: resetImported.roomDeleteCount,
+    resetImportedTabletCount: resetImported.tabletDeleteCount,
     skippedCount: skipped.length,
     nurseryId,
     externalNurseryId,

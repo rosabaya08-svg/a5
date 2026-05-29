@@ -10,6 +10,7 @@ import {
 type NurseryLoginFunctionResponse = {
   ok: boolean;
   profile?: Partial<NurseryAutoSignupProfile> & { sourceCollection?: string };
+  rooms?: TabletNurseryRoomOption[];
   error?: {
     code?: string;
     message?: string;
@@ -17,8 +18,18 @@ type NurseryLoginFunctionResponse = {
   };
 };
 
+export type TabletNurseryRoomOption = {
+  roomId: string;
+  roomNumber: string;
+  roomName: string;
+  floor: string;
+  pickupEnabled: boolean;
+  activeTabletId: string;
+};
+
 export type NurseryProfileLookupResult = {
   profile: NurseryAutoSignupProfile | null;
+  rooms?: TabletNurseryRoomOption[];
   error?: {
     code: string;
     message: string;
@@ -74,6 +85,40 @@ function normalizeFunctionProfile(
   };
 }
 
+function normalizeFunctionRooms(rooms: NurseryLoginFunctionResponse["rooms"]): TabletNurseryRoomOption[] {
+  return (rooms ?? [])
+    .map((room) => ({
+      roomId: String(room.roomId ?? "").trim(),
+      roomNumber: String(room.roomNumber ?? room.roomName ?? "").trim(),
+      roomName: String(room.roomName ?? room.roomNumber ?? "").trim(),
+      floor: String(room.floor ?? "").trim(),
+      pickupEnabled: room.pickupEnabled !== false,
+      activeTabletId: String(room.activeTabletId ?? "").trim(),
+    }))
+    .filter((room) => room.roomId && (room.roomName || room.roomNumber));
+}
+
+function asString(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function roomSortKey(value: string) {
+  const normalized = value.replace(/\s+/g, "");
+  const numeric = normalized.match(/\d+/)?.[0] ?? "";
+  return {
+    numeric: numeric ? Number(numeric) : Number.MAX_SAFE_INTEGER,
+    text: normalized,
+  };
+}
+
+function sortRooms(left: TabletNurseryRoomOption, right: TabletNurseryRoomOption) {
+  const leftKey = roomSortKey(left.roomNumber || left.roomName || left.roomId);
+  const rightKey = roomSortKey(right.roomNumber || right.roomName || right.roomId);
+
+  if (leftKey.numeric !== rightKey.numeric) return leftKey.numeric - rightKey.numeric;
+  return leftKey.text.localeCompare(rightKey.text, "ko");
+}
+
 async function requestTabletNurseryLoginProfile(
   businessRegistrationNo: string,
   password: string,
@@ -105,9 +150,10 @@ async function requestTabletNurseryLoginProfile(
 
     const profile = normalizeFunctionProfile(data.profile, businessRegistrationNo);
     return profile
-      ? { profile }
+      ? { profile, rooms: normalizeFunctionRooms(data.rooms) }
       : {
           profile: null,
+          rooms: normalizeFunctionRooms(data.rooms),
           error: {
             code: "TABLET_NURSERY_LOGIN_PROFILE_INVALID",
             message: "Firebase server returned an invalid nursery profile.",
@@ -133,6 +179,30 @@ async function readFirstLinkedNurseryProfile(collectionName: "nursery_auto_signu
   const snapshot = await getDocs(query(collection(db, collectionName), where(field, "==", value), limit(1)));
   const document = snapshot.docs[0];
   return document ? buildNurseryProfileFromCmsRecord({ id: document.id, ...document.data() }) : null;
+}
+
+async function readLinkedRoomsByNursery(nurseryId: string): Promise<TabletNurseryRoomOption[]> {
+  const db = getFirebaseDb();
+  if (!db || !nurseryId) return [];
+
+  const snapshot = await getDocs(query(collection(db, "rooms"), where("nursery_id", "==", nurseryId)));
+
+  return snapshot.docs
+    .map((document) => {
+      const data = document.data();
+      const roomId = asString(data.room_id ?? data.roomId, document.id);
+      const roomNumber = asString(data.room_number ?? data.roomNumber ?? data.name, roomId);
+      return {
+        roomId,
+        roomNumber,
+        roomName: asString(data.name ?? data.room_name ?? data.roomName, roomNumber),
+        floor: asString(data.floor),
+        pickupEnabled: data.pickup_enabled !== false && data.pickupEnabled !== false,
+        activeTabletId: asString(data.active_tablet_id ?? data.activeTabletId),
+      };
+    })
+    .filter((room) => room.roomId && (room.roomName || room.roomNumber))
+    .sort(sortRooms);
 }
 
 export async function readLinkedNurseryProfileByBusinessNo(
@@ -172,7 +242,11 @@ export async function lookupLinkedNurseryProfileByBusinessNo(
 
   try {
     const serverResult = await requestTabletNurseryLoginProfile(businessRegistrationNo, password);
-    if (serverResult.profile) return serverResult;
+    if (serverResult.profile) {
+      return serverResult.rooms && serverResult.rooms.length > 0
+        ? serverResult
+        : { ...serverResult, rooms: await readLinkedRoomsByNursery(serverResult.profile.nurseryId) };
+    }
     serverError = serverResult.error;
 
     await ensureAnonymousFirebaseUser();
@@ -183,7 +257,7 @@ export async function lookupLinkedNurseryProfileByBusinessNo(
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "businessRegistrationNo", businessRegistrationNo.trim()));
 
     return profile
-      ? { profile }
+      ? { profile, rooms: await readLinkedRoomsByNursery(profile.nurseryId) }
       : {
           profile: null,
           error: serverError ?? {

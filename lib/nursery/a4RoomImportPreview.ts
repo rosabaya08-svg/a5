@@ -5,11 +5,6 @@ function normalizeRoomNumber(value: string) {
   return value.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
 }
 
-function inferFloor(roomNumber: string) {
-  const digits = roomNumber.replace(/[^0-9]/g, "");
-  return digits.length >= 3 ? `${digits.slice(0, -2)}F` : "";
-}
-
 function roomName(roomNumber: string) {
   return roomNumber.endsWith("호") ? roomNumber : `${roomNumber}호`;
 }
@@ -42,7 +37,7 @@ export function buildA4RoomImportPreview(
       roomNumber: room.roomNumber,
       targetRoomId: room.roomId,
       roomName: roomName(room.roomNumber),
-      floor: inferFloor(room.roomNumber),
+      floor: "",
       pickupEnabled: room.pickupEnabled,
       activeTabletId: room.activeTabletId,
       externalTabletId: room.externalTabletId,

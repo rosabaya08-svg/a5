@@ -1,6 +1,3 @@
-import { listA4RoomsReadOnly } from "@/lib/integrations/a4/readOnlyRooms";
-import { normalizeBusinessNo } from "@/lib/auth/session";
-import type { NurseryAutoSignupProfile } from "@/lib/nursery/nurseryAutoSignup";
 import type { A4RoomSyncResponse } from "@/types/nursery";
 import type { Room, Tablet } from "@/types/commerce";
 
@@ -10,7 +7,7 @@ export type SyncedNurseryRoom = Room & {
   externalNurseryId?: string;
   externalRoomId?: string;
   externalTabletId?: string;
-  importSource: "A4_SYNC" | "A4_EXISTING" | "A4_LOCAL_FALLBACK";
+  importSource: "A4_SYNC" | "A4_EXISTING";
   importedAt: string;
 };
 
@@ -18,7 +15,7 @@ export type SyncedNurseryTablet = Tablet & {
   externalNurseryId?: string;
   externalRoomId?: string;
   externalTabletId?: string;
-  importSource: "A4_SYNC" | "A4_LOCAL_FALLBACK";
+  importSource: "A4_SYNC";
   importedAt: string;
 };
 
@@ -34,8 +31,12 @@ function safeParseState(value: string | null): NurseryRoomDeviceSyncState {
   try {
     const parsed = JSON.parse(value) as Partial<NurseryRoomDeviceSyncState>;
     return {
-      rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
-      tablets: Array.isArray(parsed.tablets) ? parsed.tablets : [],
+      rooms: Array.isArray(parsed.rooms)
+        ? parsed.rooms.filter((room) => (room as { importSource?: string }).importSource !== "A4_LOCAL_FALLBACK")
+        : [],
+      tablets: Array.isArray(parsed.tablets)
+        ? parsed.tablets.filter((tablet) => (tablet as { importSource?: string }).importSource !== "A4_LOCAL_FALLBACK")
+        : [],
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -55,11 +56,6 @@ function uniqueById<T extends { id: string }>(items: T[]) {
 
 function roomName(roomNumber: string) {
   return roomNumber.endsWith("호") ? roomNumber : `${roomNumber}호`;
-}
-
-function fallbackRoomId(profile: NurseryAutoSignupProfile, index: number) {
-  const normalized = profile.businessRegistrationNoNormalized || normalizeBusinessNo(profile.businessRegistrationNo);
-  return `room-${normalized}-${String(index + 1).padStart(3, "0")}`;
 }
 
 function fallbackTabletId(roomId: string) {
@@ -145,79 +141,4 @@ export function buildRoomDeviceLinksFromA4Sync(
     });
 
   return { rooms: [...importedRooms, ...existingRooms], tablets, updatedAt: importedAt };
-}
-
-export function buildFallbackRoomDeviceLinks(
-  profile: NurseryAutoSignupProfile,
-  importedAt = new Date().toISOString(),
-): NurseryRoomDeviceSyncState {
-  const a4Rooms = listA4RoomsReadOnly(profile.nurseryId);
-
-  if (a4Rooms.length > 0) {
-    const rooms: SyncedNurseryRoom[] = a4Rooms.map((room) => ({
-      id: room.roomId,
-      nurseryId: profile.nurseryId,
-      name: roomName(room.roomNumber),
-      floor: "",
-      pickupEnabled: room.pickupEnabled,
-      activeTabletId: room.activeTabletId,
-      externalNurseryId: room.externalNurseryId,
-      externalRoomId: room.externalRoomId,
-      externalTabletId: room.externalTabletId,
-      importSource: "A4_LOCAL_FALLBACK",
-      importedAt,
-    }));
-    const tablets: SyncedNurseryTablet[] = a4Rooms
-      .filter((room) => Boolean(room.activeTabletId || room.externalTabletId))
-      .map((room) => {
-        const tabletId = room.activeTabletId || fallbackTabletId(room.roomId);
-
-        return {
-          id: tabletId,
-          nurseryId: profile.nurseryId,
-          roomId: room.roomId,
-          label: `${roomName(room.roomNumber)} 태블릿`,
-          status: "active",
-          lastSeenAt: importedAt,
-          externalNurseryId: room.externalNurseryId,
-          externalRoomId: room.externalRoomId,
-          externalTabletId: room.externalTabletId,
-          importSource: "A4_LOCAL_FALLBACK",
-          importedAt,
-        };
-      });
-
-    return { rooms, tablets, updatedAt: importedAt };
-  }
-
-  const roomCount = Math.max(Number(profile.roomCount) || 0, 0);
-  const rooms: SyncedNurseryRoom[] = Array.from({ length: roomCount }).map((_, index) => {
-    const id = fallbackRoomId(profile, index);
-    const roomNumber = String(index + 1).padStart(3, "0");
-
-    return {
-      id,
-      nurseryId: profile.nurseryId,
-      name: roomName(roomNumber),
-      floor: "",
-      pickupEnabled: true,
-      activeTabletId: fallbackTabletId(id),
-      externalNurseryId: profile.externalNurseryId,
-      importSource: "A4_LOCAL_FALLBACK",
-      importedAt,
-    };
-  });
-  const tablets: SyncedNurseryTablet[] = rooms.map((room) => ({
-    id: room.activeTabletId ?? fallbackTabletId(room.id),
-    nurseryId: profile.nurseryId,
-    roomId: room.id,
-    label: `${room.name} 태블릿`,
-    status: "active",
-    lastSeenAt: importedAt,
-    externalNurseryId: profile.externalNurseryId,
-    importSource: "A4_LOCAL_FALLBACK",
-    importedAt,
-  }));
-
-  return { rooms, tablets, updatedAt: importedAt };
 }

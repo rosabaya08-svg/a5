@@ -6,6 +6,8 @@ type A4NurseryBulkSignupRequest = {
   password?: string;
   limit?: number;
   source?: string;
+  category?: string;
+  categoryKeywords?: string[];
 };
 
 type SourceNurseryProfile = {
@@ -22,6 +24,7 @@ type SourceNurseryProfile = {
   externalNurseryId: string;
   sourceProjectId: string;
   sourceNurseryPath: string;
+  sourceCategory: string;
   matchedBusinessField: string;
   createdAt: string;
   updatedAt: string;
@@ -103,6 +106,64 @@ const nurseryNameFields = [
   "title",
 ];
 
+const nurseryCategoryFields = [
+  process.env.A4_NURSERY_CATEGORY_FIELD,
+  "category",
+  "categories",
+  "category_name",
+  "categoryName",
+  "category_label",
+  "categoryLabel",
+  "business_category",
+  "businessCategory",
+  "business_categories",
+  "businessCategories",
+  "business_type",
+  "businessType",
+  "business_types",
+  "businessTypes",
+  "industry",
+  "industries",
+  "service_category",
+  "serviceCategory",
+  "service_type",
+  "serviceType",
+  "partner_category",
+  "partnerCategory",
+  "store_category",
+  "storeCategory",
+  "company_category",
+  "companyCategory",
+  "tags",
+  "tag",
+  "roles",
+  "role",
+  "업종",
+  "카테고리",
+  "분류",
+  "업체분류",
+  "사업분야",
+  "서비스분류",
+];
+
+const defaultNurseryCategoryKeywords = [
+  "산후조리원",
+  "조리원",
+  "산후",
+  "한산연",
+  "한국산후조리원연합회",
+  "postpartum",
+  "maternity",
+  "nursery",
+];
+
+const defaultNurseryNameKeywords = [
+  "산후조리원",
+  "조리원",
+  "한산연",
+  "한국산후조리원연합회",
+];
+
 const representativeFields = [
   "representative_name",
   "representativeName",
@@ -123,9 +184,43 @@ const addressFields = [
   "registeredAddress",
   "road_address",
   "roadAddress",
+  "jibun_address",
+  "jibunAddress",
+  "parcel_address",
+  "parcelAddress",
   "address",
+  "address1",
+  "address_1",
+  "address_line1",
+  "addressLine1",
+  "full_address",
+  "fullAddress",
+  "location_address",
+  "locationAddress",
+  "location.address",
+  "business.address",
+  "company_address",
+  "companyAddress",
+  "store_address",
+  "storeAddress",
+  "facility_address",
+  "facilityAddress",
+  "center_address",
+  "centerAddress",
+  "branch_address",
+  "branchAddress",
+  "biz_address",
+  "bizAddress",
+  "business_place_address",
+  "businessPlaceAddress",
   "주소",
   "사업장주소",
+  "사업자주소",
+  "사업장소재지",
+  "소재지",
+  "도로명주소",
+  "지번주소",
+  "대표주소",
 ];
 const roomCountFields = ["room_count", "roomCount", "rooms_count", "roomsCount", "room_total", "roomTotal", "객실수"];
 const externalNurseryIdFields = [
@@ -176,6 +271,47 @@ function deepFieldString(value: unknown, names: Array<string | undefined>, path:
   return "";
 }
 
+function primitiveStrings(value: unknown, depth = 0): string[] {
+  if (depth > 5 || value === null || value === undefined) return [];
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const text = optionalString(value);
+    return text ? [text] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => primitiveStrings(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap((item) => primitiveStrings(item, depth + 1));
+  }
+
+  return [];
+}
+
+function deepFieldStrings(value: unknown, names: Array<string | undefined>, path: string[] = [], depth = 0): string[] {
+  if (depth > 5 || typeof value !== "object" || value === null) return [];
+
+  const aliases = unique(names).map(normalizeKey);
+  const entries = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item] as const)
+    : Object.entries(value as Record<string, unknown>);
+  const matches: string[] = [];
+
+  for (const [key, child] of entries) {
+    const normalizedKey = normalizeKey(key);
+    const normalizedPath = normalizeKey([...path, key].join("."));
+
+    if (aliases.includes(normalizedKey) || aliases.includes(normalizedPath)) {
+      matches.push(...primitiveStrings(child));
+    }
+  }
+
+  for (const [key, child] of entries) {
+    matches.push(...deepFieldStrings(child, names, [...path, key], depth + 1));
+  }
+
+  return unique(matches);
+}
+
 function fieldString(data: Record<string, unknown>, ...names: Array<string | undefined>) {
   for (const name of names) {
     if (!name) continue;
@@ -197,6 +333,42 @@ function splitConfigList(value: string | undefined, fallback: string[]) {
     .filter(Boolean);
 
   return configured && configured.length > 0 ? configured : fallback;
+}
+
+function normalizeSearchText(value: string) {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
+function categoryKeywords(requestedCategory?: string, requestedKeywords?: string[]) {
+  return unique([
+    ...splitConfigList(process.env.A4_NURSERY_CATEGORY_KEYWORDS, defaultNurseryCategoryKeywords),
+    ...(requestedKeywords ?? []),
+    requestedCategory,
+  ]);
+}
+
+function nurseryNameKeywords() {
+  return splitConfigList(process.env.A4_NURSERY_NAME_KEYWORDS, defaultNurseryNameKeywords);
+}
+
+function hasCategoryKeyword(value: string, keywords: string[]) {
+  const text = normalizeSearchText(value);
+  return keywords.some((keyword) => {
+    const normalizedKeyword = normalizeSearchText(keyword);
+    return normalizedKeyword ? text.includes(normalizedKeyword) : false;
+  });
+}
+
+function getSourceCategoryText(data: Record<string, unknown>, keywords: string[]) {
+  const categoryText = deepFieldStrings(data, nurseryCategoryFields).join(" ");
+  if (categoryText) return categoryText;
+
+  const fallbackText = [
+    fieldString(data, ...nurseryNameFields),
+    fieldString(data, "source_app", "sourceApp", "service", "app", "module"),
+  ].join(" ");
+
+  return hasCategoryKeyword(fallbackText, keywords) ? fallbackText : "";
 }
 
 function normalizeBusinessRegistrationNo(value: string) {
@@ -301,7 +473,11 @@ function isPermissionDenied(error: unknown) {
   return code === "7" || code === "PERMISSION_DENIED" || message.includes("PERMISSION_DENIED");
 }
 
-function mapSourceProfile(doc: QueryDocumentSnapshot, sourceNurseryPath: string): SourceNurseryProfile | null {
+function mapSourceProfile(
+  doc: QueryDocumentSnapshot,
+  sourceNurseryPath: string,
+  sourceCategory: string,
+): SourceNurseryProfile | null {
   const data = doc.data();
   const businessRegistrationNo = fieldString(data, ...businessNoFields);
   const normalized = normalizeBusinessRegistrationNo(businessRegistrationNo);
@@ -324,6 +500,7 @@ function mapSourceProfile(doc: QueryDocumentSnapshot, sourceNurseryPath: string)
     externalNurseryId: fieldString(data, ...externalNurseryIdFields) || doc.id,
     sourceProjectId,
     sourceNurseryPath,
+    sourceCategory,
     matchedBusinessField:
       unique(businessNoFields).find((field) => normalizeBusinessRegistrationNo(fieldString(data, field)) === normalized) ?? "scan",
     createdAt: now,
@@ -333,11 +510,12 @@ function mapSourceProfile(doc: QueryDocumentSnapshot, sourceNurseryPath: string)
   };
 }
 
-async function readSourceProfiles(sourceDb: Firestore, limit: number) {
+async function readSourceProfiles(sourceDb: Firestore, limit: number, keywords: string[]) {
   const profiles: SourceNurseryProfile[] = [];
   const seen = new Set<string>();
   const skipped: Array<{ sourcePath: string; reason: string }> = [];
   const scannedCollections = await discoverSourceNurseryCollections(sourceDb);
+  const requiredNameKeywords = nurseryNameKeywords();
   let scannedDocumentCount = 0;
 
   const pushSkipped = (item: { sourcePath: string; reason: string }) => {
@@ -349,10 +527,23 @@ async function readSourceProfiles(sourceDb: Firestore, limit: number) {
     scannedDocumentCount += snapshot.size;
 
     for (const doc of snapshot.docs) {
-      const profile = mapSourceProfile(doc, doc.ref.path);
+      const data = doc.data();
+      const sourceCategory = getSourceCategoryText(data, keywords);
+
+      if (!sourceCategory || !hasCategoryKeyword(sourceCategory, keywords)) {
+        pushSkipped({ sourcePath: doc.ref.path, reason: "not nursery category" });
+        continue;
+      }
+
+      const profile = mapSourceProfile(doc, doc.ref.path, sourceCategory);
 
       if (!profile) {
         pushSkipped({ sourcePath: doc.ref.path, reason: "business_registration_no missing" });
+        continue;
+      }
+
+      if (!hasCategoryKeyword(profile.nurseryName, requiredNameKeywords)) {
+        pushSkipped({ sourcePath: doc.ref.path, reason: "nursery name keyword missing" });
         continue;
       }
 
@@ -388,6 +579,7 @@ async function saveProfile(targetDb: Firestore, profile: SourceNurseryProfile) {
       room_count: profile.roomCount,
       a4_external_nursery_id: profile.externalNurseryId,
       external_project_id: sourceProjectId,
+      source_category: profile.sourceCategory,
       signup_source: "SIGNAGE_PARTNER_BULK_SYNC",
       status: "active",
       approval_status: "approved",
@@ -419,6 +611,7 @@ async function saveProfile(targetDb: Firestore, profile: SourceNurseryProfile) {
       external_nursery_id: profile.externalNurseryId,
       source_project_id: sourceProjectId,
       source_nursery_path: profile.sourceNurseryPath,
+      source_category: profile.sourceCategory,
       matched_business_field: profile.matchedBusinessField,
       signup_source: "signage_partner",
       guest_write_enabled: true,
@@ -456,9 +649,10 @@ export async function a4NurseryBulkSignupHandler(request: HttpRequestLike, respo
 
   try {
     const limit = Math.min(Math.max(Number(body.limit ?? defaultLimit) || defaultLimit, 1), 1000);
+    const keywords = categoryKeywords(body.category, body.categoryKeywords);
     const sourceDb = getAdminDbForProject("a4-nursery-bulk-signup-source", sourceProjectId);
     const targetDb = getAdminDb();
-    const { profiles, skipped, scannedCollections, scannedDocumentCount } = await readSourceProfiles(sourceDb, limit);
+    const { profiles, skipped, scannedCollections, scannedDocumentCount } = await readSourceProfiles(sourceDb, limit, keywords);
 
     for (const profile of profiles) {
       await saveProfile(targetDb, profile);
@@ -466,15 +660,16 @@ export async function a4NurseryBulkSignupHandler(request: HttpRequestLike, respo
 
     sendJson(response, 200, {
       ok: true,
-      source: body.source ?? "a2_signage_partner",
+      source: body.source ?? "signage_partner_nursery_category",
       sourceProjectId,
+      categoryKeywords: keywords,
       importedCount: profiles.length,
       skippedCount: skipped.length,
       scannedCollections,
       scannedDocumentCount,
       profiles,
       skipped,
-      message: "A2/signage-partner nursery profiles were bulk-synced into A5.",
+      message: "signage-partner nursery-category profiles were bulk-synced into A5.",
     });
   } catch (error) {
     console.error("A4 nursery bulk signup failed", {
@@ -486,7 +681,7 @@ export async function a4NurseryBulkSignupHandler(request: HttpRequestLike, respo
     if (isPermissionDenied(error)) {
       sendJson(response, 500, {
         ok: false,
-        source: body.source ?? "a2_signage_partner",
+        source: body.source ?? "signage_partner_nursery_category",
         sourceProjectId,
         error: {
           code: "A4_NURSERY_BULK_SIGNUP_SOURCE_PERMISSION_DENIED",
@@ -500,11 +695,11 @@ export async function a4NurseryBulkSignupHandler(request: HttpRequestLike, respo
 
     sendJson(response, 500, {
       ok: false,
-      source: body.source ?? "a2_signage_partner",
+      source: body.source ?? "signage_partner_nursery_category",
       sourceProjectId,
       error: {
         code: "A4_NURSERY_BULK_SIGNUP_FAILED",
-        message: "A2/signage-partner 산후조리원 가입자 연동 중 오류가 발생했습니다.",
+        message: "signage-partner 산후조리원 카테고리 업체 연동 중 오류가 발생했습니다.",
         httpStatus: 500,
       },
     });

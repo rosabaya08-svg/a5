@@ -1,6 +1,8 @@
-import { tabletNurseryAccess } from "@/data/accessCredentials";
-import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
 import type { QrPaymentSession, QrPickupLocation } from "@/types/commerce";
+
+function cleanText(value?: string) {
+  return String(value ?? "").trim();
+}
 
 function roomNameFromId(roomId: string) {
   const roomNumber = roomId.match(/\d+/)?.[0];
@@ -14,18 +16,16 @@ export function resolveQrPickupLocation(input: {
   nurseryAddress?: string;
   roomName?: string;
 }): QrPickupLocation | undefined {
-  const exactMapping = nurseryExternalMappings.find((item) => item.nurseryId === input.nurseryId);
-  const fallbackMapping = exactMapping ?? nurseryExternalMappings[0];
-  const room = nurseryRoomSelections.find((item) => item.roomId === input.roomId);
-  const nurseryAddress = input.nurseryAddress ?? exactMapping?.registeredAddress ?? fallbackMapping?.registeredAddress ?? "";
-  const roomName = input.roomName ?? (room ? `${room.roomNumber}호` : roomNameFromId(input.roomId));
+  const roomId = cleanText(input.roomId);
+  const nurseryAddress = cleanText(input.nurseryAddress);
+  const roomName = cleanText(input.roomName) || roomNameFromId(roomId);
 
   if (!nurseryAddress || !roomName) return undefined;
 
   return {
-    nurseryName: input.nurseryName ?? (input.nurseryId === tabletNurseryAccess.nurseryId ? tabletNurseryAccess.businessName : "산후조리원"),
+    nurseryName: cleanText(input.nurseryName) || "산후조리원",
     nurseryAddress,
-    roomId: input.roomId,
+    roomId,
     roomName,
   };
 }

@@ -901,11 +901,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
       </div>
       <div className="grid gap-3">
         <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">결제 QR</p>
-          <h2 className="mt-1 text-lg font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
-          <p className="mt-2 text-sm leading-6">
-            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 담고, 촬영하면 고객 휴대폰 결제 화면으로 이어집니다.
-          </p>
+          <h2 className="text-lg font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
         </section>
         {session.items.map((item) => (
           <article key={`${item.productId}-${item.optionName}`} className="rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">

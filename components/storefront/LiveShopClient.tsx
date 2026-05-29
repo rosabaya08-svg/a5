@@ -297,6 +297,7 @@ function readLiveCheckoutQuery() {
   return {
     code: params.get("code") ?? "",
     paymentResult,
+    orderNo: params.get("orderNo") ?? params.get("order_no") ?? params.get("orderId") ?? "",
     hasPgReturnParams: Boolean(
       paymentResult ||
         params.get("paymentIntentId") ||
@@ -935,7 +936,7 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
 
 export function LiveQrCheckoutPage() {
   const [query, setQuery] = useState(readLiveCheckoutQuery);
-  const { code, paymentResult, hasPgReturnParams } = query;
+  const { code, paymentResult, orderNo, hasPgReturnParams } = query;
   const [session, setSession] = useState<QrPaymentSession | null>(() => readQrCheckoutSession(code));
   const [receiver, setReceiver] = useState<QrReceiverFormValue | null>(() => {
     const initialSession = readQrCheckoutSession(code);
@@ -1062,6 +1063,16 @@ export function LiveQrCheckoutPage() {
             <h2 className="mt-2 text-xl font-black">결제가 완료되지 않았습니다</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
               결제창에서 취소되었거나 승인에 실패했습니다. 정보를 확인한 뒤 다시 결제를 진행해 주세요.
+            </p>
+          </section>
+        ) : null}
+        {paymentResult === "success" ? (
+          <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
+            <p className="text-xs font-black uppercase text-emerald-700">Payment success</p>
+            <h2 className="mt-2 text-xl font-black">결제 데모 완료</h2>
+            <p className="mt-2 text-sm font-bold leading-6">
+              A5 주문, 결제원장, QR 상태, 재고 차감 흐름까지 완료되었습니다.
+              {orderNo ? ` 주문번호 ${orderNo}` : ""}
             </p>
           </section>
         ) : null}

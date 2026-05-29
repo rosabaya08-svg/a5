@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { isQrReceiverFormComplete, maskCustomerPhone, type QrReceiverFormValue } from "@/components/storefront/QrReceiverForm";
 import { mockCompanies } from "@/data/mockCompanies";
@@ -154,6 +153,17 @@ function receiverPayload(receiver?: QrReceiverFormValue) {
     receiverAddress: receiver.address,
     receiverAddressDetail: receiver.addressDetail,
   };
+}
+
+function liveSuccessUrl(shortCode: string, orderNo: string, paymentIntentId: string) {
+  const params = new URLSearchParams({
+    code: shortCode,
+    paymentResult: "success",
+    orderNo,
+    paymentIntentId,
+  });
+
+  return `/q/live?${params.toString()}`;
 }
 
 function normalizeApiError(error: unknown, fallback: string): CheckoutApiError {
@@ -313,7 +323,6 @@ export function ServerCheckoutFlow({
   fallbackReason?: string;
   receiver?: QrReceiverFormValue;
 }) {
-  const router = useRouter();
   const endpoints = useMemo(() => getPaymentEndpointReadiness(), []);
   const readiness = useMemo(() => getPaymentReadiness(), []);
   const [ready, setReady] = useState<ReadyResponse>();
@@ -337,6 +346,12 @@ export function ServerCheckoutFlow({
     pgPolicyBlocked ||
     !endpoints.ready ||
     Boolean(ready && !providerIsMock && (!innopayCheckoutReady || !endpoints.endpoints.startInnopaySms));
+  const demoPaymentDisabled = Boolean(pending) ||
+    !activeQr ||
+    !receiverComplete ||
+    pgPolicyBlocked ||
+    !endpoints.ready ||
+    !endpoints.endpoints.confirm;
   const innopayStatusLabel = smsStart
     ? "SMS 결제요청 완료"
     : innopayCheckoutReady
@@ -465,7 +480,7 @@ export function ServerCheckoutFlow({
       message: result.data.message,
       updatedAt: new Date().toISOString(),
     });
-    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(preparedReady.paymentIntentId)}`);
+    window.location.assign(liveSuccessUrl(session.shortCode, result.data.orderNo, preparedReady.paymentIntentId));
   }
 
   async function runProviderPayment(preparedReady = ready) {
@@ -534,7 +549,7 @@ export function ServerCheckoutFlow({
       message: result.data.message,
       updatedAt: new Date().toISOString(),
     });
-    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(preparedReady.paymentIntentId)}`);
+    window.location.assign(liveSuccessUrl(session.shortCode, result.data.orderNo, preparedReady.paymentIntentId));
   }
 
   async function runInnopaySmsPayment(preparedReady = ready) {
@@ -627,7 +642,7 @@ export function ServerCheckoutFlow({
         message: result.data.message,
         updatedAt: new Date().toISOString(),
       });
-      router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(confirmedPaymentIntentId)}`);
+      window.location.assign(liveSuccessUrl(session.shortCode, result.data.orderNo, confirmedPaymentIntentId));
       return;
     }
 
@@ -655,6 +670,15 @@ export function ServerCheckoutFlow({
     }
 
     await (preparedReady.provider === "infiny" ? runInnopaySmsPayment(preparedReady) : runProviderPayment(preparedReady));
+  }
+
+  async function runDemoPayment() {
+    const preparedReady = ready ?? (await runReady());
+    if (!preparedReady) {
+      return;
+    }
+
+    await runConfirm(preparedReady);
   }
 
   return (
@@ -715,6 +739,19 @@ export function ServerCheckoutFlow({
               결제 요청 응답코드 {smsStart.resultCode}. 고객 휴대폰 {smsStart.buyerPhoneMasked ?? "-"}로 결제 링크 요청을 보냈습니다.
             </p>
           ) : null}
+          <div className="grid gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="text-xs font-bold leading-5 text-slate-600">
+              데모 결제는 실 PG 승인 없이 A5 주문, 결제원장, 재고 차감, 성공 화면까지 검증합니다. 실제 키 입력 후에는 위 결제 버튼이 인피니 거래조회 승인으로 확정됩니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => void runDemoPayment()}
+              disabled={demoPaymentDisabled}
+              className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {pending === "confirm" ? "데모 결제완료 처리 중" : "데모 결제완료"}
+            </button>
+          </div>
         </div>
       </section>
 

@@ -148,7 +148,7 @@ export function CompanyExcelExportPanel({
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">무료 반자동 연동</p>
           <h2 className="mt-1 text-xl font-black">사방넷 업로드용 엑셀 다운로드</h2>
           <p className="mt-2 text-sm leading-6">
-            PG 결제 완료 주문을 운영 데이터로 뽑기 위한 엑셀 호환 CSV입니다. 사방넷/사방넷 미니 최종 양식 확인 전까지는 A5 표준 필드를 기준으로 출력합니다.
+            결제 완료 주문을 운영 데이터로 뽑기 위한 엑셀 호환 CSV입니다. 사방넷/사방넷 미니 최종 양식 확인 전까지는 A5 표준 필드를 기준으로 출력합니다.
           </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800 ring-1 ring-emerald-200">

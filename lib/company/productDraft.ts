@@ -389,7 +389,7 @@ export function evaluateProductDraftReadiness(draft: ProductDraft, pgReady: bool
   const normalized = normalizeDraft(draft);
   const blockers: string[] = [];
 
-  if (!pgReady) blockers.push("인피니 PG MID 상태가 운영 가능이어야 승인 요청을 보낼 수 있습니다.");
+  if (!pgReady) blockers.push("결제 설정이 최고관리자에서 확인되어야 승인 요청을 보낼 수 있습니다.");
   if (!normalized.productName.trim()) blockers.push("상품명은 필수입니다.");
   if (!normalized.brand.trim()) blockers.push("브랜드는 필수입니다.");
   if (!normalized.categoryId || !normalized.subcategory) blockers.push("A5 제공 카테고리와 소분류를 선택해야 합니다.");

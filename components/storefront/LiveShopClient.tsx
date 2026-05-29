@@ -324,8 +324,8 @@ function readLiveGuestOrderQuery() {
 
 function groupStatusLabel(group: CompanyPaymentGroup) {
   if (group.paymentReady) return "QR 결제 가능";
-  if (group.merchantStatus === "in_review") return "MID 심사 중";
-  if (group.merchantStatus === "blocked") return "MID 차단";
+  if (group.merchantStatus === "in_review") return "결제 설정 확인 중";
+  if (group.merchantStatus === "blocked") return "결제 제한";
   return "테스트 QR 가능";
 }
 
@@ -764,7 +764,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
           <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">기업별 공동구매 결제</p>
           <h2 className="mt-1 text-xl font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
           <p className="mt-2 text-sm leading-6">
-            한 번의 결제 QR에는 한 기업/MID 상품만 담습니다. 결제 완료 후 남은 기업 묶음은 다음 QR로 이어서 생성합니다.
+            한 번의 결제 QR에는 한 업체 상품만 담습니다. 결제 완료 후 남은 업체 묶음은 다음 QR로 이어서 생성합니다.
           </p>
         </section>
         {items.length === 0 ? (
@@ -786,7 +786,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
                 <div>
                   <p className="text-xs font-black text-rose-600">결제 묶음 {groupIndex + 1}</p>
                   <h3 className="mt-1 text-xl font-black">{group.companyName}</h3>
-                  <p className="mt-1 text-xs font-bold text-slate-500">MID {group.merchantIdMasked}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">업체별 결제 묶음</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-black ${group.paymentReady ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"}`}>
                   {groupStatusLabel(group)}
@@ -901,10 +901,10 @@ export function LiveQrSessionPanel({ fallbackSession }: { fallbackSession: QrPay
       </div>
       <div className="grid gap-3">
         <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">인피니 PG 결제 QR</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">결제 QR</p>
           <h2 className="mt-1 text-lg font-black">{COMPANY_GROUP_PURCHASE_MESSAGE}</h2>
           <p className="mt-2 text-sm leading-6">
-            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 담고, 촬영하면 인피니 QR 결제 화면으로 이어집니다. MID가 아직 없어도 고객 화면은 먼저 확인할 수 있습니다.
+            현재 QR은 {sessionGroup?.companyName ?? "선택 업체"} 상품만 담고, 촬영하면 고객 휴대폰 결제 화면으로 이어집니다.
           </p>
         </section>
         {session.items.map((item) => (
@@ -1039,8 +1039,8 @@ export function LiveQrCheckoutPage() {
     <main className="min-h-screen bg-[#f5f1eb] px-4 py-5 text-slate-950">
       <section className="mx-auto grid max-w-md gap-4 md:max-w-4xl">
         <section className="rounded-md bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase text-rose-600">InnoPay QR checkout</p>
-          <h1 className="mt-2 text-3xl font-black">인피니 QR 결제</h1>
+          <p className="text-xs font-black uppercase text-rose-600">QR checkout</p>
+          <h1 className="mt-2 text-3xl font-black">QR 결제</h1>
           <p className="mt-2 text-sm font-bold text-slate-600">QR 코드 {session.shortCode}</p>
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
             상품과 결제자 정보를 확인한 뒤 결제를 진행해 주세요.
@@ -1062,10 +1062,10 @@ export function LiveQrCheckoutPage() {
         <QrReceiverForm key={session.id} session={session} onChange={setReceiver} />
         {paymentResult === "failed" ? (
           <section className="rounded-md bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase text-red-600">PG payment failed</p>
+            <p className="text-xs font-black uppercase text-red-600">Payment failed</p>
             <h2 className="mt-2 text-xl font-black">결제가 완료되지 않았습니다</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-              PG사 결제창에서 취소되었거나 승인에 실패했습니다. 정보를 확인한 뒤 다시 결제를 진행해 주세요.
+              결제창에서 취소되었거나 승인에 실패했습니다. 정보를 확인한 뒤 다시 결제를 진행해 주세요.
             </p>
           </section>
         ) : null}

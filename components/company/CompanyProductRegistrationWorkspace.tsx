@@ -505,7 +505,7 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
             <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">product registration 2.0</p>
             <h1 className="mt-1 text-2xl font-black text-slate-950">기업 상품 등록</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              카테고리 선택, 상세페이지, 옵션 조합 SKU, 옵션별 추가금, 재고, 고시정보, 인피니 PG 상태까지 한 번에 검수합니다.
+              카테고리 선택, 상세페이지, 옵션 조합 SKU, 옵션별 추가금, 재고, 고시정보, 승인 준비도까지 한 번에 검수합니다.
             </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
               <div className="h-full rounded-full bg-emerald-500" style={{ width: `${completionRate}%` }} />
@@ -515,7 +515,7 @@ export function CompanyProductRegistrationWorkspace({ companyId }: { companyId: 
             <p className="text-xs font-black text-slate-500">승인 준비도</p>
             <p className="mt-1 text-2xl font-black text-slate-950">{completionRate}%</p>
             <p className={`mt-2 text-sm font-bold ${pgReady ? "text-emerald-700" : "text-red-700"}`}>
-              인피니 PG: {pgReady ? "운영 가능" : "MID 활성화 필요"} / {pgProfile.merchantIdMasked}
+              결제 설정: {pgReady ? "최고관리자 확인 완료" : "최고관리자 확인 필요"}
             </p>
           </div>
         </div>

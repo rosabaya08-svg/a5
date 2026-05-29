@@ -7,7 +7,7 @@ const samplePolicyValues: Record<string, string> = {
   exchangeReturnPeriod: "수령 후 7일 이내 신청",
   exchangeReturnRestriction: "개봉/사용/상품 훼손/구성품 누락 시 제한",
   damageMisdeliveryStandard: "사진 증빙 접수 후 동일 상품 재발송 또는 환불 검토",
-  refundStandard: "PG 취소/환불은 관리자 검토 및 정산 보류 정책에 따름",
+  refundStandard: "결제 취소/환불은 관리자 검토 및 정산 보류 정책에 따름",
 };
 
 export function ReturnPolicyForm() {

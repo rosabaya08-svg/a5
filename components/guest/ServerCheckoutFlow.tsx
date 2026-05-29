@@ -340,22 +340,22 @@ export function ServerCheckoutFlow({
   const innopayStatusLabel = smsStart
     ? "SMS 결제요청 완료"
     : innopayCheckoutReady
-      ? "인피니 결제 준비 완료"
+      ? "결제 준비 완료"
       : ready && providerIsMock
         ? "결제 가능"
       : ready
-        ? "MID/키 입력 대기"
+        ? "결제 설정 대기"
         : "결제 준비 전";
   const innopayBlockedReason = !activeQr
     ? "QR이 만료되었거나 이미 사용되었습니다."
     : !receiverComplete
       ? "고객명, 연락처, 주소와 동의 체크가 필요합니다."
       : pgPolicyBlocked
-        ? "여러 기업 MID가 섞여 있어 기업별 QR로 나누어야 합니다."
+        ? "여러 판매자의 상품이 함께 담겨 있어 업체별 QR로 나누어야 합니다."
         : ready && !providerIsMock && !innopayCheckoutReady
-          ? "아직 MID 또는 인피니 키값이 저장되지 않아 실제 결제요청은 대기 중입니다."
+          ? "결제 설정이 아직 완료되지 않아 결제요청은 대기 중입니다."
           : !ready
-            ? "결제하기를 누르면 서버 금액 검증 후 인피니 단계로 넘어갑니다."
+            ? "결제하기를 누르면 주문 금액 확인 후 결제 단계로 이동합니다."
             : "";
 
   const pgPayload = useMemo(
@@ -485,8 +485,8 @@ export function ServerCheckoutFlow({
     if (!pgResult.ok) {
       setPending("");
       setError({
-        code: "PG_BROWSER_MODULE_FAILED",
-        message: pgResult.message ?? "PG 결제창 호출 결과를 확인할 수 없습니다.",
+        code: "PAYMENT_BROWSER_MODULE_FAILED",
+        message: pgResult.message ?? "결제창 호출 결과를 확인할 수 없습니다.",
       });
       return;
     }
@@ -662,8 +662,8 @@ export function ServerCheckoutFlow({
       <section className="rounded-md border border-slate-900 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">InnoPay payment</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 QR 결제</h2>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">Payment</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">QR 결제</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
               결제 금액과 결제자 정보를 확인한 뒤 결제를 진행합니다.
             </p>
@@ -678,12 +678,12 @@ export function ServerCheckoutFlow({
           </div>
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs font-black text-slate-500">결제수단</p>
-            <p className="mt-1 font-black text-slate-950">인피니 SMS 카드결제</p>
+            <p className="mt-1 font-black text-slate-950">카드결제</p>
           </div>
           <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">MID 상태</p>
+            <p className="text-xs font-black text-slate-500">결제 상태</p>
             <p className="mt-1 font-black text-slate-950">
-              {ready?.merchantProfile?.merchantIdMasked ?? merchantAnalysis.companyLines[0]?.merchantIdMasked ?? "MID 발급 대기"}
+              {innopayCheckoutReady || providerIsMock ? "결제 가능" : "결제 설정 대기"}
             </p>
           </div>
         </div>
@@ -712,7 +712,7 @@ export function ServerCheckoutFlow({
           ) : null}
           {smsStart ? (
             <p className="rounded-md bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-950">
-              인피니 응답코드 {smsStart.resultCode}. 고객 휴대폰 {smsStart.buyerPhoneMasked ?? "-"}로 결제 링크 요청을 보냈습니다.
+              결제 요청 응답코드 {smsStart.resultCode}. 고객 휴대폰 {smsStart.buyerPhoneMasked ?? "-"}로 결제 링크 요청을 보냈습니다.
             </p>
           ) : null}
         </div>
@@ -741,7 +741,7 @@ export function ServerCheckoutFlow({
         <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-black">인피니 SMS 결제요청 전송 완료</h3>
+              <h3 className="font-black">결제요청 전송 완료</h3>
               <p className="mt-2 text-sm leading-6">{smsStart.message}</p>
               <p className="mt-2 text-xs font-bold">
                 주문번호 {smsStart.orderNo} / 결과코드 {smsStart.resultCode} / 수신번호 {smsStart.buyerPhoneMasked ?? "-"}
@@ -843,7 +843,7 @@ export function PaymentStatusPanel({
   const headline = mode === "success" ? "결제 상태 확인" : mode === "failed" ? "실패 원인 확인" : "QR 결제 상태";
   const body =
     mode === "success"
-      ? "모의 승인 이후 Firebase Functions 결제 상태를 조회합니다."
+      ? "결제 완료 이후 주문 상태를 조회합니다."
       : mode === "failed"
         ? "만료, 금액불일치, 재고부족, 중복 결제 등 서버 차단 사유를 고객에게 안내합니다."
     : "결제 의도 ID 또는 주문번호 기준으로 결제 상태를 조회합니다.";
@@ -882,7 +882,7 @@ export function PaymentStatusPanel({
         <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
           <strong>{status.message}</strong>
           <p className="mt-1">
-            PG사 {status.provider ?? "-"} / 금액 {status.amount ? formatCurrency(status.amount) : "-"} / 출처 {status.source}
+            결제수단 {status.provider ?? "-"} / 금액 {status.amount ? formatCurrency(status.amount) : "-"} / 출처 {status.source}
           </p>
         </div>
       ) : null}

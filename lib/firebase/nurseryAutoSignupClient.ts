@@ -87,15 +87,21 @@ function normalizeFunctionProfile(
 
 function normalizeFunctionRooms(rooms: NurseryLoginFunctionResponse["rooms"]): TabletNurseryRoomOption[] {
   return (rooms ?? [])
-    .map((room) => ({
-      roomId: String(room.roomId ?? "").trim(),
-      roomNumber: String(room.roomNumber ?? room.roomName ?? "").trim(),
-      roomName: String(room.roomName ?? room.roomNumber ?? "").trim(),
-      floor: String(room.floor ?? "").trim(),
-      pickupEnabled: room.pickupEnabled !== false,
-      activeTabletId: String(room.activeTabletId ?? "").trim(),
-    }))
-    .filter((room) => room.roomId && (room.roomName || room.roomNumber));
+    .map((room): TabletNurseryRoomOption | null => {
+      const roomId = String(room.roomId ?? "").trim();
+      const roomNumber = displayRoomNumber(String(room.roomNumber ?? room.roomName ?? "").trim());
+      if (!roomId || !roomNumber) return null;
+
+      return {
+        roomId,
+        roomNumber,
+        roomName: displayRoomNumber(String(room.roomName ?? room.roomNumber ?? "").trim()) || roomNumber,
+        floor: String(room.floor ?? "").trim(),
+        pickupEnabled: room.pickupEnabled !== false,
+        activeTabletId: String(room.activeTabletId ?? "").trim(),
+      };
+    })
+    .filter((room): room is TabletNurseryRoomOption => Boolean(room?.roomId && (room.roomName || room.roomNumber)));
 }
 
 function asString(value: unknown, fallback = "") {
@@ -117,6 +123,14 @@ function sortRooms(left: TabletNurseryRoomOption, right: TabletNurseryRoomOption
 
   if (leftKey.numeric !== rightKey.numeric) return leftKey.numeric - rightKey.numeric;
   return leftKey.text.localeCompare(rightKey.text, "ko");
+}
+
+function displayRoomNumber(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (/\d/.test(text) && text.endsWith("호")) return text;
+
+  return text.match(/\d+/g)?.join("") ?? "";
 }
 
 async function requestTabletNurseryLoginProfile(
@@ -188,20 +202,22 @@ async function readLinkedRoomsByNursery(nurseryId: string): Promise<TabletNurser
   const snapshot = await getDocs(query(collection(db, "rooms"), where("nursery_id", "==", nurseryId)));
 
   return snapshot.docs
-    .map((document) => {
+    .map((document): TabletNurseryRoomOption | null => {
       const data = document.data();
       const roomId = asString(data.room_id ?? data.roomId, document.id);
-      const roomNumber = asString(data.room_number ?? data.roomNumber ?? data.name, roomId);
+      const roomNumber = displayRoomNumber(asString(data.room_number ?? data.roomNumber ?? data.name, roomId));
+      if (!roomNumber) return null;
+
       return {
         roomId,
         roomNumber,
-        roomName: asString(data.name ?? data.room_name ?? data.roomName, roomNumber),
+        roomName: displayRoomNumber(asString(data.name ?? data.room_name ?? data.roomName, roomNumber)) || roomNumber,
         floor: asString(data.floor),
         pickupEnabled: data.pickup_enabled !== false && data.pickupEnabled !== false,
         activeTabletId: asString(data.active_tablet_id ?? data.activeTabletId),
       };
     })
-    .filter((room) => room.roomId && (room.roomName || room.roomNumber))
+    .filter((room): room is TabletNurseryRoomOption => Boolean(room?.roomId && (room.roomName || room.roomNumber)))
     .sort(sortRooms);
 }
 

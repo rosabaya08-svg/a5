@@ -520,6 +520,15 @@ function compareRooms(a: TabletRoomOption, b: TabletRoomOption) {
   return left.text.localeCompare(right.text, "ko");
 }
 
+function displayRoomNumber(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (/\d/.test(text) && text.endsWith("호")) return text;
+
+  const digits = text.match(/\d+/g)?.join("") ?? "";
+  return digits;
+}
+
 async function readTabletMapByNursery(nurseryId: string) {
   const db = getAdminDb();
   const snapshot = await db.collection("tablets").where("nursery_id", "==", nurseryId).get();
@@ -547,10 +556,13 @@ async function readRoomsByNursery(nurseryId: string): Promise<TabletRoomOption[]
   ]);
 
   return roomSnapshot.docs
-    .map((doc) => {
+    .map((doc): TabletRoomOption | null => {
       const data = doc.data();
       const roomId = fieldString(data, "room_id", "roomId") || doc.id;
-      const roomNumber = fieldString(data, "room_number", "roomNumber", "name") || roomId;
+      const rawRoomNumber = fieldString(data, "room_number", "roomNumber", "name") || roomId;
+      const roomNumber = displayRoomNumber(rawRoomNumber);
+      if (!roomNumber) return null;
+
       const activeTabletId =
         fieldString(data, "active_tablet_id", "activeTabletId") ||
         tabletByRoomId.get(roomId) ||
@@ -559,12 +571,13 @@ async function readRoomsByNursery(nurseryId: string): Promise<TabletRoomOption[]
       return {
         roomId,
         roomNumber,
-        roomName: fieldString(data, "name", "room_name", "roomName") || roomNumber,
+        roomName: displayRoomNumber(fieldString(data, "name", "room_name", "roomName")) || roomNumber,
         floor: fieldString(data, "floor"),
         pickupEnabled: fieldString(data, "pickup_enabled", "pickupEnabled") !== "false",
         activeTabletId,
       };
     })
+    .filter((room): room is TabletRoomOption => Boolean(room))
     .sort(compareRooms);
 }
 

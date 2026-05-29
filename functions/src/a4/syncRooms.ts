@@ -232,6 +232,14 @@ function normalizeRoomNumber(value: string) {
   return value.replace(/[^0-9A-Za-z]/g, "").toLowerCase();
 }
 
+function displayRoomNumber(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (/\d/.test(text) && text.endsWith("호")) return text;
+
+  return text.match(/\d+/g)?.join("") ?? "";
+}
+
 function looksLikeRoomDocumentId(value: string) {
   const normalized = normalizeRoomNumber(value);
   return normalized.length > 0 && normalized.length <= 8 && /\d/.test(normalized);
@@ -502,7 +510,7 @@ function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
   const externalRoomId = fieldString(data, ...externalRoomIdFields) || doc.id;
   const explicitRoomNumber = fieldString(data, ...roomNumberFields);
   const explicitRoomName = fieldString(data, ...roomNameFields);
-  const roomNumber = explicitRoomNumber || explicitRoomName || (looksLikeRoomDocumentId(doc.id) ? doc.id : "");
+  const roomNumber = displayRoomNumber(explicitRoomNumber || explicitRoomName || (looksLikeRoomDocumentId(doc.id) ? doc.id : ""));
 
   if (!externalRoomId || !roomNumber) {
     return null;
@@ -516,8 +524,7 @@ function mapSourceRoom(doc: QueryDocumentSnapshot): SourceRoom | null {
     ? `room-${safeDocumentId(externalRoomId, doc.id)}`
     : `room-${normalizeRoomNumber(roomNumber) || safeDocumentId(externalRoomId, doc.id)}`;
   const targetRoomId = safeDocumentId(fieldString(data, "a5_room_id", "target_room_id", "targetRoomId"), fallbackTargetId);
-  const rawName = explicitRoomName || roomNumber;
-  const name = isGenericDeviceLabel(rawName) ? roomNumber : rawName;
+  const name = displayRoomNumber(explicitRoomName) || roomNumber;
   const externalTabletId = fieldString(data, ...externalTabletIdFields) || (isDevice ? doc.id : "");
   const activeTabletId = fieldString(data, ...activeTabletIdFields);
 

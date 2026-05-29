@@ -3,19 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { PgIntegrationPanel } from "@/components/storefront/PgIntegrationPanel";
 import { isQrReceiverFormComplete, maskCustomerPhone, type QrReceiverFormValue } from "@/components/storefront/QrReceiverForm";
 import { mockCompanies } from "@/data/mockCompanies";
-import {
-  analyzeInfinyCart,
-  calculateInfinySettlement,
-  INFINY_TOTAL_FEE_RATE,
-  type InfinyCartAnalysis,
-} from "@/lib/payments/infinySettlementPolicy";
+import { analyzeInfinyCart } from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
-import { buildPgCheckoutPayload, getPgBridgeStatus, requestPgModulePayment, type PgRuntimeOverride } from "@/lib/payments/pgCheckoutBridge";
-import { formatCurrency, formatDateTime, formatPercent } from "@/lib/utils/format";
+import { buildPgCheckoutPayload, requestPgModulePayment, type PgRuntimeOverride } from "@/lib/payments/pgCheckoutBridge";
+import { formatCurrency } from "@/lib/utils/format";
 import type { CartItemSnapshot, QrPaymentSession } from "@/types/commerce";
 
 type CheckoutApiError = {
@@ -310,143 +304,8 @@ function isExpired(session: QrPaymentSession) {
   return new Date(session.expiresAt).getTime() <= Date.now();
 }
 
-function FlowStepCard({
-  label,
-  title,
-  body,
-  state,
-}: {
-  label: string;
-  title: string;
-  body: string;
-  state: "ready" | "done" | "blocked";
-}) {
-  const styles = {
-    ready: "border-blue-200 bg-blue-50 text-blue-950",
-    done: "border-emerald-200 bg-emerald-50 text-emerald-950",
-    blocked: "border-red-200 bg-red-50 text-red-950",
-  };
-
-  return (
-    <article className={`rounded-md border p-3 ${styles[state]}`}>
-      <p className="text-xs font-black uppercase tracking-[0.12em]">{label}</p>
-      <h3 className="mt-1 font-black">{title}</h3>
-      <p className="mt-2 text-xs leading-5">{body}</p>
-    </article>
-  );
-}
-
-function DeveloperPayloadPanel({
-  session,
-  ready,
-  confirm,
-  error,
-}: {
-  session: QrPaymentSession;
-  ready?: ReadyResponse;
-  confirm?: ConfirmResponse;
-  error?: CheckoutApiError;
-}) {
-  const rows = [
-    ["short_code", session.shortCode],
-    ["qr_session_id", session.id],
-    ["status", session.status],
-    ["expires_at", session.expiresAt],
-    ["payment_intent_id", ready?.paymentIntentId ?? "-"],
-    ["order_no", confirm?.orderNo ?? ready?.orderNoCandidate ?? "-"],
-    ["company_id", ready?.merchantProfile?.companyId ?? "-"],
-    ["merchant_id", ready?.merchantProfile?.merchantIdMasked ?? "-"],
-    ["module_key", ready?.merchantProfile?.moduleKeyMasked ?? "-"],
-    ["merchant_status", ready?.merchantProfile?.merchantStatus ?? "-"],
-    ["server_amount", ready?.recalculatedAmount ? formatCurrency(ready.recalculatedAmount) : "-"],
-    ["last_error", error ? `${error.code}: ${error.message}` : "-"],
-  ];
-
-  return (
-    <details className="rounded-md border border-slate-200 bg-slate-950 p-4 text-white">
-      <summary className="cursor-pointer text-sm font-black">개발자 결제 서버 확인값</summary>
-      <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="rounded-md bg-white/10 p-2">
-            <dt className="font-bold text-slate-300">{label}</dt>
-            <dd className="mt-1 break-words font-black">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </details>
-  );
-}
-
-function InfinyMultiMerchantCartPanel({ analysis }: { analysis: InfinyCartAnalysis }) {
-  const settlement = calculateInfinySettlement(analysis.totalAmount);
-  const isBlocked = analysis.requiresSplitSettlementApi || !analysis.allCompaniesHaveMid;
-  const tone = isBlocked ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-950";
-  const headline = isBlocked ? "다중 MID 단일 결제 확인 필요" : "단일 MID 결제 가능";
-
-  return (
-    <section className={`rounded-md border p-4 ${tone}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em]">인피니 PG 장바구니 분석</p>
-          <h3 className="mt-1 text-lg font-black">{headline}</h3>
-          <p className="mt-2 text-sm leading-6">{analysis.blockerReason}</p>
-        </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black">
-          기업 {analysis.uniqueCompanyCount}곳 / MID {analysis.uniqueMidCount}개
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-2">
-        {analysis.companyLines.map((line) => (
-          <div key={line.companyId} className="grid gap-2 rounded-md bg-white/80 p-3 text-sm md:grid-cols-[1fr_160px_160px_140px]">
-            <div>
-              <p className="font-black text-slate-950">{line.companyName}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">{line.companyId}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black text-slate-500">MID</p>
-              <p className="mt-1 break-words font-bold text-slate-900">{line.merchantIdMasked}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black text-slate-500">기업별 금액</p>
-              <p className="mt-1 font-bold text-slate-900">{formatCurrency(line.amount)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black text-slate-500">품목</p>
-              <p className="mt-1 font-bold text-slate-900">{line.itemCount}건</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-2 text-sm md:grid-cols-4">
-        {[
-          ["총 결제액", formatCurrency(analysis.totalAmount)],
-          ["총 공제율", formatPercent(INFINY_TOTAL_FEE_RATE)],
-          ["총 공제", formatCurrency(settlement.totalFeeAmount)],
-          ["기업 정산 예정", formatCurrency(settlement.payoutAmount)],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-md bg-white/80 p-3">
-            <p className="text-xs font-black text-slate-500">{label}</p>
-            <p className="mt-1 font-black text-slate-950">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {analysis.requiresSplitSettlementApi ? (
-        <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-bold leading-5 text-red-900">
-          운영 판단: 회사별 MID가 다르면 일반적인 PG 승인 1건에 여러 독립 MID를 동시에 태우는 구조는 전제하면 안 됩니다.
-          인피니의 marketplace/split settlement API 또는 대표 MID + 하위가맹점 배분 필드가 확인될 때만 고객 1회 결제를 열 수 있습니다.
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
 export function ServerCheckoutFlow({
   session,
-  dataSource,
-  fallbackReason,
   receiver,
 }: {
   session: QrPaymentSession;
@@ -458,32 +317,32 @@ export function ServerCheckoutFlow({
   const endpoints = useMemo(() => getPaymentEndpointReadiness(), []);
   const readiness = useMemo(() => getPaymentReadiness(), []);
   const [ready, setReady] = useState<ReadyResponse>();
-  const [confirm, setConfirm] = useState<ConfirmResponse>();
+  const [, setConfirm] = useState<ConfirmResponse>();
   const [smsStart, setSmsStart] = useState<StartInnopaySmsResponse>();
   const [error, setError] = useState<CheckoutApiError>();
   const [pending, setPending] = useState<"ready" | "pg" | "sms" | "sync" | "confirm" | "amount-test" | "">("");
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const pgClientConfig = ready?.pgClientConfig;
-  const bridge = useMemo(() => getPgBridgeStatus(pgClientConfig), [pgClientConfig]);
   const effectiveProvider = ready?.provider ?? readiness.provider;
   const providerIsMock = effectiveProvider === "mock";
   const providerIsInnopaySms = effectiveProvider === "infiny";
   const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
-  const buttonDisabled = Boolean(pending) || !endpoints.ready || pgPolicyBlocked || !receiverComplete || !activeQr;
   const innopayCheckoutReady = Boolean(ready && !providerIsMock && ready.pgReady && providerIsInnopaySms);
   const innopayPrimaryDisabled = Boolean(pending) ||
     !activeQr ||
     !receiverComplete ||
     pgPolicyBlocked ||
     !endpoints.ready ||
-    Boolean(ready && (!innopayCheckoutReady || !endpoints.endpoints.startInnopaySms));
+    Boolean(ready && !providerIsMock && (!innopayCheckoutReady || !endpoints.endpoints.startInnopaySms));
   const innopayStatusLabel = smsStart
     ? "SMS 결제요청 완료"
     : innopayCheckoutReady
       ? "인피니 결제 준비 완료"
+      : ready && providerIsMock
+        ? "결제 가능"
       : ready
         ? "MID/키 입력 대기"
         : "결제 준비 전";
@@ -493,7 +352,7 @@ export function ServerCheckoutFlow({
       ? "고객명, 연락처, 주소와 동의 체크가 필요합니다."
       : pgPolicyBlocked
         ? "여러 기업 MID가 섞여 있어 기업별 QR로 나누어야 합니다."
-        : ready && !innopayCheckoutReady
+        : ready && !providerIsMock && !innopayCheckoutReady
           ? "아직 MID 또는 인피니 키값이 저장되지 않아 실제 결제요청은 대기 중입니다."
           : !ready
             ? "결제하기를 누르면 서버 금액 검증 후 인피니 단계로 넘어갑니다."
@@ -536,7 +395,7 @@ export function ServerCheckoutFlow({
         updatedAt: new Date().toISOString(),
         error: result.error,
       });
-      return;
+      return undefined;
     }
 
     setReady(result.data);
@@ -551,10 +410,11 @@ export function ServerCheckoutFlow({
       message: result.data.message,
       updatedAt: new Date().toISOString(),
     });
+    return result.data;
   }
 
-  async function runConfirm() {
-    if (!ready) return;
+  async function runConfirm(preparedReady = ready) {
+    if (!preparedReady) return;
     if (receiver && !isQrReceiverFormComplete(receiver)) {
       setError({
         code: "RECEIVER_REQUIRED",
@@ -567,9 +427,9 @@ export function ServerCheckoutFlow({
     setError(undefined);
 
     const result = await postPaymentFunction<ConfirmResponse>(endpoints.endpoints.confirm, {
-      ...checkoutPayload(session, ready.recalculatedAmount),
-      paymentIntentId: ready.paymentIntentId,
-      orderNoCandidate: ready.orderNoCandidate,
+      ...checkoutPayload(session, preparedReady.recalculatedAmount),
+      paymentIntentId: preparedReady.paymentIntentId,
+      orderNoCandidate: preparedReady.orderNoCandidate,
       mockApprovalRequested: true,
       ...receiverPayload(receiver),
     });
@@ -581,9 +441,9 @@ export function ServerCheckoutFlow({
       writeStoredFlow({
         shortCode: session.shortCode,
         qrSessionId: session.id,
-        paymentIntentId: ready.paymentIntentId,
-        orderNo: ready.orderNoCandidate,
-        amount: ready.recalculatedAmount,
+        paymentIntentId: preparedReady.paymentIntentId,
+        orderNo: preparedReady.orderNoCandidate,
+        amount: preparedReady.recalculatedAmount,
         status: "failed",
         source: "firebase_functions",
         message: result.error.message,
@@ -597,7 +457,7 @@ export function ServerCheckoutFlow({
     writeStoredFlow({
       shortCode: session.shortCode,
       qrSessionId: session.id,
-      paymentIntentId: ready.paymentIntentId,
+      paymentIntentId: preparedReady.paymentIntentId,
       orderNo: result.data.orderNo,
       amount: result.data.recalculatedAmount,
       status: result.data.approval.realPgCalled ? "confirmed" : "confirmed_mock",
@@ -605,11 +465,11 @@ export function ServerCheckoutFlow({
       message: result.data.message,
       updatedAt: new Date().toISOString(),
     });
-    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(ready.paymentIntentId)}`);
+    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(preparedReady.paymentIntentId)}`);
   }
 
-  async function runProviderPayment() {
-    if (!ready) return;
+  async function runProviderPayment(preparedReady = ready) {
+    if (!preparedReady) return;
     if (receiver && !isQrReceiverFormComplete(receiver)) {
       setError({
         code: "RECEIVER_REQUIRED",
@@ -634,9 +494,9 @@ export function ServerCheckoutFlow({
     setPending("confirm");
 
     const result = await postPaymentFunction<ConfirmResponse>(endpoints.endpoints.confirm, {
-      ...checkoutPayload(session, ready.recalculatedAmount),
-      paymentIntentId: ready.paymentIntentId,
-      orderNoCandidate: ready.orderNoCandidate,
+      ...checkoutPayload(session, preparedReady.recalculatedAmount),
+      paymentIntentId: preparedReady.paymentIntentId,
+      orderNoCandidate: preparedReady.orderNoCandidate,
       providerPaymentKey: pgResult.paymentKey,
       transactionId: pgResult.transactionId,
       receiptUrl: pgResult.receiptUrl,
@@ -650,9 +510,9 @@ export function ServerCheckoutFlow({
       writeStoredFlow({
         shortCode: session.shortCode,
         qrSessionId: session.id,
-        paymentIntentId: ready.paymentIntentId,
-        orderNo: ready.orderNoCandidate,
-        amount: ready.recalculatedAmount,
+        paymentIntentId: preparedReady.paymentIntentId,
+        orderNo: preparedReady.orderNoCandidate,
+        amount: preparedReady.recalculatedAmount,
         status: "failed",
         source: "firebase_functions",
         message: result.error.message,
@@ -666,7 +526,7 @@ export function ServerCheckoutFlow({
     writeStoredFlow({
       shortCode: session.shortCode,
       qrSessionId: session.id,
-      paymentIntentId: ready.paymentIntentId,
+      paymentIntentId: preparedReady.paymentIntentId,
       orderNo: result.data.orderNo,
       amount: result.data.recalculatedAmount,
       status: result.data.approval.realPgCalled ? "confirmed" : "confirmed_mock",
@@ -674,11 +534,11 @@ export function ServerCheckoutFlow({
       message: result.data.message,
       updatedAt: new Date().toISOString(),
     });
-    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(ready.paymentIntentId)}`);
+    router.push(`/q/${session.shortCode}/success?orderNo=${encodeURIComponent(result.data.orderNo)}&paymentIntentId=${encodeURIComponent(preparedReady.paymentIntentId)}`);
   }
 
-  async function runInnopaySmsPayment() {
-    if (!ready) return;
+  async function runInnopaySmsPayment(preparedReady = ready) {
+    if (!preparedReady) return;
     if (receiver && !isQrReceiverFormComplete(receiver)) {
       setError({
         code: "RECEIVER_REQUIRED",
@@ -691,9 +551,9 @@ export function ServerCheckoutFlow({
     setError(undefined);
 
     const result = await postPaymentFunction<StartInnopaySmsResponse>(endpoints.endpoints.startInnopaySms, {
-      ...checkoutPayload(session, ready.recalculatedAmount),
-      paymentIntentId: ready.paymentIntentId,
-      orderNoCandidate: ready.orderNoCandidate,
+      ...checkoutPayload(session, preparedReady.recalculatedAmount),
+      paymentIntentId: preparedReady.paymentIntentId,
+      orderNoCandidate: preparedReady.orderNoCandidate,
       ...receiverPayload(receiver),
     });
 
@@ -704,9 +564,9 @@ export function ServerCheckoutFlow({
       writeStoredFlow({
         shortCode: session.shortCode,
         qrSessionId: session.id,
-        paymentIntentId: ready.paymentIntentId,
-        orderNo: ready.orderNoCandidate,
-        amount: ready.recalculatedAmount,
+        paymentIntentId: preparedReady.paymentIntentId,
+        orderNo: preparedReady.orderNoCandidate,
+        amount: preparedReady.recalculatedAmount,
         status: "failed",
         source: "firebase_functions",
         message: result.error.message,
@@ -720,9 +580,9 @@ export function ServerCheckoutFlow({
     writeStoredFlow({
       shortCode: session.shortCode,
       qrSessionId: session.id,
-      paymentIntentId: ready.paymentIntentId,
+      paymentIntentId: preparedReady.paymentIntentId,
       orderNo: result.data.orderNo,
-      amount: result.data.amount ?? ready.recalculatedAmount,
+      amount: result.data.amount ?? preparedReady.recalculatedAmount,
       status: "pending_payment_link",
       source: "firebase_functions",
       message: result.data.message,
@@ -778,44 +638,24 @@ export function ServerCheckoutFlow({
     });
   }
 
-  function runInnopayPrimary() {
-    if (!ready) {
-      void runReady();
+  async function runInnopayPrimary() {
+    const preparedReady = ready ?? (await runReady());
+    if (!preparedReady) {
       return;
     }
 
     if (smsStart) {
-      void runInnopaySmsSync();
+      await runInnopaySmsSync();
       return;
     }
 
-    void (providerIsInnopaySms ? runInnopaySmsPayment() : runProviderPayment());
-  }
+    if (preparedReady.provider === "mock") {
+      await runConfirm(preparedReady);
+      return;
+    }
 
-  const flowStates = [
-    {
-      label: "1단계",
-      title: "QR 세션 검증",
-      body: `${session.id} / ${session.shortCode} 기준으로 active, 만료, 중복 사용 여부를 서버에서 확인합니다.`,
-      state: activeQr ? ("ready" as const) : ("blocked" as const),
-    },
-    {
-      label: "2단계",
-      title: "서버 금액 재계산",
-      body: "클라이언트 금액을 신뢰하지 않고 Firestore products 가격과 수량으로 다시 계산합니다.",
-      state: ready ? ("done" as const) : ("ready" as const),
-    },
-    {
-      label: "3단계",
-      title: pgPolicyBlocked ? "다중 MID 결제 정책 차단" : providerIsMock ? "모의 승인 + transaction 기록" : "PG 결제창 연결 준비",
-      body: pgPolicyBlocked
-        ? `${merchantAnalysis.blockerReason} 인피니 분할정산 API 확인 전까지 실결제 승인을 차단합니다.`
-        : providerIsMock
-        ? "모의 결제사일 때만 confirm까지 이어지며 orders/payments/order_items/inventory/audit log 기록 구조를 탑니다."
-        : "PG 공개 SDK 호출 후 Functions confirm 어댑터가 서버 금액 검증과 PG 승인 API를 이어받습니다.",
-      state: confirm ? ("done" as const) : pgPolicyBlocked ? ("blocked" as const) : ("ready" as const),
-    },
-  ];
+    await (preparedReady.provider === "infiny" ? runInnopaySmsPayment(preparedReady) : runProviderPayment(preparedReady));
+  }
 
   return (
     <section className="grid gap-4">
@@ -825,7 +665,7 @@ export function ServerCheckoutFlow({
             <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">InnoPay payment</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 QR 결제</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-              QR 상품 금액을 서버에서 다시 확인한 뒤 인피니 SMS 결제요청으로 이어집니다. MID가 아직 없으면 이 화면은 그대로 열리고 결제요청만 대기 상태로 표시됩니다.
+              결제 금액과 결제자 정보를 확인한 뒤 결제를 진행합니다.
             </p>
           </div>
           <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{innopayStatusLabel}</span>
@@ -856,16 +696,16 @@ export function ServerCheckoutFlow({
             className="rounded-md bg-blue-700 px-4 py-4 text-base font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {pending === "ready"
-              ? "결제 정보 확인 중"
+              ? "결제 준비 중"
               : pending === "sms"
-                ? "인피니 결제요청 전송 중"
+                ? "결제 요청 중"
                 : pending === "sync"
                   ? "결제 완료 확인 중"
                   : !ready
-                    ? "인피니 결제 준비"
+                    ? "결제"
                     : smsStart
                       ? "결제완료 확인"
-                      : "인피니 SMS 결제요청"}
+                      : "결제"}
           </button>
           {innopayBlockedReason ? (
             <p className="rounded-md bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">{innopayBlockedReason}</p>
@@ -878,53 +718,14 @@ export function ServerCheckoutFlow({
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-600">서버 결제 흐름</p>
-            <h2 className="mt-1 text-xl font-black text-slate-950">서버 검증 후 결제 진행</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              이 화면은 Firebase Functions 결제 서버 계층으로 ready/confirm을 호출합니다. PG 설정이 완료되면 브라우저 결제창과 서버 승인 어댑터로 이어집니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs font-black">
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">{dataSource}</span>
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">{readiness.label}</span>
-            <span className={`rounded-full px-3 py-1 ${providerIsMock ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>
-              {providerIsMock ? "모의 결제" : "PG 결제"}
-            </span>
-          </div>
-        </div>
-        {fallbackReason ? <p className="mt-3 rounded-md bg-amber-50 p-3 text-xs font-bold text-amber-900">대체 표시 사유: {fallbackReason}</p> : null}
-      </section>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        {flowStates.map((step) => (
-          <FlowStepCard key={step.label} {...step} />
-        ))}
-      </div>
-
-      <InfinyMultiMerchantCartPanel analysis={merchantAnalysis} />
-
-      <section className="rounded-md bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-bold text-slate-500">QR session id</p>
-            <p className="mt-1 break-words font-black">{session.id}</p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-bold text-slate-500">short code</p>
-            <p className="mt-1 font-black">{session.shortCode}</p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-bold text-slate-500">expires</p>
-            <p className="mt-1 font-black">{formatDateTime(session.expiresAt)}</p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-bold text-slate-500">amount</p>
-            <p className="mt-1 font-black text-rose-600">{formatCurrency(session.totalAmount)}</p>
-          </div>
-        </div>
+      <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950 shadow-sm">
+        <h3 className="font-black">취소/환불 안내</h3>
+        <p className="mt-2 text-sm font-bold leading-6">
+          결제 완료 후 취소 또는 환불은 상품 발송, 현장 수령 여부, 판매자 정책에 따라 처리됩니다. 주문 내역 확인 화면에서 주문번호를 확인한 뒤 판매자 또는 산후조리원 안내 창구로 문의해 주세요.
+        </p>
+        <p className="mt-3 text-xs font-bold leading-5">
+          오픈마켓(산후조리원연합회)은 통신판매중개자 이며, 판매자가 등록한 상품 및 거래에 대한 정보 등의 저작권 책임은 각 판매자 에게 있습니다.
+        </p>
       </section>
 
       {!activeQr ? (
@@ -933,66 +734,6 @@ export function ServerCheckoutFlow({
           <p className="mt-2 text-sm leading-6">
             QR 상태가 {session.status}이고 만료 여부는 {expired ? "만료됨" : "유효"}입니다. 서버 ready 호출은 차단 사유 확인용으로만 사용할 수 있습니다.
           </p>
-        </section>
-      ) : null}
-
-      <section className="rounded-md bg-white p-4 shadow-sm">
-        <div className="grid gap-2 md:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => void runReady()}
-            disabled={buttonDisabled}
-            className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {pending === "ready" ? "서버 검증 중" : "1. 결제 전 서버 검증"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void runConfirm()}
-            disabled={Boolean(pending) || !ready || !providerIsMock}
-            className="rounded-md bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {pending === "confirm" ? "모의 승인 처리 중" : "2. 모의 승인 실행"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void (providerIsInnopaySms ? runInnopaySmsPayment() : runProviderPayment())}
-            disabled={Boolean(pending) || !ready || providerIsMock || !ready.pgReady || !receiverComplete || (providerIsInnopaySms ? !endpoints.endpoints.startInnopaySms : !bridge.configured)}
-            className="rounded-md bg-blue-700 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {pending === "sms"
-              ? "SMS 결제요청 전송 중"
-              : pending === "pg"
-                ? "PG 결제창 호출 중"
-                : pending === "confirm"
-                  ? "PG 승인 처리 중"
-                  : providerIsInnopaySms
-                    ? "2. 인피니 SMS 결제요청"
-                    : "2. PG 결제창 열기"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void runReady(session.totalAmount + 1000, "amount-test")}
-            disabled={buttonDisabled}
-            className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-          >
-            {pending === "amount-test" ? "금액 오류 테스트 중" : "금액불일치 테스트"}
-          </button>
-        </div>
-        <p className="mt-3 text-xs leading-5 text-slate-500">
-            실제 PG 결제사가 선택되고 키/엔드포인트가 준비되면 PG 결제창 호출 후 Firebase Functions 승인 단계로 이어집니다.
-        </p>
-      </section>
-
-      {ready ? (
-        <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-          <h3 className="font-black">서버 ready 완료</h3>
-          <p className="mt-2 text-sm leading-6">{ready.message}</p>
-          <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
-            <span className="rounded-full bg-white px-3 py-2 font-black">paymentIntentId: {ready.paymentIntentId}</span>
-            <span className="rounded-full bg-white px-3 py-2 font-black">orderNo: {ready.orderNoCandidate}</span>
-            <span className="rounded-full bg-white px-3 py-2 font-black">serverAmount: {formatCurrency(ready.recalculatedAmount)}</span>
-          </div>
         </section>
       ) : null}
 
@@ -1037,29 +778,6 @@ export function ServerCheckoutFlow({
           </div>
         </section>
       ) : null}
-
-      <PgIntegrationPanel
-        amount={ready?.recalculatedAmount ?? session.totalAmount}
-        orderNo={ready?.orderNoCandidate ?? `A5-${session.shortCode}`}
-        orderName={`with.commerce ${session.shortCode}`}
-        customerName="비회원 고객"
-        customerPhoneMasked="010-****-0000"
-        qrSessionId={session.id}
-        merchantId={ready?.merchantProfile?.merchantId}
-        moduleKey={ready?.merchantProfile?.moduleKey}
-      />
-
-      <section className="rounded-md border border-blue-100 bg-blue-50 p-4 text-blue-950">
-        <h3 className="font-black">PG 결제창 준비 상태</h3>
-        <p className="mt-2 text-sm leading-6">
-          PG사: {bridge.provider} / 브라우저 모듈: {bridge.moduleLoaded ? "로드됨" : "미로드"} / 결제 준비 주소: {pgPayload.readyEndpoint || "미입력"}
-        </p>
-        <p className="mt-2 text-xs leading-5">
-          실제 결제창 호출은 결제사 공식 모듈, 공개키, 기업 MID, Functions Secret과 confirm endpoint가 모두 준비된 경우에만 진행됩니다.
-        </p>
-      </section>
-
-      <DeveloperPayloadPanel session={session} ready={ready} confirm={confirm} error={error} />
     </section>
   );
 }

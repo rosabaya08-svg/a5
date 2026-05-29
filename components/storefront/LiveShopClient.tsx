@@ -1043,7 +1043,7 @@ export function LiveQrCheckoutPage() {
           <h1 className="mt-2 text-3xl font-black">인피니 QR 결제</h1>
           <p className="mt-2 text-sm font-bold text-slate-600">QR 코드 {session.shortCode}</p>
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-950">
-            상품 확인, 수령 정보 입력, 인피니 결제 준비까지 한 화면에서 진행합니다. MID가 발급 전이어도 화면은 열리고, 실제 결제요청 버튼만 PG 연동값 저장 후 활성화됩니다.
+            상품과 결제자 정보를 확인한 뒤 결제를 진행해 주세요.
           </div>
           <div className="mt-4 grid gap-3">
             {session.items.map((item) => (

@@ -79,7 +79,7 @@ export function QrReceiverForm({
 
   return (
     <section className="rounded-md bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-black">결제자 정보</h2>
+      <h2 className="text-lg font-black">결제자 정보 입력</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -157,7 +157,7 @@ export function QrReceiverForm({
           onChange={(event) => setValue((current) => ({ ...current, consent: event.target.checked }))}
           className="h-4 w-4"
         />
-        주문 및 개인정보 처리 안내에 동의합니다.
+        주문, 개인정보 처리, 취소/환불 안내에 동의합니다.
       </label>
     </section>
   );

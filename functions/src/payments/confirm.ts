@@ -7,6 +7,7 @@ import { validateFirestoreQrSession } from "../qr/validateQrSession";
 import { assertAmount } from "../utils/assertAmount";
 import { appendAuditLogSkeleton, createAuditLogDraft, toAuditLogDocument } from "../utils/auditLog";
 import { getPaymentConfirmTransactionPlan } from "../utils/firestoreTransaction";
+import { CatalogPricingError, priceCartItemsFromCatalog } from "./catalogPricing";
 import { decryptCredential } from "./credentialCrypto";
 import { confirmPaymentWithConfiguredProvider } from "./providerAdapter";
 import { getPgAdapterHandoffPlan, getPgServerReadiness, isInnopaySmsApiMode } from "./providerRuntime";
@@ -100,6 +101,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       providerPaymentKey: optionalString(body.providerPaymentKey),
       transactionId: optionalString(body.transactionId),
       receiptUrl: optionalString(body.receiptUrl),
+      mockApprovalRequested: body.mockApprovalRequested === true,
       pgReadiness,
     });
 
@@ -110,14 +112,16 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
     approvedAt = approval.approvedAt;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown payment confirm preflight error.";
-    const [code, detail] = message.split(":");
+    const [fallbackCode, fallbackDetail] = message.split(":");
+    const code = error instanceof CatalogPricingError ? error.code : fallbackCode;
+    const detail = error instanceof CatalogPricingError ? error.message : fallbackDetail ?? message;
 
-    await recordPaymentConfirmFailure(paymentIntentId, orderNo, code, detail ?? message);
+    await recordPaymentConfirmFailure(paymentIntentId, orderNo, code, detail);
     sendJson(response, errorStatus(code), {
       ok: false,
       error: {
         code,
-        message: errorMessage(code, detail ?? message),
+        message: errorMessage(code, detail),
         httpStatus: errorStatus(code),
       },
     });
@@ -132,14 +136,14 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
     const qrRef = db.collection("qr_payment_sessions").doc(qrSessionId);
     const eventRef = db.collection("payment_events").doc(`${paymentIntentId}-approved`);
     const auditRef = db.collection("audit_logs").doc();
-    const productRefs = requestItems.map((item) => db.collection("products").doc(item.productId));
+    const productRefs = pricedItems.map((item) => (item.source === "firestore_products" ? db.collection("products").doc(item.productId) : null));
 
     await db.runTransaction(async (transaction) => {
       const intentSnapshot = await transaction.get(intentRef);
       const paymentSnapshot = await transaction.get(paymentRef);
       const qrSnapshot = await transaction.get(qrRef);
       const orderSnapshot = await transaction.get(orderRef);
-      const productSnapshots = await Promise.all(productRefs.map((ref) => transaction.get(ref)));
+      const productSnapshots = await Promise.all(productRefs.map((ref) => (ref ? transaction.get(ref) : Promise.resolve(null))));
 
       if (!intentSnapshot.exists) {
         throw new Error("PAYMENT_INTENT_NOT_FOUND");
@@ -163,8 +167,11 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         throw new Error("QR_SESSION_EXPIRED");
       }
 
-      pricedItems = productSnapshots.map((snapshot, index) => {
-        if (!snapshot.exists) {
+      pricedItems = pricedItems.map((item, index) => {
+        if (item.source !== "firestore_products") return item;
+
+        const snapshot = productSnapshots[index];
+        if (!snapshot?.exists) {
           throw new Error(`PRODUCT_NOT_FOUND:${requestItems[index].productId}`);
         }
 
@@ -184,7 +191,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         }
 
         return {
-          ...requestItems[index],
+          ...item,
           productName: String(data.title ?? data.name ?? requestItems[index].productName),
           unitPrice: asNumber(data.closed_mall_price ?? data.price, requestItems[index].unitPrice),
           companyId: String(data.company_id ?? requestItems[index].companyId),
@@ -192,7 +199,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           inventory,
           reservedInventory,
           availableInventory,
-          source: "firestore_products",
+          source: "firestore_products" as const,
         };
       });
 
@@ -235,7 +242,9 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
         signKeyRef: optionalString(intentSnapshot.get("sign_key_ref")),
         webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
         merchantStatus,
-        paymentReady: smsApiMode ? Boolean(merchantId && merchantStatus === "active") : Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
+        paymentReady: smsApiMode
+          ? Boolean(merchantId && optionalString(intentSnapshot.get("sign_key_ref")) && merchantStatus === "active")
+          : Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
       };
 
       recalculatedAmount = calculateItemsAmount(pricedItems);
@@ -393,11 +402,14 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           { merge: true },
         );
 
-        transaction.update(productRefs[index], {
-          inventory: FieldValue.increment(-item.quantity),
-          reserved_inventory: FieldValue.increment(item.reservedInventory >= item.quantity ? -item.quantity : 0),
-          updated_at: FieldValue.serverTimestamp(),
-        });
+        const productRef = productRefs[index];
+        if (productRef) {
+          transaction.update(productRef, {
+            inventory: FieldValue.increment(-item.quantity),
+            reserved_inventory: FieldValue.increment(item.reservedInventory >= item.quantity ? -item.quantity : 0),
+            updated_at: FieldValue.serverTimestamp(),
+          });
+        }
 
         transaction.set(
           db.collection("inventory_movements").doc(),
@@ -540,6 +552,7 @@ type ConfirmPreflightInput = {
   providerPaymentKey?: string;
   transactionId?: string;
   receiptUrl?: string;
+  mockApprovalRequested?: boolean;
   pgReadiness: ReturnType<typeof getPgServerReadiness>;
 };
 
@@ -564,14 +577,12 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
   const paymentRef = db.collection("payments").doc(input.paymentIntentId);
   const orderRef = db.collection("orders").doc(input.orderNo);
   const qrRef = db.collection("qr_payment_sessions").doc(input.qrSessionId);
-  const productRefs = input.requestItems.map((item) => db.collection("products").doc(item.productId));
 
-  const [intentSnapshot, paymentSnapshot, orderSnapshot, qrSnapshot, ...productSnapshots] = await Promise.all([
+  const [intentSnapshot, paymentSnapshot, orderSnapshot, qrSnapshot] = await Promise.all([
     intentRef.get(),
     paymentRef.get(),
     orderRef.get(),
     qrRef.get(),
-    ...productRefs.map((ref) => ref.get()),
   ]);
 
   if (!intentSnapshot.exists) throw new Error("PAYMENT_INTENT_NOT_FOUND");
@@ -586,36 +597,7 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
   const expiresAt = toIsoString(qrSnapshot.get("expires_at") ?? qrSnapshot.get("expiresAt"));
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) throw new Error("QR_SESSION_EXPIRED");
 
-  const pricedItems = productSnapshots.map((snapshot, index) => {
-    if (!snapshot.exists) throw new Error(`PRODUCT_NOT_FOUND:${input.requestItems[index].productId}`);
-
-    const data = snapshot.data() ?? {};
-    const status = String(data.status ?? "");
-    if (status !== "active" && status !== "approved") {
-      throw new Error(`PRODUCT_NOT_ACTIVE:${input.requestItems[index].productId}`);
-    }
-
-    const inventory = asNumber(data.inventory ?? data.stock, 0);
-    const reservedInventory = asNumber(data.reserved_inventory, 0);
-    const availableInventory = inventory - reservedInventory;
-    const quantity = input.requestItems[index].quantity;
-
-    if (inventory < quantity && availableInventory < quantity) {
-      throw new Error(`OUT_OF_STOCK:${input.requestItems[index].productId}`);
-    }
-
-    return {
-      ...input.requestItems[index],
-      productName: String(data.title ?? data.name ?? input.requestItems[index].productName),
-      unitPrice: asNumber(data.closed_mall_price ?? data.price, input.requestItems[index].unitPrice),
-      companyId: String(data.company_id ?? input.requestItems[index].companyId),
-      status,
-      inventory,
-      reservedInventory,
-      availableInventory,
-      source: "firestore_products" as const,
-    };
-  });
+  const pricedItems = await priceCartItemsFromCatalog(db, input.requestItems);
 
   const companyIds = new Set(pricedItems.map((item) => item.companyId).filter(Boolean));
   if (companyIds.size > 1) {
@@ -652,7 +634,7 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     webhookSecretRef: optionalString(intentSnapshot.get("webhook_secret_ref")),
     merchantStatus,
     paymentReady: isInnopaySmsApiMode(merchantProvider)
-      ? Boolean(merchantId && merchantStatus === "active")
+      ? Boolean(merchantId && optionalString(intentSnapshot.get("sign_key_ref")) && merchantStatus === "active")
       : Boolean(merchantId && moduleKey && merchantSerialNo && merchantStatus === "active"),
   };
 
@@ -693,6 +675,20 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     );
   });
 
+  if (input.mockApprovalRequested) {
+    if (input.pgReadiness.environment === "production") {
+      throw new Error("PAYMENT_DEMO_APPROVAL_DISABLED:Demo payment approval is disabled in production.");
+    }
+
+    return {
+      pricedItems,
+      recalculatedAmount,
+      merchantProfile,
+      serverCredentials,
+      approval: createDemoApproval(input.orderNo, merchantProfile.provider),
+    };
+  }
+
   const providerResult = await confirmPaymentWithConfiguredProvider({
     paymentIntentId: input.paymentIntentId,
     orderNo: input.orderNo,
@@ -724,6 +720,17 @@ async function buildConfirmPreflight(input: ConfirmPreflightInput): Promise<Conf
     merchantProfile,
     serverCredentials,
     approval: providerResult.approval,
+  };
+}
+
+function createDemoApproval(orderNo: string, provider: PaymentProviderId): PgApproval {
+  return {
+    provider,
+    status: "approved_mock",
+    mockTid: `DEMO-FN-${orderNo}`,
+    realPgCalled: false,
+    approvedAt: new Date().toISOString(),
+    message: "Demo payment approval completed. No real PG API was called.",
   };
 }
 
@@ -810,11 +817,12 @@ function toIsoString(value: unknown): string | undefined {
 function errorStatus(code: string): number {
   if (code === "DUPLICATE_PAYMENT_ATTEMPT") return 409;
   if (code === "QR_SESSION_NOT_ACTIVE" || code === "QR_SESSION_EXPIRED") return 409;
-  if (code === "OUT_OF_STOCK") return 409;
+  if (code === "OUT_OF_STOCK" || code === "INVENTORY_SHORTAGE") return 409;
   if (code === "AMOUNT_MISMATCH") return 409;
   if (code === "COMPANY_GROUP_REQUIRED") return 409;
   if (code === "PAYMENT_INTENT_COMPANY_MISMATCH") return 409;
   if (code === "PAYMENT_INTENT_MID_REQUIRED") return 409;
+  if (code === "PAYMENT_DEMO_APPROVAL_DISABLED") return 409;
   if (code === "PAYMENT_APPROVAL_MISSING") return 503;
   if (code === "PG_PROVIDER_ADAPTER_NOT_IMPLEMENTED") return 503;
   if (code.endsWith("NOT_FOUND")) return 404;
@@ -830,11 +838,14 @@ function errorMessage(code: string, detail: string): string {
     QR_SESSION_EXPIRED: "QR session is expired.",
     PRODUCT_NOT_FOUND: `Product was not found: ${detail}.`,
     PRODUCT_NOT_ACTIVE: `Product is not active: ${detail}.`,
+    OPTION_NOT_FOUND: `Product option was not found: ${detail}.`,
     OUT_OF_STOCK: `Product is out of stock: ${detail}.`,
+    INVENTORY_SHORTAGE: `Product is out of stock: ${detail}.`,
     AMOUNT_MISMATCH: "Client amount does not match server recalculated amount.",
     COMPANY_GROUP_REQUIRED: "One payment QR can contain items from only one company/MID. Create the next company QR after this payment.",
     PAYMENT_INTENT_COMPANY_MISMATCH: "Payment intent company does not match the recalculated cart company.",
     PAYMENT_INTENT_MID_REQUIRED: "Company MID, serial number, payment module key, or active status is missing for real PG confirm.",
+    PAYMENT_DEMO_APPROVAL_DISABLED: "Demo payment approval is disabled in production.",
     PAYMENT_APPROVAL_MISSING: "Payment approval result is missing after PG confirm.",
     PG_PROVIDER_ADAPTER_NOT_IMPLEMENTED: "Configured PG adapter is not ready for real approval. Check Infiny endpoint and Firebase Function secrets.",
   };

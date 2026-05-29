@@ -63,6 +63,35 @@ function findActiveSectionTitle(navItems: NavSection[], pathname: string) {
   return navItems.find((section) => section.items.some((item) => isActivePath(pathname, item.href)))?.title;
 }
 
+function ReturnToMomcareButton({ surface }: { surface: "light" | "dark" }) {
+  const isDark = surface === "dark";
+
+  function returnToMomcare() {
+    window.close();
+
+    window.setTimeout(() => {
+      if (window.history.length > 1) {
+        window.history.back();
+      }
+    }, 120);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={returnToMomcare}
+      className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-black transition ${
+        isDark
+          ? "bg-white text-slate-950 hover:bg-rose-50"
+          : "border border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+      }`}
+    >
+      <span aria-hidden="true">&lt;</span>
+      <span>맘케어로 돌아가기</span>
+    </button>
+  );
+}
+
 export function AdminSidebar({
   title,
   navItems,
@@ -156,9 +185,10 @@ export function AdminSidebar({
           );
         })}
       </nav>
-      {logoutRole ? (
-        <div className={`shrink-0 border-t p-3 ${isDark ? "border-white/10" : "border-slate-200"}`}>
-          <PortalLogoutButton role={logoutRole} surface={surface} className="w-full" />
+      {logoutRole || accent === "nursery" ? (
+        <div className={`grid shrink-0 gap-2 border-t p-3 ${isDark ? "border-white/10" : "border-slate-200"}`}>
+          {logoutRole ? <PortalLogoutButton role={logoutRole} surface={surface} className="w-full" /> : null}
+          {accent === "nursery" ? <ReturnToMomcareButton surface={surface} /> : null}
         </div>
       ) : null}
     </aside>

@@ -1,0 +1,14 @@
+/admin/*
+  Cache-Control: no-store, max-age=0
+
+/company/*
+  Cache-Control: no-store, max-age=0
+
+/nursery/*
+  Cache-Control: no-store, max-age=0
+
+/tablet/*
+  Cache-Control: no-store, max-age=0
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable

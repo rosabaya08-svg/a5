@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel, LiveTabletOrderHistoryPage } from "@/components/storefront/LiveShopClient";
 import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
+import { TabletHomeRuntimeSections } from "@/components/storefront/TabletHomeRuntimeSections";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
 import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { staticProductIds } from "@/data/staticSmokeRoutes";
@@ -465,10 +466,7 @@ export async function TabletProductsPage() {
   return (
     <StoreShell title="산후조리원 핫딜 쇼핑 홈" subtitle="태블릿 산후조리원 핫딜" context={context}>
       <div className="grid gap-8">
-        <HeroBanner content={context.content} />
-        <PromoBannerGrid content={context.content} />
-        <VideoAdStrip />
-        <BrandGrid content={context.content} />
+        <TabletHomeRuntimeSections fallbackContent={context.content} />
         <DiscountBandRails products={products} content={context.content} />
       </div>
     </StoreShell>

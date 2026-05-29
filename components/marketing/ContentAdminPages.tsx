@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
+import { AdminStorefrontHomeVisualEditor } from "@/components/admin/AdminStorefrontHomeVisualEditor";
 import { adminNavItems, companyNavItems } from "@/components/layout/navigation";
 import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import { FirebaseCmsManager } from "@/components/firebase/FirebaseCmsManager";
@@ -88,7 +89,7 @@ export async function AdminBrandManagementPage() {
 export function AdminHomeEditorPage() {
   return (
     <AdminContentShell title="홈 편집" subtitle="태블릿 폐쇄몰 홈 배너, 영상, 브랜드관, 노출 순서를 관리합니다.">
-      <FirebaseCmsManager mode="admin" defaultTab="banners" />
+      <AdminStorefrontHomeVisualEditor />
     </AdminContentShell>
   );
 }

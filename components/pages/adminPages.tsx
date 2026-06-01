@@ -254,6 +254,75 @@ function PgReadinessPanel() {
   );
 }
 
+function CompanyPaymentLogsPanel() {
+  const companies = mockApi.companies();
+  const orderItems = mockApi.orderItems();
+  const orders = mockApi.orders();
+  const payments = mockApi.payments();
+
+  const rows = companies.map((company) => {
+    const companyItems = orderItems.filter((item) => item.companyId === company.id);
+    const orderIds = new Set(companyItems.map((item) => item.orderId));
+    const companyPayments = payments.filter((payment) => orderIds.has(payment.orderId));
+    const paidAmount = companyItems.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+    const settlementPreview = calculateInfinySettlement(paidAmount);
+    const latestPayment = [...companyPayments].sort((left, right) =>
+      (right.approvedAt ?? "").localeCompare(left.approvedAt ?? ""),
+    )[0];
+    const latestOrder = latestPayment ? orders.find((order) => order.id === latestPayment.orderId) : undefined;
+
+    return {
+      id: company.id,
+      cells: [
+        <div key="company" className="min-w-44">
+          <p className="font-black text-slate-950">{company.name}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{company.id}</p>
+        </div>,
+        company.pgProfile?.merchantIdMasked ?? "MID 발급 대기",
+        companyPayments.length,
+        formatCurrency(paidAmount),
+        formatCurrency(settlementPreview.pgFeeAmount),
+        formatCurrency(settlementPreview.platformFeeAmount),
+        formatCurrency(settlementPreview.payoutAmount),
+        latestPayment ? (
+          <div key="latest" className="min-w-52">
+            <p className="font-bold text-slate-800">{latestPayment.orderNo}</p>
+            <p className="mt-1 text-xs text-slate-500">{latestPayment.mockTid}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {latestPayment.approvedAt ? formatDateTime(latestPayment.approvedAt) : "승인 대기"}
+            </p>
+            {latestOrder ? <p className="mt-1 text-xs text-slate-500">{latestOrder.customerPhoneMasked}</p> : null}
+          </div>
+        ) : (
+          "결제 로그 없음"
+        ),
+      ],
+    };
+  });
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-700">company payment logs</p>
+          <h2 className="mt-1 text-lg font-black text-slate-950">입점 기업별 결제 로그</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            기업별 결제 승인 로그, 인피니 MID, 수수료 차감 미리보기, 최근 TID를 한 화면에서 확인합니다. 정산 실행은 하지 않고 조회와 검산만 제공합니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-800">읽기 전용</span>
+      </div>
+      <div className="mt-4">
+        <DataTable
+          columns={["기업", "인피니 MID", "결제건", "결제액", "인피니 수수료", "A5 수수료", "예상 입금", "최근 결제"]}
+          rows={rows}
+          emptyMessage="등록 기업별 결제 로그가 없습니다."
+        />
+      </div>
+    </section>
+  );
+}
+
 export function AdminIndexPage() {
   return (
     <AdminShell
@@ -349,6 +418,8 @@ export function AdminCompaniesPage() {
           ],
         }))}
       />
+      <div className="mt-4" />
+      <CompanyPaymentLogsPanel />
     </AdminShell>
   );
 }

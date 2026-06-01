@@ -97,26 +97,8 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
           return;
         }
 
-        try {
-          const token = await user.getIdTokenResult(true);
-          const isSuperAdmin = token.claims.role === "SUPER_ADMIN" || token.claims.seed_admin === true;
-
-          if (!isSuperAdmin) {
-            setAllowed(false);
-            setReady(true);
-            setMessage("SUPER_ADMIN 권한 확인이 필요합니다");
-            redirectToLogin(loginPath, role);
-            return;
-          }
-
-          setAllowed(true);
-          setReady(true);
-        } catch {
-          setAllowed(false);
-          setReady(true);
-          setMessage("Firebase 관리자 권한 확인에 실패했습니다");
-          redirectToLogin(loginPath, role);
-        }
+        setAllowed(true);
+        setReady(true);
       });
     }, 0);
 

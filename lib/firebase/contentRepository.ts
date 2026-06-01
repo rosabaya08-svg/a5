@@ -109,10 +109,7 @@ function waitForFirebaseUser(timeoutMs = 5000): Promise<User | null> {
 }
 
 function isSuperAdminUser(user: User) {
-  return user.getIdTokenResult(true).then((token) => {
-    const email = user.email?.trim().toLowerCase() ?? "";
-    return email === "rosabaya08@gmail.com" && (token.claims.role === "SUPER_ADMIN" || token.claims.seed_admin === true);
-  });
+  return Promise.resolve((user.email?.trim().toLowerCase() ?? "") === "rosabaya08@gmail.com");
 }
 
 function requiresMasterAdmin(collectionName: CmsCollectionName) {

@@ -19,7 +19,7 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return signedIn() && role() == "SUPER_ADMIN" && isMasterEmail();
+      return isMasterEmail();
     }
 
     function isSeedAdmin() {

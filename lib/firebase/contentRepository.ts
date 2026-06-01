@@ -6,8 +6,9 @@ import {
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { ensureAnonymousFirebaseUser, getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
+import { getFirebaseAuthClient, getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
 
 export type CmsCollectionName =
   | "marketing_banners"
@@ -82,14 +83,53 @@ function cmsStoragePath(collectionName: CmsCollectionName, recordId: string, fil
   return `public/storefront/media_assets/${recordId}/${fileName}`;
 }
 
-async function prepareCmsSession() {
-  try {
-    return await ensureAnonymousFirebaseUser();
-  } catch {
-    // The current beta rules allow guarded CMS writes without an Auth provider.
-    // Keep the CMS usable until dedicated admin login/custom-claims rollout is complete.
-    return null;
+function waitForFirebaseUser(timeoutMs = 5000): Promise<User | null> {
+  const auth = getFirebaseAuthClient();
+
+  if (!auth) {
+    return Promise.resolve(null);
   }
+
+  if (auth.currentUser) {
+    return Promise.resolve(auth.currentUser);
+  }
+
+  return new Promise((resolve) => {
+    const timeout = window.setTimeout(() => {
+      unsubscribe();
+      resolve(auth.currentUser);
+    }, timeoutMs);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
+async function requireSuperAdminCmsSession() {
+  const user = await waitForFirebaseUser();
+
+  if (!user) {
+    throw new Error("Firebase Auth login is required. Please sign in again with rosabaya08@gmail.com.");
+  }
+
+  const email = user.email?.trim().toLowerCase() ?? "";
+
+  if (email !== "rosabaya08@gmail.com") {
+    throw new Error("Only the master admin account rosabaya08@gmail.com can edit home banners and official brands.");
+  }
+
+  const token = await user.getIdTokenResult(true);
+  const role = token.claims.role;
+  const seedAdmin = token.claims.seed_admin === true;
+
+  if (role !== "SUPER_ADMIN" && !seedAdmin) {
+    throw new Error("SUPER_ADMIN Firebase custom claim is required. Please sign out and sign in again.");
+  }
+
+  return user;
 }
 
 export function subscribeCmsRecords(
@@ -99,7 +139,7 @@ export function subscribeCmsRecords(
 ): Unsubscribe {
   let unsubscribe: Unsubscribe = () => undefined;
 
-  void prepareCmsSession()
+  void requireSuperAdminCmsSession()
     .then(() => {
       const db = getFirebaseDb();
 
@@ -122,7 +162,7 @@ export function subscribeCmsRecords(
 }
 
 export async function saveCmsRecord(collectionName: CmsCollectionName, record: CmsRecord) {
-  await prepareCmsSession();
+  await requireSuperAdminCmsSession();
 
   const db = getFirebaseDb();
 
@@ -153,7 +193,7 @@ export async function uploadCmsFile(
   file: File,
   scope?: CmsUploadScope,
 ): Promise<{ url: string; path: string; assetType: string }> {
-  await prepareCmsSession();
+  await requireSuperAdminCmsSession();
 
   const storage = getFirebaseStorageClient();
 

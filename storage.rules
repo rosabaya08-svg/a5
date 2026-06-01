@@ -11,7 +11,9 @@ service firebase.storage {
     }
 
     function isSuperAdmin() {
-      return role() == "SUPER_ADMIN";
+      return signedIn() &&
+        role() == "SUPER_ADMIN" &&
+        request.auth.token.email == "rosabaya08@gmail.com";
     }
 
     function isCompanyAdmin(companyId) {
@@ -26,69 +28,79 @@ service firebase.storage {
         request.auth.token.nursery_id == nurseryId;
     }
 
-    function publicReadEnabled() {
-      return true;
-    }
-
-    function betaCmsUpload() {
+    function safeImageOrVideo(maxMb) {
       return request.resource != null &&
-        request.resource.size < 25 * 1024 * 1024 &&
+        request.resource.size < maxMb * 1024 * 1024 &&
         (
           request.resource.contentType.matches("image/.*") ||
           request.resource.contentType.matches("video/.*")
         );
     }
 
-    // Beta CMS policy: storefront media registration is enabled for A5 closed-mall setup.
-    // Payment, order, settlement, and private documents remain blocked.
+    function safeDocument(maxMb) {
+      return request.resource != null &&
+        request.resource.size < maxMb * 1024 * 1024 &&
+        (
+          request.resource.contentType == "application/pdf" ||
+          request.resource.contentType.matches("image/.*")
+        );
+    }
+
     match /public/storefront/{fileName=**} {
-      allow read: if publicReadEnabled();
-      allow create, update: if betaCmsUpload() || isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin();
     }
 
     match /companies/{companyId}/products/{productId}/images/{fileName=**} {
-      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isCompanyAdmin(companyId)) && safeImageOrVideo(25);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
+    }
+
+    match /companies/{companyId}/products/{productId}/detail/{fileName=**} {
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isCompanyAdmin(companyId)) && safeImageOrVideo(25);
       allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/products/{productId}/gifs/{fileName=**} {
-      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isCompanyAdmin(companyId)) && safeImageOrVideo(25);
       allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/products/{productId}/videos/{fileName=**} {
-      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isCompanyAdmin(companyId)) && safeImageOrVideo(100);
+      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
+    }
+
+    match /companies/{companyId}/ad-materials/{fileName=**} {
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isCompanyAdmin(companyId)) && safeImageOrVideo(100);
       allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
     }
 
     match /companies/{companyId}/onboarding/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
+      allow create, update: if isCompanyAdmin(companyId) && safeDocument(20);
+      allow delete: if isSuperAdmin();
     }
 
     match /companies/{companyId}/bank-documents/{fileName=**} {
       allow read: if isSuperAdmin() || isCompanyAdmin(companyId);
-      allow write: if false;
-    }
-
-    match /companies/{companyId}/ad-materials/{fileName=**} {
-      allow read: if publicReadEnabled() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow create, update: if betaCmsUpload() || isSuperAdmin() || isCompanyAdmin(companyId);
-      allow delete: if isSuperAdmin() || isCompanyAdmin(companyId);
+      allow create, update: if isCompanyAdmin(companyId) && safeDocument(20);
+      allow delete: if isSuperAdmin();
     }
 
     match /nurseries/{nurseryId}/business-documents/{fileName=**} {
       allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
-      allow write: if false;
+      allow create, update, delete: if false;
     }
 
     match /nurseries/{nurseryId}/rooms/{roomId}/tablet-proofs/{fileName=**} {
       allow read: if isSuperAdmin() || isNurseryAdmin(nurseryId);
-      allow write: if false;
+      allow create, update, delete: if false;
     }
 
     match /settlements/{period}/{companyId}/{fileName=**} {

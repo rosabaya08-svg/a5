@@ -108,25 +108,31 @@ function waitForFirebaseUser(timeoutMs = 5000): Promise<User | null> {
   });
 }
 
-async function requireSuperAdminCmsSession() {
+function isSuperAdminUser(user: User) {
+  return user.getIdTokenResult(true).then((token) => {
+    const email = user.email?.trim().toLowerCase() ?? "";
+    return email === "rosabaya08@gmail.com" && (token.claims.role === "SUPER_ADMIN" || token.claims.seed_admin === true);
+  });
+}
+
+function requiresMasterAdmin(collectionName: CmsCollectionName) {
+  return collectionName === "brands" ||
+    collectionName === "home_sections" ||
+    collectionName === "tablet_home_configs" ||
+    collectionName === "marketing_banners" ||
+    collectionName === "marketing_videos" ||
+    collectionName === "media_assets";
+}
+
+async function requireCmsSession(collectionName: CmsCollectionName) {
   const user = await waitForFirebaseUser();
 
   if (!user) {
-    throw new Error("Firebase Auth login is required. Please sign in again with rosabaya08@gmail.com.");
+    throw new Error("Firebase Auth login is required. Please sign in again.");
   }
 
-  const email = user.email?.trim().toLowerCase() ?? "";
-
-  if (email !== "rosabaya08@gmail.com") {
-    throw new Error("Only the master admin account rosabaya08@gmail.com can edit home banners and official brands.");
-  }
-
-  const token = await user.getIdTokenResult(true);
-  const role = token.claims.role;
-  const seedAdmin = token.claims.seed_admin === true;
-
-  if (role !== "SUPER_ADMIN" && !seedAdmin) {
-    throw new Error("SUPER_ADMIN Firebase custom claim is required. Please sign out and sign in again.");
+  if (requiresMasterAdmin(collectionName) && !(await isSuperAdminUser(user))) {
+    throw new Error("Only the master admin account rosabaya08@gmail.com can edit home banners, ads, and official brands.");
   }
 
   return user;
@@ -139,7 +145,7 @@ export function subscribeCmsRecords(
 ): Unsubscribe {
   let unsubscribe: Unsubscribe = () => undefined;
 
-  void requireSuperAdminCmsSession()
+  void requireCmsSession(collectionName)
     .then(() => {
       const db = getFirebaseDb();
 
@@ -162,7 +168,7 @@ export function subscribeCmsRecords(
 }
 
 export async function saveCmsRecord(collectionName: CmsCollectionName, record: CmsRecord) {
-  await requireSuperAdminCmsSession();
+  await requireCmsSession(collectionName);
 
   const db = getFirebaseDb();
 
@@ -193,7 +199,7 @@ export async function uploadCmsFile(
   file: File,
   scope?: CmsUploadScope,
 ): Promise<{ url: string; path: string; assetType: string }> {
-  await requireSuperAdminCmsSession();
+  await requireCmsSession(collectionName);
 
   const storage = getFirebaseStorageClient();
 

@@ -38,6 +38,8 @@ export type PgClientRuntimeConfig = {
   scriptUrl?: string;
   globalName?: string;
   requestFunctionName?: string;
+  checkoutMode?: string;
+  paymentMode?: string;
   successUrl?: string;
   failUrl?: string;
 };

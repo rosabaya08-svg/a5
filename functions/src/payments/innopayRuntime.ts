@@ -4,7 +4,7 @@ import { decryptCredential } from "./credentialCrypto";
 
 export type InnopayRuntimeSettings = {
   apiBaseUrl: string;
-  paymentMode: "sms" | "vbank" | "rest";
+  paymentMode: "sms" | "vbank" | "rest" | "webview" | "tpay" | "direct";
   smsEnabled: boolean;
   vbankEnabled: boolean;
   realCallsEnabled: boolean;
@@ -60,9 +60,9 @@ function decryptOptional(value: unknown): string | undefined {
   }
 }
 
-function asPaymentMode(value: unknown): "sms" | "vbank" | "rest" {
+function asPaymentMode(value: unknown): InnopayRuntimeSettings["paymentMode"] {
   const mode = text(value).toLowerCase();
-  return mode === "vbank" || mode === "rest" ? mode : "sms";
+  return mode === "vbank" || mode === "rest" || mode === "webview" || mode === "tpay" || mode === "direct" ? mode : "sms";
 }
 
 function booleanValue(value: unknown): boolean {

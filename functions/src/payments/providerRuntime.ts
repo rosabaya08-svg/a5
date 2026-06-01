@@ -109,6 +109,9 @@ export function isInnopayRestApiMode(providerName?: string): boolean {
       mode === "vbank" ||
       mode === "rest" ||
       mode === "innopay" ||
+      mode === "webview" ||
+      mode === "tpay" ||
+      mode === "direct" ||
       base.includes("api.innopay.co.kr") ||
       readEnv("INNOPAY_SMS_API_ENABLED").toLowerCase() === "true" ||
       readEnv("INNOPAY_REAL_CALLS_ENABLED").toLowerCase() === "true"

@@ -7,7 +7,8 @@ import { mockCompanies } from "@/data/mockCompanies";
 import { analyzeInfinyCart } from "@/lib/payments/infinySettlementPolicy";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { getPaymentReadiness } from "@/lib/payments/paymentService";
-import { buildPgCheckoutPayload, requestPgModulePayment, type PgRuntimeOverride } from "@/lib/payments/pgCheckoutBridge";
+import { writePaymentReceiver } from "@/lib/payments/paymentBrowserStorage";
+import { buildPgCheckoutPayload, isInnopayBrowserCheckoutRuntime, requestPgModulePayment, type PgRuntimeOverride } from "@/lib/payments/pgCheckoutBridge";
 import { formatCurrency } from "@/lib/utils/format";
 import type { CartItemSnapshot, QrPaymentSession } from "@/types/commerce";
 
@@ -113,6 +114,9 @@ type StoredPaymentFlow = {
   error?: CheckoutApiError;
 };
 
+type InnopayCheckoutChannel = "webview" | "sms";
+type InnopayPayMethod = "CARD" | "EPAY" | "EBANK" | "BANK" | "VBANK" | "OPCARD";
+
 function paymentFlowKey(shortCode: string) {
   return `a5-server-payment-flow:${shortCode}`;
 }
@@ -126,6 +130,15 @@ function toServerItem(item: CartItemSnapshot) {
     quantity: item.quantity,
     companyId: item.companyId,
   };
+}
+
+function checkoutOrderName(session: QrPaymentSession) {
+  const firstItem = session.items[0]?.productName || `QR ${session.shortCode}`;
+  return session.items.length > 1 ? `${firstItem} 외 ${session.items.length - 1}건` : firstItem;
+}
+
+function checkoutItemCount(session: QrPaymentSession) {
+  return Math.max(session.items.reduce((sum, item) => sum + item.quantity, 0), 1);
 }
 
 function checkoutPayload(session: QrPaymentSession, clientAmount = session.totalAmount) {
@@ -329,23 +342,36 @@ export function ServerCheckoutFlow({
   const [, setConfirm] = useState<ConfirmResponse>();
   const [smsStart, setSmsStart] = useState<StartInnopaySmsResponse>();
   const [error, setError] = useState<CheckoutApiError>();
+  const [pgLaunchMessage, setPgLaunchMessage] = useState("");
+  const [innopayChannel, setInnopayChannel] = useState<InnopayCheckoutChannel>("webview");
+  const [innopayPayMethod, setInnopayPayMethod] = useState<InnopayPayMethod>("CARD");
+  const [innopayCardQuota, setInnopayCardQuota] = useState("00");
   const [pending, setPending] = useState<"ready" | "pg" | "sms" | "sync" | "confirm" | "amount-test" | "">("");
   const expired = isExpired(session);
   const activeQr = session.status === "active" && !expired;
   const pgClientConfig = ready?.pgClientConfig;
   const effectiveProvider = ready?.provider ?? readiness.provider;
   const providerIsMock = effectiveProvider === "mock";
-  const providerIsInnopaySms = effectiveProvider === "infiny";
+  const providerIsInnopay = effectiveProvider === "infiny";
+  const providerIsInnopaySms = providerIsInnopay && innopayChannel === "sms";
+  const providerIsInnopayWebview = providerIsInnopay && innopayChannel === "webview";
   const receiverComplete = receiver ? isQrReceiverFormComplete(receiver) : true;
   const merchantAnalysis = useMemo(() => analyzeInfinyCart(session.items, mockCompanies), [session.items]);
   const pgPolicyBlocked = !providerIsMock && merchantAnalysis.requiresSplitSettlementApi;
-  const innopayCheckoutReady = Boolean(ready && !providerIsMock && ready.pgReady && providerIsInnopaySms);
+  const innopayBrowserRuntimeReady = isInnopayBrowserCheckoutRuntime(pgClientConfig);
+  const innopayCheckoutReady = Boolean(
+    ready &&
+      !providerIsMock &&
+      ready.pgReady &&
+      providerIsInnopay &&
+      (providerIsInnopaySms || (providerIsInnopayWebview && innopayBrowserRuntimeReady)),
+  );
   const innopayPrimaryDisabled = Boolean(pending) ||
     !activeQr ||
     !receiverComplete ||
     pgPolicyBlocked ||
     !endpoints.ready ||
-    Boolean(ready && !providerIsMock && (!innopayCheckoutReady || !endpoints.endpoints.startInnopaySms));
+    Boolean(ready && !providerIsMock && (!innopayCheckoutReady || (providerIsInnopaySms && !endpoints.endpoints.startInnopaySms)));
   const demoPaymentDisabled = Boolean(pending) ||
     !activeQr ||
     !receiverComplete ||
@@ -368,31 +394,39 @@ export function ServerCheckoutFlow({
       : pgPolicyBlocked
         ? "여러 판매자의 상품이 함께 담겨 있어 업체별 QR로 나누어야 합니다."
         : ready && !providerIsMock && !innopayCheckoutReady
-          ? "결제 설정이 아직 완료되지 않아 결제요청은 대기 중입니다."
+          ? providerIsInnopayWebview
+            ? "인피니 결제창 스크립트 또는 MID 설정이 아직 완료되지 않아 결제창을 열 수 없습니다."
+            : "결제 설정이 아직 완료되지 않아 결제요청은 대기 중입니다."
           : !ready
             ? "결제하기를 누르면 주문 금액 확인 후 결제 단계로 이동합니다."
             : "";
 
-  const pgPayload = useMemo(
-    () =>
-      buildPgCheckoutPayload({
-        orderNo: ready?.orderNoCandidate ?? `A5-${session.shortCode}`,
-        orderName: `with.commerce ${session.shortCode}`,
-        amount: ready?.recalculatedAmount ?? session.totalAmount,
-        customerName: "비회원 고객",
-        customerPhoneMasked: "010-****-0000",
-        qrSessionId: session.id,
-        returnCode: session.shortCode,
-        merchantId: ready?.merchantProfile?.merchantId,
-        moduleKey: ready?.merchantProfile?.moduleKey,
-        runtimeConfig: pgClientConfig,
-      }),
-    [pgClientConfig, ready?.merchantProfile?.merchantId, ready?.merchantProfile?.moduleKey, ready?.orderNoCandidate, ready?.recalculatedAmount, session.id, session.shortCode, session.totalAmount],
-  );
+  function buildInnopayCheckoutPayload(preparedReady: ReadyResponse) {
+    return buildPgCheckoutPayload({
+      orderNo: preparedReady.orderNoCandidate,
+      orderName: checkoutOrderName(session),
+      itemCount: checkoutItemCount(session),
+      amount: preparedReady.recalculatedAmount,
+      customerName: receiver?.customerName.trim() || "비회원 고객",
+      customerPhone: receiver?.customerPhone.trim(),
+      customerPhoneMasked: receiver?.customerPhone ? maskCustomerPhone(receiver.customerPhone) : "010-****-0000",
+      customerEmail: "noemail@noemail.com",
+      qrSessionId: session.id,
+      paymentIntentId: preparedReady.paymentIntentId,
+      returnCode: session.shortCode,
+      merchantId: preparedReady.merchantProfile?.merchantId,
+      moduleKey: preparedReady.merchantProfile?.moduleKey,
+      runtimeConfig: preparedReady.pgClientConfig ?? pgClientConfig,
+      payMethod: innopayPayMethod,
+      cardCode: "NONE",
+      cardQuota: innopayCardQuota,
+    });
+  }
 
   async function runReady(clientAmount = session.totalAmount, intent: "ready" | "amount-test" = "ready") {
     setPending(intent);
     setError(undefined);
+    setPgLaunchMessage("");
 
     const result = await postPaymentFunction<ReadyResponse>(endpoints.endpoints.ready, checkoutPayload(session, clientAmount));
 
@@ -495,13 +529,33 @@ export function ServerCheckoutFlow({
 
     setPending("pg");
     setError(undefined);
+    setPgLaunchMessage("");
+    writePaymentReceiver(preparedReady.paymentIntentId, receiverPayload(receiver));
 
-    const pgResult = await requestPgModulePayment(pgPayload, pgClientConfig);
+    const runtimeConfig = preparedReady.pgClientConfig ?? pgClientConfig;
+    const pgResult = await requestPgModulePayment(buildInnopayCheckoutPayload(preparedReady), runtimeConfig);
     if (!pgResult.ok) {
       setPending("");
       setError({
         code: "PAYMENT_BROWSER_MODULE_FAILED",
         message: pgResult.message ?? "결제창 호출 결과를 확인할 수 없습니다.",
+      });
+      return;
+    }
+
+    if (!pgResult.paymentKey && !pgResult.transactionId) {
+      setPending("");
+      setPgLaunchMessage(pgResult.message ?? "인피니 결제창을 열었습니다. 결제 완료 후 자동으로 A5 주문 확정 화면으로 돌아옵니다.");
+      writeStoredFlow({
+        shortCode: session.shortCode,
+        qrSessionId: session.id,
+        paymentIntentId: preparedReady.paymentIntentId,
+        orderNo: preparedReady.orderNoCandidate,
+        amount: preparedReady.recalculatedAmount,
+        status: "ready",
+        source: "firebase_functions",
+        message: pgResult.message ?? "InnoPay checkout window opened.",
+        updatedAt: new Date().toISOString(),
       });
       return;
     }
@@ -669,7 +723,12 @@ export function ServerCheckoutFlow({
       return;
     }
 
-    await (preparedReady.provider === "infiny" ? runInnopaySmsPayment(preparedReady) : runProviderPayment(preparedReady));
+    if (preparedReady.provider === "infiny") {
+      await (innopayChannel === "webview" ? runProviderPayment(preparedReady) : runInnopaySmsPayment(preparedReady));
+      return;
+    }
+
+    await runProviderPayment(preparedReady);
   }
 
   async function runDemoPayment() {
@@ -702,7 +761,7 @@ export function ServerCheckoutFlow({
           </div>
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs font-black text-slate-500">결제수단</p>
-            <p className="mt-1 font-black text-slate-950">카드결제</p>
+            <p className="mt-1 font-black text-slate-950">{providerIsInnopay && innopayChannel === "webview" ? innopayPayMethod : "카드결제"}</p>
           </div>
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs font-black text-slate-500">결제 상태</p>
@@ -711,6 +770,59 @@ export function ServerCheckoutFlow({
             </p>
           </div>
         </div>
+
+        {providerIsInnopay ? (
+          <div className="mt-4 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-xs font-black text-slate-600">
+                인피니 결제 방식
+                <select
+                  value={innopayChannel}
+                  onChange={(event) => setInnopayChannel(event.target.value as InnopayCheckoutChannel)}
+                  className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-950"
+                >
+                  <option value="webview">결제창/웹뷰 바로 열기</option>
+                  <option value="sms">SMS 결제 링크</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-600">
+                결제수단
+                <select
+                  value={innopayPayMethod}
+                  onChange={(event) => setInnopayPayMethod(event.target.value as InnopayPayMethod)}
+                  disabled={innopayChannel !== "webview"}
+                  className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="CARD">신용카드</option>
+                  <option value="EPAY">간편결제</option>
+                  <option value="BANK">계좌이체</option>
+                  <option value="VBANK">가상계좌</option>
+                  <option value="OPCARD">해외카드</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-black text-slate-600">
+                카드 할부
+                <select
+                  value={innopayCardQuota}
+                  onChange={(event) => setInnopayCardQuota(event.target.value)}
+                  disabled={innopayChannel !== "webview" || innopayPayMethod !== "CARD"}
+                  className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="00">일시불</option>
+                  <option value="02">2개월</option>
+                  <option value="03">3개월</option>
+                  <option value="06">6개월</option>
+                  <option value="12">12개월</option>
+                </select>
+              </label>
+            </div>
+            <p className="text-xs font-bold leading-5 text-slate-600">
+              결제창/웹뷰 방식은 인피니 `innopay.goPay()`를 호출해 카드사 선택, 앱카드/인증 앱 이동, 결제 결과 Return URL 복귀까지 사용합니다.
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-4 grid gap-2">
           <button
@@ -729,7 +841,11 @@ export function ServerCheckoutFlow({
                     ? "결제"
                     : smsStart
                       ? "결제완료 확인"
-                      : "결제"}
+                      : providerIsInnopay && innopayChannel === "webview"
+                        ? "인피니 결제창 열기"
+                        : providerIsInnopay
+                          ? "SMS 결제 요청"
+                          : "결제"}
           </button>
           {innopayBlockedReason ? (
             <p className="rounded-md bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">{innopayBlockedReason}</p>
@@ -738,6 +854,9 @@ export function ServerCheckoutFlow({
             <p className="rounded-md bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-950">
               결제 요청 응답코드 {smsStart.resultCode}. 고객 휴대폰 {smsStart.buyerPhoneMasked ?? "-"}로 결제 링크 요청을 보냈습니다.
             </p>
+          ) : null}
+          {pgLaunchMessage ? (
+            <p className="rounded-md bg-emerald-50 p-3 text-xs font-bold leading-5 text-emerald-950">{pgLaunchMessage}</p>
           ) : null}
           <div className="grid gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className="text-xs font-bold leading-5 text-slate-600">

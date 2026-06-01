@@ -308,23 +308,33 @@ async function readPgClientRuntimeConfig(provider: PaymentProviderId): Promise<P
     const legacyData = legacySnapshot.data() ?? {};
     const providerData = providerSnapshot.data() ?? {};
     const data = { ...legacyData, ...providerData };
+    const providerId = asPaymentProviderId(data.provider ?? provider);
+    const innopayBrowserDefault = providerId === "infiny";
     const clientKey = optionalString(data.public_client_key ?? data.client_key ?? data.clientKey ?? process.env.NEXT_PUBLIC_PG_CLIENT_KEY);
     const channelKey = optionalString(data.channel_key ?? data.channelKey ?? process.env.NEXT_PUBLIC_PG_CHANNEL_KEY);
-    const scriptUrl = optionalString(data.script_url ?? data.scriptUrl ?? process.env.NEXT_PUBLIC_PG_SCRIPT_URL);
+    const scriptUrl = optionalString(data.script_url ?? data.scriptUrl ?? process.env.NEXT_PUBLIC_PG_SCRIPT_URL) ||
+      (innopayBrowserDefault ? "https://pg.innopay.co.kr/tpay/js/v1/innopay.js" : undefined);
     const requestFunctionName = optionalString(
       data.request_function_name ?? data.requestFunctionName ?? data.request_method ?? data.requestMethod ?? process.env.NEXT_PUBLIC_PG_REQUEST_FUNCTION,
-    );
+    ) || (innopayBrowserDefault ? "goPay" : undefined);
+    const globalName = optionalString(data.global_name ?? data.globalName ?? process.env.NEXT_PUBLIC_PG_GLOBAL_NAME) ||
+      (innopayBrowserDefault ? "innopay" : undefined);
+    const checkoutMode = optionalString(data.checkout_mode ?? data.checkoutMode ?? data.module_mode ?? data.moduleMode) ||
+      (innopayBrowserDefault ? "webview" : undefined);
+    const paymentMode = optionalString(data.payment_mode ?? data.paymentMode);
 
-    if (!clientKey && !channelKey && !scriptUrl && !requestFunctionName) return undefined;
+    if (!clientKey && !channelKey && !scriptUrl && !requestFunctionName && !globalName) return undefined;
 
     return {
-      provider: asPaymentProviderId(data.provider ?? provider),
+      provider: providerId,
       environment: data.environment === "production" ? "production" : "test",
       clientKey,
       channelKey,
       scriptUrl,
-      globalName: optionalString(data.global_name ?? data.globalName ?? process.env.NEXT_PUBLIC_PG_GLOBAL_NAME),
+      globalName,
       requestFunctionName,
+      checkoutMode,
+      paymentMode,
       successUrl: optionalString(data.success_url ?? data.successUrl ?? process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL),
       failUrl: optionalString(data.fail_url ?? data.failUrl ?? process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL),
     };

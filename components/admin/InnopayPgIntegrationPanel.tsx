@@ -13,12 +13,17 @@ type SaveState = {
 
 type RuntimeConfig = {
   apiBaseUrl: string;
-  paymentMode: "sms" | "vbank" | "rest";
+  paymentMode: "webview" | "sms" | "vbank" | "rest" | "direct";
   smsEnabled: boolean;
   vbankEnabled: boolean;
   realCallsEnabled: boolean;
   smsSvcPrdtCd: "03" | "04";
   vbankNotiUrl: string;
+  scriptUrl: string;
+  globalName: string;
+  requestFunctionName: string;
+  successUrl: string;
+  failUrl: string;
 };
 
 type CredentialInput = {
@@ -37,6 +42,7 @@ type CredentialInput = {
 const storageKey = "a5.admin.innopay-rest-pg-integration";
 
 const endpointRows = [
+  ["결제창/웹뷰", "JS", "https://pg.innopay.co.kr/tpay/js/v1/innopay.js → innopay.goPay", "Return URL"],
   ["SMS 카드결제", "POST", "/api/smsPayApi", "0000"],
   ["통합 취소", "POST", "/api/cancelApi", "2001"],
   ["가상계좌 발급", "POST", "/api/vbankApi", "4100"],
@@ -57,12 +63,17 @@ const statusLabels: Record<CredentialInput["status"], string> = {
 function defaultRuntime(): RuntimeConfig {
   return {
     apiBaseUrl: "https://api.innopay.co.kr",
-    paymentMode: "sms",
+    paymentMode: "webview",
     smsEnabled: true,
     vbankEnabled: false,
     realCallsEnabled: false,
     smsSvcPrdtCd: "03",
     vbankNotiUrl: "https://asia-northeast3-a5-closed-mall.cloudfunctions.net/paymentsInnopayVbankNoti",
+    scriptUrl: "https://pg.innopay.co.kr/tpay/js/v1/innopay.js",
+    globalName: "innopay",
+    requestFunctionName: "goPay",
+    successUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=success&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
+    failUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=failed&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
   };
 }
 
@@ -112,15 +123,17 @@ function maskSecret(value: string) {
 }
 
 function readinessFor(row: CredentialInput, runtime: RuntimeConfig) {
+  const webviewReady = ["webview", "direct"].includes(runtime.paymentMode) && row.mid.trim() && row.merchantKey.trim() && row.status === "active";
   const smsReady = runtime.smsEnabled && row.smsCard && row.mid.trim() && row.merchantKey.trim() && row.status === "active";
   const vbankReady = runtime.vbankEnabled && row.vbank && row.mid.trim() && row.licenseKey.trim() && row.status === "active";
   const cancelReady = row.mid.trim() && row.cancelPwd.trim();
 
   return {
+    webviewReady: Boolean(webviewReady),
     smsReady: Boolean(smsReady),
     vbankReady: Boolean(vbankReady),
     cancelReady: Boolean(cancelReady),
-    fullyReady: Boolean((smsReady || vbankReady) && cancelReady),
+    fullyReady: Boolean((webviewReady || smsReady || vbankReady) && cancelReady),
   };
 }
 
@@ -177,6 +190,7 @@ export function InnopayPgIntegrationPanel() {
   const metrics = useMemo(() => {
     const rows = credentials.map((row) => readinessFor(row, runtime));
     const active = credentials.filter((row) => row.status === "active").length;
+    const webviewReady = rows.filter((row) => row.webviewReady).length;
     const smsReady = rows.filter((row) => row.smsReady).length;
     const vbankReady = rows.filter((row) => row.vbankReady).length;
     const cancelReady = rows.filter((row) => row.cancelReady).length;
@@ -184,10 +198,11 @@ export function InnopayPgIntegrationPanel() {
 
     return {
       active,
+      webviewReady,
       smsReady,
       vbankReady,
       cancelReady,
-      progress: Math.round(((smsReady + cancelReady + (runtime.vbankEnabled ? vbankReady : smsReady)) / (total * 3)) * 100),
+      progress: Math.round(((webviewReady + smsReady + cancelReady + (runtime.vbankEnabled ? vbankReady : webviewReady)) / (total * 4)) * 100),
     };
   }, [credentials, runtime]);
 
@@ -212,6 +227,11 @@ export function InnopayPgIntegrationPanel() {
         realCallsEnabled: runtime.realCallsEnabled,
         smsSvcPrdtCd: runtime.smsSvcPrdtCd,
         vbankNotiUrl: runtime.vbankNotiUrl,
+        scriptUrl: runtime.scriptUrl,
+        globalName: runtime.globalName,
+        requestFunctionName: runtime.requestFunctionName,
+        successUrl: runtime.successUrl,
+        failUrl: runtime.failUrl,
         documentedEndpoints: endpointRows.map(([label, method, path, successCode]) => ({ label, method, path, successCode })),
       };
 
@@ -235,7 +255,7 @@ export function InnopayPgIntegrationPanel() {
 
       setSaveState({
         status: "saved",
-        message: "PG 연동값을 저장했습니다. SMS는 MID+Merchant-Key, 가상계좌는 MID+licenseKey, 취소는 cancelPwd 기준으로 작동합니다.",
+        message: "PG 연동값을 저장했습니다. 결제창/웹뷰와 SMS 승인확인은 MID+Merchant-Key, 가상계좌는 MID+licenseKey, 취소는 cancelPwd 기준으로 작동합니다.",
       });
     } catch (error) {
       setSaveState({
@@ -254,8 +274,8 @@ export function InnopayPgIntegrationPanel() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-700">innopay rest api</p>
               <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 PG 연동 운영 대시보드</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                A5는 인피니에서 문서로 확인된 REST API만 호출합니다. `INFINY_API_BASE_URL=https://api.innopay.co.kr`를 넣어도
-                문서에 없는 `/payments/confirm` 경로는 만들지 않습니다.
+                A5는 인피니 결제창 웹뷰와 문서로 확인된 REST API만 호출합니다. 고객 결제는 `innopay.goPay()`, 승인 확정은
+                인피니 거래조회로 검증합니다.
               </p>
             </div>
             <Badge tone={runtime.realCallsEnabled ? "green" : "amber"}>{runtime.realCallsEnabled ? "실호출 허용" : "실호출 잠금"}</Badge>
@@ -264,7 +284,7 @@ export function InnopayPgIntegrationPanel() {
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {[
               ["활성 MID", `${metrics.active}개`],
-              ["SMS 결제 준비", `${metrics.smsReady}개`],
+              ["웹뷰 결제 준비", `${metrics.webviewReady}개`],
               ["가상계좌 준비", `${metrics.vbankReady}개`],
               ["취소 준비", `${metrics.cancelReady}개`],
             ].map(([label, value]) => (
@@ -292,10 +312,10 @@ export function InnopayPgIntegrationPanel() {
           <div className="mt-4 grid gap-2 text-sm">
             {[
               "1. paymentsReady: QR, 금액, 재고, 회사 MID 검증",
-              "2. paymentsStartInnopaySms: /api/smsPayApi 호출",
-              "3. paymentsSyncInnopaySms: /v1/transactions 거래조회",
+              "2. QR 결제 화면: innopay.goPay 결제창/웹뷰 호출",
+              "3. Return URL 또는 거래조회: /v1/transactions 검증",
               "4. 승인 확인 후 paymentsConfirm으로 주문/재고 확정",
-              "5. 취소는 /api/cancelApi, Noti는 0000 응답",
+              "5. 보조 기능: SMS /api/smsPayApi, 취소 /api/cancelApi, Noti 0000",
             ].map((item) => (
               <p key={item} className="rounded-md bg-white/10 p-3 font-bold">{item}</p>
             ))}
@@ -321,6 +341,8 @@ export function InnopayPgIntegrationPanel() {
           <label className="grid gap-1 text-sm font-black text-slate-700">
             결제 모드
             <select value={runtime.paymentMode} onChange={(event) => updateRuntime({ paymentMode: event.target.value as RuntimeConfig["paymentMode"] })} className={inputClass()}>
+              <option value="webview">결제창/웹뷰 우선</option>
+              <option value="direct">다이렉트 카드결제</option>
               <option value="sms">SMS 카드결제 우선</option>
               <option value="vbank">가상계좌 우선</option>
               <option value="rest">REST 통합</option>
@@ -350,6 +372,29 @@ export function InnopayPgIntegrationPanel() {
           <label className="grid gap-1 text-sm font-black text-slate-700">
             가상계좌 Noti URL
             <input value={runtime.vbankNotiUrl} onChange={(event) => updateRuntime({ vbankNotiUrl: event.target.value })} className={inputClass()} />
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+            INNOPAY_CHECKOUT_SCRIPT_URL
+            <input value={runtime.scriptUrl} onChange={(event) => updateRuntime({ scriptUrl: event.target.value })} className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-sm font-black text-slate-700">
+            globalName
+            <input value={runtime.globalName} onChange={(event) => updateRuntime({ globalName: event.target.value })} className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-sm font-black text-slate-700">
+            request function
+            <input value={runtime.requestFunctionName} onChange={(event) => updateRuntime({ requestFunctionName: event.target.value })} className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+            Success Return URL
+            <input value={runtime.successUrl} onChange={(event) => updateRuntime({ successUrl: event.target.value })} className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+            Fail Return URL
+            <input value={runtime.failUrl} onChange={(event) => updateRuntime({ failUrl: event.target.value })} className={inputClass()} />
           </label>
         </div>
       </section>
@@ -401,6 +446,7 @@ export function InnopayPgIntegrationPanel() {
                   <p className="mt-1 font-black text-slate-950">{row.companyName}</p>
                   <p className="mt-1 text-xs font-bold text-slate-500">{row.companyId}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
+                    <Badge tone={ready.webviewReady ? "green" : "amber"}>웹뷰 {ready.webviewReady ? "가능" : "대기"}</Badge>
                     <Badge tone={ready.smsReady ? "green" : "amber"}>SMS {ready.smsReady ? "가능" : "대기"}</Badge>
                     <Badge tone={ready.cancelReady ? "green" : "amber"}>취소 {ready.cancelReady ? "가능" : "대기"}</Badge>
                   </div>

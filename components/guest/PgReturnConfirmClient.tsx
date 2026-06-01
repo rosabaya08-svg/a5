@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { readPaymentReceiver } from "@/lib/payments/paymentBrowserStorage";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import type { QrPaymentSession } from "@/types/commerce";
 
@@ -43,14 +44,26 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
       }
 
       const params = new URLSearchParams(window.location.search);
-      const paymentIntentId = params.get("paymentIntentId") || params.get("payment_intent_id") || "";
-      const orderNo = params.get("orderNo") || params.get("orderId") || params.get("order_no") || "";
+      const paymentIntentId = params.get("paymentIntentId") || params.get("payment_intent_id") || params.get("paymentIntent") || "";
+      const orderNo = params.get("orderNo") || params.get("orderId") || params.get("order_no") || params.get("MOID") || params.get("moid") || "";
       const providerPaymentKey = params.get("paymentKey") || params.get("payment_key") || "";
-      const transactionId = params.get("transactionId") || params.get("transaction_id") || params.get("tid") || "";
+      const transactionId = params.get("transactionId") || params.get("transaction_id") || params.get("tid") || params.get("TID") || "";
       const receiptUrl = params.get("receiptUrl") || params.get("receipt_url") || "";
+      const pgResultCode = params.get("ResultCode") || params.get("resultCode") || params.get("result_code") || "";
+      const pgResultMessage = params.get("ResultMsg") || params.get("resultMsg") || "";
+      const paymentResult = params.get("paymentResult") || "";
+      const storedReceiver = readPaymentReceiver(paymentIntentId);
 
       if (!paymentIntentId && !orderNo) {
         setState({ status: "idle", message: "주문 접수가 완료되었습니다." });
+        return;
+      }
+
+      if (paymentResult === "failed" || (pgResultCode && !["0000", "3001", "4100"].includes(pgResultCode))) {
+        setState({
+          status: "failed",
+          message: pgResultMessage || `인피니 결제 결과가 승인 상태가 아닙니다. resultCode=${pgResultCode}`,
+        });
         return;
       }
 
@@ -68,12 +81,8 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
         return;
       }
 
-      if (!paymentIntentId || (!providerPaymentKey && !transactionId)) {
-        setState({
-          status: statusResult.ok ? "confirmed" : "idle",
-          orderNo: statusResult.ok ? statusResult.data.orderNo : orderNo,
-          message: statusResult.ok ? "주문 상태를 확인했습니다." : "주문 접수가 완료되었습니다.",
-        });
+      if (!paymentIntentId) {
+        setState({ status: "idle", message: "결제 결과가 돌아왔지만 paymentIntentId가 없어 서버 확정을 대기합니다." });
         return;
       }
 
@@ -92,6 +101,7 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
         providerPaymentKey,
         transactionId,
         receiptUrl,
+        ...storedReceiver,
       });
       if (cancelled) return;
 

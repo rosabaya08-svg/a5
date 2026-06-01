@@ -37,12 +37,17 @@ type AdminPgCredentialRequest = {
 
 type AdminPgRuntimeSettingsRequest = {
   apiBaseUrl?: string;
-  paymentMode?: "sms" | "vbank" | "rest";
+  paymentMode?: "sms" | "vbank" | "rest" | "webview" | "tpay" | "direct";
   smsEnabled?: boolean;
   vbankEnabled?: boolean;
   realCallsEnabled?: boolean;
   smsSvcPrdtCd?: "03" | "04";
   vbankNotiUrl?: string;
+  scriptUrl?: string;
+  globalName?: string;
+  requestFunctionName?: string;
+  successUrl?: string;
+  failUrl?: string;
   documentedEndpoints?: unknown[];
 };
 
@@ -150,7 +155,7 @@ export async function adminPgCredentialSaveHandler(request: HttpRequestLike, res
     ? (body.status as CompanyMerchantProfile["merchantStatus"])
     : existingStatus ?? "mid_issued";
   const credentialReady = smsApiMode
-    ? Boolean(effectiveMerchantId)
+    ? Boolean(effectiveMerchantId && hasSignKey)
     : Boolean(effectiveMerchantId && effectiveMerchantSerialNo && effectiveModuleKey && hasSecretKey && hasMerchantPassword && hasSignKey && hasWebhookSecret);
   const protectedRequestedStatus = requestedStatus === "not_applied" && existingStatus === "active" && !incomingHasAnyCredentialValue ? "active" : requestedStatus;
   const status = protectedRequestedStatus === "active" && !credentialReady ? "mid_issued" : protectedRequestedStatus;
@@ -419,9 +424,10 @@ function normalizeInnopayRuntimeSettings(input: AdminPgRuntimeSettingsRequest | 
   if (!input || provider !== "infiny") return undefined;
 
   const apiBaseUrl = text(input.apiBaseUrl) || "https://api.innopay.co.kr";
-  const paymentMode = input.paymentMode === "vbank" || input.paymentMode === "rest" ? input.paymentMode : "sms";
+  const paymentMode = ["vbank", "rest", "webview", "tpay", "direct"].includes(String(input.paymentMode)) ? input.paymentMode : "sms";
   const smsSvcPrdtCd = input.smsSvcPrdtCd === "04" ? "04" : "03";
   const documentedEndpoints = Array.isArray(input.documentedEndpoints) ? input.documentedEndpoints.slice(0, 20) : [];
+  const scriptUrl = text(input.scriptUrl) || "https://pg.innopay.co.kr/tpay/js/v1/innopay.js";
 
   return {
     provider: "infiny",
@@ -436,6 +442,13 @@ function normalizeInnopayRuntimeSettings(input: AdminPgRuntimeSettingsRequest | 
     innopay_real_calls_enabled: Boolean(input.realCallsEnabled),
     sms_svc_prdt_cd: smsSvcPrdtCd,
     vbank_noti_url: text(input.vbankNotiUrl),
+    checkout_mode: paymentMode === "direct" ? "direct" : "webview",
+    script_url: scriptUrl,
+    scriptUrl,
+    global_name: text(input.globalName) || "innopay",
+    request_function_name: text(input.requestFunctionName) || "goPay",
+    success_url: text(input.successUrl),
+    fail_url: text(input.failUrl),
     documented_endpoints: documentedEndpoints,
     raw_secret_stored: false,
     secret_storage_policy: "functions_encrypted_vault_or_secret_manager",

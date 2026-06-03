@@ -21,6 +21,9 @@ import {
 type CmsMode = "admin" | "company" | "nursery" | "tablet";
 type CmsTab = "banners" | "videos" | "brands" | "detail" | "theme" | "exposure";
 
+const VIDEO_ACTION_TYPES = ["none", "hotdeal", "luxury"] as const;
+type VideoActionType = (typeof VIDEO_ACTION_TYPES)[number];
+
 type FormState = {
   id: string;
   title: string;
@@ -34,6 +37,9 @@ type FormState = {
   order: string;
   productId: string;
   themeMode: string;
+  videoActionType: VideoActionType;
+  videoActionTarget: string;
+  videoCtaText: string;
 };
 
 const tabs: Array<{
@@ -100,6 +106,9 @@ const emptyForm: FormState = {
   order: "1",
   productId: "",
   themeMode: "light",
+  videoActionType: "none",
+  videoActionTarget: "",
+  videoCtaText: "산후조리원 전용 최대 80% 할인을 받아가세요",
 };
 
 const defaultScope = {
@@ -110,14 +119,22 @@ const defaultScope = {
 };
 
 const cmsCollectionLabels: Record<CmsCollectionName, string> = {
+  products: "상품 카탈로그",
+  product_options: "상품 옵션",
+  company_brand_pages: "기업 브랜드관",
+  company_brand_events: "기업 이벤트 게시판",
+  company_brand_messages: "기업 브랜드 소통함",
+  company_ad_assets: "기업 광고 자산",
   marketing_banners: "광고 배너",
   marketing_videos: "영상/GIF",
   brands: "브랜드 로고",
   product_detail_pages: "상품 상세페이지",
+  company_product_edit_requests: "기업 상품 수정 요청",
   company_api_integration_requests: "기업 API 연동 요청",
   nursery_auto_signup_profiles: "산후조리원 자동 가입",
   home_sections: "홈 디자인 섹션",
   tablet_home_configs: "태블릿 노출 설정",
+  mobile_home_configs: "모바일 홈 설정",
   media_assets: "미디어 자산",
 };
 
@@ -227,6 +244,17 @@ function metadataString(value: unknown) {
   return "";
 }
 
+function normalizeVideoActionType(value: string) {
+  return VIDEO_ACTION_TYPES.includes(value as VideoActionType) ? (value as VideoActionType) : "none";
+}
+
+function videoActionPlaceholder(type: VideoActionType) {
+  if (type === "hotdeal") return "/tablet/products/deals/clearance-80/";
+  if (type === "luxury") return "/tablet/products/brands/brand-mong/";
+
+  return "";
+}
+
 export function FirebaseCmsManager({
   mode,
   defaultTab = "banners",
@@ -244,14 +272,22 @@ export function FirebaseCmsManager({
   const [optimizing, setOptimizing] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [records, setRecords] = useState<Record<CmsCollectionName, CmsRecord[]>>({
+    products: [],
+    product_options: [],
+    company_brand_pages: [],
+    company_brand_events: [],
+    company_brand_messages: [],
+    company_ad_assets: [],
     marketing_banners: [],
     marketing_videos: [],
     brands: [],
     product_detail_pages: [],
     company_api_integration_requests: [],
     nursery_auto_signup_profiles: [],
+    company_product_edit_requests: [],
     home_sections: [],
     tablet_home_configs: [],
+    mobile_home_configs: [],
     media_assets: [],
   });
   const [message, setMessage] = useState("");
@@ -326,6 +362,8 @@ export function FirebaseCmsManager({
   }
 
   function editRecord(record: CmsRecord) {
+    const actionType = normalizeVideoActionType(valueOf(record, "video_action_type") || valueOf(record, "action_type"));
+
     setForm({
       id: record.id,
       title: valueOf(record, "title"),
@@ -339,6 +377,9 @@ export function FirebaseCmsManager({
       order: valueOf(record, "display_order") || emptyForm.order,
       productId: valueOf(record, "product_id"),
       themeMode: valueOf(record, "mode") || emptyForm.themeMode,
+      videoActionType: actionType,
+      videoActionTarget: valueOf(record, "video_action_target") || valueOf(record, "action_target"),
+      videoCtaText: valueOf(record, "video_cta_text") || valueOf(record, "cta_text"),
     });
     setActiveTab(activeTab);
     clearSelectedAsset();
@@ -377,6 +418,16 @@ export function FirebaseCmsManager({
         scope_id: form.target,
         source_app: mode,
       };
+
+      if (active.collection === "marketing_videos") {
+        const actionType = normalizeVideoActionType(form.videoActionType);
+        const actionTarget = actionType === "none" ? "" : form.videoActionTarget.trim();
+        const ctaText = form.videoCtaText.trim();
+
+        payload.video_action_type = actionType;
+        payload.video_action_target = actionTarget;
+        payload.video_cta_text = ctaText;
+      }
 
       await saveCmsRecord(active.collection, payload);
 
@@ -619,6 +670,42 @@ export function FirebaseCmsManager({
                 placeholder="상세 블록, 캠페인 설명, 반려 사유, 노출 정책을 입력하세요."
               />
             </label>
+            {activeTab === "videos" ? (
+              <>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-1 text-sm font-bold">
+                    터치 동작
+                    <select
+                      value={form.videoActionType}
+                      onChange={(event) => updateForm("videoActionType", event.target.value)}
+                      className="rounded-md border border-slate-200 px-3 py-2"
+                    >
+                      <option value="none">해당없음</option>
+                      <option value="hotdeal">핫딜 이동</option>
+                      <option value="luxury">명품관 이동</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold">
+                    터치 연결 경로
+                    <input
+                      value={form.videoActionTarget}
+                      onChange={(event) => updateForm("videoActionTarget", event.target.value)}
+                      placeholder={videoActionPlaceholder(form.videoActionType)}
+                      className="rounded-md border border-slate-200 px-3 py-2"
+                    />
+                  </label>
+                </div>
+                <label className="grid gap-1 text-sm font-bold">
+                  클릭 유도 문구
+                  <input
+                    value={form.videoCtaText}
+                    onChange={(event) => updateForm("videoCtaText", event.target.value)}
+                    className="rounded-md border border-slate-200 px-3 py-2"
+                    placeholder="예: 산후조리원 전용 최대 80% 할인을 받아가세요"
+                  />
+                </label>
+              </>
+            ) : null}
             <label className="grid gap-1 text-sm font-bold">
               이미지 / 영상 파일
               <input

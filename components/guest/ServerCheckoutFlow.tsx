@@ -505,17 +505,26 @@ export function ServerCheckoutFlow({
     );
   const visibleSmsStart = innopayChannel === "sms" ? smsStart : undefined;
   const smsSyncMode = Boolean(visibleSmsStart);
+  const checkoutStatusLabel = !activeQr
+    ? "QR 사용 불가"
+    : !receiverComplete
+      ? "결제자 정보 입력 필요"
+      : !ready
+        ? pending === "ready"
+          ? "결제 준비 중"
+          : "결제 준비 전"
+        : mockPaymentBlocked
+          ? "결제 설정 확인 필요"
+          : payupCheckoutReady || innopayCheckoutReady || providerIsMock
+            ? "결제 가능"
+            : "결제 설정 확인 필요";
   const innopayStatusLabel = smsSyncMode
     ? "SMS 결제요청 완료"
-    : mockPaymentBlocked
-      ? "결제 설정 대기"
     : payupCheckoutReady || innopayCheckoutReady
       ? "결제 준비 완료"
       : ready && providerIsMock
         ? "결제 가능"
-      : ready
-        ? "결제 설정 대기"
-        : "결제 준비 전";
+        : checkoutStatusLabel;
   const innopayBlockedReason = !activeQr
     ? "QR이 만료되었거나 이미 사용되었습니다."
     : !receiverComplete
@@ -1071,7 +1080,7 @@ export function ServerCheckoutFlow({
           <div className={checkoutGlassTileClass}>
             <p className="text-xs font-normal text-slate-500">결제 상태</p>
             <p className="mt-1 font-normal text-slate-950">
-              {mockPaymentBlocked ? "결제 설정 대기" : payupCheckoutReady || innopayCheckoutReady || providerIsMock ? "결제 가능" : "결제 설정 대기"}
+              {checkoutStatusLabel}
             </p>
           </div>
         </div>
@@ -1234,6 +1243,8 @@ export function ServerCheckoutFlow({
           >
             {pending === "ready"
               ? "결제 준비 중"
+              : !receiverComplete
+                ? "결제자 정보 입력 필요"
               : pending === "sms"
                 ? "결제 요청 중"
                 : pending === "sync"

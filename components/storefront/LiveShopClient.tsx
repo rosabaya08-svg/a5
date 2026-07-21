@@ -562,7 +562,7 @@ function mobileFulfillmentLabel(product: Product) {
 }
 
 function mobileStockLabel(product: Product) {
-  if (product.stock <= 0) return "재고 확인";
+  if (product.stock <= 0) return "품절";
   if (product.stock <= 5) return `잔여 ${product.stock}개`;
   return "재고 여유";
 }
@@ -1685,6 +1685,10 @@ export function MobileGuestShopPage({ initialProducts, initialContent }: MobileG
   }
 
   function addMobileCart(product: Product, option: ProductOption | undefined) {
+    if ((option?.stock ?? product.stock) <= 0) {
+      setMessage("품절된 상품은 장바구니에 담을 수 없습니다.");
+      return;
+    }
     const optionName = option?.name ?? "기본 옵션";
     const unitPrice = product.price + (option?.priceDelta ?? 0);
     const companyId = resolvePaymentCompanyId(product.id, product.companyId);
@@ -1804,13 +1808,13 @@ export function MobileGuestShopPage({ initialProducts, initialContent }: MobileG
             <div className="grid gap-2">
               {selectedOptions.length > 0 ? (
                 selectedOptions.map((option) => (
-                  <button type="button" key={option.id} onClick={() => addMobileCart(selectedProduct, option)} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white">
-                    {option.name} 담기 / {formatCurrency(selectedProduct.price + option.priceDelta)}
+                  <button type="button" key={option.id} disabled={option.stock <= 0} onClick={() => addMobileCart(selectedProduct, option)} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+                    {option.stock <= 0 ? `${option.name} / 품절` : `${option.name} 담기 / ${formatCurrency(selectedProduct.price + option.priceDelta)}`}
                   </button>
                 ))
               ) : (
-                <button type="button" onClick={() => addMobileCart(selectedProduct, undefined)} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white">
-                  장바구니 담기
+                <button type="button" disabled={selectedProduct.stock <= 0} onClick={() => addMobileCart(selectedProduct, undefined)} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+                  {selectedProduct.stock <= 0 ? "품절" : "장바구니 담기"}
                 </button>
               )}
             </div>

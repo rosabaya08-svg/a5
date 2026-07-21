@@ -386,7 +386,7 @@ function productFulfillmentLabel(product: Product) {
 }
 
 function productStockLabel(product: Product) {
-  if (product.stock <= 0) return "\uC7AC\uACE0 \uD655\uC778";
+  if (product.stock <= 0) return "\uD488\uC808";
   if (product.stock <= 5) return `\uC794\uC5EC ${product.stock}\uAC1C`;
   return "\uC7AC\uACE0 \uC5EC\uC720";
 }

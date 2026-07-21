@@ -105,15 +105,11 @@ function shouldRecordPage(channel: VisitorAnalyticsChannel, path: string) {
 function postVisit(endpoint: string, body: Record<string, unknown>) {
   const payload = JSON.stringify(body);
 
-  if (navigator.sendBeacon) {
-    const sent = navigator.sendBeacon(endpoint, new Blob([payload], { type: "application/json" }));
-    if (sent) return;
-  }
-
   void fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: payload,
+    credentials: "omit",
     keepalive: true,
   }).catch(() => undefined);
 }

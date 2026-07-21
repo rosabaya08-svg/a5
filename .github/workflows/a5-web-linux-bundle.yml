@@ -36,6 +36,7 @@ jobs:
       - name: Lint release-critical files
         run: >-
           pnpm exec eslint
+          components/analytics/VisitTracker.tsx
           components/guest/PgReturnConfirmClient.tsx
           components/guest/ServerCheckoutFlow.tsx
           components/storefront/LiveShopClient.tsx

@@ -152,6 +152,7 @@ function paymentFlowKey(shortCode: string) {
 function toServerItem(item: CartItemSnapshot) {
   return {
     productId: item.productId,
+    optionId: item.optionId,
     productName: item.productName,
     optionName: item.optionName,
     unitPrice: item.unitPrice,

@@ -38,7 +38,7 @@ function isBrowserRuntime() {
 function isNextProductionBuildRuntime() {
   if (isBrowserRuntime()) return false;
 
-  return process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build";
+  return process.env.NEXT_PHASE === "phase-production-build";
 }
 
 export type FirebaseRuntimeStatus = {

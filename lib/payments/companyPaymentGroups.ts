@@ -17,9 +17,10 @@ export type CompanyPaymentGroup<T extends CartItemSnapshot = CartItemSnapshot> =
   totalAmount: number;
 };
 
-export function cartItemPaymentKey(item: Pick<CartItemSnapshot, "productId" | "optionName" | "companyId" | "sellerCompanyId">) {
+export function cartItemPaymentKey(item: Pick<CartItemSnapshot, "productId" | "optionId" | "optionName" | "companyId" | "sellerCompanyId">) {
   const companyId = resolvePaymentCompanyId(item.productId, item.sellerCompanyId ?? item.companyId);
-  return `${companyId}::${item.productId}::${item.optionName}`;
+  const optionKey = item.optionId?.trim() || `name:${item.optionName}`;
+  return `${companyId}::${item.productId}::${optionKey}`;
 }
 
 export function groupCartItemsByCompany<T extends CartItemSnapshot>(items: T[], companies: Company[]): CompanyPaymentGroup<T>[] {

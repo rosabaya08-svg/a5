@@ -1,4 +1,5 @@
 import { FieldValue, type DocumentSnapshot, type Firestore } from "firebase-admin/firestore";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { getAdminDb } from "../firebaseAdmin";
 import {
   calculateItemsAmount,
@@ -38,6 +39,7 @@ export type FirestoreQrSession = {
   nurseryId?: string;
   roomId?: string;
   tabletId?: string;
+  cartId?: string;
   totalAmountSnapshot?: number;
   itemsSnapshot?: unknown;
 };
@@ -123,6 +125,7 @@ export async function readQrSession(qrSessionId: string): Promise<FirestoreQrSes
     nurseryId: optionalString(data.nursery_id ?? data.nurseryId),
     roomId: optionalString(data.room_id ?? data.roomId),
     tabletId: optionalString(data.tablet_id ?? data.tabletId),
+    cartId: optionalString(data.cart_id ?? data.cartId),
     totalAmountSnapshot: typeof data.total_amount_snapshot === "number" ? data.total_amount_snapshot : undefined,
     itemsSnapshot: data.items_snapshot ?? data.itemsSnapshot,
   };
@@ -196,6 +199,8 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
     const now = new Date();
     const shortCode = await resolveShortCode(db, optionalString(body.shortCode), now);
     const qrSessionId = makeQrSessionId(shortCode);
+    const completionToken = randomBytes(32).toString("base64url");
+    const completionTokenHash = hashCompletionToken(completionToken);
     const expiresInMinutes = clampNumber(Number(body.expiresInMinutes ?? 180), 5, 24 * 60);
     const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
     const deliveryMethod = body.deliveryMethod === "delivery" ? "delivery" : "pickup";
@@ -215,6 +220,8 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
         nursery_id: tabletScope.nurseryId,
         room_id: tabletScope.roomId,
         tablet_id: tabletScope.tabletId,
+        tablet_completion_token_hash: completionTokenHash,
+        tablet_completion_token_version: 1,
         type: "purchase",
         status: "active",
         delivery_method: deliveryMethod,
@@ -268,6 +275,7 @@ export async function qrCreateHandler(request: HttpRequestLike, response: HttpRe
       expiresAt,
       nurseryId: tabletScope.nurseryId,
       roomId: tabletScope.roomId,
+      completionToken,
       tabletId: tabletScope.tabletId,
       scopeRepaired: Boolean(tabletScope.repaired),
       totalAmount,
@@ -429,6 +437,120 @@ export async function qrLookupHandler(request: HttpRequestLike, response: HttpRe
     ok: true,
     session: toPublicQrSession(snapshot.id, asRecord(snapshot.data())),
     source: "firebase_functions_qr_lookup",
+  });
+}
+
+export async function tabletPaymentCompletionReadHandler(request: HttpRequestLike, response: HttpResponseLike): Promise<void> {
+  if (!requirePost(request, response)) return;
+
+  const body = readObjectBody<{
+    qrSessionId?: string;
+    shortCode?: string;
+    completionToken?: string;
+    nurseryId?: string;
+    roomId?: string;
+    tabletId?: string;
+  }>(request);
+  const qrSessionId = optionalString(body.qrSessionId);
+  const shortCode = optionalString(body.shortCode);
+  const completionToken = optionalString(body.completionToken);
+  const nurseryId = optionalString(body.nurseryId);
+  const roomId = optionalString(body.roomId);
+  const tabletId = optionalString(body.tabletId);
+
+  if (
+    (!qrSessionId && !shortCode) ||
+    !completionToken ||
+    completionToken.length < 32 ||
+    completionToken.length > 128 ||
+    !nurseryId ||
+    !roomId ||
+    !tabletId
+  ) {
+    sendJson(response, 400, {
+      ok: false,
+      error: {
+        code: "TABLET_COMPLETION_INPUT_INVALID",
+        message: "QR identity, completion token, and tablet scope are required.",
+        httpStatus: 400,
+      },
+    });
+    return;
+  }
+
+  const lookup = await findQrSessionDocument(getAdminDb(), { qrSessionId, shortCode });
+  const snapshot = lookup.snapshot;
+
+  if (!snapshot?.exists) {
+    sendJson(response, 404, {
+      ok: false,
+      error: {
+        code: "QR_SESSION_NOT_FOUND",
+        message: "QR session document was not found.",
+        httpStatus: 404,
+      },
+    });
+    return;
+  }
+
+  const data = asRecord(snapshot.data());
+  const expectedTokenHash = fieldString(data, "tablet_completion_token_hash");
+
+  if (!expectedTokenHash) {
+    sendJson(response, 409, {
+      ok: false,
+      error: {
+        code: "TABLET_COMPLETION_TOKEN_UNAVAILABLE",
+        message: "This legacy QR session does not have a tablet completion token.",
+        httpStatus: 409,
+      },
+    });
+    return;
+  }
+
+  if (!completionTokenMatches(completionToken, expectedTokenHash)) {
+    sendJson(response, 403, {
+      ok: false,
+      error: {
+        code: "TABLET_COMPLETION_TOKEN_INVALID",
+        message: "Tablet completion token is invalid.",
+        httpStatus: 403,
+      },
+    });
+    return;
+  }
+
+  const storedScope = {
+    nurseryId: fieldString(data, "nursery_id", "nurseryId") ?? "",
+    roomId: fieldString(data, "room_id", "roomId") ?? "",
+    tabletId: fieldString(data, "tablet_id", "tabletId") ?? "",
+  };
+
+  if (storedScope.nurseryId !== nurseryId || storedScope.roomId !== roomId || storedScope.tabletId !== tabletId) {
+    sendJson(response, 403, {
+      ok: false,
+      error: {
+        code: "TABLET_COMPLETION_SCOPE_MISMATCH",
+        message: "QR session does not belong to this tablet scope.",
+        httpStatus: 403,
+      },
+    });
+    return;
+  }
+
+  const items = normalizeCartItems(data.items_snapshot ?? data.items ?? data.itemsSnapshot);
+  const status = normalizeQrStatus(String(data.status ?? "active"));
+
+  sendJson(response, 200, {
+    ok: true,
+    qrSessionId: fieldString(data, "id", "qr_session_id", "qrSessionId") ?? snapshot.id,
+    shortCode: fieldString(data, "short_code", "shortCode") ?? shortCode ?? snapshot.id,
+    status,
+    orderNo: status === "paid" ? fieldString(data, "order_no", "orderNo") : undefined,
+    paidAt: status === "paid" ? toIsoString(data.paid_at ?? data.paidAt) : undefined,
+    totalAmount: fieldNumber(data, "total_amount_snapshot", "totalAmount", "total_amount") ?? calculateItemsAmount(items),
+    items: items.map(toClientCartItem),
+    source: "firebase_functions_tablet_payment_completion",
   });
 }
 
@@ -887,6 +1009,19 @@ function normalizePickupLocation(value: unknown, fallback: { nurseryId: string; 
     roomName,
     room_name: roomName,
   };
+}
+
+function hashCompletionToken(token: string) {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+function completionTokenMatches(token: string, expectedHash: string) {
+  const actual = Buffer.from(hashCompletionToken(token), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+
+  if (actual.length !== expected.length || expected.length !== 32) return false;
+
+  return timingSafeEqual(actual, expected);
 }
 
 function toIsoString(value: unknown): string | undefined {

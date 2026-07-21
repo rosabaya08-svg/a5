@@ -27,6 +27,7 @@ type CreateQrSessionResponse = {
   ok: true;
   qrSessionId: string;
   shortCode: string;
+  completionToken: string;
   status: QrPaymentSession["status"];
   expiresAt: string;
   qrDisplayExpiresAt?: string;
@@ -52,6 +53,18 @@ type LookupQrSessionResponse = {
   session: QrPaymentSession;
   source: "firebase_functions_qr_lookup";
 };
+export type TabletPaymentCompletionResponse = {
+  ok: true;
+  qrSessionId: string;
+  shortCode: string;
+  status: QrPaymentSession["status"];
+  orderNo?: string;
+  paidAt?: string;
+  totalAmount: number;
+  items: CartItemSnapshot[];
+  source: "firebase_functions_tablet_payment_completion";
+};
+
 
 type ApprovePaymentResponse = {
   ok: true;
@@ -80,6 +93,7 @@ function getFunctionsBaseUrl() {
 }
 
 function firebaseFunctionPath(path: string) {
+  if (path === "/qr/tablet-completion") return "/tabletPaymentCompletionRead";
   if (path === "/qr/create") return "/qrCreate";
   if (path === "/qr/lookup") return "/qrLookup";
   if (path === "/guest-shop/claim") return "/guestShopClaim";
@@ -239,9 +253,11 @@ export async function createBackendQrSession(input: {
     cartId: input.cartId,
     createdAt: now,
     expiresAt: result.data.expiresAt,
+
     qrDisplayExpiresAt: result.data.qrDisplayExpiresAt,
     deliveryMethod: input.deliveryMethod,
     totalAmount: result.data.totalAmount,
+    completionToken: result.data.completionToken,
     items: serverItems,
     pickupLocation: result.data.pickupLocation ?? input.pickupLocation,
   };
@@ -252,6 +268,16 @@ export async function createBackendQrSession(input: {
 export async function readBackendQrSessionByShortCode(shortCode: string) {
   const result = await postBackend<LookupQrSessionResponse>("/qr/lookup", { shortCode });
   return result.ok ? { ok: true as const, session: result.data.session } : result;
+}
+export async function readBackendTabletPaymentCompletion(input: {
+  qrSessionId: string;
+  shortCode: string;
+  completionToken: string;
+  nurseryId: string;
+  roomId: string;
+  tabletId: string;
+}) {
+  return postBackend<TabletPaymentCompletionResponse>("/qr/tablet-completion", input);
 }
 
 export async function claimBackendGuestShopSession(input: string | { shortCode?: string; qrSessionId?: string; source?: "checkout_more_products" | "payment_success_more_products" }) {

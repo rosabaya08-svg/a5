@@ -20,7 +20,7 @@ import { paymentsStatusHandler } from "./payments/status";
 import { paymentsSyncInnopaySmsHandler } from "./payments/syncInnopaySms";
 import { paymentsInnopayVbankNotiHandler, paymentsStartInnopayVbankHandler } from "./payments/innopayVbank";
 import { paymentsWebhookHandler } from "./payments/webhook";
-import { qrCreateHandler, qrExpireHandler, qrLookupHandler } from "./qr/validateQrSession";
+import { qrCreateHandler, qrExpireHandler, qrLookupHandler, tabletPaymentCompletionReadHandler } from "./qr/validateQrSession";
 
 const pgCredentialEncryptionKey = defineSecret("PG_CREDENTIAL_ENCRYPTION_KEY");
 
@@ -56,6 +56,7 @@ export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandle
 export const tabletNurseryLogin = onRequest(paymentFunctionOptions, tabletNurseryLoginHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
 export const qrLookup = onRequest(paymentFunctionOptions, qrLookupHandler);
+export const tabletPaymentCompletionRead = onRequest(paymentFunctionOptions, tabletPaymentCompletionReadHandler);
 export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);
 export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReserveHandler);
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);

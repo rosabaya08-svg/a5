@@ -246,6 +246,8 @@ export type QrPaymentSession = {
   deliveryMethod: DeliveryMethod;
   totalAmount: number;
   pickupLocation?: QrPickupLocation;
+  /** Tablet-only bearer token returned by qrCreate. Never persist this value in Firestore. */
+  completionToken?: string;
 };
 
 export type OrderItem = {

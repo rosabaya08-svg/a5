@@ -23,6 +23,8 @@ import {
   readBackendGuestShopProducts,
   readBackendGuestShopSession,
   readBackendQrSessionByShortCode,
+  readBackendTabletPaymentCompletion,
+  type TabletPaymentCompletionResponse,
   saveBackendGuestShopCart,
 } from "@/lib/firebase/liveShopBackend";
 import {
@@ -716,56 +718,97 @@ function persistCart(items: CartLine[]) {
   return { stored };
 }
 
+async function readTabletCompletionForSession(
+  session: QrPaymentSession,
+): Promise<TabletPaymentCompletionResponse | null> {
+  const tabletSession = readTabletRoomSession();
+  if (!tabletSession) return null;
+
+  if (session.completionToken) {
+    const protectedResult = await readBackendTabletPaymentCompletion({
+      qrSessionId: session.id,
+      shortCode: session.shortCode,
+      completionToken: session.completionToken,
+      nurseryId: tabletSession.nurseryId,
+      roomId: tabletSession.roomId,
+      tabletId: tabletSession.tabletId,
+    });
+
+    if (protectedResult.ok) return protectedResult.data;
+    if (protectedResult.code !== "TABLET_COMPLETION_TOKEN_UNAVAILABLE") return null;
+  }
+
+  const legacyResult = await readBackendQrSessionByShortCode(session.shortCode);
+  if (!legacyResult.ok) return null;
+
+  return {
+    ok: true,
+    qrSessionId: legacyResult.session.id,
+    shortCode: legacyResult.session.shortCode,
+    status: legacyResult.session.status,
+    totalAmount: legacyResult.session.totalAmount,
+    items: legacyResult.session.items,
+    source: "firebase_functions_tablet_payment_completion",
+  };
+}
+
 function useCompletedOrderCartSync({
   enabled,
   replace,
   onSynced,
+  onPaid,
 }: {
   enabled: boolean;
   replace: (next: CartLine[]) => Promise<void>;
   onSynced?: () => void;
+  onPaid?: (completion: TabletPaymentCompletionResponse) => void;
 }) {
   useEffect(() => {
     if (!enabled) return;
 
     let cancelled = false;
+    let notifiedPaid = false;
 
-    async function syncCompletedOrders() {
-      const tabletSession = readTabletRoomSession();
-      if (!tabletSession) return;
+    async function syncCompletedQr() {
+      const session = readLastQrSession();
+      if (!session) return;
 
-      const today = localDateKey();
-      const completedOrders = await listLiveShopCompletedOrdersForRoom({
-        nurseryId: tabletSession.nurseryId,
-        roomId: tabletSession.roomId,
-        date: today,
-      });
-      if (cancelled || completedOrders.length === 0) return;
+      const completion = await readTabletCompletionForSession(session);
+      if (cancelled || !completion || completion.status !== "paid") return;
 
-      const syncedOrderNos = new Set(readJson<string[]>(currentCompletedOrderSyncKey(), []));
-      const unsyncedOrders = completedOrders.filter((order) => !syncedOrderNos.has(order.orderNo));
-      if (unsyncedOrders.length === 0) return;
+      writeJson(`${qrPrefix}${session.shortCode}`, { ...session, status: "paid" });
 
-      const paidItems = unsyncedOrders.flatMap((order) => order.items);
-      const currentCart = readJson<CartLine[]>(currentCartKey(), []);
-      const remainingCart = removePaidItemsFromCart(currentCart, paidItems);
+      const receiptId = `qr:${completion.qrSessionId || session.id}`;
+      const syncedReceipts = new Set(readJson<string[]>(currentCompletedOrderSyncKey(), []));
+      if (!syncedReceipts.has(receiptId)) {
+        const currentCart = readJson<CartLine[]>(currentCartKey(), []);
+        const paidItems = completion.items.length > 0 ? completion.items : session.items;
+        const remainingCart = removePaidItemsFromCart(currentCart, paidItems);
+        const cartChanged = !cartItemsEqual(currentCart, remainingCart);
 
-      if (!cartItemsEqual(currentCart, remainingCart)) {
-        await replace(remainingCart);
-        if (!cancelled) onSynced?.();
+        if (cartChanged) {
+          await replace(remainingCart);
+          if (cancelled) return;
+          onSynced?.();
+        }
+
+        writeJson(currentCompletedOrderSyncKey(), [...syncedReceipts, receiptId]);
       }
 
-      writeJson(currentCompletedOrderSyncKey(), [...syncedOrderNos, ...unsyncedOrders.map((order) => order.orderNo)]);
+      if (!notifiedPaid) {
+        notifiedPaid = true;
+        onPaid?.(completion);
+      }
     }
 
-    void syncCompletedOrders();
-    const interval = window.setInterval(() => void syncCompletedOrders(), 12000);
+    void syncCompletedQr();
+    const interval = window.setInterval(() => void syncCompletedQr(), 3000);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [enabled, onSynced, replace]);
+  }, [enabled, onPaid, onSynced, replace]);
 }
 
 function useCart(fallbackItems?: CartItemSnapshot[]) {
@@ -827,7 +870,7 @@ export function FloatingCartButton() {
   const normalizedPathname = pathname.replace(/\/$/, "");
 
   useCompletedOrderCartSync({
-    enabled: normalizedPathname !== "/tablet/cart",
+    enabled: normalizedPathname !== "/tablet/cart" && normalizedPathname !== "/tablet/qr",
     replace,
   });
 
@@ -1034,6 +1077,7 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     enabled: true,
     replace,
     onSynced: notifyCompletedSync,
+    onPaid: notifyCompletedSync,
   });
 
   async function setQuantity(index: number, quantity: number) {
@@ -1144,13 +1188,6 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
     setMessage(`${group.companyName} 결제 QR을 생성했습니다. QR 화면으로 이동합니다.`);
     window.location.assign("/tablet/qr");
 
-    void saveLiveShopDocument("qr_payment_sessions", liveSession.id, {
-      ...liveSession,
-      short_code: liveSession.shortCode,
-      total_amount: liveSession.totalAmount,
-      pickup_location: liveSession.pickupLocation,
-      source: "backend_plus_storefront_context",
-    });
   }
 
   return (
@@ -1267,12 +1304,25 @@ export function LiveCartPage({ fallbackItems }: { fallbackItems: CartItemSnapsho
 }
 
 export function LiveQrSessionPanel() {
+  const { replace } = useCart();
   const [session, setSession] = useState<QrPaymentSession | null>(() => readLastQrSession());
-  const [completedOrder, setCompletedOrder] = useState<LiveShopCompletedOrder | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<TabletPaymentCompletionResponse | null>(null);
   const [lastCompletionCheckAt, setLastCompletionCheckAt] = useState("");
   const [origin, setOrigin] = useState("");
   const checkoutUrl = session ? `${resolveA5PublicOrigin(origin)}/q/live/?code=${encodeURIComponent(session.shortCode)}` : "";
-  const completedOrderUrl = completedOrder ? `/orders/guest/live?orderNo=${encodeURIComponent(completedOrder.orderNo)}` : "/tablet/orders";
+  const completedOrderUrl = completedOrder?.orderNo
+    ? `/orders/guest/live?orderNo=${encodeURIComponent(completedOrder.orderNo)}`
+    : "/tablet/orders";
+  const handlePaid = useCallback((completion: TabletPaymentCompletionResponse) => {
+    setCompletedOrder(completion);
+    setLastCompletionCheckAt(formatHistoryRefreshTime(new Date()));
+  }, []);
+
+  useCompletedOrderCartSync({
+    enabled: Boolean(session),
+    replace,
+    onPaid: handlePaid,
+  });
 
   useEffect(() => {
     const sync = () => setSession(readLastQrSession());
@@ -1289,34 +1339,16 @@ export function LiveQrSessionPanel() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!completedOrder) return;
 
-    const activeSession = session;
-    let cancelled = false;
+    const redirectTimer = window.setTimeout(() => {
+      window.location.replace(
+        `/tablet/cart?paymentResult=success&qrSessionId=${encodeURIComponent(completedOrder.qrSessionId)}`,
+      );
+    }, 3500);
 
-    async function checkPaymentCompletion() {
-      const tabletSession = readTabletRoomSession();
-      if (!tabletSession) return;
-
-      const completedOrders = await listLiveShopCompletedOrdersForRoom({
-        nurseryId: tabletSession.nurseryId,
-        roomId: tabletSession.roomId,
-        date: localDateKey(),
-      });
-      if (cancelled) return;
-
-      setCompletedOrder(completedOrders.find((order) => orderMatchesQrSession(order, activeSession)) ?? null);
-      setLastCompletionCheckAt(formatHistoryRefreshTime(new Date()));
-    }
-
-    void checkPaymentCompletion();
-    const intervalId = window.setInterval(() => void checkPaymentCompletion(), 5000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [session]);
+    return () => window.clearTimeout(redirectTimer);
+  }, [completedOrder]);
 
   if (!session) {
     return (
@@ -2288,8 +2320,9 @@ export function LiveGuestOrderPage() {
   );
 }
 
-function completedOrderTime(order: LiveShopCompletedOrder) {
-  const date = new Date(order.completedAt);
+function completedOrderTime(order: LiveShopCompletedOrder | TabletPaymentCompletionResponse) {
+  const completedAt = "completedAt" in order ? order.completedAt : order.paidAt;
+  const date = new Date(completedAt ?? "");
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -2298,12 +2331,6 @@ function formatHistoryRefreshTime(date: Date) {
   return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function orderMatchesQrSession(order: LiveShopCompletedOrder, session: QrPaymentSession) {
-  return Boolean(
-    (order.qrSessionId && order.qrSessionId === session.id) ||
-      (order.shortCode && order.shortCode === session.shortCode),
-  );
-}
 
 export function LiveTabletOrderHistoryPage() {
   const [dateKey, setDateKey] = useState(() => localDateKey());

@@ -257,6 +257,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
       if (!approval) throw new Error("PAYMENT_APPROVAL_MISSING");
       approvedAt = approval.approvedAt;
       const confirmedApproval = approval;
+      const completedDate = seoulDateKey(approvedAt);
 
       transaction.set(
         intentRef,
@@ -325,6 +326,10 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           orderNo,
           order_no: orderNo,
           qrSessionId,
+          cartId: qrValidation.session?.cartId ?? null,
+          cart_id: qrValidation.session?.cartId ?? null,
+          shortCode: qrValidation.session?.shortCode ?? null,
+          short_code: qrValidation.session?.shortCode ?? null,
           qr_session_id: qrSessionId,
           nurseryId: body.nurseryId ?? qrValidation.session?.nurseryId ?? "nursery-sanho-01",
           nursery_id: body.nurseryId ?? qrValidation.session?.nurseryId ?? "nursery-sanho-01",
@@ -346,6 +351,11 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           paidAt: approvedAt,
           paid_at: approvedAt,
           createdAt: approvedAt,
+          order_completed: true,
+          completedAt: approvedAt,
+          completed_at: approvedAt,
+          completedDate,
+          completed_date: completedDate,
           created_at: approvedAt,
           itemIds: pricedItems.map((_, index) => `${orderNo}-${index + 1}`),
           item_ids: pricedItems.map((_, index) => `${orderNo}-${index + 1}`),
@@ -353,6 +363,8 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           payment_id: paymentIntentId,
           mock_tid: approval.mockTid,
           provider_payment_key: approval.paymentKey ?? null,
+          itemCount: pricedItems.reduce((total, item) => total + item.quantity, 0),
+          item_count: pricedItems.reduce((total, item) => total + item.quantity, 0),
           provider_transaction_id: approval.transactionId ?? null,
           receipt_url: approval.receiptUrl ?? null,
           company_id: merchantProfile!.companyId,
@@ -438,6 +450,7 @@ export async function paymentsConfirmHandler(request: HttpRequestLike, response:
           payment_id: paymentIntentId,
           order_no: orderNo,
           paid_at: approvedAt,
+          completed_at: approvedAt,
           updated_at: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -873,6 +886,11 @@ function asMerchantStatus(value: unknown): CompanyMerchantProfile["merchantStatu
   return allowedMerchantStatuses.includes(value as CompanyMerchantProfile["merchantStatus"])
     ? (value as CompanyMerchantProfile["merchantStatus"])
     : "not_applied";
+}
+
+function seoulDateKey(isoDate: string) {
+  const timestamp = new Date(isoDate).getTime();
+  return new Date(timestamp + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function optionalString(value: unknown): string | undefined {

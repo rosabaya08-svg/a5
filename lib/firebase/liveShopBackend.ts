@@ -170,7 +170,7 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>, op
   }
 
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), backendTimeoutMs);
+  const timeout = setTimeout(() => controller.abort(), backendTimeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -198,7 +198,7 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>, op
       code: "BACKEND_REQUEST_FAILED",
     };
   } finally {
-    window.clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 }
 

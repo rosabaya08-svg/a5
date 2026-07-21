@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { VisitTracker } from "@/components/analytics/VisitTracker";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel, LiveTabletOrderHistoryPage } from "@/components/storefront/LiveShopClient";
@@ -11,10 +12,8 @@ import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButto
 import { TabletAccessGate, TabletAutoEntryProbe, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
 import { companyProductCategories } from "@/data/companyProductCategories";
 import type { MallBrand, MallProductProfile } from "@/types/storefrontContent";
-import {
-  getLiveProductById,
-  getLiveProductOptions,
-} from "@/lib/repositories/liveCommerceRepository";
+import { readBackendStorefrontProductDetail } from "@/lib/firebase/liveShopBackend";
+
 import type { StorefrontContent } from "@/lib/repositories/types";
 import { brandIdForProductBrand, brandNameKey, isRegisteredProductForBrandPage, productBrandName } from "@/lib/storefront/brandRouting";
 import { categoryLabelForRouteId, categoryTabletPathFromLabel } from "@/lib/storefront/categoryRouting";
@@ -120,9 +119,14 @@ function contentForClosedMallProducts(content: StorefrontContent, products: Prod
   };
 }
 
+const getPublicProductDetail = cache(async (productId: string) => {
+  const result = await readBackendStorefrontProductDetail(productId);
+  return result.ok ? result.data : undefined;
+});
+
 async function getProduct(productId: string) {
-  const read = await getLiveProductById(productId).catch(() => undefined);
-  const product = read?.data;
+  const detail = await getPublicProductDetail(productId);
+  const product = detail?.product;
 
   if (!product) {
     notFound();
@@ -138,7 +142,8 @@ async function getProduct(productId: string) {
 }
 
 async function getProductOptions(productId: string) {
-  return (await getLiveProductOptions(productId)).data;
+  const detail = await getPublicProductDetail(productId);
+  return detail?.options ?? [];
 }
 
 function discountRate(product: Product) {

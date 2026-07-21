@@ -89,6 +89,7 @@ function firebaseFunctionPath(path: string) {
   if (path === "/guest-shop/products") return "/guestShopProducts";
   if (path === "/guest-shop/product-detail") return "/guestShopProductDetail";
   if (path === "/storefront/company-summaries") return "/storefrontCompanySummaries";
+  if (path === "/storefront/product-detail") return "/storefrontProductDetail";
   if (path === "/guest-order/lookup") return "/guestOrderLookup";
   return "";
 }
@@ -324,6 +325,14 @@ export async function readBackendGuestShopProductDetail(input: {
   }>("/guest-shop/product-detail", input, { guestShopEntryToken: input.entryToken });
 }
 
+export async function readBackendStorefrontProductDetail(productId: string) {
+  return postBackend<{
+    ok: true;
+    product: Product;
+    options: ProductOption[];
+    source: "firebase_functions_public_storefront_product_detail";
+  }>("/storefront/product-detail", { productId });
+}
 export async function readBackendCompanies(): Promise<BackendResult<{ companies: Company[]; source: "firestore_companies" }>> {
   const result = await postBackend<{
     ok: true;

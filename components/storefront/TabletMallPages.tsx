@@ -169,7 +169,7 @@ function ProductPriceSummary({ product, productName, large = false }: { product:
 
   return (
     <div className="grid gap-3 rounded-md bg-white/35 p-4">
-      {comparisonVerified ? (
+      {comparisonVerified && deal.rate > 0 ? (
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-normal text-slate-500">
             원판매가 <span className="line-through">{formatCurrency(listPrice)}</span>
@@ -178,7 +178,7 @@ function ProductPriceSummary({ product, productName, large = false }: { product:
         </div>
       ) : null}
       <p className={`${large ? "text-4xl" : "text-2xl"} font-normal text-rose-600`}>폐쇄몰 판매가 {formatCurrency(closedMallPrice)}</p>
-      {comparisonVerified ? (
+      {comparisonVerified && deal.rate > 0 ? (
         <p className={`${large ? "text-lg" : "text-sm"} font-normal text-slate-600`}>절약 금액 {formatCurrency(deal.savings)}</p>
       ) : null}
       <PriceAnalysisButton
@@ -495,7 +495,7 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
         title={`${profile.displayName} \uC0C1\uC138 \uD398\uC774\uC9C0`}
       >
         <ProductMediaFrame src={profile.imageUrl} alt={profile.displayName} />
-        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-normal text-white">{rate}%</span>
+        {rate > 0 ? <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-normal text-white">{rate}%</span> : null}
       </HardNavigateLink>
       <div className="grid gap-3 p-4">
         <Link href={productHref} className="block">

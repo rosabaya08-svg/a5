@@ -1414,7 +1414,7 @@ function MobileShopBenefitBar({ products, cartCount }: { products: Product[]; ca
       {[
         ["상품", `${products.length}개`],
         ["카테고리", `${categoryCount}개`],
-        ["최대할인", `${maxDiscount}%`],
+        maxDiscount > 0 ? ["최대할인", `${maxDiscount}%`] : ["비교가격", "확인 전"],
       ].map(([label, value]) => (
         <div key={label} className="rounded-md border border-white/25 bg-white/10 p-3 text-white backdrop-blur-xl">
           <p className="text-[10px] font-normal text-rose-200">{label}</p>
@@ -1796,7 +1796,7 @@ export function MobileGuestShopPage({ initialProducts, initialContent }: MobileG
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-xs font-normal">
               <span className="rounded-md bg-rose-50 px-2 py-3 text-rose-700">
-                {selectedProduct.priceComparisonVerified === true ? `${mobileDiscountRate(selectedProduct)}% 할인` : "폐쇄몰 전용가"}
+                {selectedProduct.priceComparisonVerified === true && mobileDiscountRate(selectedProduct) > 0 ? `${mobileDiscountRate(selectedProduct)}% 할인` : "비교가격 확인 전"}
               </span>
               <span className="rounded-md bg-slate-50 px-2 py-3 text-slate-700">{mobileFulfillmentLabel(selectedProduct)}</span>
               <span className="rounded-md bg-slate-50 px-2 py-3 text-slate-700">{mobileStockLabel(selectedProduct)}</span>

@@ -2086,7 +2086,7 @@ export function LiveQrCheckoutPage() {
             </p>
           </section>
         ) : null}
-        {paymentResult === "success" ? (
+        {paymentResult === "server-confirmed" ? (
           <section className="min-w-0 overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
             <p className="text-xs font-normal uppercase text-emerald-700">결제 성공</p>
             <h2 className="mt-2 text-xl font-normal">결제 완료</h2>

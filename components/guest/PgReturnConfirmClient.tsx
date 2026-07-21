@@ -119,6 +119,15 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
         return;
       }
 
+      const normalizedProvider = provider.trim().toLowerCase().replace(/[\s_-]/g, "");
+      if ((normalizedProvider === "payup" || normalizedProvider === "payuppg") && !transactionId) {
+        setState({
+          status: "failed",
+          message: "PayUp \uacb0\uc81c \uc778\uc99d \uac70\ub798\ubc88\ud638\uac00 \uc804\ub2ec\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. \uacb0\uc81c\uac00 \uc2b9\uc778\ub418\uc9c0 \uc54a\uc558\uc73c\uba70 \uce74\ub4dc \uacfc\uae08\ub3c4 \uc694\uccad\ud558\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.",
+        });
+        return;
+      }
+
       if (isLegacyInnopayReturnProvider(provider) && endpoints.endpoints.syncInnopaySms && (paymentIntentId || orderNo) && (transactionId || orderNo)) {
         const syncResult = await postJson<ConfirmResponse | SyncPendingResponse>(endpoints.endpoints.syncInnopaySms, {
           paymentIntentId,

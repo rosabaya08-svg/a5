@@ -75,6 +75,8 @@ declare global {
       closeHandler?: (moid?: string) => void;
     };
     goPayupPay?: (payload: Record<string, string>) => void;
+    payupPaymentSubmit?: (payForm: string | HTMLFormElement) => void;
+    payupPaymentClose?: () => void;
     [key: string]: unknown;
   }
 }
@@ -308,7 +310,7 @@ function requestPayupStandardPayment(payload: PgCheckoutPayload): PgModulePaymen
     };
   }
 
-  const returnUrl = withPaymentReturnParams(payload.successUrl, payload, "success");
+  const returnUrl = withPayupReturnContext(payload.successUrl, payload);
   const bypassValue = buildPayupBypassValue(payload);
   const request: Record<string, string> = {
     merchantId: payload.merchantId,
@@ -324,6 +326,7 @@ function requestPayupStandardPayment(payload: PgCheckoutPayload): PgModulePaymen
   if (payload.customerEmail) request.userEmail = payload.customerEmail;
   if (payload.appScheme) request.appUrl = payload.appScheme;
 
+  installPayupStandardCallbacks(returnUrl);
   window.goPayupPay(request);
 
   return {
@@ -560,6 +563,41 @@ function isLegacyInnopayBrowserEnabled(): boolean {
   return ["1", "true", "yes", "on"].includes(legacyInnopayBrowserFlag);
 }
 
+
+function withPayupReturnContext(url: string, payload: PgCheckoutPayload) {
+  const origin = typeof window === "undefined" ? "https://signage-ai-a5.co.kr" : window.location.origin;
+  const target = url || `${origin}/q/live/`;
+
+  try {
+    const parsed = new URL(target, origin);
+    parsed.searchParams.set("code", payload.returnCode);
+    parsed.searchParams.set("orderNo", payload.orderNo);
+    parsed.searchParams.set("returnOrigin", origin);
+    if (payload.paymentIntentId) parsed.searchParams.set("paymentIntentId", payload.paymentIntentId);
+    return parsed.toString();
+  } catch {
+    return target;
+  }
+}
+
+function installPayupStandardCallbacks(returnUrl: string) {
+  if (typeof window === "undefined") return;
+
+  window.payupPaymentSubmit = (payForm) => {
+    const form = typeof payForm === "string" ? document.getElementById(payForm) : payForm;
+    if (!(form instanceof HTMLFormElement)) {
+      window.dispatchEvent(new CustomEvent("a5:payup-return-error", { detail: "PAYUP_RETURN_FORM_MISSING" }));
+      return;
+    }
+    form.method = "POST";
+    form.action = returnUrl;
+    form.submit();
+  };
+
+  window.payupPaymentClose = () => {
+    window.dispatchEvent(new CustomEvent("a5:payup-closed"));
+  };
+}
 function withPaymentReturnParams(url: string, payload: PgCheckoutPayload, paymentResult: "success" | "failed") {
   const origin = typeof window === "undefined" ? "https://a5-closed-mall.pages.dev" : window.location.origin;
   const target = url || defaultPaymentReturnUrl(origin, payload.returnCode, paymentResult);

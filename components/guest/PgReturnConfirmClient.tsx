@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { readPaymentReceiver } from "@/lib/payments/paymentBrowserStorage";
+import { clearPaymentReceiver, readPaymentReceiver } from "@/lib/payments/paymentBrowserStorage";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { shouldAllowMockPaymentRuntime } from "@/lib/payments/paymentConfig";
 import type { QrPaymentSession } from "@/types/commerce";
@@ -17,6 +17,7 @@ type ApiResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; 
 type ConfirmResponse = {
   ok: boolean;
   orderNo: string;
+  orderLookupUrl?: string;
   recalculatedAmount: number;
   message: string;
 };
@@ -55,9 +56,21 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
   useEffect(() => {
     let cancelled = false;
 
+    function completePayment(input: { paymentIntentId: string; orderNo: string; orderLookupUrl?: string; message?: string }) {
+      if (cancelled) return;
+
+      clearPaymentReceiver(input.paymentIntentId);
+      setState({
+        status: "confirmed",
+        orderNo: input.orderNo,
+        message: input.message ?? "결제가 확인되었습니다.",
+      });
+      window.location.replace(input.orderLookupUrl || liveConfirmedUrl(session.shortCode, input.orderNo, input.paymentIntentId));
+    }
+
     async function run() {
       if (!endpoints.ready) {
-        setState({ status: "failed", message: "결제 확인 서버 연결이 준비되지 않았습니다." });
+        setState({ status: "failed", message: "결제 확인 서버 주소가 배포 번들에 포함되지 않았습니다." });
         return;
       }
 
@@ -93,28 +106,27 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
       });
 
       if (!paymentIntentId && !orderNo) {
-        setState({ status: "idle", message: "주문 접수가 완료되었습니다." });
+        setState({ status: "idle", message: "주문 접수 정보가 없어 결제 상태를 확인할 수 없습니다." });
         return;
       }
 
       if (paymentResult === "failed" || (pgResultCode && !["0000", "3001", "4100"].includes(pgResultCode))) {
         setState({
           status: "failed",
-          message: pgResultMessage || `인피니 결제 결과가 승인 상태가 아닙니다. resultCode=${pgResultCode}`,
+          message: pgResultMessage || `PG 결제가 승인되지 않았습니다. 결과코드 ${pgResultCode}`,
         });
         return;
       }
 
-      setState({ status: "checking", message: "결제 승인 결과를 확인하고 있습니다." });
+      setState({ status: "checking", message: "결제 승인 결과를 서버에서 확인하고 있습니다." });
 
       const statusResult = await getStatus(endpoints.endpoints.status, { paymentIntentId, orderNo });
       if (cancelled) return;
 
       if (statusResult.ok && successfulStatuses.includes(String(statusResult.data.status))) {
-        setState({
-          status: "confirmed",
+        completePayment({
+          paymentIntentId,
           orderNo: statusResult.data.orderNo || orderNo,
-          message: "결제가 확인되었습니다.",
         });
         return;
       }
@@ -123,7 +135,7 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
       if ((normalizedProvider === "payup" || normalizedProvider === "payuppg") && !transactionId) {
         setState({
           status: "failed",
-          message: "PayUp \uacb0\uc81c \uc778\uc99d \uac70\ub798\ubc88\ud638\uac00 \uc804\ub2ec\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. \uacb0\uc81c\uac00 \uc2b9\uc778\ub418\uc9c0 \uc54a\uc558\uc73c\uba70 \uce74\ub4dc \uacfc\uae08\ub3c4 \uc694\uccad\ud558\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.",
+          message: "PayUp 거래번호가 전달되지 않아 승인을 요청하지 않았습니다. 카드 과금도 요청하지 않았습니다.",
         });
         return;
       }
@@ -137,10 +149,11 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
         if (cancelled) return;
 
         if (syncResult.ok && isConfirmedResponse(syncResult.data)) {
-          setState({
-            status: "confirmed",
+          completePayment({
+            paymentIntentId,
             orderNo: syncResult.data.orderNo,
-            message: "인피니 거래조회로 결제가 확인되었습니다.",
+            orderLookupUrl: syncResult.data.orderLookupUrl,
+            message: "PG 거래 조회를 통해 결제가 확인되었습니다.",
           });
           return;
         }
@@ -149,22 +162,19 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
           setState({
             status: "checking",
             orderNo: syncResult.data.orderNo || orderNo,
-            message: syncResult.data.message || "인피니 결제 결과를 아직 확인 중입니다.",
+            message: syncResult.data.message || "PG 결제 결과를 아직 확인 중입니다.",
           });
           return;
         }
 
         if (!paymentIntentId) {
-          setState({
-            status: "failed",
-            message: syncResult.error.message,
-          });
+          setState({ status: "failed", message: syncResult.error.message });
           return;
         }
       }
 
       if (!paymentIntentId) {
-        setState({ status: "idle", message: "결제 결과가 돌아왔지만 paymentIntentId가 없어 서버 확정을 대기합니다." });
+        setState({ status: "idle", message: "결제 결과가 돌아왔지만 결제 요청 ID가 없어 서버 확정을 대기합니다." });
         return;
       }
 
@@ -192,10 +202,10 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
         return;
       }
 
-      setState({
-        status: "confirmed",
+      completePayment({
+        paymentIntentId,
         orderNo: confirmResult.data.orderNo,
-        message: "결제가 확인되었습니다.",
+        orderLookupUrl: confirmResult.data.orderLookupUrl,
       });
     }
 
@@ -213,6 +223,16 @@ export function PgReturnConfirmClient({ session }: { session: QrPaymentSession }
       {state.status === "failed" ? <p className="mt-1 text-red-700">결제 확인이 필요합니다.</p> : null}
     </div>
   );
+}
+
+function liveConfirmedUrl(shortCode: string, orderNo: string, paymentIntentId: string) {
+  const params = new URLSearchParams({
+    code: shortCode,
+    paymentResult: "server-confirmed",
+    orderNo,
+    paymentIntentId,
+  });
+  return `/q/live/?${params.toString()}`;
 }
 
 function getReturnParam(params: URLSearchParams, keys: string[]) {
@@ -235,12 +255,7 @@ function readA5ReturnContext(value: string): A5ReturnContext {
   if (!text) return {};
   if (text.startsWith("a5:")) {
     const [paymentIntentId, orderNo, shortCode] = text.slice(3).split(":").map((item) => item.trim());
-    return {
-      provider: "payup",
-      paymentIntentId,
-      orderNo,
-      shortCode,
-    };
+    return { provider: "payup", paymentIntentId, orderNo, shortCode };
   }
 
   try {

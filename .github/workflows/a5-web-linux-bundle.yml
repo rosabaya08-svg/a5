@@ -10,6 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_PAYMENT_API_BASE_URL: https://asia-northeast3-a5-closed-mall.cloudfunctions.net
     steps:
       - name: Checkout release snapshot
         uses: actions/checkout@v4
@@ -34,10 +36,17 @@ jobs:
       - name: Lint release-critical files
         run: >-
           pnpm exec eslint
+          components/guest/PgReturnConfirmClient.tsx
+          components/guest/ServerCheckoutFlow.tsx
           components/storefront/LiveShopClient.tsx
           lib/firebase/liveShopBackend.ts
           lib/payments/companyPaymentGroups.ts
+          lib/payments/paymentBrowserStorage.ts
+          lib/payments/paymentEndpoints.ts
           types/commerce.ts
+
+      - name: Verify secrets are not committed
+        run: node scripts/check-no-secrets.mjs
 
       - name: Build Next.js and OpenNext on Linux
         run: pnpm exec opennextjs-cloudflare build
@@ -52,6 +61,7 @@ jobs:
           test -f cf-package/worker.js
           test -d .open-next/assets
           test -f .open-next/assets/BUILD_ID
+          grep -R -q "https://asia-northeast3-a5-closed-mall.cloudfunctions.net" .open-next/assets
 
       - name: Upload deploy bundle
         uses: actions/upload-artifact@v4

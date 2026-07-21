@@ -2105,7 +2105,8 @@ export function LiveQrCheckoutPage() {
             {shopEntryError ? <p className="mt-3 rounded-md bg-white p-3 text-sm font-normal text-red-800">{shopEntryError}</p> : null}
           </section>
         ) : null}
-        {hasPgReturnParams && paymentResult !== "failed" ? <PgReturnConfirmClient session={session} /> : null}
+        {hasPgReturnParams && paymentResult !== "failed" && paymentResult !== "server-confirmed"
+          ? <PgReturnConfirmClient session={session} /> : null}
         <ServerCheckoutFlow
           session={session}
           dataSource="live_qr_checkout"

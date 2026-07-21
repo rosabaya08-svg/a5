@@ -509,6 +509,8 @@ export function ServerCheckoutFlow({
     ? "QR 사용 불가"
     : !receiverComplete
       ? "결제자 정보 입력 필요"
+      : !endpoints.ready
+        ? "결제 서버 설정 오류"
       : !ready
         ? pending === "ready"
           ? "결제 준비 중"
@@ -529,6 +531,8 @@ export function ServerCheckoutFlow({
     ? "QR이 만료되었거나 이미 사용되었습니다."
     : !receiverComplete
       ? "고객명, 연락처, 주소와 동의 체크가 필요합니다."
+    : !endpoints.ready
+      ? "결제 서버 주소가 배포 번들에 포함되지 않았습니다. 관리자에게 문의해 주세요."
     : pgPolicyBlocked
       ? "여러 판매자의 상품이 함께 담겨 있어 업체별 QR로 나누어야 합니다."
       : mockPaymentBlocked

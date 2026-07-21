@@ -101,6 +101,8 @@ const functionNames: Record<PaymentFunctionKey, string> = {
   guestOrderLookup: "guestOrderLookup",
 };
 
+const productionPaymentFunctionsBaseUrl = "https://asia-northeast3-a5-closed-mall.cloudfunctions.net";
+
 function trimSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
@@ -108,12 +110,14 @@ function trimSlash(value: string) {
 export function getPaymentFunctionsBaseUrl() {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim() || "";
   const inferredFirebaseFunctionsUrl = projectId ? `https://asia-northeast3-${projectId}.cloudfunctions.net` : "";
+  const productionFallback = process.env.NODE_ENV === "production" ? productionPaymentFunctionsBaseUrl : "";
 
   return trimSlash(
     process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL?.trim() ||
       process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL?.trim() ||
       process.env.NEXT_PUBLIC_A5_BACKEND_URL?.trim() ||
       inferredFirebaseFunctionsUrl ||
+      productionFallback ||
       "",
   );
 }

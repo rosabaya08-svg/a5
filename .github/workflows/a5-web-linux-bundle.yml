@@ -43,11 +43,13 @@ jobs:
         run: pnpm exec opennextjs-cloudflare build
 
       - name: Produce Windows-deployable Worker bundle
-        run: pnpm exec wrangler deploy --dry-run --outdir .cf-package --config wrangler.jsonc
+        run: |
+          pnpm exec wrangler deploy --dry-run --outdir .cf-package --config wrangler.jsonc
+          mv .cf-package cf-package
 
       - name: Verify bundle outputs
         run: |
-          test -f .cf-package/worker.js
+          test -f cf-package/worker.js
           test -d .open-next/assets
           test -f .open-next/assets/BUILD_ID
 
@@ -56,7 +58,7 @@ jobs:
         with:
           name: a5-web-linux-opennext-${{ github.sha }}
           path: |
-            .cf-package
+            cf-package
             .open-next/assets
           if-no-files-found: error
           retention-days: 1

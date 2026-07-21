@@ -1,8 +1,10 @@
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { browserLocalPersistence, setPersistence, signInWithCustomToken } from "firebase/auth";
 import { normalizeBusinessNo } from "@/lib/auth/session";
-import { ensureAnonymousFirebaseUser, getFirebaseDb } from "@/lib/firebase/client";
+import { ensureAnonymousFirebaseUser, getFirebaseAuthClient, getFirebaseDb } from "@/lib/firebase/client";
 import {
   buildNurseryProfileFromCmsRecord,
+  findLocalNurseryProfile,
   NURSERY_DEFAULT_PASSWORD,
   type NurseryAutoSignupProfile,
 } from "@/lib/nursery/nurseryAutoSignup";
@@ -11,6 +13,7 @@ type NurseryLoginFunctionResponse = {
   ok: boolean;
   profile?: Partial<NurseryAutoSignupProfile> & { sourceCollection?: string };
   rooms?: TabletNurseryRoomOption[];
+  customToken?: string;
   error?: {
     code?: string;
     message?: string;
@@ -90,18 +93,37 @@ function normalizeFunctionRooms(rooms: NurseryLoginFunctionResponse["rooms"]): T
     .map((room): TabletNurseryRoomOption | null => {
       const roomId = String(room.roomId ?? "").trim();
       const roomNumber = displayRoomNumber(String(room.roomNumber ?? room.roomName ?? "").trim());
-      if (!roomId || !roomNumber) return null;
+      const roomName = displayRoomNumber(String(room.roomName ?? room.roomNumber ?? "").trim()) || roomNumber;
+      if (!roomId || !roomNumber || isDeviceFallbackRoomName(roomNumber) || isDeviceFallbackRoomName(roomName)) return null;
 
       return {
         roomId,
         roomNumber,
-        roomName: displayRoomNumber(String(room.roomName ?? room.roomNumber ?? "").trim()) || roomNumber,
+        roomName,
         floor: String(room.floor ?? "").trim(),
         pickupEnabled: room.pickupEnabled !== false,
         activeTabletId: String(room.activeTabletId ?? "").trim(),
       };
     })
     .filter((room): room is TabletNurseryRoomOption => Boolean(room?.roomId && (room.roomName || room.roomNumber)));
+}
+
+function hasNurseryConsentHistory(profile: NurseryAutoSignupProfile | null) {
+  return Boolean(profile?.termsAcceptedAt && profile.privacyAcceptedAt && profile.marketingConsentAt);
+}
+
+function mergeLocalConsentHistory(profile: NurseryAutoSignupProfile): NurseryAutoSignupProfile {
+  const localProfile = findLocalNurseryProfile(profile.businessRegistrationNoNormalized || profile.businessRegistrationNo);
+
+  if (!localProfile || !hasNurseryConsentHistory(localProfile)) return profile;
+
+  return {
+    ...profile,
+    termsAcceptedAt: profile.termsAcceptedAt ?? localProfile.termsAcceptedAt,
+    privacyAcceptedAt: profile.privacyAcceptedAt ?? localProfile.privacyAcceptedAt,
+    marketingConsentAt: profile.marketingConsentAt ?? localProfile.marketingConsentAt,
+    firstLoginCompletedAt: profile.firstLoginCompletedAt ?? localProfile.firstLoginCompletedAt,
+  };
 }
 
 function asString(value: unknown, fallback = "") {
@@ -125,12 +147,38 @@ function sortRooms(left: TabletNurseryRoomOption, right: TabletNurseryRoomOption
   return leftKey.text.localeCompare(rightKey.text, "ko");
 }
 
+function isDeviceFallbackRoomName(value: string) {
+  const text = String(value ?? "").trim();
+  const normalized = text.toLowerCase().replace(/\s+/g, " ");
+  if (!normalized) return false;
+  if (/^device-[0-9a-z_-]+(?:호)?$/i.test(text)) return true;
+  if (/^new[- ]?device$/i.test(normalized)) return true;
+  if (normalized === "tablet" || normalized === "test") return true;
+  if (text.includes("새로운") && text.includes("기기")) return true;
+  if (text === "등록" || text === "사무실" || text === "엠피지오") return true;
+  return false;
+}
+
 function displayRoomNumber(value: string) {
   const text = value.trim();
   if (!text) return "";
+  if (/^(device|room)-/i.test(text)) return text;
   if (/\d/.test(text) && text.endsWith("호")) return text;
 
-  return text.match(/\d+/g)?.join("") ?? "";
+  return text.match(/\d+/g)?.join("") || text;
+}
+
+async function signInNurseryFirebaseAuth(customToken?: string) {
+  const token = customToken?.trim();
+  if (!token) return;
+
+  const auth = getFirebaseAuthClient();
+  if (!auth) {
+    throw new Error("NURSERY_FIREBASE_AUTH_NOT_CONFIGURED");
+  }
+
+  await setPersistence(auth, browserLocalPersistence);
+  await signInWithCustomToken(auth, token);
 }
 
 async function requestTabletNurseryLoginProfile(
@@ -138,7 +186,7 @@ async function requestTabletNurseryLoginProfile(
   password: string,
 ): Promise<NurseryProfileLookupResult> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 12000);
+  const timeout = window.setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(getTabletNurseryLoginUrl(), {
@@ -163,22 +211,40 @@ async function requestTabletNurseryLoginProfile(
     }
 
     const profile = normalizeFunctionProfile(data.profile, businessRegistrationNo);
-    return profile
-      ? { profile, rooms: normalizeFunctionRooms(data.rooms) }
-      : {
-          profile: null,
-          rooms: normalizeFunctionRooms(data.rooms),
-          error: {
-            code: "TABLET_NURSERY_LOGIN_PROFILE_INVALID",
-            message: "Firebase server returned an invalid nursery profile.",
-          },
-        };
-  } catch {
+    const rooms = normalizeFunctionRooms(data.rooms);
+
+    if (!profile) {
+      return {
+        profile: null,
+        rooms,
+        error: {
+          code: "TABLET_NURSERY_LOGIN_PROFILE_INVALID",
+          message: "Firebase server returned an invalid nursery profile.",
+        },
+      };
+    }
+
+    try {
+      await signInNurseryFirebaseAuth(data.customToken);
+    } catch (error) {
+      return {
+        profile,
+        rooms,
+        error: {
+          code: "NURSERY_FIREBASE_AUTH_TOKEN_FAILED",
+          message: error instanceof Error ? error.message : "Nursery Firebase auth token sign-in failed.",
+        },
+      };
+    }
+
+    return { profile, rooms };
+  } catch (error) {
+    const isTimeout = error instanceof DOMException && error.name === "AbortError";
     return {
       profile: null,
       error: {
-        code: "TABLET_NURSERY_LOGIN_NETWORK_ERROR",
-        message: "Firebase server nursery lookup request failed.",
+        code: isTimeout ? "TABLET_NURSERY_LOGIN_TIMEOUT" : "TABLET_NURSERY_LOGIN_NETWORK_ERROR",
+        message: isTimeout ? "객실 조회 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요." : "Firebase server nursery lookup request failed.",
       },
     };
   } finally {
@@ -206,12 +272,13 @@ async function readLinkedRoomsByNursery(nurseryId: string): Promise<TabletNurser
       const data = document.data();
       const roomId = asString(data.room_id ?? data.roomId, document.id);
       const roomNumber = displayRoomNumber(asString(data.room_number ?? data.roomNumber ?? data.name, roomId));
-      if (!roomNumber) return null;
+      const roomName = displayRoomNumber(asString(data.name ?? data.room_name ?? data.roomName, roomNumber)) || roomNumber;
+      if (!roomNumber || isDeviceFallbackRoomName(roomNumber) || isDeviceFallbackRoomName(roomName)) return null;
 
       return {
         roomId,
         roomNumber,
-        roomName: displayRoomNumber(asString(data.name ?? data.room_name ?? data.roomName, roomNumber)) || roomNumber,
+        roomName,
         floor: asString(data.floor),
         pickupEnabled: data.pickup_enabled !== false && data.pickupEnabled !== false,
         activeTabletId: asString(data.active_tablet_id ?? data.activeTabletId),
@@ -259,9 +326,10 @@ export async function lookupLinkedNurseryProfileByBusinessNo(
   try {
     const serverResult = await requestTabletNurseryLoginProfile(businessRegistrationNo, password);
     if (serverResult.profile) {
+      const profile = mergeLocalConsentHistory(serverResult.profile);
       return serverResult.rooms && serverResult.rooms.length > 0
-        ? serverResult
-        : { ...serverResult, rooms: await readLinkedRoomsByNursery(serverResult.profile.nurseryId) };
+        ? { ...serverResult, profile }
+        : { ...serverResult, profile, rooms: await readLinkedRoomsByNursery(profile.nurseryId) };
     }
     serverError = serverResult.error;
 
@@ -272,8 +340,10 @@ export async function lookupLinkedNurseryProfileByBusinessNo(
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "business_registration_no", businessRegistrationNo.trim())) ??
       (await readFirstLinkedNurseryProfile("nursery_auto_signup_profiles", "businessRegistrationNo", businessRegistrationNo.trim()));
 
-    return profile
-      ? { profile, rooms: await readLinkedRoomsByNursery(profile.nurseryId) }
+    const mergedProfile = profile ? mergeLocalConsentHistory(profile) : null;
+
+    return mergedProfile
+      ? { profile: mergedProfile, rooms: await readLinkedRoomsByNursery(mergedProfile.nurseryId) }
       : {
           profile: null,
           error: serverError ?? {

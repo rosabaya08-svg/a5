@@ -1,6 +1,6 @@
 import type { PgMerchantStatus, PgProvider } from "@/types/commerce";
 
-export const INFINY_PG_SETTINGS_STORAGE_KEY = "a5.admin.infiny-pg-settings";
+export const INFINY_PG_SETTINGS_STORAGE_KEY = "a5.admin.payup-pg-settings";
 export const A5_PUBLIC_BASE_URL = "https://a5-closed-mall.pages.dev";
 export const A5_FIREBASE_FUNCTIONS_BASE_URL = "https://asia-northeast3-a5-closed-mall.cloudfunctions.net";
 export const A5_PAYMENT_WEBHOOK_URL = `${A5_FIREBASE_FUNCTIONS_BASE_URL}/paymentsWebhook`;
@@ -62,19 +62,19 @@ export type InfinyPgProvisioningReadiness = {
 };
 
 export const defaultInfinyPgRuntimeConfig: InfinyPgRuntimeConfig = {
-  provider: "infiny",
+  provider: "payup",
   environment: "test",
   clientKey: "",
   channelKey: "",
   merchantId: "",
-  apiBaseUrl: "",
+  apiBaseUrl: "https://standard.testpayup.co.kr",
   confirmUrl: "",
   cancelUrl: "",
   statusUrl: "",
   scriptUrl: "",
-  requestFunctionName: "INNOPAY.requestPayment",
-  successUrl: `${A5_PUBLIC_BASE_URL}/q/live?code={shortCode}&paymentResult=success`,
-  failUrl: `${A5_PUBLIC_BASE_URL}/q/live?code={shortCode}&paymentResult=failed`,
+  requestFunctionName: "",
+  successUrl: `${A5_PUBLIC_BASE_URL}/q/live/?code={shortCode}&paymentResult=success`,
+  failUrl: `${A5_PUBLIC_BASE_URL}/q/live/?code={shortCode}&paymentResult=failed`,
   webhookUrl: A5_PAYMENT_WEBHOOK_URL,
   webhookSignatureHeader: "x-pg-signature",
   webhookSignatureAlgorithm: "sha256",
@@ -104,14 +104,13 @@ export function buildPgEnvTemplate(runtime: InfinyPgRuntimeConfig) {
     `PG_PROVIDER=${runtime.provider}`,
     `PG_ENVIRONMENT=${runtime.environment}`,
     `PG_API_BASE_URL=${runtime.apiBaseUrl}`,
-    `INFINY_API_BASE_URL=${runtime.apiBaseUrl}`,
-    `INFINY_CONFIRM_URL=${runtime.confirmUrl}`,
-    `INFINY_CANCEL_URL=${runtime.cancelUrl}`,
-    `INFINY_STATUS_URL=${runtime.statusUrl}`,
+    `PAYUP_API_BASE_URL=${runtime.apiBaseUrl}`,
     `PG_CHANNEL_KEY=${runtime.channelKey}`,
     `PAYMENT_WEBHOOK_URL=${runtime.webhookUrl}`,
     `PG_WEBHOOK_SIGNATURE_HEADER=${runtime.webhookSignatureHeader}`,
     `PG_WEBHOOK_SIGNATURE_ALGORITHM=${runtime.webhookSignatureAlgorithm}`,
+    `PAYUP_API_KEY=<Secret Manager: ${runtime.secretKeyRef || "등록 필요"}>`,
+    `PAYUP_API_CERT_KEY=<Legacy alias: ${runtime.secretKeyRef || "등록 필요"}>`,
     `PG_SECRET_KEY=<Secret Manager: ${runtime.secretKeyRef || "등록 필요"}>`,
     `PG_WEBHOOK_SECRET=<Secret Manager: ${runtime.webhookSecretRef || "등록 필요"}>`,
     "",
@@ -127,50 +126,55 @@ export function evaluateInfinyPgProvisioning(
   runtime: InfinyPgRuntimeConfig,
   merchants: InfinyMerchantConfig[] = [],
 ): InfinyPgProvisioningReadiness {
+  const payupMode = runtime.provider === "payup";
   const credentialReadyCount = merchants.filter((merchant) =>
-    Boolean(
-      merchant.merchantId.trim() &&
-        merchant.merchantSerialNo.trim() &&
-        merchant.moduleKey.trim() &&
-        merchant.secretKeyRef.trim() &&
-        merchant.merchantPasswordRef.trim() &&
-        merchant.signKeyRef.trim() &&
-        merchant.webhookSecretRef.trim(),
-    ),
+    payupMode
+      ? Boolean(merchant.merchantId.trim() && merchant.secretKeyRef.trim())
+      : Boolean(
+          merchant.merchantId.trim() &&
+            merchant.merchantSerialNo.trim() &&
+            merchant.moduleKey.trim() &&
+            merchant.secretKeyRef.trim() &&
+            merchant.merchantPasswordRef.trim() &&
+            merchant.signKeyRef.trim() &&
+            merchant.webhookSecretRef.trim(),
+        ),
   ).length;
   const activeMerchantCount = merchants.filter((merchant) =>
-    Boolean(
-      merchant.merchantId.trim() &&
-        merchant.moduleKey.trim() &&
-        merchant.merchantSerialNo.trim() &&
-        merchant.secretKeyRef.trim() &&
-        merchant.merchantPasswordRef.trim() &&
-        merchant.signKeyRef.trim() &&
-        merchant.webhookSecretRef.trim() &&
-        merchant.merchantStatus === "active",
-    ),
+    payupMode
+      ? Boolean(merchant.merchantId.trim() && merchant.secretKeyRef.trim() && merchant.merchantStatus === "active")
+      : Boolean(
+          merchant.merchantId.trim() &&
+            merchant.moduleKey.trim() &&
+            merchant.merchantSerialNo.trim() &&
+            merchant.secretKeyRef.trim() &&
+            merchant.merchantPasswordRef.trim() &&
+            merchant.signKeyRef.trim() &&
+            merchant.webhookSecretRef.trim() &&
+            merchant.merchantStatus === "active",
+        ),
   ).length;
   const blockedMerchantCount = Math.max(merchants.length - activeMerchantCount, 0);
   const blockers = [
-    !runtime.clientKey ? "공개 client key 입력 필요" : "",
-    !runtime.channelKey ? "channel key 입력 필요" : "",
+    !payupMode && !runtime.clientKey ? "공개 client key 입력 필요" : "",
+    !payupMode && !runtime.channelKey ? "channel key 입력 필요" : "",
     !runtime.apiBaseUrl ? "결제 API base URL 입력 필요" : "",
-    !runtime.confirmUrl && !runtime.apiBaseUrl ? "결제 승인 confirm endpoint 입력 필요" : "",
-    !runtime.cancelUrl && !runtime.apiBaseUrl ? "결제 취소 cancel endpoint 입력 필요" : "",
-    !runtime.statusUrl && !runtime.apiBaseUrl ? "결제 상태 status endpoint 입력 필요" : "",
-    !runtime.scriptUrl ? "브라우저 SDK Script URL 입력 필요" : "",
-    !runtime.requestFunctionName ? "브라우저 결제 호출 함수명 입력 필요" : "",
-    !runtime.successUrl ? "결제 성공 URL 입력 필요" : "",
-    !runtime.failUrl ? "결제 실패 URL 입력 필요" : "",
-    !runtime.webhookUrl ? "결제 webhook URL 입력 필요" : "",
-    !runtime.webhookSignatureHeader ? "Webhook 서명 헤더명 입력 필요" : "",
-    !runtime.secretKeyRef ? "PG_SECRET_KEY Secret Manager 참조 등록 필요" : "",
-    !runtime.webhookSecretRef ? "PG_WEBHOOK_SECRET Secret Manager 참조 등록 필요" : "",
-    !runtime.officialModuleReceived ? "인피니 공식 모듈/SDK 수령 확인 필요" : "",
-    !runtime.officialDocsReviewed ? "인피니 공식 문서 검토 필요" : "",
+    !payupMode && !runtime.confirmUrl && !runtime.apiBaseUrl ? "결제 승인 confirm endpoint 입력 필요" : "",
+    !payupMode && !runtime.cancelUrl && !runtime.apiBaseUrl ? "결제 취소 cancel endpoint 입력 필요" : "",
+    !payupMode && !runtime.statusUrl && !runtime.apiBaseUrl ? "결제 상태 status endpoint 입력 필요" : "",
+    !payupMode && !runtime.scriptUrl ? "브라우저 SDK Script URL 입력 필요" : "",
+    !payupMode && !runtime.requestFunctionName ? "브라우저 결제 호출 함수명 입력 필요" : "",
+    !payupMode && !runtime.successUrl ? "결제 성공 URL 입력 필요" : "",
+    !payupMode && !runtime.failUrl ? "결제 실패 URL 입력 필요" : "",
+    !payupMode && !runtime.webhookUrl ? "결제 webhook URL 입력 필요" : "",
+    !payupMode && !runtime.webhookSignatureHeader ? "Webhook 서명 헤더명 입력 필요" : "",
+    !runtime.secretKeyRef ? "PAYUP_API_KEY Secret Manager 참조 등록 필요" : "",
+    !payupMode && !runtime.webhookSecretRef ? "PG_WEBHOOK_SECRET Secret Manager 참조 등록 필요" : "",
+    !payupMode && !runtime.officialModuleReceived ? "PG 공식 모듈/SDK 수령 확인 필요" : "",
+    !runtime.officialDocsReviewed ? "Payup 공식 문서 검토 필요" : "",
     !runtime.amountRecalculationEnabled ? "서버 금액 재계산 필수" : "",
-    !runtime.webhookSignatureEnabled ? "Webhook 서명 검증 필수" : "",
-    merchants.length > 0 && credentialReadyCount === 0 ? "MID, 시리얼, 모듈키, Secret 참조가 입력된 기업 1개 이상 필요" : "",
+    !payupMode && !runtime.webhookSignatureEnabled ? "Webhook 서명 검증 필수" : "",
+    merchants.length > 0 && credentialReadyCount === 0 ? "MID와 Payup API 인증키 참조가 입력된 기업 1개 이상 필요" : "",
     merchants.length > 0 && activeMerchantCount === 0 ? "운영 가능한 기업별 PG 발급값 1개 이상 필요" : "",
   ].filter(Boolean);
 

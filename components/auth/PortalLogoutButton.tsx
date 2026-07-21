@@ -20,7 +20,7 @@ export function PortalLogoutButton({ role, surface = "light", className = "" }: 
     <button
       type="button"
       onClick={handleLogout}
-      className={`h-10 rounded-md px-4 text-sm font-black transition ${
+      className={`h-10 rounded-md px-4 text-sm font-normal transition ${
         isDark
           ? "bg-white text-slate-950 hover:bg-slate-100"
           : "bg-slate-950 text-white hover:bg-slate-800"

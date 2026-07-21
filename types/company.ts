@@ -2,6 +2,7 @@ export type CompanyOnboardingStatus = "draft" | "documents_needed" | "review" | 
 
 export type CompanyDocumentType =
   | "business_license"
+  | "representative_id"
   | "bankbook_copy"
   | "commerce_license"
   | "brand_logo"

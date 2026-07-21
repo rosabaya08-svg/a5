@@ -20,7 +20,7 @@ function SourceBadge({ read }: { read: Pick<LiveRead<unknown>, "source" | "reaso
   return (
     <div className="rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600">
       <span
-        className={`inline-flex rounded-full px-2.5 py-1 font-black ${
+        className={`inline-flex rounded-full px-2.5 py-1 font-normal ${
           isFirebase ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
         }`}
       >
@@ -44,14 +44,14 @@ function ScopeCard({ nurseryId }: { nurseryId: string }) {
     <section className="rounded-md border border-rose-200 bg-rose-50 p-4 text-rose-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-rose-700">Firebase nursery scope</p>
-          <h2 className="mt-1 text-lg font-black">조리원 운영 데이터는 nursery_id 범위로만 표시</h2>
+          <p className="text-xs font-normal tracking-wide text-rose-700">Firebase 조리원 범위</p>
+          <h2 className="mt-1 text-lg font-normal">조리원 운영 데이터는 nursery_id 범위로만 표시</h2>
           <p className="mt-2 text-sm leading-6">
-            객실, 태블릿, QR 세션, 주문, 현장수령은 모두 <strong>{nurseryId}</strong> 기준으로 읽습니다. A4 연동을 위해
+            객실, 태블릿, QR 세션, 주문, 현장수령은 모두 <span>{nurseryId}</span> 기준으로 읽습니다. A4 연동을 위해
             external_nursery_id, external_room_id, external_tablet_id 후보도 같이 표시합니다.
           </p>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-rose-800 ring-1 ring-rose-200">
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-normal text-rose-800 ring-1 ring-rose-200">
           A4 연동 필드 준비
         </span>
       </div>
@@ -64,7 +64,7 @@ function buildRoomRows(rooms: Room[]) {
     id: room.id,
     cells: [
       <div key="room">
-        <p className="font-black text-slate-950">{room.name}</p>
+        <p className="font-normal text-slate-950">{room.name}</p>
         <p className="mt-1 text-xs text-slate-500">{room.id}</p>
       </div>,
       room.floor,
@@ -80,7 +80,7 @@ function buildTabletRows(tablets: Tablet[]) {
     id: tablet.id,
     cells: [
       <div key="tablet">
-        <p className="font-black text-slate-950">{tablet.label}</p>
+        <p className="font-normal text-slate-950">{tablet.label}</p>
         <p className="mt-1 text-xs text-slate-500">{tablet.id}</p>
       </div>,
       tablet.roomId,
@@ -156,15 +156,15 @@ export async function NurseryOperationsOverview({ nurseryId = defaultNurseryId }
           ["현장수령", `${pickups.data.length}건`, pickups.source],
         ].map(([label, value, source]) => (
           <div key={label} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-            <p className="mt-2 text-xs font-bold text-slate-500">{source}</p>
+            <p className="text-xs font-normal text-slate-500">{label}</p>
+            <p className="mt-2 text-2xl font-normal text-slate-950">{value}</p>
+            <p className="mt-2 text-xs font-normal text-slate-500">{source}</p>
           </div>
         ))}
       </div>
       <div className="rounded-md border border-slate-200 bg-white p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-slate-500">A4 integration ids</p>
-        <p className="mt-2 text-sm font-bold text-slate-700">
+        <p className="text-xs font-normal tracking-wide text-slate-500">A4 연동 ID</p>
+        <p className="mt-2 text-sm font-normal text-slate-700">
           external_nursery_id: {externalId("NURSERY", nurseryId)}
         </p>
       </div>

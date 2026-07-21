@@ -11,11 +11,10 @@ import {
   type User,
 } from "firebase/auth";
 import { useSearchParams } from "next/navigation";
-import { getFirebaseAuthClient, getFirebaseRuntimeStatus } from "@/lib/firebase/client";
-import { portalHomePaths, portalSessionKeys } from "@/lib/auth/session";
+import { getFirebaseAdminAuthClient, getFirebaseRuntimeStatus } from "@/lib/firebase/client";
+import { clearPortalSession, portalHomePaths, writePortalSession } from "@/lib/auth/session";
 
 const superAdminEmail = "rosabaya08@gmail.com";
-const sessionKey = portalSessionKeys.admin;
 
 type LoginState = "idle" | "checking" | "ready" | "signed_in" | "blocked" | "error";
 
@@ -29,7 +28,7 @@ function isSuperAdmin(user: User | null) {
 
 function buildSession(user: User) {
   return {
-    role: "SUPER_ADMIN",
+    role: "SUPER_ADMIN" as const,
     accountId: user.uid,
     provider: "google",
     email: normalizeEmail(user.email),
@@ -45,11 +44,25 @@ function friendlyLoginMessage(message: string, code = "") {
     return "관리자 Google 로그인 설정이 완료되지 않았습니다. 운영자에게 문의해 주세요.";
   }
 
+  if (code.includes("internal-error") || message.includes("auth/internal-error")) {
+    return "Google 로그인 초기화가 실패했습니다. Firebase Auth 승인 도메인과 Google 로그인 제공자 설정을 확인해야 합니다.";
+  }
+
   if (code.includes("operation-not-allowed") || message.includes("operation-not-allowed")) {
     return "관리자 Google 로그인 제공자가 아직 활성화되지 않았습니다. 운영자가 로그인 제공자를 사용 설정한 뒤 다시 시도해 주세요.";
   }
 
   return message;
+}
+
+function shouldUseRedirectFallback(message: string, code = "") {
+  const value = `${code} ${message}`.toLowerCase();
+  return (
+    value.includes("popup") ||
+    value.includes("operation-not-supported") ||
+    value.includes("internal-error") ||
+    value.includes("network-request-failed")
+  );
 }
 
 export function SuperAdminGoogleLogin() {
@@ -59,17 +72,14 @@ export function SuperAdminGoogleLogin() {
   const [message, setMessage] = useState(() =>
     runtime.configured ? "Google 계정 상태를 확인하고 있습니다." : "관리자 Google 로그인 설정 확인이 필요합니다.",
   );
-  const [signedInEmail, setSignedInEmail] = useState("");
 
-  const nextPath = params.get("next") || portalHomePaths.admin;
+  const nextPath = params?.get("next") || portalHomePaths.admin;
 
   const persistIfAllowed = useCallback(async (user: User) => {
-    const auth = getFirebaseAuthClient();
-    const email = normalizeEmail(user.email);
-    setSignedInEmail(email);
+    const auth = getFirebaseAdminAuthClient();
 
     if (!isSuperAdmin(user)) {
-      window.localStorage.removeItem(sessionKey);
+      clearPortalSession("admin");
       if (auth) {
         await signOut(auth);
       }
@@ -78,13 +88,13 @@ export function SuperAdminGoogleLogin() {
       return;
     }
 
-    window.localStorage.setItem(sessionKey, JSON.stringify(buildSession(user)));
+    writePortalSession("admin", buildSession(user));
     setState("signed_in");
     setMessage("최고관리자 인증이 완료되었습니다.");
   }, []);
 
   useEffect(() => {
-    const auth = getFirebaseAuthClient();
+    const auth = getFirebaseAdminAuthClient();
 
     if (!runtime.configured || !auth) {
       return undefined;
@@ -106,7 +116,6 @@ export function SuperAdminGoogleLogin() {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        setSignedInEmail("");
         setState("ready");
         setMessage("최고관리자 Google 계정으로 로그인해 주세요.");
         return;
@@ -119,7 +128,7 @@ export function SuperAdminGoogleLogin() {
   }, [persistIfAllowed, runtime.configured]);
 
   async function handleGoogleLogin() {
-    const auth = getFirebaseAuthClient();
+    const auth = getFirebaseAdminAuthClient();
 
     if (!auth) {
       setState("error");
@@ -138,14 +147,22 @@ export function SuperAdminGoogleLogin() {
       await persistIfAllowed(credential.user);
     } catch (error) {
       const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+      const errorMessage = error instanceof Error ? error.message : "Google 로그인에 실패했습니다.";
 
-      if (code.includes("popup") || code.includes("operation-not-supported")) {
-        await signInWithRedirect(auth, provider);
+      if (shouldUseRedirectFallback(errorMessage, code)) {
+        setMessage("Google 로그인 방식을 전환하는 중입니다.");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectError) {
+          const redirectCode = typeof redirectError === "object" && redirectError && "code" in redirectError ? String(redirectError.code) : "";
+          setState("error");
+          setMessage(friendlyLoginMessage(redirectError instanceof Error ? redirectError.message : errorMessage, redirectCode));
+        }
         return;
       }
 
       setState("error");
-      setMessage(friendlyLoginMessage(error instanceof Error ? error.message : "Google 로그인에 실패했습니다.", code));
+      setMessage(friendlyLoginMessage(errorMessage, code));
     }
   }
 
@@ -154,14 +171,13 @@ export function SuperAdminGoogleLogin() {
   }
 
   async function handleLogout() {
-    const auth = getFirebaseAuthClient();
-    window.localStorage.removeItem(sessionKey);
+    const auth = getFirebaseAdminAuthClient();
+    clearPortalSession("admin");
 
     if (auth) {
       await signOut(auth);
     }
 
-    setSignedInEmail("");
     setState("ready");
     setMessage("로그아웃되었습니다.");
   }
@@ -170,49 +186,20 @@ export function SuperAdminGoogleLogin() {
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <aside className="rounded-md border border-white/15 bg-white/10 p-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">MASTER ACCOUNT</p>
-          <h1 className="mt-4 text-4xl font-black">최고관리자 Google 로그인</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-300">
-            A5 운영 콘솔은 지정된 마스터 Google 계정으로만 접근할 수 있습니다.
-          </p>
-          <div className="mt-6 grid gap-3">
-            <div className="rounded-md bg-white/10 p-4">
-              <p className="text-sm font-black">허용 계정</p>
-              <p className="mt-1 text-sm text-slate-300">{superAdminEmail}</p>
-            </div>
-            <div className="rounded-md bg-white/10 p-4">
-              <p className="text-sm font-black">접근 기준</p>
-              <p className="mt-1 text-sm text-slate-300">마스터 계정 인증 완료 후 최고관리자 콘솔로 이동합니다.</p>
-            </div>
-          </div>
-        </aside>
-
-        <section className="rounded-md bg-white p-6 text-slate-950 shadow-xl">
-          <p className="text-xs font-black tracking-[0.18em] text-slate-500">with.commerce</p>
-          <h2 className="mt-3 text-3xl font-black">마스터 계정 확인</h2>
-          <div className="mt-6 grid gap-3">
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black text-slate-500">허용 계정</p>
-              <p className="mt-2 text-xl font-black">{superAdminEmail}</p>
-            </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black text-slate-500">현재 로그인 계정</p>
-              <p className="mt-2 text-xl font-black">{signedInEmail || "로그인 전"}</p>
-            </div>
-            {message ? (
-              <p className={`rounded-md p-3 text-sm font-bold ${state === "error" || state === "blocked" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>
-                {message}
-              </p>
-            ) : null}
-          </div>
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
+      <section className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center">
+        <section className="w-full rounded-md bg-white p-6 text-slate-950 shadow-xl">
+          <h1 className="sr-only">최고관리자 Google 로그인</h1>
+          {message ? (
+            <p className={`rounded-md p-3 text-sm font-normal ${state === "error" || state === "blocked" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>
+              {message}
+            </p>
+          ) : null}
+          <div className="mt-4 grid gap-3">
             <button
               type="button"
               disabled={disabled}
               onClick={() => void handleGoogleLogin()}
-              className="rounded-md bg-slate-950 px-4 py-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-slate-950 px-4 py-4 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Google로 로그인
             </button>
@@ -220,7 +207,7 @@ export function SuperAdminGoogleLogin() {
               type="button"
               disabled={state !== "signed_in"}
               onClick={goToDashboard}
-              className="rounded-md bg-rose-500 px-4 py-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-rose-200"
+              className="rounded-md bg-rose-500 px-4 py-4 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-rose-200"
             >
               최고관리자 콘솔 열기
             </button>
@@ -228,7 +215,7 @@ export function SuperAdminGoogleLogin() {
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="mt-3 w-full rounded-md border border-slate-200 px-4 py-3 text-sm font-black text-slate-900"
+            className="mt-3 w-full rounded-md border border-slate-200 px-4 py-3 text-sm font-normal text-slate-900"
           >
             현재 Google 세션 로그아웃
           </button>

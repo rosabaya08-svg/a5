@@ -1,12 +1,30 @@
-import { GuestRefundRequestPage } from "@/components/storefront/GuestQrExperience";
+import { GuestRefundClientPage } from "@/components/storefront/GuestOrderPagesClient";
 import { staticGuestOrderNos } from "@/data/staticSmokeRoutes";
 
-export async function generateStaticParams() {
+type RouteSearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+export function generateStaticParams() {
   return staticGuestOrderNos.map((orderNo) => ({ orderNo }));
 }
 
-export default async function Page({ params }: { params: Promise<{ orderNo: string }> }) {
-  const { orderNo } = await params;
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orderNo: string }>;
+  searchParams?: Promise<RouteSearchParams>;
+}) {
+  const [{ orderNo }, query = {}] = await Promise.all([params, searchParams]);
 
-  return <GuestRefundRequestPage orderNo={orderNo} />;
+  return (
+    <GuestRefundClientPage
+      orderNo={orderNo}
+      initialToken={firstParam(query.token)}
+      initialPhoneLast4={firstParam(query.phoneLast4)}
+    />
+  );
 }

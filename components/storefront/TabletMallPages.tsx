@@ -1,63 +1,140 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { VisitTracker } from "@/components/analytics/VisitTracker";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel, LiveTabletOrderHistoryPage } from "@/components/storefront/LiveShopClient";
+import { BrandProductCollectionClient } from "@/components/storefront/BrandProductCollectionClient";
 import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
+import { ProductDetailTabs } from "@/components/storefront/ProductDetailTabs";
 import { TabletHomeRuntimeSections } from "@/components/storefront/TabletHomeRuntimeSections";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
-import { TabletAccessGate, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
-import { staticProductIds } from "@/data/staticSmokeRoutes";
-import { mallBrands, type MallBrand, type MallProductProfile } from "@/data/mockShopContent";
+import { TabletAccessGate, TabletAutoEntryProbe, TabletContextBadge } from "@/components/tablet/TabletAccessFlow";
+import { companyProductCategories } from "@/data/companyProductCategories";
+import type { MallBrand, MallProductProfile } from "@/types/storefrontContent";
 import {
-  getLiveApprovedProducts,
-  getLiveNurseryById,
   getLiveProductById,
   getLiveProductOptions,
-  getLiveQrSessionByShortCode,
-  getLiveRoomById,
-  getLiveStorefrontContent,
 } from "@/lib/repositories/liveCommerceRepository";
 import type { StorefrontContent } from "@/lib/repositories/types";
+import { brandIdForProductBrand, brandNameKey, isRegisteredProductForBrandPage, productBrandName } from "@/lib/storefront/brandRouting";
+import { categoryLabelForRouteId, categoryTabletPathFromLabel } from "@/lib/storefront/categoryRouting";
+import { normalizeStorefrontBusinessNo, productTabletPath } from "@/lib/storefront/productUrls";
+import { readSharedClosedMallProducts } from "@/lib/storefront/readSharedClosedMallProducts";
+import { safeStorefrontMediaUrl } from "@/lib/storefront/safeMediaUrl";
+import { readStorefrontContentSnapshot } from "@/lib/storefront/storefrontSnapshot";
+import { REGISTERED_CLOSED_MALL_BUSINESS_NO, normalizeSharedClosedMallProducts } from "@/lib/storefront/sharedClosedMallCatalog";
+import { remoteShippingFeeLabel, shippingFeeLabel } from "@/lib/shipping/shippingFee";
 import { formatCurrency } from "@/lib/utils/format";
-import type { Nursery, Product, QrPaymentSession, Room } from "@/types/commerce";
-
-type StoreContext = {
-  session: QrPaymentSession;
-  nursery?: Nursery;
-  room?: Room;
-  content: StorefrontContent;
-};
+import type { Product } from "@/types/commerce";
 
 const SHOP_HOME_HREF = "/tablet/products/";
+const tabletNavLinks = [
+  { href: "/orders/guest/", label: "\uC8FC\uBB38\uC870\uD68C" },
+];
 
 const dealFilters = [
-  { id: "clearance-80", bannerId: "promo-clearance-80", title: "최대 할인 상품", eyebrow: "오늘의 메가 할인", min: 30, max: 80 },
-  { id: "baby-50", bannerId: "promo-baby-50", title: "베이비 베스트 특가", eyebrow: "베이비케어 할인", min: 10, max: 50, keywords: ["베이비", "신생아", "수딩"] },
-  { id: "sanmo-35", bannerId: "promo-sanmo-35", title: "산모 케어 특가", eyebrow: "산모케어 할인", min: 10, max: 35, keywords: ["산모", "회복", "티", "로브", "필로우"] },
-  { id: "new-20", bannerId: "promo-new-20", title: "신상품 할인", eyebrow: "신규 입점 브랜드 기획전", min: 10, max: 25, keywords: ["신상품", "신규"] },
+  { id: "discount-51", bannerId: "promo-discount-51", title: "최대 51~80% 할인", eyebrow: "할인 상품", min: 51, max: 80 },
+  { id: "discount-36-50", bannerId: "promo-discount-36-50", title: "최대 36~50% 할인", eyebrow: "할인 상품", min: 36, max: 50 },
+  { id: "discount-21-35", bannerId: "promo-discount-21-35", title: "최대 21~35% 할인", eyebrow: "할인 상품", min: 21, max: 35 },
+  { id: "discount-10-20", bannerId: "promo-discount-10-20", title: "최대 10~20% 할인", eyebrow: "할인 상품", min: 10, max: 20 },
+  { id: "discount-26-35", bannerId: "promo-discount-26-35", title: "최대 21~35% 할인", eyebrow: "할인 상품", min: 21, max: 35 },
+  { id: "discount-10-25", bannerId: "promo-discount-10-25", title: "최대 10~20% 할인", eyebrow: "할인 상품", min: 10, max: 20 },
+  { id: "clearance-80", bannerId: "promo-clearance-80", title: "최대 51~80% 할인", eyebrow: "할인 상품", min: 51, max: 80 },
+  { id: "baby-50", bannerId: "promo-baby-50", title: "최대 36~50% 할인", eyebrow: "할인 상품", min: 36, max: 50 },
+  { id: "sanmo-35", bannerId: "promo-sanmo-35", title: "최대 21~35% 할인", eyebrow: "할인 상품", min: 21, max: 35 },
+  { id: "new-20", bannerId: "promo-new-20", title: "최대 10~20% 할인", eyebrow: "할인 상품", min: 10, max: 20 },
 ] as const;
 
 export const dealPageIds = dealFilters.map((deal) => deal.id);
-export const brandPageIds = mallBrands.map((brand) => brand.id);
+export const brandPageIds: string[] = [];
 
-async function getContext(shortCode = "SANHO701"): Promise<StoreContext> {
-  const [{ data: session }, content] = await Promise.all([
-    getLiveQrSessionByShortCode(shortCode),
-    getLiveStorefrontContent(),
-  ]);
-  const [nursery, room] = await Promise.all([
-    getLiveNurseryById(session.nurseryId),
-    getLiveRoomById(session.roomId),
-  ]);
+function brandsFromProducts(products: Product[]): MallBrand[] {
+  const byBrand = new Map<string, Product[]>();
 
-  return { session, nursery: nursery.data, room: room.data, content };
+  for (const product of products) {
+    if (!isRegisteredProductForBrandPage(product)) continue;
+    const brandName = productBrandName(product);
+    if (!brandName.trim()) continue;
+    const key = `${product.companyId}:${brandNameKey(brandName)}`;
+    const current = byBrand.get(key) ?? [];
+    current.push(product);
+    byBrand.set(key, current);
+  }
+
+  return [...byBrand.values()].map((items) => {
+    const first = items[0];
+    const name = productBrandName(first);
+    const businessNo = productBusinessNoForStorefront(first);
+
+    return {
+      id: brandIdForProductBrand(name, first.id === "product-test-1004" ? REGISTERED_CLOSED_MALL_BUSINESS_NO : first.companyId),
+      name,
+      logoUrl: safeStorefrontMediaUrl(first.imageUrl) || safeStorefrontMediaUrl(first.gallery?.[0]),
+      category: first.category,
+      status: "featured",
+      companyId: first.companyId,
+      businessNo,
+    };
+  });
+}
+
+export async function getBrandPageStaticParams() {
+  const products = await getApprovedProducts();
+  const ids = new Set(brandsFromProducts(products).map((brand) => brand.id));
+  ids.add(brandIdForProductBrand(REGISTERED_CLOSED_MALL_BUSINESS_NO, REGISTERED_CLOSED_MALL_BUSINESS_NO));
+
+  return [...ids].map((brandId) => ({ brandId }));
 }
 
 async function getApprovedProducts() {
-  return (await getLiveApprovedProducts()).data.filter((product) => staticProductIds.includes(product.id));
+  return readSharedClosedMallProducts();
+}
+
+async function getClosedMallContent(products: Product[]) {
+  const content = await readStorefrontContentSnapshot();
+  return contentForClosedMallProducts(content, products);
+}
+
+function contentForClosedMallProducts(content: StorefrontContent, products: Product[]): StorefrontContent {
+  const productIds = new Set(products.map((product) => product.id));
+  const productBrands = brandsFromProducts(products);
+  const brands = new Map<string, MallBrand>();
+
+  for (const brand of content.brands) {
+    brands.set(brand.id, brand);
+  }
+
+  for (const brand of productBrands) {
+    brands.set(brand.id, brand);
+  }
+
+  const categories = [...new Map(products.map((product) => [product.category, product.category])).values()]
+    .filter(Boolean)
+    .map((category) => ({ id: category, label: category, helper: "" }));
+
+  return {
+    ...content,
+    brands: [...brands.values()],
+    categories,
+    productProfiles: content.productProfiles.filter((profile) => productIds.has(profile.productId)),
+  };
 }
 
 async function getProduct(productId: string) {
-  return (await getLiveProductById(productId)).data;
+  const read = await getLiveProductById(productId).catch(() => undefined);
+  const product = read?.data;
+
+  if (!product) {
+    notFound();
+  }
+
+  const normalized = normalizeSharedClosedMallProducts([product])[0];
+
+  if (!normalized) {
+    notFound();
+  }
+
+  return normalized;
 }
 
 async function getProductOptions(productId: string) {
@@ -65,53 +142,54 @@ async function getProductOptions(productId: string) {
 }
 
 function discountRate(product: Product) {
+  if (product.priceComparisonVerified !== true) return 0;
   const { listPrice, closedMallPrice } = product.comparison;
-  if (listPrice <= 0) return 0;
+  if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return 0;
   return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
 function normalDeal(product: Product) {
+  if (product.priceComparisonVerified !== true) return { savings: 0, rate: 0 };
   const { listPrice, closedMallPrice } = product.comparison;
-  const savings = Math.max(0, listPrice - closedMallPrice);
-  const rate = listPrice > 0 ? Math.round((savings / listPrice) * 100) : 0;
+  if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return { savings: 0, rate: 0 };
+  const savings = listPrice - closedMallPrice;
+  const rate = Math.round((savings / listPrice) * 100);
   return { savings, rate };
 }
 
 function ProductPriceSummary({ product, productName, large = false }: { product: Product; productName: string; large?: boolean }) {
+  const comparisonVerified = product.priceComparisonVerified === true;
   const deal = normalDeal(product);
   const { listPrice, closedMallPrice, platformLowestPrice } = product.comparison;
 
   return (
     <div className="grid gap-3 rounded-md bg-white/35 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-slate-500">
-          정상가 <span className="line-through">{formatCurrency(listPrice)}</span>
-        </p>
-        <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{deal.rate}% 할인</span>
-      </div>
-      <p className={`${large ? "text-4xl" : "text-2xl"} font-black text-rose-600`}>산후조리원 핫딜가 {formatCurrency(closedMallPrice)}</p>
-      <p className={`${large ? "text-lg" : "text-sm"} font-black text-slate-600`}>정상가 대비 {formatCurrency(deal.savings)} 할인</p>
-      <PriceAnalysisButton productName={productName} closedMallPrice={closedMallPrice} platformLowestPrice={platformLowestPrice} />
+      {comparisonVerified ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-normal text-slate-500">
+            원판매가 <span className="line-through">{formatCurrency(listPrice)}</span>
+          </p>
+          <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-normal text-white">{deal.rate}% 할인</span>
+        </div>
+      ) : null}
+      <p className={`${large ? "text-4xl" : "text-2xl"} font-normal text-rose-600`}>폐쇄몰 판매가 {formatCurrency(closedMallPrice)}</p>
+      {comparisonVerified ? (
+        <p className={`${large ? "text-lg" : "text-sm"} font-normal text-slate-600`}>절약 금액 {formatCurrency(deal.savings)}</p>
+      ) : null}
+      <PriceAnalysisButton
+        productName={productName}
+        closedMallPrice={closedMallPrice}
+        platformLowestPrice={platformLowestPrice}
+        verified={comparisonVerified}
+      />
     </div>
   );
 }
-
-const discountBands = [
-  { title: "베스트 할인", eyebrow: "플랫폼 최저가 대비", min: 36, max: 80 },
-  { title: "베이비 특가", eyebrow: "산후조리원 핫딜 추가 할인", min: 10, max: 35 },
-] as const;
 
 function sortByNormalPriceDiscount(products: Product[]) {
   return [...products]
     .filter((product) => discountRate(product) >= 10)
     .sort((left, right) => discountRate(right) - discountRate(left));
-}
-
-function productsForDiscountBand(products: Product[], min: number, max: number) {
-  return sortByNormalPriceDiscount(products).filter((product) => {
-    const rate = discountRate(product);
-    return rate >= min && rate <= max;
-  });
 }
 
 function searchableProductText(product: Product, content?: StorefrontContent) {
@@ -134,222 +212,312 @@ function searchableProductText(product: Product, content?: StorefrontContent) {
     .join(" ");
 }
 
-function productsForDeal(products: Product[], dealId: string, content?: StorefrontContent) {
+function productsForDeal(products: Product[], dealId: string) {
   const deal = dealFilters.find((candidate) => candidate.id === dealId) ?? dealFilters[0];
 
   return sortByNormalPriceDiscount(products).filter((product) => {
     const rate = discountRate(product);
-    if (rate < deal.min || rate > deal.max) return false;
-
-    if (!("keywords" in deal)) return true;
-
-    const searchable = searchableProductText(product, content);
-    return deal.keywords.some((keyword) => searchable.includes(keyword));
+    return rate >= deal.min && rate <= deal.max;
   });
-}
-
-function dealHrefForBanner(bannerId: string) {
-  const deal = dealFilters.find((candidate) => candidate.bannerId === bannerId);
-  return deal ? `/tablet/products/deals/${deal.id}/` : SHOP_HOME_HREF;
 }
 
 function brandHref(brandId: string) {
   return `/tablet/products/brands/${brandId}/`;
 }
 
-function brandForId(brandId: string, content?: StorefrontContent): MallBrand | undefined {
-  return content?.brands.find((brand) => brand.id === brandId) ?? mallBrands.find((brand) => brand.id === brandId);
+function businessBrandHref(businessNo: string) {
+  const normalized = normalizeStorefrontBusinessNo(businessNo);
+  return normalized ? `/a5mall/${normalized}/` : "/tablet/products/";
+}
+
+function businessNoFromA5MallPath(value?: string) {
+  const text = String(value ?? "");
+  const match = text.match(/\/a5mall\/([^/?#]+)/);
+  return match ? normalizeStorefrontBusinessNo(decodeURIComponent(match[1])) : "";
+}
+
+function productBusinessNoForStorefront(product: Product) {
+  const explicitBusinessNo = normalizeStorefrontBusinessNo(product.sellerBusinessNoNormalized ?? product.sellerBusinessNo);
+  if (explicitBusinessNo) return explicitBusinessNo;
+
+  const pathBusinessNo =
+    businessNoFromA5MallPath(product.businessProductPath) ||
+    businessNoFromA5MallPath(product.businessBrandPath) ||
+    businessNoFromA5MallPath(product.businessProductUrl) ||
+    businessNoFromA5MallPath(product.businessBrandUrl);
+  if (pathBusinessNo) return pathBusinessNo;
+
+  return product.id === "product-test-1004" ? REGISTERED_CLOSED_MALL_BUSINESS_NO : "";
+}
+
+function brandForId(brandId: string, content?: StorefrontContent, products: Product[] = []): MallBrand | undefined {
+  return (
+    content?.brands.find((brand) => brand.id === brandId) ??
+    brandsFromProducts(products).find((brand) => brand.id === brandId)
+  );
+}
+
+function productsForBusinessNo(products: Product[], businessNo: string) {
+  const normalized = normalizeStorefrontBusinessNo(businessNo);
+  if (!normalized) return [];
+  return products.filter((product) => productBusinessNoForStorefront(product) === normalized);
+}
+
+function brandForBusinessNo(businessNo: string, content?: StorefrontContent, products: Product[] = []): MallBrand | undefined {
+  const normalized = normalizeStorefrontBusinessNo(businessNo);
+  const businessProducts = productsForBusinessNo(products, normalized);
+  const first = businessProducts[0];
+  const directContentBrand = content?.brands.find((brand) => {
+    const brandBusinessNo = normalizeStorefrontBusinessNo(brand.businessNo);
+    const companyBusinessNo = normalizeStorefrontBusinessNo(brand.companyId);
+    return (
+      brandBusinessNo === normalized ||
+      companyBusinessNo === normalized ||
+      brand.companyId === `business-${normalized}` ||
+      Boolean(first && brand.companyId === first.companyId)
+    );
+  });
+  if (directContentBrand) return directContentBrand;
+  if (!first) return undefined;
+
+  const generatedId = brandIdForProductBrand(productBrandName(first), normalized);
+
+  return {
+    id: generatedId,
+    name: productBrandName(first),
+    logoUrl: safeStorefrontMediaUrl(first.imageUrl) || safeStorefrontMediaUrl(first.gallery?.[0]),
+    category: first.category,
+    status: "featured",
+    companyId: first.companyId,
+    businessNo: normalized,
+  };
 }
 
 function productsForBrand(products: Product[], brand: MallBrand | undefined, content?: StorefrontContent) {
   if (!brand) return [];
 
-  return sortByNormalPriceDiscount(products).filter((product) => {
+  return products.filter((product) => {
+    const brandBusinessNo = normalizeStorefrontBusinessNo(brand.businessNo);
+    if (brandBusinessNo && productBusinessNoForStorefront(product) === brandBusinessNo) return true;
+    if (brand.companyId && product.companyId === brand.companyId) return true;
+
     const profile = profileFor(product, content);
-    return profile.brand === brand.name || product.brand === brand.name || searchableProductText(product, content).includes(brand.name);
+    return (
+      brandNameKey(profile.brand) === brandNameKey(brand.name) ||
+      brandNameKey(product.brand ?? "") === brandNameKey(brand.name) ||
+      searchableProductText(product, content).includes(brand.name)
+    );
   });
 }
 
 function profileFor(product: Product, content?: StorefrontContent): MallProductProfile {
-  return (
-    content?.productProfiles.find((profile) => profile.productId === product.id) ?? {
-      productId: product.id,
-      brand: product.brand ?? "A5 Partner",
-      displayName: product.name,
-      subtitle: product.subtitle ?? "산후조리원 핫딜 전용 상품",
-      category: product.category,
-      imageUrl: product.imageUrl ?? "/file.svg",
-      gallery: product.gallery ?? [product.imageUrl ?? "/file.svg"],
-      badges: product.badges ?? [],
-      tags: product.tags ?? [product.category],
-      review: product.reviewSummary ?? { rating: 4.5, count: 0, highlight: "" },
-      detailTabs: product.detailSections ?? [],
-    }
-  );
+  const productGallery = (product.gallery ?? []).map((item) => safeStorefrontMediaUrl(item)).filter(Boolean);
+  const productImage = safeStorefrontMediaUrl(product.imageUrl) || productGallery[0] || "";
+  const contentProfile = content?.productProfiles.find((profile) => profile.productId === product.id);
+  const contentGallery = (contentProfile?.gallery ?? []).map((item) => safeStorefrontMediaUrl(item)).filter(Boolean);
+  const contentImage = safeStorefrontMediaUrl(contentProfile?.imageUrl);
+
+  return {
+    productId: product.id,
+    brand: product.brand ?? contentProfile?.brand ?? "A5 입점사",
+    displayName: product.name || contentProfile?.displayName || product.id,
+    subtitle: product.subtitle ?? contentProfile?.subtitle ?? "\uC0B0\uD6C4\uC870\uB9AC\uC6D0 \uD56B\uB51C \uC804\uC6A9 \uC0C1\uD488",
+    category: product.category || contentProfile?.category || "",
+    imageUrl: productImage || contentImage,
+    gallery: productGallery.length ? productGallery : contentGallery.length ? contentGallery : productImage ? [productImage] : contentImage ? [contentImage] : [],
+    badges: product.badges?.length ? product.badges : contentProfile?.badges ?? [],
+    tags: product.tags?.length ? product.tags : contentProfile?.tags ?? [product.category],
+    review: product.reviewSummary ?? contentProfile?.review ?? { rating: 4.5, count: 0, highlight: "" },
+    detailTabs: product.detailSections?.length ? product.detailSections : contentProfile?.detailTabs ?? [],
+  };
 }
 
 function HansanyeonLegalFooter() {
   return (
-    <footer className="mx-auto mt-10 max-w-7xl border-t border-white/25 px-4 py-6 text-xs font-bold leading-6 text-slate-700 md:px-6">
+    <footer className="mx-auto mt-10 max-w-7xl border-t border-white/25 px-4 py-6 text-xs font-normal leading-6 text-slate-700 md:px-6">
       <div className="rounded-md bg-white/35 p-4 shadow-sm backdrop-blur-xl">
-        <nav aria-label="법적 고지" className="mb-3 flex flex-wrap gap-3 text-slate-950">
-          <a href="https://www.sanmo.kr/bbs/content.php?co_id=provision" target="_blank" rel="noreferrer" className="font-black underline-offset-4 hover:underline">
-            서비스 이용약관
+        <nav aria-label={"\uBC95\uC801 \uACE0\uC9C0"} className="mb-3 flex flex-wrap gap-3 text-slate-950">
+          <a href="https://www.sanmo.kr/bbs/content.php?co_id=provision" target="_blank" rel="noreferrer" className="font-normal underline-offset-4 hover:underline">
+            {"\uC11C\uBE44\uC2A4 \uC774\uC6A9\uC57D\uAD00"}
           </a>
-          <a href="https://www.sanmo.kr/bbs/content.php?co_id=privacy" target="_blank" rel="noreferrer" className="font-black underline-offset-4 hover:underline">
-            개인정보 처리방침
+          <a href="https://www.sanmo.kr/bbs/content.php?co_id=privacy" target="_blank" rel="noreferrer" className="font-normal underline-offset-4 hover:underline">
+            {"\uAC1C\uC778\uC815\uBCF4 \uCC98\uB9AC\uBC29\uCE68"}
           </a>
         </nav>
         <p>
-          (주)한국산후조리원연합회 대표자 : 이석범 대표전화 : 02-2038-2203 팩스 : 02-2038-2203 사업자등록번호 : 760-86-03326
+          {"(\uC8FC)\uD55C\uAD6D\uC0B0\uD6C4\uC870\uB9AC\uC6D0\uC5F0\uD569\uD68C \uB300\uD45C\uC790 : \uC774\uC11D\uBC94 \uB300\uD45C\uC804\uD654 : 02-2038-2203 \uD329\uC2A4 : 02-2038-2203 \uC0AC\uC5C5\uC790\uB4F1\uB85D\uBC88\uD638 : 760-86-03326"}
         </p>
         <p>
-          주소 : 경기 과천시 과천대로7길 65 (갈현동, 과천상상자이타워) 개인정보책임자(이메일) : hansy0619@naver.com
+          {"\uD1B5\uC2E0\uD310\uB9E4\uC5C5\uC2E0\uACE0\uBC88\uD638 : \uC81C2025-\uC11C\uC6B8\uAC15\uB0A8-00065 (\uB2F4\uB2F9\uC790 : \uC774\uC11D\uBC94) \uAC1C\uC778\uC815\uBCF4\uBCF4\uD638\uCC45\uC784\uC790 : \uC774\uC11D\uBC94 \uC774\uBA54\uC77C : hansy0619@naver.com"}
         </p>
         <p>
-          오픈마켓(산후조리원연합회)은 통신판매중개자 이며, 판매자가 등록한 상품 및 거래에 대한 정보 등의 저작권 책임은 각 판매자 에게 있습니다.
+          {"\uC2A4\uB9C8\uD2B8\uB9C8\uCF13(\uD55C\uAD6D\uC0B0\uD6C4\uC870\uB9AC\uC6D0\uC5F0\uD569\uD68C)\uC740 \uD1B5\uC2E0\uD310\uB9E4\uC911\uAC1C\uC790\uC774\uBA70, \uD310\uB9E4\uC790\uAC00 \uB4F1\uB85D\uD55C \uC0C1\uD488 \uBC0F \uAC70\uB798\uC5D0 \uB300\uD55C \uC815\uBCF4 \uB4F1\uC758 \uCC45\uC784\uC740 \uAC01 \uD310\uB9E4\uC790\uC5D0\uAC8C \uC788\uC2B5\uB2C8\uB2E4."}
         </p>
-        <p className="mt-3 text-slate-500">Copyright 주식회사 산후조리원연합회 Inc. All rights reserved.</p>
+        <p className="mt-3 text-slate-500">{"Copyright \uD55C\uAD6D\uC0B0\uD6C4\uC870\uB9AC\uC6D0\uC5F0\uD569\uD68C Inc. All rights reserved."}</p>
       </div>
     </footer>
   );
 }
 
-function StoreShell({ children }: { title?: string; subtitle?: string; context: StoreContext; children: React.ReactNode }) {
-  return (
-    <TabletAccessGate>
-      <main className="min-h-screen bg-transparent text-white">
+function ProductMediaFrame({ src, alt, square = false }: { src: string; alt: string; square?: boolean }) {
+  const imageUrl = safeStorefrontMediaUrl(src);
+  const shapeClass = square ? "aspect-square w-full" : "h-full w-full";
+
+  if (!imageUrl || imageUrl === "/file.svg") {
+    return <div className={`${shapeClass} bg-[linear-gradient(135deg,#fff1f2_0%,#ffffff_48%,#e0f2fe_100%)]`} aria-label={alt} />;
+  }
+
+  return <img src={imageUrl} alt={alt} draggable={false} className={`${shapeClass} object-cover transition group-hover:scale-[1.03]`} />;
+}
+
+function productFulfillmentLabel(product: Product) {
+  const delivery = product.fulfillment?.delivery;
+  const pickup = product.fulfillment?.pickup;
+
+  if (delivery && pickup) return "\uD604\uC7A5\uC218\uB839 + \uD0DD\uBC30";
+  if (pickup) return "\uD604\uC7A5\uC218\uB839";
+  if (delivery) return "\uD0DD\uBC30\uBC30\uC1A1";
+  return "\uC218\uB839 \uBC29\uC2DD \uD655\uC778";
+}
+
+function productStockLabel(product: Product) {
+  if (product.stock <= 0) return "\uC7AC\uACE0 \uD655\uC778";
+  if (product.stock <= 5) return `\uC794\uC5EC ${product.stock}\uAC1C`;
+  return "\uC7AC\uACE0 \uC5EC\uC720";
+}
+
+const officialCategoryLabels = companyProductCategories.map((category) => category.label);
+
+function closedMallCategoryLabels(products: Product[]) {
+  const categorySet = new Set(products.map((product) => product.category).filter(Boolean));
+  const officialLabels = officialCategoryLabels.filter((category) => categorySet.has(category));
+  const extraLabels = [...categorySet]
+    .filter((category) => !officialCategoryLabels.includes(category))
+    .sort((left, right) => left.localeCompare(right, "ko-KR"));
+
+  return [...officialLabels, ...extraLabels];
+}
+
+function sortStorefrontProducts(products: Product[]) {
+  return [...products].sort((left, right) => {
+    const rightInStock = right.stock > 0 ? 1 : 0;
+    const leftInStock = left.stock > 0 ? 1 : 0;
+    if (rightInStock !== leftInStock) return rightInStock - leftInStock;
+
+    const discountDelta = discountRate(right) - discountRate(left);
+    if (discountDelta !== 0) return discountDelta;
+
+    return left.name.localeCompare(right.name, "ko-KR");
+  });
+}
+
+function productsForClosedMallCategory(products: Product[], category: string) {
+  return sortStorefrontProducts(products.filter((product) => product.category === category));
+}
+
+function productsForClosedMallCategoryId(products: Product[], categoryId: string) {
+  const category = categoryLabelForRouteId(categoryId, closedMallCategoryLabels(products));
+  return {
+    category,
+    products: productsForClosedMallCategory(products, category),
+  };
+}
+
+function StoreShell({
+  children,
+  requireTabletAccess = true,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  requireTabletAccess?: boolean;
+}) {
+  const shell = (
+      <main className="a5-tablet-store-shell min-h-screen bg-transparent text-white">
+        <VisitTracker channel="closed_mall_tablet" sourceApp="a5" />
+        <TabletAutoEntryProbe />
         <header className="sticky top-0 z-20 border-b border-white/25 bg-white/35 text-slate-950 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/30">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex-nowrap md:px-6">
-            <HardNavigateLink href={SHOP_HOME_HREF} className="flex items-center gap-3" ariaLabel="한산연몰 첫페이지로 이동">
-              <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">H</span>
+            <HardNavigateLink href={SHOP_HOME_HREF} className="flex items-center gap-3" ariaLabel="\uD3D0\uC1C4\uBAB0 \uD648">
+              <span className="grid h-10 w-10 place-items-center rounded-md bg-slate-950 text-lg font-normal text-white">H</span>
               <span>
-                <span className="block text-base font-black tracking-[0.18em]">HANSANYEON</span>
-                <span className="block text-[11px] font-bold text-rose-600">전용 멤버십 산후조리원 핫딜</span>
+                <span className="block text-base font-normal tracking-[0.18em]">HANSANYEON</span>
+                <span className="block text-[11px] font-normal text-rose-600">\uD3D0\uC1C4\uBAB0 \uD56B\uB51C</span>
               </span>
             </HardNavigateLink>
-            <TabletContextBadge />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <nav className="flex flex-wrap items-center gap-2" aria-label="tablet mall navigation">
+                {tabletNavLinks.map((item) => (
+                  <HardNavigateLink
+                    key={item.href}
+                    href={item.href}
+                    className="rounded-md bg-white/65 px-3 py-2 text-xs font-normal text-slate-800 ring-1 ring-white/70 transition hover:bg-white"
+                    ariaLabel={`${item.label} \uD398\uC774\uC9C0`}
+                  >
+                    {item.label}
+                  </HardNavigateLink>
+                ))}
+              </nav>
+              <TabletContextBadge />
+            </div>
           </div>
         </header>
 
-        <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">{children}</div>
         <HansanyeonLegalFooter />
         <FloatingHistoryButtons />
         <FloatingCartButton />
       </main>
-    </TabletAccessGate>
   );
-}
 
-function HeroBanner({ content }: { content: StorefrontContent }) {
-  const { heroBanner } = content;
+  if (!requireTabletAccess) return shell;
 
-  return (
-    <section className="overflow-hidden rounded-md border border-white/10 bg-black">
-      <div className="relative min-h-[420px]">
-        <img src={heroBanner.imageUrl} alt={heroBanner.title} className="absolute inset-0 h-full w-full object-cover" />
-      </div>
-    </section>
-  );
-}
-
-function PromoBannerGrid({ content }: { content: StorefrontContent }) {
-  return (
-    <section className="grid gap-4 md:grid-cols-2">
-      {content.promoBanners.map((banner) => (
-        <HardNavigateLink
-          key={banner.id}
-          href={dealHrefForBanner(banner.id)}
-          className="group overflow-hidden rounded-md border border-white/15 bg-white/20 backdrop-blur-md"
-          ariaLabel={`${banner.title} 상품 보기`}
-        >
-          <div className="relative min-h-40">
-            <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]" />
-          </div>
-        </HardNavigateLink>
-      ))}
-    </section>
-  );
-}
-
-function VideoAdStrip() {
-  return (
-    <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-      <article className="overflow-hidden rounded-md border border-white/25 bg-white/40 text-slate-950 shadow-sm backdrop-blur-xl">
-        <div className="grid gap-0 md:grid-cols-[1fr_280px]">
-          <div className="grid aspect-video place-items-center bg-slate-950 text-center text-white">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">광고 슬롯</p>
-              <h2 className="mt-2 text-3xl font-black">태블릿 홈 영상</h2>
-            </div>
-          </div>
-          <div className="p-5">
-            <p className="text-xs font-black text-rose-600">산후조리원 핫딜 안내</p>
-            <h3 className="mt-2 text-2xl font-black">객실 전용 특가</h3>
-          </div>
-        </div>
-      </article>
-      <article className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">산후조리원 핫딜 안내</p>
-        <h3 className="mt-2 text-3xl font-black">조리원 객실 전용 특가</h3>
-      </article>
-    </section>
-  );
-}
-
-function BrandGrid({ content }: { content: StorefrontContent }) {
-  return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">공식 입점 브랜드</p>
-          <h2 className="mt-2 text-2xl font-black">브랜드관</h2>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        {content.brands.map((brand) => (
-          <HardNavigateLink
-            key={brand.id}
-            href={brandHref(brand.id)}
-            className="rounded-md bg-white/35 p-3 text-center text-slate-950 shadow-sm backdrop-blur-md transition hover:bg-white/60 active:scale-[0.99]"
-            ariaLabel={`${brand.name} 상품 보기`}
-          >
-            <div className="flex h-16 items-center justify-center">
-              <img src={brand.logoUrl} alt={brand.name} className="max-h-12 max-w-full object-contain" />
-            </div>
-            <p className="mt-2 text-xs font-bold text-slate-500">{brand.category}</p>
-          </HardNavigateLink>
-        ))}
-      </div>
-    </section>
-  );
+  return <TabletAccessGate>{shell}</TabletAccessGate>;
 }
 
 function ProductCard({ product, content }: { product: Product; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
-  const productHref = `/tablet/products/${product.id}/`;
+  const productHref = productTabletPath(product);
   const rate = discountRate(product);
+  const visibleBadges = [...new Set([productFulfillmentLabel(product), shippingFeeLabel(product.shippingFeePolicy), productStockLabel(product), ...profile.badges])].slice(0, 3);
 
   return (
     <article className="group overflow-hidden rounded-md bg-white/45 text-slate-950 shadow-sm ring-1 ring-white/25 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/65 hover:shadow-2xl">
       <HardNavigateLink
         href={productHref}
         className="relative block aspect-[4/5] cursor-pointer overflow-hidden bg-slate-100 touch-manipulation focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/60"
-        ariaLabel={`${profile.displayName} 상세페이지로 이동`}
-        title={`${profile.displayName} 상세페이지`}
+        ariaLabel={`${profile.displayName} \uC0C1\uC138 \uD398\uC774\uC9C0`}
+        title={`${profile.displayName} \uC0C1\uC138 \uD398\uC774\uC9C0`}
       >
-        <img src={profile.imageUrl} alt={profile.displayName} draggable={false} className="pointer-events-none h-full w-full object-cover transition group-hover:scale-[1.03]" />
-        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-black text-white">{rate}%</span>
+        <ProductMediaFrame src={profile.imageUrl} alt={profile.displayName} />
+        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-normal text-white">{rate}%</span>
       </HardNavigateLink>
       <div className="grid gap-3 p-4">
         <Link href={productHref} className="block">
-          <p className="text-xs font-black text-rose-600">{profile.brand}</p>
-          <h3 className="mt-1 text-base font-black leading-6">{profile.displayName}</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-normal text-rose-600">{profile.brand}</p>
+            <span className="rounded-md bg-white/65 px-2 py-1 text-[11px] font-normal text-slate-600">{profile.category}</span>
+          </div>
+          <h3 className="mt-1 text-base font-normal leading-6">{profile.displayName}</h3>
         </Link>
         <ProductPriceSummary product={product} productName={profile.displayName} />
+        {remoteShippingFeeLabel(product.shippingFeePolicy) ? (
+          <p className="rounded-md bg-white/55 px-3 py-2 text-xs font-normal text-slate-600">{remoteShippingFeeLabel(product.shippingFeePolicy)}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          {visibleBadges.map((badge) => (
+            <span key={badge} className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-normal text-slate-700 ring-1 ring-white/80">
+              {badge}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 rounded-md bg-white/45 p-3 text-xs font-normal text-slate-700">
+          <span>\uD6C4\uAE30 {profile.review.count}\uAC1C</span>
+          <span className="text-right">\uD3C9\uC810 {profile.review.rating.toFixed(1)}</span>
+        </div>
         <form action={productHref}>
-          <button type="submit" className="w-full rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-black text-white">
-            상품 둘러보기
+          <button type="submit" className="w-full rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-normal text-white">
+            {"\uC0C1\uD488 \uC0C1\uC138 \uBCF4\uAE30"}
           </button>
         </form>
       </div>
@@ -357,32 +525,45 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
   );
 }
 
-function ProductRail({
-  title,
-  eyebrow,
-  products,
-  content,
-}: {
-  title: string;
-  eyebrow: string;
-  products: Product[];
-  content?: StorefrontContent;
-}) {
+function categoryAnchorId(category: string) {
+  return `category-${encodeURIComponent(category || "all")}`;
+}
+
+function CategoryProductSections({ products, content }: { products: Product[]; content?: StorefrontContent }) {
+  const categories = closedMallCategoryLabels(products);
+
   if (products.length === 0) return null;
 
   return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-400">{eyebrow}</p>
-          <h2 className="mt-2 text-3xl font-black">{title}</h2>
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {products.map((product) => (
-          <ProductCard key={`${title}-${product.id}`} product={product} content={content} />
-        ))}
-      </div>
+    <section id="closed-mall-products" className="grid gap-4">
+      {categories.map((category) => {
+        const categoryProducts = productsForClosedMallCategory(products, category);
+        const visibleProducts = categoryProducts.slice(0, 12);
+
+        return (
+          <section key={category} id={categoryAnchorId(category)} className="grid gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="text-xs font-normal uppercase tracking-[0.18em] text-rose-400">\uB4F1\uB85D \uC0C1\uD488</p>
+                <h2 className="mt-1 text-2xl font-normal">{category}</h2>
+              </div>
+              <Link
+                href={categoryTabletPathFromLabel(category)}
+                className="rounded-md bg-white/70 px-3 py-2 text-sm font-normal text-slate-800 ring-1 ring-white/70 transition hover:bg-white"
+              >
+                \uC804\uCCB4\uBCF4\uAE30 {categoryProducts.length}\uAC1C
+              </Link>
+            </div>
+            <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+              {visibleProducts.map((product) => (
+                <div key={`${category}-${product.id}`} className="w-[220px] shrink-0 snap-start md:w-[250px]">
+                  <ProductCard product={product} content={content} />
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </section>
   );
 }
@@ -401,53 +582,59 @@ function FilteredProductCollection({
   return (
     <section className="grid gap-5">
       <div className="rounded-md border border-white/25 bg-white/35 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">{eyebrow}</p>
-        <h2 className="mt-2 text-3xl font-black">{title}</h2>
+        <p className="text-xs font-normal uppercase tracking-[0.18em] text-rose-700">{eyebrow}</p>
+        <h2 className="mt-2 text-3xl font-normal">{title}</h2>
       </div>
       {products.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={`${title}-${product.id}`} product={product} content={content} />
           ))}
         </div>
       ) : (
         <div className="rounded-md border border-white/25 bg-white/35 p-8 text-center text-slate-950 shadow-sm backdrop-blur-xl">
-          <p className="text-lg font-black">현재 표시할 상품이 없습니다.</p>
+          <p className="text-lg font-normal">{"\uC870\uAC74\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."}</p>
         </div>
       )}
     </section>
   );
 }
 
-function DiscountBandRails({ products, content }: { products: Product[]; content?: StorefrontContent }) {
+function ProductTrustPanel({ product, profile }: { product: Product; profile: MallProductProfile }) {
   return (
-    <>
-      {discountBands.map((band) => (
-        <ProductRail
-          key={band.title}
-          title={band.title}
-          eyebrow={band.eyebrow}
-          products={productsForDiscountBand(products, band.min, band.max)}
-          content={content}
-        />
-      ))}
-    </>
+    <section className="grid gap-3 rounded-md bg-white/45 p-4 text-slate-950 shadow-sm backdrop-blur-xl">
+      <div className="grid gap-3 md:grid-cols-4">
+        {[
+          ["수령", productFulfillmentLabel(product)],
+          ["배송비", shippingFeeLabel(product.shippingFeePolicy)],
+          ["재고", productStockLabel(product)],
+          ["후기", `${profile.review.rating.toFixed(1)} / ${profile.review.count}개`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-md bg-white/60 p-3 ring-1 ring-white/70">
+            <p className="text-xs font-normal text-slate-500">{label}</p>
+            <p className="mt-1 text-sm font-normal text-slate-950">{value}</p>
+          </div>
+        ))}
+      </div>
+      {profile.review.highlight ? <p className="rounded-md bg-rose-50 p-3 text-sm font-normal text-rose-900">{profile.review.highlight}</p> : null}
+    </section>
   );
 }
 
 function ProductGallery({ product, content }: { product: Product; content?: StorefrontContent }) {
   const profile = profileFor(product, content);
-  const images = profile.gallery.length ? profile.gallery : [profile.imageUrl];
+  const images = (profile.gallery.length ? profile.gallery : [profile.imageUrl]).map((item) => safeStorefrontMediaUrl(item)).filter(Boolean);
+  const primaryImage = images[0] ?? "";
 
   return (
     <section className="grid gap-3">
       <div className="overflow-hidden rounded-md bg-white/35 shadow-sm backdrop-blur-md">
-        <img src={images[0]} alt={profile.displayName} className="aspect-square w-full object-cover" />
+        <ProductMediaFrame src={primaryImage} alt={profile.displayName} square />
       </div>
       <div className="grid grid-cols-3 gap-3">
-        {images.slice(0, 3).map((image, index) => (
+        {(images.length ? images : [primaryImage]).slice(0, 3).map((image, index) => (
           <div key={`${image}-${index}`} className="overflow-hidden rounded-md bg-white/35 shadow-sm backdrop-blur-md">
-            <img src={image} alt={`${profile.displayName} ${index + 1}`} className="aspect-square w-full object-cover" />
+            <ProductMediaFrame src={image} alt={`${profile.displayName} ${index + 1}`} square />
           </div>
         ))}
       </div>
@@ -460,102 +647,174 @@ export async function TabletHomePage() {
 }
 
 export async function TabletProductsPage() {
-  const context = await getContext();
   const products = await getApprovedProducts();
+  const content = await getClosedMallContent(products);
 
   return (
-    <StoreShell title="산후조리원 핫딜 쇼핑 홈" subtitle="태블릿 산후조리원 핫딜" context={context}>
-      <div className="grid gap-8">
-        <TabletHomeRuntimeSections fallbackContent={context.content} />
-        <DiscountBandRails products={products} content={context.content} />
+    <StoreShell title="폐쇄몰 상품" subtitle="태블릿 핫딜" requireTabletAccess={false}>
+      <div className="grid gap-3 md:gap-4">
+        <TabletHomeRuntimeSections fallbackContent={content} products={products} />
+        <CategoryProductSections products={products} content={content} />
       </div>
     </StoreShell>
   );
 }
 
 export async function TabletDealProductsPage({ dealId }: { dealId: string }) {
-  const context = await getContext();
   const products = await getApprovedProducts();
+  const content = await getClosedMallContent(products);
   const deal = dealFilters.find((candidate) => candidate.id === dealId) ?? dealFilters[0];
 
   return (
-    <StoreShell title={deal.title} subtitle={deal.eyebrow} context={context}>
-      <FilteredProductCollection title={deal.title} eyebrow={deal.eyebrow} products={productsForDeal(products, deal.id, context.content)} content={context.content} />
+    <StoreShell title={deal.title} subtitle={deal.eyebrow} requireTabletAccess={false}>
+      <FilteredProductCollection title={deal.title} eyebrow={deal.eyebrow} products={productsForDeal(products, deal.id)} content={content} />
+    </StoreShell>
+  );
+}
+
+export async function TabletCategoryProductsPage({ categoryId }: { categoryId: string }) {
+  const products = await getApprovedProducts();
+  const content = await getClosedMallContent(products);
+  const category = productsForClosedMallCategoryId(products, categoryId);
+
+  return (
+    <StoreShell title={category.category} subtitle="카테고리 상품" requireTabletAccess={false}>
+      <FilteredProductCollection title={category.category} eyebrow="카테고리 상품" products={category.products} content={content} />
     </StoreShell>
   );
 }
 
 export async function TabletBrandProductsPage({ brandId }: { brandId: string }) {
-  const context = await getContext();
   const products = await getApprovedProducts();
-  const brand = brandForId(brandId, context.content);
+  const content = await getClosedMallContent(products);
+  const brand = brandForId(brandId, content, products);
+  const brandProducts = productsForBrand(products, brand, content);
+  const currentBrandHref = brandHref(brand?.id ?? brandId);
 
   return (
-    <StoreShell title={brand?.name ?? "브랜드 상품"} subtitle="브랜드관" context={context}>
-      <FilteredProductCollection
-        title={brand ? `${brand.name} 상품` : "브랜드 상품"}
-        eyebrow={brand?.category ?? "브랜드관"}
-        products={productsForBrand(products, brand, context.content)}
-        content={context.content}
+    <StoreShell title={brand?.name ?? "브랜드 상품"} subtitle="브랜드관" requireTabletAccess={false}>
+      <BrandProductCollectionClient
+        brandName={brand?.name ?? "브랜드 상품"}
+        brandCategory={brand?.category ?? "브랜드관"}
+        brandLogoUrl={brand?.logoUrl}
+        products={brandProducts}
+        content={content}
+        brandHref={currentBrandHref}
+        newsHref={`${currentBrandHref}news/`}
+        initialView="products"
       />
     </StoreShell>
   );
 }
 
-export async function TabletProductDetailPage({ productId }: { productId: string }) {
-  const context = await getContext();
-  const product = await getProduct(productId);
-  const options = await getProductOptions(product.id);
-  const profile = profileFor(product, context.content);
+export async function TabletBrandNewsPage({ brandId }: { brandId: string }) {
+  const products = await getApprovedProducts();
+  const content = await getClosedMallContent(products);
+  const brand = brandForId(brandId, content, products);
+  const brandProducts = productsForBrand(products, brand, content);
+  const currentBrandHref = brandHref(brand?.id ?? brandId);
 
   return (
-    <StoreShell title={profile.displayName} subtitle={profile.subtitle} context={context}>
+    <StoreShell title={brand?.name ?? "브랜드 소식"} subtitle="브랜드 소식" requireTabletAccess={false}>
+      <BrandProductCollectionClient
+        brandName={brand?.name ?? "브랜드 소식"}
+        brandCategory={brand?.category ?? "브랜드관"}
+        brandLogoUrl={brand?.logoUrl}
+        products={brandProducts}
+        content={content}
+        brandHref={currentBrandHref}
+        newsHref={`${currentBrandHref}news/`}
+        initialView="news"
+      />
+    </StoreShell>
+  );
+}
+
+export async function TabletBusinessBrandPage({ businessNo }: { businessNo: string }) {
+  const products = await getApprovedProducts();
+  const businessProducts = productsForBusinessNo(products, businessNo);
+  const content = await getClosedMallContent(businessProducts);
+  const brand = brandForBusinessNo(businessNo, content, products);
+  const currentBrandHref = businessBrandHref(businessNo);
+
+  return (
+    <StoreShell title={brand?.name ?? businessNo} subtitle={brand?.category ?? ""} requireTabletAccess={false}>
+      <BrandProductCollectionClient
+        brandName={brand?.name ?? businessNo}
+        brandCategory={brand?.category ?? ""}
+        brandLogoUrl={brand?.logoUrl}
+        products={businessProducts}
+        content={content}
+        brandHref={currentBrandHref}
+        newsHref={`${currentBrandHref}news/`}
+        initialView="products"
+      />
+    </StoreShell>
+  );
+}
+
+export async function TabletBusinessProductDetailPage({ businessNo, productId }: { businessNo: string; productId: string }) {
+  const product = await getProduct(productId);
+  const normalizedBusinessNo = normalizeStorefrontBusinessNo(businessNo);
+
+  if (!normalizedBusinessNo || productBusinessNoForStorefront(product) !== normalizedBusinessNo) {
+    notFound();
+  }
+
+  return <TabletProductDetailPage productId={productId} />;
+}
+
+export async function TabletProductDetailPage({ productId }: { productId: string }) {
+  const product = await getProduct(productId);
+  const options = await getProductOptions(product.id);
+  const content = await getClosedMallContent([product]);
+  const profile = profileFor(product, content);
+
+  return (
+    <StoreShell title={profile.displayName} subtitle={profile.subtitle} requireTabletAccess={false}>
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <ProductGallery product={product} content={context.content} />
+        <ProductGallery product={product} content={content} />
         <section className="grid gap-4">
           <div className="rounded-md bg-white/45 p-5 text-slate-950 shadow-sm backdrop-blur-xl">
-            <p className="text-sm font-black text-rose-600">{profile.brand}</p>
-            <h2 className="mt-2 text-4xl font-black">{profile.displayName}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-normal text-rose-600">{profile.brand}</p>
+              <span className="rounded-md bg-white/70 px-2 py-1 text-xs font-normal text-slate-600">{profile.category}</span>
+            </div>
+            <h2 className="mt-2 text-4xl font-normal">{profile.displayName}</h2>
             <div className="mt-5">
               <ProductPriceSummary product={product} productName={profile.displayName} large />
             </div>
           </div>
 
           <AddToCartPanel product={product} options={options} />
+          <ProductTrustPanel product={product} profile={profile} />
         </section>
       </div>
+      <ProductDetailTabs product={product} profile={profile} />
     </StoreShell>
   );
 }
 
 export async function TabletCartPage() {
-  const context = await getContext();
-  const { session } = context;
-
   return (
-    <StoreShell title="장바구니" subtitle="태블릿 장바구니" context={context}>
-      <LiveCartPage fallbackItems={session.items} />
+    <StoreShell title="장바구니" subtitle="태블릿 장바구니" requireTabletAccess>
+      <LiveCartPage fallbackItems={[]} />
     </StoreShell>
   );
 }
 
 export async function TabletOrdersPage() {
-  const context = await getContext();
-
   return (
-    <StoreShell title="주문 완료 내역" subtitle="태블릿 개인정보 보호 주문 조회" context={context}>
+    <StoreShell title="주문내역" subtitle="태블릿 주문내역" requireTabletAccess>
       <LiveTabletOrderHistoryPage />
     </StoreShell>
   );
 }
 
 export async function TabletQrPage() {
-  const context = await getContext();
-  const { session } = context;
-
   return (
-    <StoreShell title="구매 QR" subtitle="고객 휴대폰 결제용 QR" context={context}>
-      <LiveQrSessionPanel fallbackSession={session} />
+    <StoreShell title="결제 QR" subtitle="고객 모바일 결제 QR" requireTabletAccess>
+      <LiveQrSessionPanel />
     </StoreShell>
   );
 }

@@ -47,18 +47,18 @@ export function NurseryConsentSummary() {
     <div className="mt-4 rounded-md bg-white p-4 ring-1 ring-rose-100">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-black text-rose-600">최초 로그인 동의 기록</p>
-          <h3 className="mt-1 text-base font-black text-slate-950">마케팅 동의 포함 필수 동의 완료 내역</h3>
+          <p className="text-xs font-normal text-rose-600">최초 로그인 동의 기록</p>
+          <h3 className="mt-1 text-base font-normal text-slate-950">마케팅 동의 포함 필수 동의 완료 내역</h3>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-normal text-emerald-700 ring-1 ring-emerald-100">
           {session?.marketingConsentAt ? "마케팅 동의 완료" : "확인 필요"}
         </span>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-3">
         {rows.map(([label, value]) => (
           <div key={label} className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">{label}</p>
-            <p className="mt-1 text-sm font-black text-slate-900">{consentValue(value)}</p>
+            <p className="text-xs font-normal text-slate-500">{label}</p>
+            <p className="mt-1 text-sm font-normal text-slate-900">{consentValue(value)}</p>
           </div>
         ))}
       </div>

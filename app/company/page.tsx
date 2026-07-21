@@ -1,5 +1,5 @@
-import { CompanyIndexPage } from "@/components/pages/companyPages";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <CompanyIndexPage />;
+  redirect("/company/login");
 }

@@ -22,10 +22,8 @@ export const requiredServerPgKeys = [
 
 const providerAliases: Record<string, PaymentProviderCandidate> = {
   mock: "mock",
-  infiny: "infiny",
-  infini: "infiny",
-  infinypg: "infiny",
-  infinipg: "infiny",
+  payup: "payup",
+  payuppg: "payup",
   toss: "toss",
   tosspayments: "toss",
   portone: "portone",
@@ -35,8 +33,42 @@ const providerAliases: Record<string, PaymentProviderCandidate> = {
   nicepay: "nice",
 };
 
+const publicEnvValues: Record<string, string | undefined> = {
+  NEXT_PUBLIC_PG_PROVIDER: process.env.NEXT_PUBLIC_PG_PROVIDER,
+  NEXT_PUBLIC_PG_ENVIRONMENT: process.env.NEXT_PUBLIC_PG_ENVIRONMENT,
+  NEXT_PUBLIC_PG_CLIENT_KEY: process.env.NEXT_PUBLIC_PG_CLIENT_KEY,
+  NEXT_PUBLIC_PG_SCRIPT_URL: process.env.NEXT_PUBLIC_PG_SCRIPT_URL,
+  NEXT_PUBLIC_PG_REQUEST_FUNCTION: process.env.NEXT_PUBLIC_PG_REQUEST_FUNCTION,
+  NEXT_PUBLIC_PAYMENT_SUCCESS_URL: process.env.NEXT_PUBLIC_PAYMENT_SUCCESS_URL,
+  NEXT_PUBLIC_PAYMENT_FAIL_URL: process.env.NEXT_PUBLIC_PAYMENT_FAIL_URL,
+  NEXT_PUBLIC_PAYMENT_API_BASE_URL: process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL,
+  NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL: process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL,
+  NEXT_PUBLIC_PG_CHANNEL_KEY: process.env.NEXT_PUBLIC_PG_CHANNEL_KEY,
+  NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_PROVIDER: process.env.NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_PROVIDER,
+  NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_PROVIDER: process.env.NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_PROVIDER,
+  NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_CONFIRM: process.env.NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_CONFIRM,
+  NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_CONFIRM: process.env.NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_CONFIRM,
+};
+
 function readEnv(name: string) {
-  return process.env[name]?.trim() ?? "";
+  return (publicEnvValues[name] ?? process.env[name])?.trim() ?? "";
+}
+
+function envFlagEnabled(name: string) {
+  return ["1", "true", "yes", "on"].includes(readEnv(name).toLowerCase());
+}
+
+export function shouldAllowMockPaymentRuntime() {
+  return (
+    envFlagEnabled("NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_PROVIDER") ||
+    envFlagEnabled("NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_PROVIDER") ||
+    envFlagEnabled("NEXT_PUBLIC_A5_ALLOW_MOCK_PAYMENT_CONFIRM") ||
+    envFlagEnabled("NEXT_PUBLIC_ALLOW_MOCK_PAYMENT_CONFIRM") ||
+    envFlagEnabled("A5_ALLOW_MOCK_PAYMENT_PROVIDER") ||
+    envFlagEnabled("ALLOW_MOCK_PAYMENT_PROVIDER") ||
+    envFlagEnabled("A5_ALLOW_MOCK_PAYMENT_CONFIRM") ||
+    envFlagEnabled("ALLOW_MOCK_PAYMENT_CONFIRM")
+  );
 }
 
 export function getPaymentEnvironment(): PaymentEnvironment {
@@ -51,7 +83,7 @@ export function resolvePaymentProviderCandidate(value?: string): PaymentProvider
 }
 
 export function toPaymentProviderId(candidate: PaymentProviderCandidate): PaymentProviderId {
-  if (candidate === "infiny" || candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
+  if (candidate === "payup" || candidate === "infiny" || candidate === "toss" || candidate === "portone" || candidate === "kcp" || candidate === "nice") return candidate;
   return candidate === "mock" ? "mock" : "pg_skeleton";
 }
 
@@ -60,8 +92,17 @@ export function getPaymentConfigSummary() {
   const candidate = resolvePaymentProviderCandidate(rawProvider);
   const provider = toPaymentProviderId(candidate);
   const missingPublic = requiredPublicPgKeys.filter((key) => !readEnv(key));
-  const missingServer = requiredServerPgKeys.filter((key) => !readEnv(key));
-  const missingProviderConfig = candidate === "infiny" && !readEnv("INFINY_CONFIRM_URL") && !readEnv("INFINY_API_BASE_URL")
+  const missingServer = candidate === "payup"
+    ? [
+        !readEnv("PAYUP_API_KEY") && !readEnv("PAYUP_API_CERT_KEY") && !readEnv("PG_SECRET_KEY")
+          ? "PAYUP_API_KEY or encrypted company PG secret"
+          : "",
+        !readEnv("PAYMENT_WEBHOOK_URL") ? "PAYMENT_WEBHOOK_URL" : "",
+      ].filter(Boolean)
+    : requiredServerPgKeys.filter((key) => !readEnv(key));
+  const missingProviderConfig = candidate === "payup" && !readEnv("PAYUP_API_BASE_URL") && !readEnv("PG_API_BASE_URL")
+    ? ["PAYUP_API_BASE_URL or PG_API_BASE_URL"]
+    : candidate === "infiny" && !readEnv("INFINY_CONFIRM_URL") && !readEnv("INFINY_API_BASE_URL")
     ? ["INFINY_CONFIRM_URL or INFINY_API_BASE_URL"]
     : [];
   const publicClientReady = candidate !== "mock" && candidate !== "unknown" && missingPublic.length === 0;
@@ -91,11 +132,13 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
   const missingKeys = [...summary.missingPublic, ...summary.missingSecret];
 
   if (summary.candidate === "mock") {
+    const mockRuntimeAllowed = shouldAllowMockPaymentRuntime();
+
     return {
       provider: "mock",
       candidate: "mock",
-      ready: true,
-      mode: "mock",
+      ready: mockRuntimeAllowed,
+      mode: mockRuntimeAllowed ? "mock" : "blocked",
       label: "모의/테스트 베타 결제 흐름",
       missingKeys,
       publicKeys: summary.publicKeys,
@@ -115,7 +158,7 @@ export function getPaymentRuntimeReadiness(): ProviderReadiness {
       missingKeys,
       publicKeys: summary.publicKeys,
       serverKeys: summary.serverKeys,
-      blockers: ["NEXT_PUBLIC_PG_PROVIDER는 infiny, toss, portone, kcp, nice 중 하나여야 합니다."],
+      blockers: ["NEXT_PUBLIC_PG_PROVIDER는 payup, toss, portone, kcp, nice 중 하나여야 합니다."],
     handoff: ["어댑터 내부 구현 전 PG사와 결제사 이름을 확인합니다."],
     };
   }

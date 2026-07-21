@@ -15,18 +15,18 @@ export function ReturnPolicyForm() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-orange-600">return policy</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">반품/교환/AS/배송 고지</h2>
+          <p className="text-xs font-normal tracking-[0.12em] text-orange-600">반품 정책</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">반품/교환/AS/배송 고지</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             모든 상품은 배송비, 도서산간 추가비, 출고 예정일, 교환/반품 제한 사유, 파손/오배송 처리, 환불 기준을 승인 전 입력해야 합니다.
           </p>
         </div>
-        <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700 ring-1 ring-red-200">미입력 시 승인 요청 불가</span>
+        <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-normal text-red-700 ring-1 ring-red-200">미입력 시 승인 요청 불가</span>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {deliveryReturnFields.map((field) => (
-          <label key={field.id} className="grid gap-2 text-sm font-bold text-slate-700">
+          <label key={field.id} className="grid gap-2 text-sm font-normal text-slate-700">
             <span>
               {field.label}
               {field.required ? <span className="ml-1 text-red-600">*</span> : null}

@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { DataTable } from "@/components/ui/DataTable";
 import {
   buildA4RoomImportPreview,
-  createImportedNurseryRooms,
   mergeImportedNurseryRooms,
 } from "@/lib/nursery/a4RoomImportPreview";
-import { syncA4RoomsToA5 } from "@/lib/firebase/a4RoomSyncClient";
+import { saveA5LocalRoomToFirestore, syncA4RoomsToA5 } from "@/lib/firebase/a4RoomSyncClient";
 import type { Room } from "@/types/commerce";
-import type { A4ReadOnlyRoom, A4RoomImportStatus, ImportedNurseryRoom } from "@/types/nursery";
+import type { A4LocalRoomUpsertRoom, A4ReadOnlyRoom, A4RoomImportStatus, ImportedNurseryRoom } from "@/types/nursery";
 
 type A4RoomImportPanelProps = {
   nurseryId: string;
@@ -32,21 +31,6 @@ const statusClasses: Record<A4RoomImportStatus, string> = {
   excluded: "bg-red-100 text-red-800 ring-red-200",
 };
 
-function storageKey(nurseryId: string) {
-  return `a5.a4-room-import.${nurseryId}`;
-}
-
-function safeParseRooms(value: string | null): ImportedNurseryRoom[] {
-  if (!value) return [];
-
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? (parsed as ImportedNurseryRoom[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function normalizeRoomNumber(value: string) {
   return value.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
 }
@@ -57,10 +41,46 @@ function makeLocalRoomId(roomNumber: string) {
 
 function StatusBadge({ status }: { status: A4RoomImportStatus }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusClasses[status]}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-normal ring-1 ${statusClasses[status]}`}>
       {statusLabels[status]}
     </span>
   );
+}
+
+function localUpsertRoomToImportedRoom(
+  room: A4LocalRoomUpsertRoom,
+  nurseryId: string,
+  syncedAt: string,
+): ImportedNurseryRoom {
+  return {
+    id: room.targetRoomId,
+    nurseryId,
+    roomNumber: room.roomNumber,
+    name: room.name,
+    floor: room.floor,
+    pickupEnabled: room.pickupEnabled,
+    activeTabletId: room.activeTabletId,
+    importSource: room.importSource === "SIGNAGE_PARTNER_BUSINESS_NO" ? "A4_READ_ONLY" : "A5_LOCAL",
+    importedAt: syncedAt,
+    localUpdatedAt: syncedAt,
+    localOnly: false,
+  };
+}
+
+function existingRoomToImportedRoom(room: Room, nurseryId: string): ImportedNurseryRoom {
+  return {
+    id: room.id,
+    nurseryId,
+    roomNumber: room.name,
+    name: room.name,
+    floor: room.floor,
+    pickupEnabled: room.pickupEnabled,
+    activeTabletId: room.activeTabletId,
+    importSource: "A5_LOCAL",
+    importedAt: "",
+    localUpdatedAt: "",
+    localOnly: false,
+  };
 }
 
 export function A4RoomImportPanel({
@@ -70,20 +90,16 @@ export function A4RoomImportPanel({
   a4Rooms,
 }: A4RoomImportPanelProps) {
   const [selectedExternalRoomIds, setSelectedExternalRoomIds] = useState<string[]>([]);
-  const [localRooms, setLocalRooms] = useState<ImportedNurseryRoom[]>(() => {
-    if (typeof window === "undefined") return [];
-    return safeParseRooms(window.localStorage.getItem(storageKey(nurseryId)));
-  });
+  const [localRooms, setLocalRooms] = useState<ImportedNurseryRoom[]>([]);
   const [manualRoomNumber, setManualRoomNumber] = useState("");
   const [manualRoomName, setManualRoomName] = useState("");
   const [message, setMessage] = useState("");
   const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(storageKey(nurseryId), JSON.stringify(localRooms));
-  }, [localRooms, nurseryId]);
-
+  const editableRooms = useMemo(
+    () => mergeImportedNurseryRooms(existingRooms.map((room) => existingRoomToImportedRoom(room, nurseryId)), localRooms),
+    [existingRooms, localRooms, nurseryId],
+  );
   const previewRows = useMemo(
     () => buildA4RoomImportPreview(a4Rooms, existingRooms, localRooms),
     [a4Rooms, existingRooms, localRooms],
@@ -103,12 +119,7 @@ export function A4RoomImportPanel({
   }
 
   function importSelectedRooms() {
-    const now = new Date().toISOString();
-    const incoming = createImportedNurseryRooms(previewRows, selectedExternalRoomIds, nurseryId, now);
-
-    setLocalRooms((current) => mergeImportedNurseryRooms(current, incoming));
-    setSelectedExternalRoomIds([]);
-    setMessage(`${incoming.length}개 객실을 A5 운영본에 가져왔습니다.`);
+    void syncRoomsToFirestore();
   }
 
   async function syncRoomsToFirestore() {
@@ -168,7 +179,7 @@ export function A4RoomImportPanel({
     );
   }
 
-  function addLocalRoom() {
+  async function addLocalRoom() {
     const roomNumber = manualRoomNumber.trim();
     const name = manualRoomName.trim() || `${roomNumber}호`;
     const roomNumberKey = normalizeRoomNumber(roomNumber || name);
@@ -186,32 +197,73 @@ export function A4RoomImportPanel({
       return;
     }
 
+    setSyncing(true);
+    setMessage("A5 운영본에 객실을 저장하는 중입니다.");
+
+    const result = await saveA5LocalRoomToFirestore({
+      nurseryId,
+      businessRegistrationNo,
+      roomId: makeLocalRoomId(roomNumber || name),
+      roomNumber: roomNumber || name,
+      name,
+      pickupEnabled: true,
+    });
+
+    setSyncing(false);
+
+    if (!result.ok) {
+      setMessage(`A5 객실 추가 실패: ${result.error.message}`);
+      return;
+    }
+
     const now = new Date().toISOString();
-    setLocalRooms((current) => [
-      ...current,
-      {
-        id: makeLocalRoomId(roomNumber || name),
-        nurseryId,
-        roomNumber: roomNumber || name,
-        name,
-        floor: "",
-        pickupEnabled: true,
-        importSource: "A5_LOCAL",
-        importedAt: now,
-        localUpdatedAt: now,
-        localOnly: true,
-      },
-    ]);
+    setLocalRooms((current) => mergeImportedNurseryRooms(current, [localUpsertRoomToImportedRoom(result.room, nurseryId, now)]));
     setManualRoomNumber("");
     setManualRoomName("");
     setMessage("A5 운영본에 객실을 추가했습니다.");
   }
 
-  function updateLocalRoomName(roomId: string, name: string) {
+  function updateLocalRoomName(targetRoom: ImportedNurseryRoom, name: string) {
     const now = new Date().toISOString();
-    setLocalRooms((current) =>
-      current.map((room) => (room.id === roomId ? { ...room, name, localUpdatedAt: now } : room)),
-    );
+    setLocalRooms((current) => {
+      if (current.some((room) => room.id === targetRoom.id)) {
+        return current.map((room) => (room.id === targetRoom.id ? { ...room, name, localUpdatedAt: now } : room));
+      }
+
+      return mergeImportedNurseryRooms(current, [{ ...targetRoom, name, localUpdatedAt: now }]);
+    });
+  }
+
+  async function persistLocalRoomName(room: ImportedNurseryRoom) {
+    const name = room.name.trim();
+    const roomNumber = room.roomNumber.trim() || name;
+
+    if (!name || !roomNumber) {
+      setMessage("객실명을 입력해 주세요.");
+      return;
+    }
+
+    setMessage("A5 운영본에 객실명을 저장하는 중입니다.");
+
+    const result = await saveA5LocalRoomToFirestore({
+      nurseryId,
+      businessRegistrationNo,
+      roomId: room.id,
+      roomNumber,
+      name,
+      floor: room.floor,
+      pickupEnabled: room.pickupEnabled,
+      activeTabletId: room.activeTabletId,
+    });
+
+    if (!result.ok) {
+      setMessage(`A5 객실명 저장 실패: ${result.error.message}`);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    setLocalRooms((current) => mergeImportedNurseryRooms(current, [localUpsertRoomToImportedRoom(result.room, nurseryId, now)]));
+    setMessage("A5 운영본에 객실명을 저장했습니다.");
   }
 
   return (
@@ -219,18 +271,18 @@ export function A4RoomImportPanel({
       <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-rose-950">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-rose-700">signage-partner read-only import</p>
-            <h2 className="mt-1 text-lg font-black">사업자번호 기준 객실연동</h2>
+            <p className="text-xs font-normal tracking-[0.12em] text-rose-700">signage-partner 읽기 전용 가져오기</p>
+            <h2 className="mt-1 text-lg font-normal">사업자번호 기준 객실연동</h2>
             <p className="mt-2 text-sm leading-6">
               A5 조리원 사업자등록번호와 signage-partner에 등록된 사업자번호를 대조해 같은 사업자의 객실을 한 번에 가져옵니다.
               가져온 후의 객실명 변경과 객실 추가는 A5 운영본에만 저장됩니다.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-rose-800 ring-1 ring-rose-200">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-normal text-rose-800 ring-1 ring-rose-200">
               signage-partner 쓰기 없음
             </span>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-normal text-slate-700 ring-1 ring-slate-200">
               사업자번호 {businessRegistrationNo}
             </span>
           </div>
@@ -252,14 +304,14 @@ export function A4RoomImportPanel({
                 aria-label={`${row.roomName} 선택`}
               />
             ) : (
-              <span key="locked" className="text-xs font-bold text-slate-400">-</span>
+              <span key="locked" className="text-xs font-normal text-slate-400">-</span>
             ),
             <div key="a4-room">
-              <p className="font-black text-slate-950">{row.roomName}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">{row.externalRoomId}</p>
+              <p className="font-normal text-slate-950">{row.roomName}</p>
+              <p className="mt-1 text-xs font-normal text-slate-500">{row.externalRoomId}</p>
             </div>,
             <div key="a5-target">
-              <p className="font-bold text-slate-800">{row.targetRoomId}</p>
+              <p className="font-normal text-slate-800">{row.targetRoomId}</p>
               <p className="mt-1 text-xs text-slate-500">{row.activeTabletId ?? "태블릿 미연결"}</p>
             </div>,
             <div key="status">
@@ -267,7 +319,7 @@ export function A4RoomImportPanel({
               <p className="mt-2 text-xs leading-5 text-slate-500">{row.reason}</p>
             </div>,
             <div key="source">
-              <p className="font-bold text-slate-700">{row.externalNurseryId}</p>
+              <p className="font-normal text-slate-700">{row.externalNurseryId}</p>
               <p className="mt-1 text-xs text-slate-500">{row.externalTabletId ?? "external tablet 없음"}</p>
             </div>,
           ],
@@ -278,21 +330,21 @@ export function A4RoomImportPanel({
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-sm font-bold text-slate-600">{message || "신규 상태인 객실만 A5 운영본으로 가져올 수 있습니다."}</p>
+        <p className="text-sm font-normal text-slate-600">{message || "신규 상태인 객실만 A5 운영본으로 가져올 수 있습니다."}</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={importSelectedRooms}
-            disabled={selectedImportableCount === 0}
-            className="h-10 rounded-md border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+            disabled={syncing || selectedImportableCount === 0}
+            className="h-10 rounded-md border border-rose-200 bg-white px-4 text-sm font-normal text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
           >
-            선택 객실 임시 가져오기
+            선택 객실만 연동
           </button>
           <button
             type="button"
-            onClick={syncRoomsToFirestore}
+            onClick={() => void syncRoomsToFirestore()}
             disabled={syncing || (!businessRegistrationNo.trim() && !externalNurseryId)}
-            className="h-10 rounded-md bg-rose-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="h-10 rounded-md bg-rose-600 px-4 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {syncing ? "연동 중" : selectedImportableCount > 0 ? "선택 객실 연동" : "객실 전체 연동"}
           </button>
@@ -301,7 +353,7 @@ export function A4RoomImportPanel({
 
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="grid gap-1 text-sm font-bold text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             객실번호
             <input
               value={manualRoomNumber}
@@ -310,7 +362,7 @@ export function A4RoomImportPanel({
               placeholder="705"
             />
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             객실명
             <input
               value={manualRoomName}
@@ -319,7 +371,12 @@ export function A4RoomImportPanel({
               placeholder="705호"
             />
           </label>
-          <button type="button" onClick={addLocalRoom} className="h-10 rounded-md bg-slate-950 px-4 text-sm font-black text-white">
+          <button
+            type="button"
+            onClick={() => void addLocalRoom()}
+            disabled={syncing}
+            className="h-10 rounded-md bg-slate-950 px-4 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
             객실 추가
           </button>
         </div>
@@ -327,19 +384,20 @@ export function A4RoomImportPanel({
 
       <DataTable
         columns={["객실", "현장수령", "출처", "객실명 변경"]}
-        rows={localRooms.map((room) => ({
+        rows={editableRooms.map((room) => ({
           id: room.id,
           cells: [
             <div key="room">
-              <p className="font-black text-slate-950">{room.name}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">{room.id}</p>
+              <p className="font-normal text-slate-950">{room.name}</p>
+              <p className="mt-1 text-xs font-normal text-slate-500">{room.id}</p>
             </div>,
             room.pickupEnabled ? "가능" : "불가",
             room.importSource === "A4_READ_ONLY" ? (room.localOnly ? "A4 임시" : "A4 연동") : "A5 추가",
             <input
               key="rename"
               value={room.name}
-              onChange={(event) => updateLocalRoomName(room.id, event.target.value)}
+              onChange={(event) => updateLocalRoomName(room, event.target.value)}
+              onBlur={(event) => void persistLocalRoomName({ ...room, name: event.target.value })}
               className="h-10 w-full min-w-32 rounded-md border border-slate-200 px-3 text-sm text-slate-900"
               aria-label={`${room.name} 객실명 변경`}
             />,
@@ -347,7 +405,7 @@ export function A4RoomImportPanel({
         }))}
         emptyMessage="아직 A5 운영본에 가져온 객실이 없습니다."
         sortLabel="A5 운영본 수정 영역"
-        paginationLabel={`${localRooms.length}개`}
+        paginationLabel={`${editableRooms.length}개`}
       />
     </section>
   );

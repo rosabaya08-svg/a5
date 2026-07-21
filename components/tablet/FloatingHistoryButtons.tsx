@@ -28,7 +28,7 @@ export function FloatingHistoryButtons() {
       <button
         type="button"
         onClick={goBack}
-        className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-white/75 text-xl font-black shadow-sm transition active:scale-95"
+        className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-white/75 text-xl font-normal shadow-sm transition active:scale-95"
         aria-label="뒤로가기"
       >
         ←
@@ -36,7 +36,7 @@ export function FloatingHistoryButtons() {
       <button
         type="button"
         onClick={goForward}
-        className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-white/75 text-xl font-black shadow-sm transition active:scale-95"
+        className="grid h-11 w-11 place-items-center rounded-full border border-white/50 bg-white/75 text-xl font-normal shadow-sm transition active:scale-95"
         aria-label="앞으로가기"
       >
         →

@@ -1,5 +1,5 @@
-import { AdminPgIntegrationPage } from "@/components/pages/adminPages";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AdminPgIntegrationPage />;
+  redirect("/admin/pg-settings/");
 }

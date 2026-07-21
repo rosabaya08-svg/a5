@@ -15,6 +15,7 @@ import { getFirebaseDb } from "@/lib/firebase/client";
 import { withResolvedQrPickupLocation } from "@/lib/qr/pickupLocation";
 import type { QrSessionDraftInput, QrSessionRepository, RepositoryActor } from "@/lib/repositories/types";
 import { assertNeverStatus, repositoryError, repositoryOk } from "@/lib/repositories/types";
+import { normalizeShippingFeePolicy } from "@/lib/shipping/shippingFee";
 import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrPickupLocation, QrSessionType } from "@/types/commerce";
 import type { QrSessionStatus } from "@/types/status";
 
@@ -70,6 +71,12 @@ function asCartItems(value: unknown): CartItemSnapshot[] {
         unitPrice: asNumber(data.unitPrice ?? data.unit_price),
         quantity: asNumber(data.quantity),
         companyId: asString(data.companyId ?? data.company_id),
+        sellerCompanyId: asString(data.sellerCompanyId ?? data.seller_company_id ?? data.pg_owner_company_id) || undefined,
+        sellerBusinessNo: asString(data.sellerBusinessNo ?? data.seller_business_no ?? data.business_registration_number ?? data.company_business_no) || undefined,
+        sellerBusinessNoNormalized:
+          asString(data.sellerBusinessNoNormalized ?? data.seller_business_no_normalized ?? data.business_registration_number_normalized ?? data.company_business_no_normalized) || undefined,
+        sellerCompanyName: asString(data.sellerCompanyName ?? data.seller_company_name ?? data.company_name) || undefined,
+        shippingFeePolicy: normalizeShippingFeePolicy(data.shippingFeePolicy ?? data.shipping_fee_policy),
       };
     })
     .filter((item) => item.productId && item.productName && item.quantity > 0);
@@ -167,12 +174,31 @@ function toFirestorePayload(session: QrPaymentSession) {
       unit_price: item.unitPrice,
       quantity: item.quantity,
       company_id: item.companyId,
+      seller_company_id: item.sellerCompanyId ?? item.companyId,
+      pg_owner_company_id: item.sellerCompanyId ?? item.companyId,
+      seller_business_no: item.sellerBusinessNo ?? null,
+      seller_business_no_normalized: item.sellerBusinessNoNormalized ?? item.sellerBusinessNo ?? null,
+      seller_company_name: item.sellerCompanyName ?? null,
+      shipping_fee_policy: item.shippingFeePolicy ?? null,
       line_amount: item.unitPrice * item.quantity,
     })),
     guest_read_enabled: true,
+    demo_read_enabled: true,
     source: "firebase_storefront",
     updated_at: serverTimestamp(),
   };
+}
+
+function uniqueStrings(values: Array<string | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+function chunks<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
 }
 
 async function getSessionDocByShortCode(shortCode: string) {
@@ -182,10 +208,14 @@ async function getSessionDocByShortCode(shortCode: string) {
     return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.", shortCode);
   }
 
-  const direct = await getDoc(doc(db, collectionName, shortCode));
+  const directIds = [shortCode, `qr-${shortCode}`];
 
-  if (direct.exists()) {
-    return repositoryOk({ id: direct.id, data: direct.data() });
+  for (const id of directIds) {
+    const direct = await getDoc(doc(db, collectionName, id));
+
+    if (direct.exists()) {
+      return repositoryOk({ id: direct.id, data: direct.data() });
+    }
   }
 
   const snapshot = await getDocs(
@@ -222,6 +252,51 @@ export const firebaseQrSessionRepository: QrSessionRepository = {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Firestore QR session read error.";
       return repositoryError("EXTERNAL_BLOCKED", `Firestore QR sessions read failed. ${message}`);
+    }
+  },
+
+  async listQrSessionsByRoomOrTablet(filters) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    const roomIds = uniqueStrings(filters.roomIds ?? []);
+    const tabletIds = uniqueStrings(filters.tabletIds ?? []);
+
+    if (roomIds.length === 0 && tabletIds.length === 0 && !filters.nurseryId) {
+      return repositoryOk([]);
+    }
+
+    try {
+      const byId = new Map<string, QrPaymentSession>();
+
+      if (filters.nurseryId) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("nursery_id", "==", filters.nurseryId)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      for (const group of chunks(roomIds, 10)) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("room_id", "in", group)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      for (const group of chunks(tabletIds, 10)) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("tablet_id", "in", group)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      return repositoryOk(
+        [...byId.values()].sort((a, b) => {
+          const left = new Date(a.createdAt).getTime();
+          const right = new Date(b.createdAt).getTime();
+          return right - left;
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR session read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR sessions scope read failed. ${message}`);
     }
   },
 

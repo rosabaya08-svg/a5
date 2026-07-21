@@ -10,9 +10,10 @@ import {
   where,
   type DocumentData,
   type QueryConstraint,
+  type QueryDocumentSnapshot,
+  type QuerySnapshot,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import { calculateInfinySettlement } from "@/lib/payments/infinySettlementPolicy";
 import type { CreateOrderFromQrInput, OrderItemListFilters, OrderListFilters, OrderRepository } from "@/lib/repositories/types";
 import { repositoryError, repositoryOk } from "@/lib/repositories/types";
 import type { DeliveryMethod, Order, OrderItem } from "@/types/commerce";
@@ -76,6 +77,18 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function chunks<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
+}
+
 function mapOrder(documentId: string, data: DocumentData): Order {
   return {
     id: asString(data.id ?? data.order_id, documentId),
@@ -107,7 +120,7 @@ function mapOrderItem(documentId: string, data: DocumentData, orderIdFallback = 
     quantity,
     unitPrice,
     deliveryStatus: asDeliveryStatus(data.deliveryStatus ?? data.delivery_status),
-    settlementAmount: asNumber(data.settlementAmount ?? data.settlement_amount, calculateInfinySettlement(quantity * unitPrice).payoutAmount),
+    settlementAmount: asNumber(data.settlementAmount ?? data.settlement_amount, quantity * unitPrice),
   };
 }
 
@@ -160,7 +173,26 @@ async function listItemsByOrderNo(orderNo: string, orderIdFallback = "") {
 
 function orderConstraints(filters?: OrderListFilters): QueryConstraint[] {
   const constraints: QueryConstraint[] = [];
+  if (filters?.companyId) {
+    constraints.push(where("company_id", "==", filters.companyId));
+  }
   if (filters?.status) constraints.push(where("status", "==", filters.status));
+  return constraints;
+}
+
+function uniqueDocuments(documents: QueryDocumentSnapshot<DocumentData>[]) {
+  return [...new Map(documents.map((document) => [document.id, document])).values()];
+}
+
+function successfulSnapshots(results: PromiseSettledResult<QuerySnapshot<DocumentData>>[]) {
+  return results
+    .filter((result): result is PromiseFulfilledResult<QuerySnapshot<DocumentData>> => result.status === "fulfilled")
+    .map((result) => result.value);
+}
+
+function companyOrderItemConstraints(companyField: "company_id" | "companyId", companyId: string, filters?: OrderItemListFilters): QueryConstraint[] {
+  const constraints: QueryConstraint[] = [where(companyField, "==", companyId)];
+  if (filters?.deliveryStatus) constraints.push(where("delivery_status", "==", filters.deliveryStatus));
   return constraints;
 }
 
@@ -240,13 +272,47 @@ export const firebaseOrderRepository: OrderRepository = {
     }
 
     try {
-      const constraints: QueryConstraint[] = [where("company_id", "==", companyId)];
-      if (filters?.deliveryStatus) constraints.push(where("delivery_status", "==", filters.deliveryStatus));
-      const snapshot = await getDocs(query(collection(db, orderItemsCollection), ...constraints));
-      return repositoryOk(snapshot.docs.map((item) => mapOrderItem(item.id, item.data())));
+      const orderItemRef = collection(db, orderItemsCollection);
+      const snapshots = successfulSnapshots(
+        await Promise.allSettled([
+          getDocs(query(orderItemRef, ...companyOrderItemConstraints("company_id", companyId, filters))),
+          getDocs(query(orderItemRef, ...companyOrderItemConstraints("companyId", companyId, filters))),
+        ]),
+      );
+
+      if (!snapshots.length) {
+        throw new Error("No Firestore company order item scope query succeeded.");
+      }
+
+      return repositoryOk(uniqueDocuments(snapshots.flatMap((snapshot) => snapshot.docs)).map((item) => mapOrderItem(item.id, item.data())));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Firestore company order item read error.";
       return repositoryError("EXTERNAL_BLOCKED", `Firestore company order items read failed. ${message}`, companyId);
+    }
+  },
+
+  async listOrderItemsByOrderNos(orderNos) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    const normalizedOrderNos = uniqueStrings(orderNos);
+    if (normalizedOrderNos.length === 0) return repositoryOk([]);
+
+    try {
+      const items: OrderItem[] = [];
+
+      for (const group of chunks(normalizedOrderNos, 10)) {
+        const snapshot = await getDocs(query(collection(db, orderItemsCollection), where("order_no", "in", group), where("guest_lookup_enabled", "==", true)));
+        items.push(...snapshot.docs.map((item) => mapOrderItem(item.id, item.data())));
+      }
+
+      return repositoryOk(items);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore order items read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore order items by order_no read failed. ${message}`);
     }
   },
 
@@ -281,7 +347,7 @@ export const firebaseOrderRepository: OrderRepository = {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       deliveryStatus: input.qrSession.deliveryMethod === "pickup" ? "pickup_ready" : "invoice_pending",
-      settlementAmount: calculateInfinySettlement(item.unitPrice * item.quantity).payoutAmount,
+      settlementAmount: item.unitPrice * item.quantity,
     }));
 
     try {
@@ -299,6 +365,7 @@ export const firebaseOrderRepository: OrderRepository = {
         created_at: order.createdAt,
         item_ids: order.itemIds,
         guest_lookup_enabled: true,
+        demo_read_enabled: true,
         payment_id: input.payment.id,
         payment_status: input.payment.status,
         source: "firebase_storefront",
@@ -320,6 +387,7 @@ export const firebaseOrderRepository: OrderRepository = {
             nursery_id: order.nurseryId,
             room_id: order.roomId,
             guest_lookup_enabled: true,
+            demo_read_enabled: true,
             source: "firebase_storefront",
             updated_at: serverTimestamp(),
           }),

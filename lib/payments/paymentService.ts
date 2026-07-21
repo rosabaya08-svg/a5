@@ -8,11 +8,11 @@ import type {
 import type { PaymentProvider, ProviderReadiness } from "@/lib/payments/types";
 import { mockPaymentProvider } from "@/lib/payments/providers/mockPaymentProvider";
 import { pgProviderSkeleton } from "@/lib/payments/providers/pgProviderSkeleton";
-import { getPaymentConfigSummary } from "@/lib/payments/paymentConfig";
+import { getPaymentConfigSummary, shouldAllowMockPaymentRuntime } from "@/lib/payments/paymentConfig";
 
 export function getActivePaymentProvider(): PaymentProvider {
   const summary = getPaymentConfigSummary();
-  return summary.candidate === "mock" ? mockPaymentProvider : pgProviderSkeleton;
+  return summary.candidate === "mock" && shouldAllowMockPaymentRuntime() ? mockPaymentProvider : pgProviderSkeleton;
 }
 
 export function getPaymentReadiness(): ProviderReadiness {

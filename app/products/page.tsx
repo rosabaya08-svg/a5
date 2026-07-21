@@ -1,5 +1,5 @@
 import { TabletProductsPage } from "@/components/storefront/TabletMallPages";
 
-export default async function ProductsPage() {
+export default function ProductsPage() {
   return <TabletProductsPage />;
 }

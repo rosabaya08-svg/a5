@@ -1,4 +1,4 @@
-import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrPickupLocation } from "@/types/commerce";
+import type { CartItemSnapshot, Company, DeliveryMethod, Product, ProductOption, QrPaymentSession, QrPickupLocation } from "@/types/commerce";
 
 export type BackendResult<T> =
   | {
@@ -8,6 +8,9 @@ export type BackendResult<T> =
   | {
       ok: false;
       error: string;
+      code?: string;
+      details?: unknown;
+      httpStatus?: number;
     };
 
 export type BackendOrder = {
@@ -26,6 +29,7 @@ type CreateQrSessionResponse = {
   shortCode: string;
   status: QrPaymentSession["status"];
   expiresAt: string;
+  qrDisplayExpiresAt?: string;
   nurseryId?: string;
   roomId?: string;
   tabletId?: string;
@@ -78,6 +82,14 @@ function getFunctionsBaseUrl() {
 function firebaseFunctionPath(path: string) {
   if (path === "/qr/create") return "/qrCreate";
   if (path === "/qr/lookup") return "/qrLookup";
+  if (path === "/guest-shop/claim") return "/guestShopClaim";
+  if (path === "/guest-shop/lookup") return "/guestShopLookup";
+  if (path === "/guest-shop/cart/save") return "/guestShopCartSave";
+  if (path === "/guest-shop/cart/lookup") return "/guestShopCartLookup";
+  if (path === "/guest-shop/products") return "/guestShopProducts";
+  if (path === "/guest-shop/product-detail") return "/guestShopProductDetail";
+  if (path === "/storefront/company-summaries") return "/storefrontCompanySummaries";
+  if (path === "/guest-order/lookup") return "/guestOrderLookup";
   return "";
 }
 
@@ -114,7 +126,7 @@ function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-function formatBackendError(value: unknown, httpStatus: number) {
+function parseBackendError(value: unknown, httpStatus: number) {
   const body = asBackendErrorBody(value);
   const nestedError = asBackendErrorBody(body.error);
   const code = readString(nestedError.code ?? body.code);
@@ -123,16 +135,33 @@ function formatBackendError(value: unknown, httpStatus: number) {
     (Object.keys(nestedError).length ? "Firebase function returned an error." : `HTTP ${httpStatus}`);
   const details = nestedError.details ?? body.details;
 
-  if (!details) return code ? `${code}: ${message}` : message;
+  if (!details) {
+    return {
+      code,
+      details,
+      httpStatus,
+      message: code ? `${code}: ${message}` : message,
+    };
+  }
 
   try {
-    return `${code ? `${code}: ` : ""}${message} (${JSON.stringify(details).slice(0, 240)})`;
+    return {
+      code,
+      details,
+      httpStatus,
+      message: `${code ? `${code}: ` : ""}${message} (${JSON.stringify(details).slice(0, 240)})`,
+    };
   } catch {
-    return code ? `${code}: ${message}` : message;
+    return {
+      code,
+      details,
+      httpStatus,
+      message: code ? `${code}: ${message}` : message,
+    };
   }
 }
 
-async function postBackend<T>(path: string, payload: Record<string, unknown>): Promise<BackendResult<T>> {
+async function postBackend<T>(path: string, payload: Record<string, unknown>, options: { guestShopEntryToken?: string } = {}): Promise<BackendResult<T>> {
   const url = resolveBackendUrl(path);
 
   if (!url) {
@@ -148,6 +177,7 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>): P
       headers: {
         "Content-Type": "application/json",
         "X-A5-Client": "tablet-storefront",
+        ...(options.guestShopEntryToken ? { "X-A5-Guest-Shop-Token": options.guestShopEntryToken } : {}),
       },
       body: JSON.stringify(payload),
       signal: controller.signal,
@@ -155,12 +185,17 @@ async function postBackend<T>(path: string, payload: Record<string, unknown>): P
     const data = (await response.json().catch(() => ({}))) as unknown;
 
     if (!response.ok) {
-      return { ok: false, error: formatBackendError(data, response.status) };
+      const parsed = parseBackendError(data, response.status);
+      return { ok: false, error: parsed.message, code: parsed.code, details: parsed.details, httpStatus: parsed.httpStatus };
     }
 
     return { ok: true, data: data as T };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Backend request failed" };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Backend request failed",
+      code: "BACKEND_REQUEST_FAILED",
+    };
   } finally {
     window.clearTimeout(timeout);
   }
@@ -202,6 +237,7 @@ export async function createBackendQrSession(input: {
     cartId: input.cartId,
     createdAt: now,
     expiresAt: result.data.expiresAt,
+    qrDisplayExpiresAt: result.data.qrDisplayExpiresAt,
     deliveryMethod: input.deliveryMethod,
     totalAmount: result.data.totalAmount,
     items: serverItems,
@@ -214,6 +250,90 @@ export async function createBackendQrSession(input: {
 export async function readBackendQrSessionByShortCode(shortCode: string) {
   const result = await postBackend<LookupQrSessionResponse>("/qr/lookup", { shortCode });
   return result.ok ? { ok: true as const, session: result.data.session } : result;
+}
+
+export async function claimBackendGuestShopSession(input: string | { shortCode?: string; qrSessionId?: string; source?: "checkout_more_products" | "payment_success_more_products" }) {
+  const payload = typeof input === "string" ? { shortCode: input } : input;
+  return postBackend<{
+    ok: true;
+    guestShopSessionId: string;
+    entryToken: string;
+    qrSessionId: string;
+    shortCode: string;
+    expiresAt: string;
+    shopUrl: string;
+  }>("/guest-shop/claim", payload);
+}
+
+export async function readBackendGuestShopSession(sessionId: string, entryToken?: string) {
+  return postBackend<{
+    ok: true;
+    session: QrPaymentSession & {
+      qrSessionId: string;
+    };
+  }>("/guest-shop/lookup", { sessionId }, { guestShopEntryToken: entryToken });
+}
+
+export async function saveBackendGuestShopCart(input: {
+  sessionId: string;
+  entryToken?: string;
+  items: CartItemSnapshot[];
+  clientAmount: number;
+}) {
+  return postBackend<{
+    ok: true;
+    guestShopSessionId: string;
+    items: CartItemSnapshot[];
+    totalAmount: number;
+    updatedAt: string;
+  }>("/guest-shop/cart/save", {
+    sessionId: input.sessionId,
+    items: input.items,
+    clientAmount: input.clientAmount,
+  }, { guestShopEntryToken: input.entryToken });
+}
+
+export async function readBackendGuestShopCart(sessionId: string, entryToken?: string) {
+  return postBackend<{
+    ok: true;
+    guestShopSessionId: string;
+    items: CartItemSnapshot[];
+    totalAmount: number;
+    updatedAt?: string;
+  }>("/guest-shop/cart/lookup", { sessionId }, { guestShopEntryToken: entryToken });
+}
+
+export async function readBackendGuestShopProducts(sessionId: string, entryToken?: string) {
+  return postBackend<{
+    ok: true;
+    products: Product[];
+    source: string;
+  }>("/guest-shop/products", { sessionId }, { guestShopEntryToken: entryToken });
+}
+
+export async function readBackendGuestShopProductDetail(input: {
+  sessionId: string;
+  entryToken?: string;
+  productId: string;
+}) {
+  return postBackend<{
+    ok: true;
+    product: Product;
+    options: ProductOption[];
+    source: string;
+  }>("/guest-shop/product-detail", input, { guestShopEntryToken: input.entryToken });
+}
+
+export async function readBackendCompanies(): Promise<BackendResult<{ companies: Company[]; source: "firestore_companies" }>> {
+  const result = await postBackend<{
+    ok: true;
+    companies: Company[];
+    source: "firestore_safe_company_summary";
+  }>("/storefront/company-summaries", {});
+
+  return result.ok
+    ? { ok: true, data: { companies: result.data.companies, source: "firestore_companies" } }
+    : result;
 }
 
 export async function approveBackendMockPayment(input: {

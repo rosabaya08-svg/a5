@@ -1,12 +1,12 @@
-import { QrFailedPage } from "@/components/storefront/GuestQrExperience";
+import { QrLiveRedirectClientPage } from "@/components/storefront/QrEntryClientPages";
 import { staticQrCodes } from "@/data/staticSmokeRoutes";
 
-export async function generateStaticParams() {
+export function generateStaticParams() {
   return staticQrCodes.map((code) => ({ code }));
 }
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
 
-  return <QrFailedPage code={code} />;
+  return <QrLiveRedirectClientPage code={code} paymentResult="failed" />;
 }

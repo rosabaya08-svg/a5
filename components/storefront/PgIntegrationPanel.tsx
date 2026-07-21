@@ -12,5 +12,6 @@ type PgIntegrationPanelProps = {
 };
 
 export function PgIntegrationPanel(_props: PgIntegrationPanelProps) {
+  void _props;
   return null;
 }

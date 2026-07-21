@@ -113,11 +113,11 @@ export function CompanyDocumentUploadPanel({
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">live file intake</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">{title}</h2>
+          <p className="text-xs font-normal tracking-[0.12em] text-emerald-700">실시간 파일 접수</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">{title}</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800 ring-1 ring-emerald-200">
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-normal text-emerald-800 ring-1 ring-emerald-200">
           실제 업로드 활성
         </span>
       </div>
@@ -131,20 +131,20 @@ export function CompanyDocumentUploadPanel({
             <div key={slot.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-slate-950">
+                  <p className="font-normal text-slate-950">
                     {slot.label}
                     {slot.required ? <span className="ml-1 text-red-600">*</span> : null}
                   </p>
                   {slot.description ? <p className="mt-1 text-xs leading-5 text-slate-500">{slot.description}</p> : null}
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusTone(state)}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-normal ring-1 ${statusTone(state)}`}>
                   {statusText(state, sendsToGmail)}
                 </span>
               </div>
 
               <label
                 htmlFor={inputId}
-                className="grid min-h-24 cursor-pointer place-items-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-bold leading-5 text-slate-500"
+                className="grid min-h-24 cursor-pointer place-items-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-normal leading-5 text-slate-500"
               >
                 {state?.file ? `${state.file.name} · ${formatFileSize(state.file.size)}` : "파일 선택"}
               </label>
@@ -172,19 +172,19 @@ export function CompanyDocumentUploadPanel({
                 type="button"
                 onClick={() => uploadSlot(slot)}
                 disabled={state?.status === "uploading" || !state?.file}
-                className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 업로드
               </button>
 
               {state?.message ? (
-                <p className={`rounded-md p-3 text-xs font-bold leading-5 ${state.status === "error" ? "bg-red-50 text-red-800" : "bg-white text-slate-600"}`}>
+                <p className={`rounded-md p-3 text-xs font-normal leading-5 ${state.status === "error" ? "bg-red-50 text-red-800" : "bg-white text-slate-600"}`}>
                   {state.message}
                 </p>
               ) : null}
 
               {state?.upload ? (
-                <div className="grid gap-1 rounded-md bg-white p-3 text-xs font-bold text-slate-600">
+                <div className="grid gap-1 rounded-md bg-white p-3 text-xs font-normal text-slate-600">
                   <p className="break-all">Storage: {state.upload.storagePath}</p>
                   <p>{sendsToGmail ? "A1: queued / Gmail: queued" : "Firebase only / Gmail: not requested"}</p>
                 </div>
@@ -194,7 +194,7 @@ export function CompanyDocumentUploadPanel({
         })}
       </div>
 
-      <p className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">
+      <p className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs font-normal leading-5 text-blue-900">
         {sendsToGmail
           ? "업로드된 기업 서류는 Firebase Storage에 저장된 뒤 `company_documents`, `a1_company_document_inbox`, `gmail_delivery_queue`에 기록되고 Gmail 발송 대상으로 넘어갑니다."
           : "업로드된 제품 자료는 Firebase Storage에 저장되고 `company_documents`에만 기록됩니다. Gmail 발송 큐에는 넣지 않습니다."}

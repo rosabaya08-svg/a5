@@ -1,5 +1,9 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
+@source "../app";
+@source "../components";
+@source "../lib";
+@source "../data";
 :root {
   --background: transparent;
   --foreground: #171717;
@@ -44,6 +48,63 @@ body {
   background-color: transparent !important;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html,
+body,
+body *,
+body *::before,
+body *::after,
+strong,
+b {
+  font-weight: 400 !important;
+  font-synthesis-weight: none;
+}
+
+.a5-tablet-webview-root {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: transparent;
+  isolation: isolate;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.a5-tablet-webview-root *,
+.a5-tablet-webview-root *::before,
+.a5-tablet-webview-root *::after {
+  box-sizing: border-box;
+}
+
+.a5-tablet-store-shell,
+.a5-tablet-webview-root > main {
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--a5-visual-vh, 100vh);
+  min-height: var(--a5-visual-vh, 100dvh);
+  overflow-x: hidden;
+}
+
+.a5-tablet-webview-root img,
+.a5-tablet-webview-root video,
+.a5-tablet-webview-root canvas {
+  max-width: 100%;
+}
+
+.a5-webview-css-probe {
+  --a5-tablet-css-ready: 1;
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .a5-console-scrollbar {

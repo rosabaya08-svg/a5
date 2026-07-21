@@ -7,6 +7,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -37,6 +38,9 @@ export type CompanySignupRequestPayload = {
   companyName: string;
   businessRegistrationNumber: string;
   representativeName: string;
+  representativeBirthDate: string;
+  representativeNationality: string;
+  representativeGender: string;
   managerName: string;
   managerPhone: string;
   managerEmail: string;
@@ -160,6 +164,9 @@ export function normalizeCompanySignupRequestSnapshot(snapshot: QueryDocumentSna
     companyName: asString(data.companyName ?? data.company_name ?? data.name),
     businessRegistrationNumber: asString(data.businessRegistrationNumber ?? data.business_registration_number),
     representativeName: asString(data.representativeName ?? data.representative_name),
+    representativeBirthDate: asString(data.representativeBirthDate ?? data.representative_birth_date),
+    representativeNationality: asString(data.representativeNationality ?? data.representative_nationality),
+    representativeGender: asString(data.representativeGender ?? data.representative_gender),
     managerName: asString(data.managerName ?? data.manager_name),
     managerPhone: asString(data.managerPhone ?? data.manager_phone),
     managerEmail: asString(data.managerEmail ?? data.manager_email),
@@ -190,6 +197,11 @@ export function subscribeCompanySignupRequests(
   onChange: (requests: CompanySignupRequestPayload[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
+  if (typeof window === "undefined") {
+    onChange([]);
+    return () => {};
+  }
+
   const db = getFirebaseDb();
 
   if (!db) {
@@ -233,19 +245,103 @@ export type CompanySignupReviewPayload = {
   reviewMemo?: string;
 };
 
-export async function saveCompanySignupRequest(payload: CompanySignupRequestPayload) {
+type SaveCompanySignupRequestOptions = {
+  companyId?: string;
+  loginPassword?: string;
+  documentFiles?: CompanySignupSubmitDocumentFile[];
+  emailVerification?: {
+    verificationId: string;
+    verificationToken: string;
+    email: string;
+  };
+  firebaseAuthIdToken?: string;
+};
+
+export type CompanySignupSubmitDocumentFile = {
+  fileName: string;
+  contentType: string;
+  base64: string;
+  documentType: string;
+  documentLabel: string;
+};
+
+function companyIdForSignup(payload: CompanySignupRequestPayload, options?: SaveCompanySignupRequestOptions) {
+  const normalized = normalizeBusinessNo(payload.businessRegistrationNumber);
+  return options?.companyId || payload.approvedCompanyId || `company-${normalized || payload.id}`;
+}
+
+function buildSignupCompanyDocument(payload: CompanySignupRequestPayload, companyId: string, loginPassword: string) {
+  const normalizedBusinessNo = normalizeBusinessNo(payload.businessRegistrationNumber);
+
+  return {
+    company_id: companyId,
+    companyId,
+    name: payload.companyName,
+    business_registration_number: payload.businessRegistrationNumber,
+    business_registration_number_normalized: normalizedBusinessNo,
+    representative_name: payload.representativeName,
+    representative_birth_date: payload.representativeBirthDate,
+    representative_nationality: payload.representativeNationality,
+    representative_gender: payload.representativeGender,
+    manager_name: payload.managerName,
+    manager_phone: payload.managerPhone,
+    manager_email: payload.managerEmail,
+    commerce_license_no: payload.commerceLicenseNo,
+    cs_phone: payload.csPhone,
+    return_address: payload.returnAddress,
+    signup_request_id: payload.id,
+    signup_document_names: payload.documentNames,
+    signup_document_uploads: payload.documentUploads ?? [],
+    signup_document_upload_ids: payload.documentUploadIds ?? [],
+    signup_document_storage_paths: payload.documentStoragePaths ?? [],
+    signup_gmail_delivery_status: payload.gmailDeliveryStatus ?? "not_requested",
+    signup_document_upload_status: payload.documentUploadStatus ?? (payload.documentUploads?.length ? "uploaded" : "not_uploaded"),
+    signup_document_upload_error: payload.documentUploadError ?? "",
+    company_login_password: loginPassword,
+    account_status: "active",
+    approval_status: "registered",
+    status: "registered",
+    product_registration_status: "pending_review",
+    product_registration_enabled: false,
+    pg_provider: "payup",
+    pg_merchant_status: "not_applied",
+    guest_write_enabled: true,
+    demo_read_enabled: false,
+    source: "cms_beta",
+    source_app: "company",
+    source_channel: "company_signup_request",
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  };
+}
+
+export async function saveCompanySignupRequest(payload: CompanySignupRequestPayload, options?: SaveCompanySignupRequestOptions) {
   const db = getFirebaseDb();
 
   if (!db) {
-    return { mode: "local" as const, message: "Firestore config is missing." };
+    throw new Error("Firestore 설정이 없어 기업 회원가입을 DB에 저장할 수 없습니다.");
   }
 
-  await setDoc(
+  const companyId = companyIdForSignup(payload, options);
+  const loginPassword = options?.loginPassword?.trim();
+
+  if (!loginPassword) {
+    throw new Error("기업 로그인 비밀번호가 없어 자동 가입을 처리할 수 없습니다.");
+  }
+
+  const batch = writeBatch(db);
+
+  batch.set(
     doc(db, "company_signup_requests", payload.id),
     {
       ...payload,
+      approved_company_id: companyId,
+      approvedCompanyId: companyId,
       business_registration_number: payload.businessRegistrationNumber,
       representative_name: payload.representativeName,
+      representative_birth_date: payload.representativeBirthDate,
+      representative_nationality: payload.representativeNationality,
+      representative_gender: payload.representativeGender,
       manager_name: payload.managerName,
       manager_phone: payload.managerPhone,
       manager_email: payload.managerEmail,
@@ -259,6 +355,9 @@ export async function saveCompanySignupRequest(payload: CompanySignupRequestPayl
       gmail_delivery_status: payload.gmailDeliveryStatus ?? "not_requested",
       document_upload_status: payload.documentUploadStatus ?? (payload.documentUploads?.length ? "uploaded" : "not_uploaded"),
       document_upload_error: payload.documentUploadError ?? "",
+      account_status: "active",
+      product_registration_status: "pending_review",
+      product_registration_enabled: false,
       guest_write_enabled: true,
       source: "cms_beta",
       source_app: "company",
@@ -269,7 +368,49 @@ export async function saveCompanySignupRequest(payload: CompanySignupRequestPayl
     { merge: true },
   );
 
-  return { mode: "firestore" as const, message: "Signup request saved." };
+  batch.set(doc(db, "companies", companyId), buildSignupCompanyDocument(payload, companyId, loginPassword), { merge: true });
+
+  await batch.commit();
+
+  return { mode: "firestore" as const, companyId, message: "Company account and signup request saved." };
+}
+
+export async function submitCompanySignupRequest(payload: CompanySignupRequestPayload, options?: SaveCompanySignupRequestOptions) {
+  const companyId = companyIdForSignup(payload, options);
+  const loginPassword = options?.loginPassword?.trim();
+
+  if (!loginPassword) {
+    throw new Error("Company login password is required.");
+  }
+
+  const endpoint = getPaymentFunctionUrl("companySignupSubmit");
+
+  if (!endpoint) {
+    throw new Error("Firebase Functions endpoint is not configured.");
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      request: payload,
+      companyId,
+      loginPassword,
+      destinationEmail: "withcadmin@gmail.com",
+      documentFiles: options?.documentFiles ?? [],
+      emailVerification: options?.emailVerification,
+      firebaseAuthIdToken: options?.firebaseAuthIdToken,
+    }),
+  });
+  const data = await response.json().catch(() => null) as
+    | { ok?: boolean; companyId?: string; message?: string; error?: { message?: string; code?: string } }
+    | null;
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error?.message || data?.message || `Company signup submit failed: ${response.status}`);
+  }
+
+  return { mode: "functions" as const, companyId: data.companyId || companyId, message: data.message || "Company signup submitted." };
 }
 
 export async function reviewCompanySignupRequest(payload: CompanySignupReviewPayload) {
@@ -322,11 +463,12 @@ export async function saveCompanyPgApproval(payload: CompanyPgApprovalPayload) {
       {
         status: payload.reviewStatus,
         infiny_transfer_status: payload.transferStatus,
-        pg_provider: "infiny",
+        pg_provider: "payup",
         pg_merchant_id: merchantId || null,
         pg_module_key: moduleKey || null,
         pg_merchant_status: payload.merchantStatus,
         approved_company_id: payload.companyId,
+        approvedCompanyId: payload.companyId,
         review_memo: payload.reviewMemo ?? "",
         reviewed_at: now,
         updated_at: now,
@@ -337,6 +479,7 @@ export async function saveCompanyPgApproval(payload: CompanyPgApprovalPayload) {
       doc(db, "companies", payload.companyId),
       {
         company_id: payload.companyId,
+        companyId: payload.companyId,
         name: payload.request.companyName,
         business_registration_number: payload.request.businessRegistrationNumber,
         representative_name: payload.request.representativeName,
@@ -352,21 +495,21 @@ export async function saveCompanyPgApproval(payload: CompanyPgApprovalPayload) {
         signup_document_storage_paths: payload.request.documentStoragePaths ?? [],
         signup_gmail_delivery_status: payload.request.gmailDeliveryStatus ?? "not_requested",
         status: payload.reviewStatus === "approved" ? "approved" : "pending",
-        pg_provider: "infiny",
+        pg_provider: "payup",
         pg_merchant_id: merchantId || null,
         pg_module_key: moduleKey || null,
         pg_merchant_status: payload.merchantStatus,
-        infiny_mid: merchantId || null,
-        infiny_mid_status: payload.merchantStatus,
+        payup_mid: merchantId || null,
+        payup_mid_status: payload.merchantStatus,
         pg_profile: {
-          provider: "infiny",
-          providerLabel: "인피니 PG",
+          provider: "payup",
+          providerLabel: "Payup PG",
           merchantId: merchantId || null,
           merchantIdMasked,
           merchantStatus: payload.merchantStatus,
           adminManaged: true,
           companyEditable: false,
-          settlementOwner: "infiny",
+          settlementOwner: "payup",
           settlementExecutionBlocked: true,
         },
         updated_at: now,

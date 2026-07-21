@@ -23,6 +23,10 @@ function mapProductOption(documentId: string, data: Record<string, unknown>): Pr
   };
 }
 
+function optionVisible(data: Record<string, unknown>) {
+  return asString(data.status, "active") === "active";
+}
+
 export const firebaseProductOptionRepository: ProductOptionRepository = {
   async listProductOptions(productId) {
     return firebaseProductRepository.listProductOptions(productId);
@@ -40,6 +44,10 @@ export const firebaseProductOptionRepository: ProductOptionRepository = {
 
       if (!snapshot.exists()) {
         return repositoryError("NOT_FOUND", "Firebase product option not found.", optionId);
+      }
+
+      if (!optionVisible(snapshot.data())) {
+        return repositoryError("NOT_FOUND", "Firebase product option is not active.", optionId);
       }
 
       return repositoryOk(mapProductOption(snapshot.id, snapshot.data()));

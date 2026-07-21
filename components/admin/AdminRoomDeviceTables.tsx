@@ -36,7 +36,7 @@ export function AdminRoomsTable({ rooms, nurseries }: AdminRoomsTableProps) {
       rows={mergedRooms.map((room) => ({
         id: room.id,
         cells: [
-          <span key="name" className="font-bold text-slate-950">{room.name}</span>,
+          <span key="name" className="font-normal text-slate-950">{room.name}</span>,
           nurseries.find((nursery) => nursery.id === room.nurseryId)?.name ?? room.nurseryId,
           room.pickupEnabled ? "가능" : "불가",
           room.activeTabletId ?? "미연결",
@@ -57,7 +57,7 @@ export function AdminTabletsTable({ rooms, tablets }: AdminTabletsTableProps) {
       rows={mergedTablets.map((tablet) => ({
         id: tablet.id,
         cells: [
-          <span key="label" className="font-bold text-slate-950">{tablet.label}</span>,
+          <span key="label" className="font-normal text-slate-950">{tablet.label}</span>,
           mergedRooms.find((room) => room.id === tablet.roomId)?.name ?? tablet.roomId,
           tablet.status,
           formatDateTime(tablet.lastSeenAt),

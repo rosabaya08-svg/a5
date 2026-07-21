@@ -1,5 +1,4 @@
-import { firebaseRepositories } from "@/lib/repositories/firebase";
-import { mockRepositories } from "@/lib/repositories/mock";
+import { repositoryError } from "@/lib/repositories/types";
 import type {
   AuditLogInput,
   CommerceRepositories,
@@ -15,7 +14,6 @@ import type {
   RepositoryActor,
   RepositoryResult,
 } from "@/lib/repositories/types";
-import { repositoryError } from "@/lib/repositories/types";
 import type { Company, Nursery, ProductOption, Room, Tablet } from "@/types/commerce";
 import type { QrSessionStatus } from "@/types/status";
 
@@ -32,45 +30,99 @@ export function requestedDataSource() {
 }
 
 export function shouldUseFirebaseRepositories() {
-  return requestedDataSource() === "firebase";
+  return true;
 }
 
-function isEmptyData<T>(data: T) {
-  return Array.isArray(data) && data.length === 0;
+export function shouldAllowMockRepositoryFallback() {
+  // A5 production/admin surfaces must expose Firebase permission or linkage
+  // failures instead of silently replacing them with mock commerce data.
+  return false;
 }
 
-function fallbackReason<T>(result: RepositoryResult<T>) {
-  return result.ok ? undefined : result.error.message;
+type FunctionsLiveRepositoriesModule = typeof import("@/lib/repositories/functionsLiveRepository");
+
+let functionsLiveRepositoriesModulePromise: Promise<FunctionsLiveRepositoriesModule> | null = null;
+
+async function loadFirebaseRepositories() {
+  functionsLiveRepositoriesModulePromise ??= import("@/lib/repositories/functionsLiveRepository");
+  return (await functionsLiveRepositoriesModulePromise).functionsLiveRepositories;
 }
+
+function blockedFirebaseRepositoryRead(repositoryName: string, methodName: string, target?: string) {
+  return repositoryError(
+    "EXTERNAL_BLOCKED",
+    `Firebase repository ${repositoryName}.${methodName} cannot run during Cloudflare Worker server rendering. Use browser runtime or Firebase Functions live reads.`,
+    target,
+  );
+}
+
+const firebaseRepositories = new Proxy(
+  {},
+  {
+    get(_target, repositoryName) {
+      return new Proxy(
+        {},
+        {
+          get(_repositoryTarget, methodName) {
+            return async (...args: unknown[]) => {
+              const loaded = await loadFirebaseRepositories();
+              const target = typeof args[0] === "string" ? args[0] : undefined;
+
+              if (!loaded) {
+                return blockedFirebaseRepositoryRead(String(repositoryName), String(methodName), target);
+              }
+
+              const repository = (loaded as unknown as Record<string, Record<string, (...methodArgs: unknown[]) => unknown>>)[
+                String(repositoryName)
+              ];
+              const method = repository?.[String(methodName)];
+
+              if (typeof method !== "function") {
+                return blockedFirebaseRepositoryRead(String(repositoryName), String(methodName), target);
+              }
+
+              return method(...args);
+            };
+          },
+        },
+      );
+    },
+  },
+) as CommerceRepositories;
+
+const mockRepositories = new Proxy(
+  {},
+  {
+    get(_target, repositoryName) {
+      return new Proxy(
+        {},
+        {
+          get(_repositoryTarget, methodName) {
+            return async (...args: unknown[]) => {
+              const target = typeof args[0] === "string" ? args[0] : undefined;
+              return repositoryError(
+                "NOT_IMPLEMENTED",
+                `Mock repository ${String(repositoryName)}.${String(methodName)} has been removed. A5 uses Firebase live data only.`,
+                target,
+              );
+            };
+          },
+        },
+      );
+    },
+  },
+) as CommerceRepositories;
 
 async function resultWithFallback<T>(
   firebaseRead: () => Promise<RepositoryResult<T>>,
   mockRead: () => Promise<RepositoryResult<T>>,
   options: { fallbackOnEmpty?: boolean; emptyReason?: string; target?: string } = {},
 ): Promise<RepositoryResult<T>> {
-  if (!shouldUseFirebaseRepositories()) {
-    return mockRead();
-  }
-
+  void mockRead;
+  void options;
   const firebaseResult = await firebaseRead();
 
-  if (firebaseResult.ok && (!options.fallbackOnEmpty || !isEmptyData(firebaseResult.data))) {
-    return firebaseResult;
-  }
-
-  const fallbackResult = await mockRead();
-
-  if (!fallbackResult.ok) {
-    return fallbackResult;
-  }
-
-  return fallbackResult.ok
-    ? fallbackResult
-    : repositoryError(
-        "EXTERNAL_BLOCKED",
-        firebaseResult.ok ? options.emptyReason ?? "Firestore returned empty." : firebaseResult.error.message,
-        options.target,
-      );
+  return firebaseResult;
 }
 
 export async function readRepositoryWithSource<T>(
@@ -78,40 +130,18 @@ export async function readRepositoryWithSource<T>(
   mockRead: () => Promise<RepositoryResult<T>>,
   options: { fallbackOnEmpty?: boolean; emptyReason?: string } = {},
 ): Promise<RepositoryRead<T>> {
-  if (!shouldUseFirebaseRepositories()) {
-    const mockResult = await mockRead();
-
-    if (!mockResult.ok) {
-      throw new Error(`${mockResult.error.code}: ${mockResult.error.message}`);
-    }
-
-    return {
-      data: mockResult.data,
-      source: "mock fallback",
-      reason: `NEXT_PUBLIC_DATA_SOURCE=${requestedDataSource() || "unset"}; Firestore read skipped by data-source selector.`,
-    };
-  }
-
+  void mockRead;
+  void options;
   const firebaseResult = await firebaseRead();
 
-  if (firebaseResult.ok && (!options.fallbackOnEmpty || !isEmptyData(firebaseResult.data))) {
+  if (firebaseResult.ok) {
     return {
       data: firebaseResult.data,
       source: "Firestore",
     };
   }
 
-  const mockResult = await mockRead();
-
-  if (!mockResult.ok) {
-    throw new Error(`${mockResult.error.code}: ${mockResult.error.message}`);
-  }
-
-  return {
-    data: mockResult.data,
-    source: "mock fallback",
-    reason: firebaseResult.ok ? options.emptyReason ?? "Firestore returned empty." : fallbackReason(firebaseResult),
-  };
+  throw new Error(`${firebaseResult.error.code}: ${firebaseResult.error.message}`);
 }
 
 export const commerceRepositories: CommerceRepositories = {
@@ -260,6 +290,13 @@ export const commerceRepositories: CommerceRepositories = {
         { fallbackOnEmpty: true, emptyReason: "Firestore QR sessions returned empty." },
       );
     },
+    listQrSessionsByRoomOrTablet(filters: { nurseryId?: string; roomIds?: string[]; tabletIds?: string[] }) {
+      return resultWithFallback(
+        () => firebaseRepositories.qrSessions.listQrSessionsByRoomOrTablet(filters),
+        () => mockRepositories.qrSessions.listQrSessionsByRoomOrTablet(filters),
+        { fallbackOnEmpty: true, emptyReason: "Firestore QR sessions by room/tablet returned empty." },
+      );
+    },
     getQrSessionByShortCode(shortCode) {
       return resultWithFallback(
         () => firebaseRepositories.qrSessions.getQrSessionByShortCode(shortCode),
@@ -319,6 +356,13 @@ export const commerceRepositories: CommerceRepositories = {
         { fallbackOnEmpty: true, emptyReason: "Firestore nursery orders returned empty.", target: nurseryId },
       );
     },
+    listOrderItemsByOrderNos(orderNos) {
+      return resultWithFallback(
+        () => firebaseRepositories.orders.listOrderItemsByOrderNos(orderNos),
+        () => mockRepositories.orders.listOrderItemsByOrderNos(orderNos),
+        { fallbackOnEmpty: false, emptyReason: "Firestore order items by order_no returned empty." },
+      );
+    },
     listOrderItemsByCompany(companyId, filters?: OrderItemListFilters) {
       return resultWithFallback(
         () => firebaseRepositories.orders.listOrderItemsByCompany(companyId, filters),
@@ -336,6 +380,13 @@ export const commerceRepositories: CommerceRepositories = {
   },
 
   payments: {
+    listPayments() {
+      return resultWithFallback(
+        () => firebaseRepositories.payments.listPayments(),
+        () => mockRepositories.payments.listPayments(),
+        { fallbackOnEmpty: true, emptyReason: "Firestore payments returned empty." },
+      );
+    },
     createPaymentReady(input: CreatePaymentReadyInput) {
       return resultWithFallback(
         () => firebaseRepositories.payments.createPaymentReady(input),
@@ -433,6 +484,12 @@ export const commerceRepositories: CommerceRepositories = {
       return resultWithFallback(
         () => firebaseRepositories.content.getStorefrontContent(),
         () => mockRepositories.content.getStorefrontContent(),
+      );
+    },
+    getStorefrontRuntimeSnapshot() {
+      return resultWithFallback(
+        () => firebaseRepositories.content.getStorefrontRuntimeSnapshot(),
+        () => mockRepositories.content.getStorefrontRuntimeSnapshot(),
       );
     },
     getProductProfileById(productId) {

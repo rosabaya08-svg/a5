@@ -26,6 +26,8 @@ const requiredRoutes = [
   "/company/onboarding",
   "/company/orders",
   "/company/inventory",
+  "/company/products/dashboard",
+  "/company/products/list",
   "/company/products/new",
   "/company/products/preview",
   "/nursery/dashboard",
@@ -37,7 +39,6 @@ const requiredRoutes = [
   "/nursery/pickups",
   "/tablet/login",
   "/tablet/room-setup",
-  "/mock-ui/status",
 ];
 
 function walk(dir, collected = []) {

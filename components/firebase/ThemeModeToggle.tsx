@@ -36,7 +36,7 @@ export function ThemeModeToggle() {
   }, [mode]);
 
   return (
-    <div className="inline-flex rounded-md border border-slate-200 bg-white p-1 text-xs font-black text-slate-700 shadow-sm">
+    <div className="inline-flex rounded-md border border-slate-200 bg-white p-1 text-xs font-normal text-slate-700 shadow-sm">
       {themeModes.map((item) => (
         <button
           key={item}

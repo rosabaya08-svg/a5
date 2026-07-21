@@ -3,6 +3,7 @@ import type { CmsRecord } from "@/lib/firebase/contentRepository";
 export const COMPANY_API_INTEGRATION_REQUEST_STORAGE_KEY = "a5.company.api-integration-request";
 
 export type CompanyApiIntegrationStatus = "pending_approval" | "approved" | "live" | "rejected";
+export type CompanyApiIntegrationPlatformType = "SABANGNET" | "STANDARD" | "ERP" | "WMS" | "CUSTOM";
 
 export type CompanyApiIntegrationRequest = {
   id: string;
@@ -10,7 +11,7 @@ export type CompanyApiIntegrationRequest = {
   companyName: string;
   status: CompanyApiIntegrationStatus;
   platformName: string;
-  platformType: "ERP" | "WMS" | "SABANGNET" | "CUSTOM";
+  platformType: CompanyApiIntegrationPlatformType;
   purpose: string;
   contactName: string;
   contactEmail: string;
@@ -34,8 +35,12 @@ export type CompanyApiIntegrationRequest = {
 
 export const apiIntegrationScopes = [
   { id: "orders:read", label: "주문 목록/상세 조회" },
-  { id: "orders:confirm", label: "주문 확인 회신" },
-  { id: "shipments:write", label: "송장번호 회신" },
+  { id: "orders:status", label: "주문 상태 변경" },
+  { id: "shipments:write", label: "송장번호 입력" },
+  { id: "products:read", label: "상품 조회" },
+  { id: "claims:read", label: "취소/반품/교환 조회" },
+  { id: "events:read", label: "연동 이벤트 조회" },
+  { id: "events:write", label: "연동 이벤트 상태 변경" },
   { id: "webhooks:test", label: "Webhook 테스트" },
 ];
 
@@ -52,14 +57,14 @@ export function createDefaultApiIntegrationRequest(companyId: string, companyNam
     companyName,
     status: "pending_approval",
     platformName: "",
-    platformType: "CUSTOM",
-    purpose: "A5 주문내역 상세를 기업 ERP/WMS/사방넷 연동 프로그램에서 실시간 조회하고 송장번호를 A5로 회신",
+    platformType: "SABANGNET",
+    purpose: "A5 주문/상품/송장 데이터를 공통 연동 Core로 제공하고 사방넷 또는 기업 표준 API 트랙으로 항목별 매핑",
     contactName: "",
     contactEmail: "",
     contactPhone: "",
     webhookUrl: "",
     serverIps: "",
-    requestedScopes: ["orders:read", "orders:confirm", "shipments:write", "webhooks:test"],
+    requestedScopes: ["orders:read", "orders:status", "shipments:write", "products:read", "claims:read", "events:read", "events:write", "webhooks:test"],
     createdAt: now,
     updatedAt: now,
   };
@@ -91,6 +96,7 @@ export function buildApiIntegrationCmsRecord(request: CompanyApiIntegrationReque
     server_ips: request.serverIps,
     requested_scopes: request.requestedScopes,
     created_at: request.createdAt,
+    updated_at: request.updatedAt,
     approved_at: request.approvedAt,
     deployed_at: request.deployedAt,
     rejected_reason: request.rejectedReason,
@@ -104,13 +110,13 @@ export function requestFromCmsRecord(record: CmsRecord): CompanyApiIntegrationRe
 
   return {
     id: record.id,
-    companyId: typeof record.company_id === "string" ? record.company_id : "company-test-1004",
-    companyName: typeof record.company_name === "string" ? record.company_name : "A5 테스트 기업",
+    companyId: typeof record.company_id === "string" ? record.company_id : "__missing_company_scope__",
+    companyName: typeof record.company_name === "string" ? record.company_name : "__missing_company_name__",
     status: ["pending_approval", "approved", "live", "rejected"].includes(status)
       ? (status as CompanyApiIntegrationStatus)
       : "pending_approval",
     platformName: typeof record.platform_name === "string" ? record.platform_name : "",
-    platformType: record.platform_type === "ERP" || record.platform_type === "WMS" || record.platform_type === "SABANGNET" ? record.platform_type : "CUSTOM",
+    platformType: asPlatformType(record.platform_type),
     purpose: typeof record.purpose === "string" ? record.purpose : "",
     contactName: typeof record.contact_name === "string" ? record.contact_name : "",
     contactEmail: typeof record.contact_email === "string" ? record.contact_email : "",
@@ -123,9 +129,7 @@ export function requestFromCmsRecord(record: CmsRecord): CompanyApiIntegrationRe
     approvedAt: typeof record.approved_at === "string" ? record.approved_at : undefined,
     deployedAt: typeof record.deployed_at === "string" ? record.deployed_at : undefined,
     rejectedReason: typeof record.rejected_reason === "string" ? record.rejected_reason : undefined,
-    deployment: record.deployment && typeof record.deployment === "object"
-      ? record.deployment as CompanyApiIntegrationRequest["deployment"]
-      : undefined,
+    deployment: record.deployment && typeof record.deployment === "object" ? record.deployment as CompanyApiIntegrationRequest["deployment"] : undefined,
   };
 }
 
@@ -133,131 +137,157 @@ export function buildApiDeployment(request: CompanyApiIntegrationRequest) {
   const stamp = Date.now().toString(36).toUpperCase();
 
   return {
-    apiBaseUrl: "https://api.a5-closed-mall.com",
+    apiBaseUrl: "https://asia-northeast3-a5-closed-mall.cloudfunctions.net",
     apiKeyId: `a5_${request.companyId}_${stamp}`,
     webhookSecretId: `whsec_${request.companyId}_${stamp}`,
-    packageVersion: "a5-order-api-v1.0.0",
+    packageVersion: "a5-company-integration-api-v1.0.0",
     deployedBy: "SUPER_ADMIN",
   };
 }
 
 export function buildCompanyOpenApiSpec(request: CompanyApiIntegrationRequest) {
+  const baseUrl = request.deployment?.apiBaseUrl ?? "https://asia-northeast3-a5-closed-mall.cloudfunctions.net";
+
   return {
     openapi: "3.0.3",
     info: {
-      title: `A5 ${request.companyName} Order Integration API`,
+      title: `A5 ${request.companyName} Company Integration API`,
       version: "1.0.0",
-      description: "A5 주문내역 상세 조회와 송장 회신을 위한 기업 전용 API 스펙입니다.",
+      description: "A5 기업관리자 외부 연동 API. 사방넷 호환 트랙과 기업 표준 API 트랙을 같은 주문/상품/송장 Core에서 제공합니다.",
     },
-    servers: [{ url: request.deployment?.apiBaseUrl ?? "https://api.a5-closed-mall.com" }],
-    security: [{ ApiKeyAuth: [] }],
+    servers: [{ url: baseUrl }],
+    security: [{ ApiKeyAuth: [], CompanyId: [] }],
     paths: {
-      "/api/v1/orders": {
-        get: {
-          summary: "기업 범위 주문 목록 조회",
-          parameters: [
-            { name: "from", in: "query", schema: { type: "string", format: "date-time" } },
-            { name: "to", in: "query", schema: { type: "string", format: "date-time" } },
-            { name: "status", in: "query", schema: { type: "string" } },
-            { name: "cursor", in: "query", schema: { type: "string" } },
-            { name: "limit", in: "query", schema: { type: "integer", maximum: 100, default: 50 } },
-          ],
-          responses: { "200": { description: "기업 주문 목록" } },
-        },
+      "/integrationStandardOrders": {
+        get: { summary: "기업 표준 API 주문 목록 조회", responses: { "200": { description: "A5 표준 주문 목록" } } },
+        post: { summary: "기업 표준 API 주문 목록 조회", responses: { "200": { description: "A5 표준 주문 목록" } } },
       },
-      "/api/v1/orders/{orderId}": {
-        get: {
-          summary: "주문 상세 조회",
-          parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { "200": { description: "주문, 상품, 수령자, 결제, 배송 상세" } },
-        },
+      "/integrationStandardProducts": {
+        get: { summary: "기업 표준 API 상품 목록 조회", responses: { "200": { description: "A5 표준 상품 목록" } } },
+        post: { summary: "기업 표준 API 상품 목록 조회", responses: { "200": { description: "A5 표준 상품 목록" } } },
       },
-      "/api/v1/orders/{orderId}/confirm": {
-        post: {
-          summary: "기업 시스템 주문 확인",
-          parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { "200": { description: "주문 확인 완료" } },
-        },
+      "/integrationStandardShipments": {
+        post: { summary: "기업 표준 API 송장 등록", responses: { "200": { description: "송장 반영 결과" } } },
       },
-      "/api/v1/orders/{orderId}/shipments": {
-        post: {
-          summary: "송장번호 A5 회신",
-          parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["carrierCode", "invoiceNumber"],
-                  properties: {
-                    carrierCode: { type: "string" },
-                    invoiceNumber: { type: "string" },
-                    shippedAt: { type: "string", format: "date-time" },
-                  },
-                },
-              },
-            },
-          },
-          responses: { "201": { description: "송장 저장 완료" } },
-        },
+      "/integrationStandardOrderStatus": {
+        post: { summary: "기업 표준 API 주문상태 변경", responses: { "200": { description: "상태 변경 결과" } } },
+      },
+      "/integrationStandardEvents": {
+        get: { summary: "기업 표준 API 연동 이벤트 조회", responses: { "200": { description: "연동 이벤트 목록" } } },
+        post: { summary: "기업 표준 API 연동 이벤트 조회", responses: { "200": { description: "연동 이벤트 목록" } } },
+      },
+      "/integrationStandardEventStatus": {
+        post: { summary: "기업 표준 API 연동 이벤트 상태 변경", responses: { "200": { description: "이벤트 상태 변경 결과" } } },
+      },
+      "/sabangnetOrderListAPI": {
+        post: { summary: "사방넷 호환 주문내역 조회", responses: { "200": { description: "사방넷 arrOrderList 응답" } } },
+      },
+      "/sabangnetOrderStatusInfoAPI": {
+        post: { summary: "사방넷 호환 주문상태 변경", responses: { "200": { description: "상태 변경 결과" } } },
+      },
+      "/sabangnetSheetNoInfoAPI": {
+        post: { summary: "사방넷 호환 송장번호 입력", responses: { "200": { description: "송장 반영 결과" } } },
+      },
+      "/sabangnetGoodsViewAPI": {
+        post: { summary: "사방넷 호환 상품상세 조회", responses: { "200": { description: "사방넷 arrGoodsList 응답" } } },
       },
     },
     components: {
       securitySchemes: {
         ApiKeyAuth: { type: "apiKey", in: "header", name: "X-A5-API-Key" },
+        CompanyId: { type: "apiKey", in: "header", name: "X-A5-Company-Id" },
       },
     },
   };
 }
 
-export function buildCompanyApiGuide(request: CompanyApiIntegrationRequest) {
-  const deployment = request.deployment;
-
-  return `# A5 기업 주문 API 연동 패키지
+export function buildSabangnetMappingGuide(request: CompanyApiIntegrationRequest) {
+  return `# A5 사방넷 연동 매핑표
 
 ## 기업
 - company_id: ${request.companyId}
 - company_name: ${request.companyName}
-- 연동 대상: ${request.platformName || request.platformType}
-- 상태: ${apiIntegrationStatusLabel(request.status)}
+- 연동 상태: ${apiIntegrationStatusLabel(request.status)}
 
-## 배포 정보
-- API Base URL: ${deployment?.apiBaseUrl ?? "배포 전"}
-- API Key ID: ${deployment?.apiKeyId ?? "배포 전"}
-- Webhook Secret ID: ${deployment?.webhookSecretId ?? "배포 전"}
-- Package Version: ${deployment?.packageVersion ?? "배포 전"}
-
-실제 API Secret 원문은 보안상 문서에 포함하지 않습니다. 최고관리자가 별도 보안 채널로 전달해야 합니다.
-
-## 목적
-기업 ERP, WMS, 사방넷, 자체 주문 관리 프로그램에서 A5 주문 상세를 실시간 조회하고 송장번호를 A5로 회신합니다.
-
-## 필수 Header
+## 공통 인증 Header
 \`\`\`http
+X-A5-Company-Id: ${request.companyId}
 X-A5-API-Key: {issued_api_key}
 Content-Type: application/json
 \`\`\`
 
-## 주요 API
-| Method | Path | 용도 |
+## 사방넷 호환 API
+| 사방넷 API | A5 Function | 용도 |
 | --- | --- | --- |
-| GET | /api/v1/orders | 기업 범위 주문 목록 조회 |
-| GET | /api/v1/orders/{orderId} | 주문 상세 조회 |
-| POST | /api/v1/orders/{orderId}/confirm | 주문 확인 회신 |
-| POST | /api/v1/orders/{orderId}/shipments | 송장번호 회신 |
+| orderListAPI | /sabangnetOrderListAPI | 주문내역 조회 |
+| orderStatusInfoAPI | /sabangnetOrderStatusInfoAPI | 주문상태 변경 |
+| sheetNoInfoAPI | /sabangnetSheetNoInfoAPI | 송장번호 입력 |
+| goodsViewAPI | /sabangnetGoodsViewAPI | 상품상세 조회 |
+
+## 주문 필드 매핑
+| A5 필드 | 사방넷 필드 |
+| --- | --- |
+| orders.order_no | orderNum |
+| order_items.id | orderGoodsNum |
+| order_items.product_id | goodsCd |
+| order_items.product_name | goodsNm |
+| order_items.quantity | orderQty |
+| order_items.option_name | optionContent |
+| orders.paid_at | orderDt |
+| orders.customer_name | sndNm / rcvrNm |
+| orders.customer_phone_masked | sndMobile / rcvrMobile |
+
+## 상태 매핑
+| A5 상태 | 사방넷 코드 |
+| --- | --- |
+| paid | 1001 주문완료 |
+| ready_to_ship | 1002 출고준비중 |
+| shipping | 1003 배송중 |
+| delivered | 1004 수령완료 |
+| cancelled | 1005 주문취소 |
+| return_requested | 1007 반품요청 |
+| returned | 1008 반품완료 |
+| exchange_requested | 1011 교환요청 |
+| exchanged | 1012 교환완료 |
+`;
+}
+
+export function buildCompanyApiGuide(request: CompanyApiIntegrationRequest) {
+  const deployment = request.deployment;
+
+  return `# A5 기업관리자 연동 API 가이드
+
+## 구조
+A5는 하나의 연동 Core를 기준으로 두 트랙을 제공합니다.
+
+1. 사방넷 전용 연동: 사방넷 필드명과 상태코드로 변환합니다.
+2. 기업 표준 API 연동: ERP/WMS/자체 시스템용 A5 표준 JSON을 제공합니다.
+
+## 배포 정보
+- API Base URL: ${deployment?.apiBaseUrl ?? "배포 대기"}
+- API Key ID: ${deployment?.apiKeyId ?? "배포 대기"}
+- Webhook Secret ID: ${deployment?.webhookSecretId ?? "배포 대기"}
+- Package Version: ${deployment?.packageVersion ?? "배포 대기"}
 
 ## 권한 범위
 ${request.requestedScopes.map((scope) => `- ${scope}`).join("\n")}
 
 ## 중복 방지 키
-companyId + orderId + orderItemId
+- 주문: companyId + orderNo
+- 주문상품: companyId + orderNo + orderItemId
+- 송장: companyId + orderNo + orderItemId + invoiceNumber
+- 이벤트: companyId + eventId
 
-## Webhook URL
-${request.webhookUrl || "미등록"}
+## 페이지 조회
+목록 API는 limit와 cursor를 지원합니다.
+- limit: 1~100
+- cursor: 이전 응답의 nextCursor
+- nextCursor가 null이면 다음 페이지가 없습니다.
 
-## 서버 IP
-${request.serverIps || "미등록"}
+## 결제 즉시 반영
+폐쇄몰 결제 완료 시 orders, order_items, company_notifications, integration_events가 같은 결제 확정 흐름에서 생성됩니다.
+기업관리자 주문 화면은 company_notifications와 order_items를 실시간 구독해 즉시 반영하고 알림음을 재생합니다.
+연동 요청이 live 상태이고 webhook_url이 등록되어 있으면 integration_events 생성 시 외부 webhook으로 자동 전송합니다.
 `;
 }
 
@@ -272,11 +302,21 @@ export function buildConnectionProfile(request: CompanyApiIntegrationRequest) {
     webhookSecretId: request.deployment?.webhookSecretId,
     packageVersion: request.deployment?.packageVersion,
     scopes: request.requestedScopes,
-    endpoints: {
-      orders: "/api/v1/orders",
-      orderDetail: "/api/v1/orders/{orderId}",
-      confirm: "/api/v1/orders/{orderId}/confirm",
-      shipments: "/api/v1/orders/{orderId}/shipments",
+    tracks: {
+      sabangnet: {
+        orderListAPI: "/sabangnetOrderListAPI",
+        orderStatusInfoAPI: "/sabangnetOrderStatusInfoAPI",
+        sheetNoInfoAPI: "/sabangnetSheetNoInfoAPI",
+        goodsViewAPI: "/sabangnetGoodsViewAPI",
+      },
+      standard: {
+        orders: "/integrationStandardOrders",
+        products: "/integrationStandardProducts",
+        shipments: "/integrationStandardShipments",
+        orderStatus: "/integrationStandardOrderStatus",
+        events: "/integrationStandardEvents",
+        eventStatus: "/integrationStandardEventStatus",
+      },
     },
   };
 }
@@ -285,15 +325,21 @@ export function apiDownloadDocuments(request: CompanyApiIntegrationRequest) {
   return [
     {
       title: "OpenAPI JSON",
-      filename: `a5-${request.companyId}-order-api.openapi.json`,
+      filename: `a5-${request.companyId}-company-integration.openapi.json`,
       mimeType: "application/json",
       content: JSON.stringify(buildCompanyOpenApiSpec(request), null, 2),
     },
     {
       title: "연동 가이드",
-      filename: `a5-${request.companyId}-order-api-guide.md`,
+      filename: `a5-${request.companyId}-company-integration-guide.md`,
       mimeType: "text/markdown",
       content: buildCompanyApiGuide(request),
+    },
+    {
+      title: "사방넷 매핑표",
+      filename: `a5-${request.companyId}-sabangnet-mapping.md`,
+      mimeType: "text/markdown",
+      content: buildSabangnetMappingGuide(request),
     },
     {
       title: "연동 설정 JSON",
@@ -302,4 +348,10 @@ export function apiDownloadDocuments(request: CompanyApiIntegrationRequest) {
       content: JSON.stringify(buildConnectionProfile(request), null, 2),
     },
   ];
+}
+
+function asPlatformType(value: unknown): CompanyApiIntegrationPlatformType {
+  const text = String(value ?? "");
+  if (text === "SABANGNET" || text === "STANDARD" || text === "ERP" || text === "WMS" || text === "CUSTOM") return text;
+  return "SABANGNET";
 }

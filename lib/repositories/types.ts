@@ -21,7 +21,7 @@ import type {
   MallBrand,
   MallProductProfile,
   MarketingSlot,
-} from "@/data/mockShopContent";
+} from "@/types/storefrontContent";
 import type { OrderStatus, PaymentStatus, ProductStatus, QrSessionStatus } from "@/types/status";
 import type { RoleScope, UserRole } from "@/types/roles";
 
@@ -85,6 +85,7 @@ export type TabletListFilters = {
 };
 
 export type OrderListFilters = {
+  companyId?: string;
   status?: OrderStatus;
   from?: string;
   to?: string;
@@ -182,6 +183,13 @@ export type StorefrontContent = {
   marketingSlots: MarketingSlot[];
 };
 
+export type StorefrontRuntimeSnapshot = {
+  content?: StorefrontContent;
+  products?: Product[];
+  generatedAt?: string;
+  source?: string;
+};
+
 export interface ProductRepository {
   listProducts(filters?: ProductListFilters): Promise<RepositoryResult<Product[]>>;
   listApprovedProducts(filters?: Omit<ProductListFilters, "status">): Promise<RepositoryResult<Product[]>>;
@@ -219,6 +227,11 @@ export interface TabletRepository {
 
 export interface QrSessionRepository {
   listQrSessions(filters?: { status?: QrSessionStatus; nurseryId?: string }): Promise<RepositoryResult<QrPaymentSession[]>>;
+  listQrSessionsByRoomOrTablet(filters: {
+    nurseryId?: string;
+    roomIds?: string[];
+    tabletIds?: string[];
+  }): Promise<RepositoryResult<QrPaymentSession[]>>;
   getQrSessionByShortCode(shortCode: string): Promise<RepositoryResult<QrPaymentSession>>;
   createQrSessionDraft(input: QrSessionDraftInput): Promise<RepositoryResult<QrPaymentSession>>;
   markQrPaid(qrSessionId: string, paymentId: string): Promise<RepositoryResult<QrPaymentSession>>;
@@ -231,10 +244,12 @@ export interface OrderRepository {
   getOrderByOrderNo(orderNo: string): Promise<RepositoryResult<OrderWithItems>>;
   listOrdersByNursery(nurseryId: string, filters?: OrderListFilters): Promise<RepositoryResult<Order[]>>;
   listOrderItemsByCompany(companyId: string, filters?: OrderItemListFilters): Promise<RepositoryResult<OrderItem[]>>;
+  listOrderItemsByOrderNos(orderNos: string[]): Promise<RepositoryResult<OrderItem[]>>;
   createOrderFromQrSnapshot(input: CreateOrderFromQrInput): Promise<RepositoryResult<OrderWithItems>>;
 }
 
 export interface PaymentRepository {
+  listPayments(): Promise<RepositoryResult<Payment[]>>;
   createPaymentReady(input: CreatePaymentReadyInput): Promise<RepositoryResult<Payment>>;
   recordPaymentApproved(paymentId: string, tid: string, amount: number): Promise<RepositoryResult<Payment>>;
   recordPaymentFailed(paymentId: string, reason: string): Promise<RepositoryResult<Payment>>;
@@ -257,6 +272,7 @@ export interface AuditLogRepository {
 
 export interface ContentRepository {
   getStorefrontContent(): Promise<RepositoryResult<StorefrontContent>>;
+  getStorefrontRuntimeSnapshot(): Promise<RepositoryResult<StorefrontRuntimeSnapshot>>;
   getProductProfileById(productId: string): Promise<RepositoryResult<MallProductProfile>>;
   listMarketingSlots(filters?: { type?: "banner" | "video" }): Promise<RepositoryResult<MarketingSlot[]>>;
 }

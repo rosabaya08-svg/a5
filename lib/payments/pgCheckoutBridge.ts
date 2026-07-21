@@ -13,6 +13,7 @@ export type PgCheckoutPayload = {
   amount: number;
   currency: "KRW";
   payMethod?: "CARD" | "EPAY" | "EBANK" | "BANK" | "VBANK" | "OPCARD" | "NONE";
+  epayCl?: string;
   taxFreeAmt?: number;
   cardCode?: string;
   cardQuota?: string;
@@ -69,16 +70,19 @@ export type PgModulePaymentResult = {
 
 declare global {
   interface Window {
-    A5PgProvider?: PgBrowserProvider;
     innopay?: {
       goPay?: (payload: Record<string, string>) => void;
       closeHandler?: (moid?: string) => void;
     };
+    goPayupPay?: (payload: Record<string, string>) => void;
     [key: string]: unknown;
   }
 }
 
 const innopayTpayScriptUrl = "https://pg.innopay.co.kr/tpay/js/v1/innopay.js";
+const payupStandardTestScriptUrl = "https://standard.testpayup.co.kr/assets/js/payup_standard_dev-1.0.js";
+const payupStandardProductionScriptUrl = "https://standard.payup.co.kr/assets/js/payup_standard-1.0.js";
+const legacyInnopayBrowserFlag = process.env.NEXT_PUBLIC_A5_ENABLE_LEGACY_INNOPAY?.trim().toLowerCase() ?? "";
 
 const publicPgEnv = {
   provider: process.env.NEXT_PUBLIC_PG_PROVIDER?.trim() ?? "",
@@ -97,17 +101,20 @@ let pgScriptPromise: { scriptUrl: string; promise: Promise<void> } | undefined;
 
 function resolvePgEnv(runtimeConfig?: PgRuntimeOverride) {
   const provider = runtimeConfig?.provider?.trim() || publicPgEnv.provider;
-  const innopay = isInnopayProvider(provider);
+  const innopay = isLegacyInnopayBrowserEnabled() && isInnopayProvider(provider);
+  const payup = isPayupProvider(provider);
+  const environment = runtimeConfig?.environment || publicPgEnv.environment;
+  const payupScriptUrl = environment === "production" ? payupStandardProductionScriptUrl : payupStandardTestScriptUrl;
 
   return {
     provider,
-    environment: runtimeConfig?.environment || publicPgEnv.environment,
+    environment,
     clientKey: runtimeConfig?.clientKey?.trim() || publicPgEnv.clientKey,
     channelKey: runtimeConfig?.channelKey?.trim() || publicPgEnv.channelKey,
     merchantId: publicPgEnv.merchantId,
-    scriptUrl: runtimeConfig?.scriptUrl?.trim() || publicPgEnv.scriptUrl || (innopay ? innopayTpayScriptUrl : ""),
-    globalName: runtimeConfig?.globalName?.trim() || publicPgEnv.globalName || (innopay ? "innopay" : ""),
-    requestMethod: runtimeConfig?.requestFunctionName?.trim() || runtimeConfig?.requestMethod?.trim() || publicPgEnv.requestMethod || (innopay ? "goPay" : ""),
+    scriptUrl: runtimeConfig?.scriptUrl?.trim() || publicPgEnv.scriptUrl || (payup ? payupScriptUrl : innopay ? innopayTpayScriptUrl : ""),
+    globalName: runtimeConfig?.globalName?.trim() || publicPgEnv.globalName || (payup ? "" : innopay ? "innopay" : ""),
+    requestMethod: runtimeConfig?.requestFunctionName?.trim() || runtimeConfig?.requestMethod?.trim() || publicPgEnv.requestMethod || (payup ? "goPayupPay" : innopay ? "goPay" : ""),
     checkoutMode: runtimeConfig?.checkoutMode?.trim() || runtimeConfig?.paymentMode?.trim() || "",
     successUrl: runtimeConfig?.successUrl?.trim() || publicPgEnv.successUrl,
     failUrl: runtimeConfig?.failUrl?.trim() || publicPgEnv.failUrl,
@@ -130,6 +137,7 @@ export function buildPgCheckoutPayload(input: {
   moduleKey?: string;
   runtimeConfig?: PgRuntimeOverride;
   payMethod?: PgCheckoutPayload["payMethod"];
+  epayCl?: string;
   taxFreeAmt?: number;
   cardCode?: string;
   cardQuota?: string;
@@ -156,7 +164,8 @@ export function buildPgCheckoutPayload(input: {
     amount: input.amount,
     currency: "KRW",
     payMethod: input.payMethod || "CARD",
-    taxFreeAmt: input.taxFreeAmt ?? 0,
+    epayCl: input.epayCl,
+    taxFreeAmt: 0,
     cardCode: input.cardCode,
     cardQuota: input.cardQuota,
     customerName: input.customerName,
@@ -178,9 +187,12 @@ export function getPgBridgeStatus(runtimeConfig?: PgRuntimeOverride): PgBridgeSt
   const endpoints = getPaymentEndpointReadiness();
   const pgEnv = resolvePgEnv(runtimeConfig);
   const innopay = isInnopayBrowserCheckoutRuntime(runtimeConfig);
+  const payupStandardCheckout = isPayupProvider(pgEnv.provider);
+  const legacyInnopayBlocked = isInnopayProvider(pgEnv.provider) && !isLegacyInnopayBrowserEnabled();
   const missing = [
+    legacyInnopayBlocked ? "Legacy InnoPay/Infiny browser checkout is disabled. Use Payup standard checkout." : "",
     !pgEnv.provider ? "NEXT_PUBLIC_PG_PROVIDER or Firestore pg_provider_settings.provider" : "",
-    !innopay && !pgEnv.clientKey ? "NEXT_PUBLIC_PG_CLIENT_KEY or Firestore pg_provider_settings.public_client_key" : "",
+    !payupStandardCheckout && !innopay && !pgEnv.clientKey ? "NEXT_PUBLIC_PG_CLIENT_KEY or Firestore pg_provider_settings.public_client_key" : "",
     !pgEnv.scriptUrl ? "NEXT_PUBLIC_PG_SCRIPT_URL or Firestore pg_provider_settings.script_url" : "",
     !pgEnv.successUrl ? "NEXT_PUBLIC_PAYMENT_SUCCESS_URL or Firestore pg_provider_settings.success_url" : "",
     !pgEnv.failUrl ? "NEXT_PUBLIC_PAYMENT_FAIL_URL or Firestore pg_provider_settings.fail_url" : "",
@@ -202,7 +214,8 @@ export function getPgBridgeStatus(runtimeConfig?: PgRuntimeOverride): PgBridgeSt
 
 export function isInnopayBrowserCheckoutRuntime(runtimeConfig?: PgRuntimeOverride): boolean {
   const pgEnv = resolvePgEnv(runtimeConfig);
-  return isInnopayProvider(pgEnv.provider) &&
+  return isLegacyInnopayBrowserEnabled() &&
+    isInnopayProvider(pgEnv.provider) &&
     Boolean(pgEnv.scriptUrl || pgEnv.globalName === "innopay" || pgEnv.requestMethod === "goPay");
 }
 
@@ -234,11 +247,19 @@ export async function requestPgModulePayment(payload: PgCheckoutPayload, runtime
 
 function resolveBrowserProvider(pgEnv = resolvePgEnv()): PgBrowserProvider | undefined {
   if (typeof window === "undefined") return undefined;
-  if (typeof window.A5PgProvider?.requestPayment === "function") return window.A5PgProvider;
+  const a5Window = window as Window & { A5PgProvider?: PgBrowserProvider };
+  const legacyInnopayEnabled = isLegacyInnopayBrowserEnabled();
+  if (typeof a5Window.A5PgProvider?.requestPayment === "function") return a5Window.A5PgProvider;
 
-  if (isInnopayProvider(pgEnv.provider) && typeof window.innopay?.goPay === "function") {
+  if (legacyInnopayEnabled && isInnopayProvider(pgEnv.provider) && typeof window.innopay?.goPay === "function") {
     return {
       requestPayment: (payload) => Promise.resolve(requestInnopayTpayPayment(payload)),
+    };
+  }
+
+  if (isPayupProvider(pgEnv.provider) && typeof window.goPayupPay === "function") {
+    return {
+      requestPayment: (payload) => Promise.resolve(requestPayupStandardPayment(payload)),
     };
   }
 
@@ -246,11 +267,15 @@ function resolveBrowserProvider(pgEnv = resolvePgEnv()): PgBrowserProvider | und
     pgEnv.requestMethod,
     pgEnv.globalName && pgEnv.requestMethod ? `${pgEnv.globalName}.${pgEnv.requestMethod}` : "",
     pgEnv.globalName ? `${pgEnv.globalName}.requestPayment` : "",
-    "INNOPAY.requestPayment",
-    "INNOPAY.pay",
-    "Innopay.requestPayment",
-    "INFINY.requestPayment",
-    "infiny.requestPayment",
+    ...(legacyInnopayEnabled
+      ? [
+          "INNOPAY.requestPayment",
+          "INNOPAY.pay",
+          "Innopay.requestPayment",
+          "INFINY.requestPayment",
+          "infiny.requestPayment",
+        ]
+      : []),
     "requestPayment",
   ].filter(Boolean);
 
@@ -266,7 +291,69 @@ function resolveBrowserProvider(pgEnv = resolvePgEnv()): PgBrowserProvider | und
   return undefined;
 }
 
+function requestPayupStandardPayment(payload: PgCheckoutPayload): PgModulePaymentResult {
+  if (typeof window === "undefined" || typeof window.goPayupPay !== "function") {
+    return {
+      ok: false,
+      status: "payup_module_missing",
+      message: "Payup standard checkout script is not ready.",
+    };
+  }
+
+  if (!payload.merchantId) {
+    return {
+      ok: false,
+      status: "mid_missing",
+      message: "Payup merchantId is missing.",
+    };
+  }
+
+  const returnUrl = withPaymentReturnParams(payload.successUrl, payload, "success");
+  const bypassValue = buildPayupBypassValue(payload);
+  const request: Record<string, string> = {
+    merchantId: payload.merchantId,
+    itemName: trimForPayup(payload.orderName, 128),
+    amount: String(payload.amount),
+    userName: trimForPayup(payload.customerName || "Guest", 50),
+    orderNumber: payload.orderNo,
+    returnUrl,
+  };
+
+  if (bypassValue) request.bypassValue = bypassValue;
+  if (payload.customerPhone) request.mobileNumber = normalizePhone(payload.customerPhone);
+  if (payload.customerEmail) request.userEmail = payload.customerEmail;
+  if (payload.appScheme) request.appUrl = payload.appScheme;
+
+  window.goPayupPay(request);
+
+  return {
+    ok: true,
+    status: "payment_window_opened",
+    message: "Payup standard checkout window was opened. A5 will approve the transaction after Payup returns transactionId.",
+  };
+}
+
+function buildPayupBypassValue(payload: PgCheckoutPayload) {
+  const compact = JSON.stringify({
+    provider: "payup",
+    paymentIntentId: payload.paymentIntentId || "",
+    orderNo: payload.orderNo,
+    qrSessionId: payload.qrSessionId,
+    shortCode: payload.returnCode,
+  });
+
+  return trimForPayup(compact, 1000);
+}
+
 function requestInnopayTpayPayment(payload: PgCheckoutPayload): PgModulePaymentResult {
+  if (!isLegacyInnopayBrowserEnabled()) {
+    return {
+      ok: false,
+      status: "legacy_innopay_disabled",
+      message: "Legacy InnoPay/Infiny browser checkout is disabled for A5. Use Payup server checkout.",
+    };
+  }
+
   if (typeof window === "undefined" || typeof window.innopay?.goPay !== "function") {
     return {
       ok: false,
@@ -301,7 +388,7 @@ function requestInnopayTpayPayment(payload: PgCheckoutPayload): PgModulePaymentR
     goodsName: trimForInnopay(payload.orderName, 100),
     goodsCnt: String(Math.max(payload.itemCount ?? 1, 1)),
     amt: String(payload.amount),
-    taxFreeAmt: String(payload.taxFreeAmt ?? 0),
+    taxFreeAmt: "0",
     buyerName: trimForInnopay(payload.customerName || "Guest", 40),
     buyerTel: normalizePhone(payload.customerPhone) || normalizePhone(payload.customerPhoneMasked),
     buyerEmail: payload.customerEmail || "noemail@noemail.com",
@@ -320,6 +407,7 @@ function requestInnopayTpayPayment(payload: PgCheckoutPayload): PgModulePaymentR
 
   if (payload.cardCode && payload.cardCode !== "NONE") request.cardCode = payload.cardCode;
   if (payload.cardQuota && payload.payMethod === "CARD") request.cardQuota = payload.cardQuota;
+  if (payload.epayCl && payload.payMethod === "EPAY") request.epayCl = payload.epayCl;
 
   window.innopay.goPay(request);
 
@@ -337,13 +425,21 @@ export async function loadPgBrowserModule(runtimeConfig?: PgRuntimeOverride): Pr
     return { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." };
   }
 
+  if (isInnopayProvider(pgEnv.provider) && !isLegacyInnopayBrowserEnabled()) {
+    return {
+      ok: false,
+      status: "legacy_innopay_disabled",
+      message: "Legacy InnoPay/Infiny browser checkout is disabled for A5. Use Payup server checkout.",
+    };
+  }
+
   if (!pgEnv.scriptUrl) {
     return { ok: false, status: "script_url_missing", message: "PG 스크립트 URL이 설정되지 않았습니다." };
   }
 
   const existing = document.querySelector<HTMLScriptElement>(`script[data-a5-pg-script="${pgEnv.provider || "pg"}"]`);
   if (existing?.dataset.loaded === "true") {
-    exposeInnopayGlobal();
+    if (isLegacyInnopayBrowserEnabled()) exposeInnopayGlobal();
     return resolveBrowserProvider(pgEnv)
       ? { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." }
       : { ok: false, status: "request_function_missing", message: "PG 스크립트는 로드되었지만 결제 호출 함수를 찾지 못했습니다." };
@@ -360,7 +456,7 @@ export async function loadPgBrowserModule(runtimeConfig?: PgRuntimeOverride): Pr
       script.dataset.a5PgScript = pgEnv.provider || "pg";
       script.onload = () => {
         script.dataset.loaded = "true";
-        exposeInnopayGlobal();
+        if (isLegacyInnopayBrowserEnabled()) exposeInnopayGlobal();
         resolve();
       };
       script.onerror = () => reject(new Error("PG browser script failed to load."));
@@ -379,7 +475,7 @@ export async function loadPgBrowserModule(runtimeConfig?: PgRuntimeOverride): Pr
     };
   }
 
-  exposeInnopayGlobal();
+  if (isLegacyInnopayBrowserEnabled()) exposeInnopayGlobal();
 
   return resolveBrowserProvider(pgEnv)
     ? { ok: true, status: "module_loaded", message: "PG 브라우저 모듈이 준비되었습니다." }
@@ -387,6 +483,7 @@ export async function loadPgBrowserModule(runtimeConfig?: PgRuntimeOverride): Pr
 }
 
 function exposeInnopayGlobal() {
+  if (!isLegacyInnopayBrowserEnabled()) return;
   if (typeof window === "undefined" || window.innopay?.goPay) return;
 
   const script = document.createElement("script");
@@ -442,7 +539,7 @@ function defaultPaymentReturnUrl(origin: string, returnCode: string, paymentResu
     code: returnCode,
     paymentResult,
   });
-  return `${origin}/q/live?${query.toString()}`;
+  return `${origin}/q/live/?${query.toString()}`;
 }
 
 function readString(value: unknown): string | undefined {
@@ -452,6 +549,15 @@ function readString(value: unknown): string | undefined {
 function isInnopayProvider(provider?: string): boolean {
   const normalized = String(provider ?? "").trim().toLowerCase().replace(/[\s_-]/g, "");
   return normalized === "infiny" || normalized === "infini" || normalized.includes("innopay");
+}
+
+function isPayupProvider(provider?: string): boolean {
+  const normalized = String(provider ?? "").trim().toLowerCase().replace(/[\s_-]/g, "");
+  return normalized === "payup" || normalized === "payuppg";
+}
+
+function isLegacyInnopayBrowserEnabled(): boolean {
+  return ["1", "true", "yes", "on"].includes(legacyInnopayBrowserFlag);
 }
 
 function withPaymentReturnParams(url: string, payload: PgCheckoutPayload, paymentResult: "success" | "failed") {
@@ -478,6 +584,11 @@ function withPaymentReturnParams(url: string, payload: PgCheckoutPayload, paymen
 }
 
 function trimForInnopay(value: string, maxLength: number) {
+  const text = String(value ?? "").trim();
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
+
+function trimForPayup(value: string, maxLength: number) {
   const text = String(value ?? "").trim();
   return text.length > maxLength ? text.slice(0, maxLength) : text;
 }

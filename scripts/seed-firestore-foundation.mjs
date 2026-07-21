@@ -511,6 +511,13 @@ if (dryRun) {
 
 loadLocalEnv();
 
+if (process.env.ALLOW_LEGACY_MOCK_SEED !== "1") {
+  console.error(
+    "Blocked legacy mock foundation seed. Use scripts/seed-test-1004-firestore.mjs for the 7592901311 test company, or set ALLOW_LEGACY_MOCK_SEED=1 intentionally.",
+  );
+  process.exit(1);
+}
+
 const requiredEnv = [
   "NEXT_PUBLIC_FIREBASE_API_KEY",
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",

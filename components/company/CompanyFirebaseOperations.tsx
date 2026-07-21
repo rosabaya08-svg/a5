@@ -21,7 +21,7 @@ function SourceBadge({ read }: { read: Pick<LiveRead<unknown>, "source" | "reaso
   return (
     <div className="rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600">
       <span
-        className={`inline-flex rounded-full px-2.5 py-1 font-black ${
+        className={`inline-flex rounded-full px-2.5 py-1 font-normal ${
           isFirebase ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"
         }`}
       >
@@ -41,14 +41,14 @@ function ScopeCard({ companyId }: { companyId: string }) {
     <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Firebase 기업 권한 범위</p>
-          <h2 className="mt-1 text-lg font-black">기업 운영 데이터는 company_id 범위로만 표시</h2>
+          <p className="text-xs font-normal uppercase tracking-wide text-emerald-700">Firebase 기업 권한 범위</p>
+          <h2 className="mt-1 text-lg font-normal">기업 운영 데이터는 company_id 범위로만 표시</h2>
           <p className="mt-2 text-sm leading-6">
-            상품, 주문 항목, 재고 이동, 정산 예정 금액은 모두 <strong>{companyId}</strong> 기준으로 읽습니다.
+            상품, 주문 항목, 재고 이동, 정산 예정 금액은 모두 <span>{companyId}</span> 기준으로 읽습니다.
             실제 등록/수정 write는 Custom Claims와 Functions 승인 계층이 준비된 뒤 활성화합니다.
           </p>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800 ring-1 ring-emerald-200">
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-normal text-emerald-800 ring-1 ring-emerald-200">
           정산 지급 비활성
         </span>
       </div>
@@ -61,7 +61,7 @@ function buildProductRows(products: Product[]) {
     id: product.id,
     cells: [
       <div key="product" className="min-w-52">
-        <p className="font-black text-slate-950">{product.name}</p>
+        <p className="font-normal text-slate-950">{product.name}</p>
         <p className="mt-1 text-xs text-slate-500">
           {product.id} / {product.source ?? "repository"}
         </p>
@@ -108,16 +108,15 @@ function buildInventoryRows(movements: InventoryMovement[]) {
 
 function SettlementPreviewCard({ read }: { read: LiveRead<CompanySettlementPreview> }) {
   const settlement = read.data;
-  const deductionAmount = Math.max(settlement.grossAmount - settlement.payoutAmount, 0);
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">company_id 기준 입금 예정 미리보기</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">정산 예정 금액</h2>
+          <p className="text-xs font-normal uppercase tracking-wide text-slate-500">company_id 기준 Payup 대조 미리보기</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">A5 수수료 예정 금액</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            실제 지급 실행은 기업관리자에서 차단하고, Firestore/모의 order_items 기준으로 예상 정산 금액만 표시합니다.
+            기업 정산금은 Payup에서 직접 처리합니다. 이 화면은 Firestore order_items 기준 A5 영업 수수료만 표시합니다.
           </p>
         </div>
         <SourceBadge read={read} />
@@ -127,17 +126,17 @@ function SettlementPreviewCard({ read }: { read: LiveRead<CompanySettlementPrevi
           ["기간", settlement.period],
           ["주문 항목", `${settlement.itemCount}건`],
           ["총 판매액", formatCurrency(settlement.grossAmount)],
-          ["예상 공제", formatCurrency(deductionAmount)],
-          ["예상 입금", formatCurrency(settlement.payoutAmount)],
+          ["A5 수수료", formatCurrency(settlement.a5CommissionAmount)],
+          ["Payup 원장", settlement.payupDataLinked ? "연동됨" : "대기"],
         ].map(([label, value]) => (
           <div key={label} className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">{label}</p>
-            <p className="mt-1 text-base font-black text-slate-950">{value}</p>
+            <p className="text-xs font-normal text-slate-500">{label}</p>
+            <p className="mt-1 text-base font-normal text-slate-950">{value}</p>
           </div>
         ))}
       </div>
-      <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-bold leading-5 text-red-900">
-        실제 지급 실행과 결제사 설정은 최고관리자에서만 관리합니다. 기업관리자에는 지급 실행 버튼을 제공하지 않습니다.
+      <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-normal leading-5 text-red-900">
+        A5는 기업 정산금을 지급하지 않습니다. 결제/정산 원장은 Payup과 기업 직계약 범위에서 처리하고 A5는 조회/대조만 수행합니다.
       </p>
     </section>
   );
@@ -162,9 +161,9 @@ export async function CompanyOperationsOverview({ companyId = defaultCompanyId }
           ["정산 기준", settlement.data.basis, settlement.source],
         ].map(([label, value, source]) => (
           <div key={label} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-            <p className="mt-2 text-xs font-bold text-slate-500">{source}</p>
+            <p className="text-xs font-normal text-slate-500">{label}</p>
+            <p className="mt-2 text-2xl font-normal text-slate-950">{value}</p>
+            <p className="mt-2 text-xs font-normal text-slate-500">{source}</p>
           </div>
         ))}
       </div>
@@ -196,7 +195,7 @@ export async function CompanyOrderItemsPanel({ companyId = defaultCompanyId }: {
     <section className="grid gap-3">
       <SourceBadge read={read} />
       <DataTable
-        columns={["주문 ID", "상품", "옵션", "수량", "배송 상태", "판매액", "정산 기준액"]}
+        columns={["주문 ID", "상품", "옵션", "수량", "배송 상태", "판매액", "판매 기준액"]}
         rows={buildOrderItemRows(read.data)}
         emptyMessage="이 company_id에 배정된 order_items가 없습니다."
         sortLabel="범위: company_id가 일치하는 order_items"
@@ -234,15 +233,15 @@ export function CompanyProductRegistrationFlowPanel() {
     <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">상품 등록 / 미리보기 준비</p>
-          <h2 className="mt-1 text-lg font-black">상품 등록은 법적 고지와 미리보기를 통과한 뒤 승인 요청</h2>
+          <p className="text-xs font-normal uppercase tracking-wide text-blue-700">상품 등록 / 실시간 미리보기</p>
+          <h2 className="mt-1 text-lg font-normal">상품 등록 화면에서 입력과 고객 노출 미리보기를 같이 확인</h2>
           <p className="mt-2 text-sm leading-6">
-            사업자/CS/반품지, KC 인증, 금지상품 체크, 상세페이지 미리보기 값을 Firestore schema에 맞춰 받을 준비가
+            사업자/CS/반품지, KC 인증, 금지상품 체크, 상세페이지 미리보기 값을 상품 등록 화면의 우측 패널에서 바로 확인하고 Firestore schema에 맞춰 받을 준비가
             되어 있습니다. 실제 파일 업로드와 write는 승인된 계정 claim과 Storage rules 연결 후 진행합니다.
           </p>
         </div>
-        <Link href="/company/products/preview" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white">
-          미리보기 확인
+        <Link href="/company/products/new" className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white">
+          상품 등록 열기
         </Link>
       </div>
     </section>

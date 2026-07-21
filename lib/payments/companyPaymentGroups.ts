@@ -1,4 +1,5 @@
 import type { CartItemSnapshot, Company, PgMerchantStatus } from "@/types/commerce";
+import { resolvePaymentCompanyId } from "@/lib/payments/paymentCatalogOwners";
 
 export const COMPANY_GROUP_PURCHASE_MESSAGE = "업체별 공동구매로 기업별로 구매가 가능합니다.";
 
@@ -16,18 +17,27 @@ export type CompanyPaymentGroup<T extends CartItemSnapshot = CartItemSnapshot> =
   totalAmount: number;
 };
 
-export function cartItemPaymentKey(item: Pick<CartItemSnapshot, "productId" | "optionName" | "companyId">) {
-  return `${item.companyId}::${item.productId}::${item.optionName}`;
+export function cartItemPaymentKey(item: Pick<CartItemSnapshot, "productId" | "optionName" | "companyId" | "sellerCompanyId">) {
+  const companyId = resolvePaymentCompanyId(item.productId, item.sellerCompanyId ?? item.companyId);
+  return `${companyId}::${item.productId}::${item.optionName}`;
 }
 
 export function groupCartItemsByCompany<T extends CartItemSnapshot>(items: T[], companies: Company[]): CompanyPaymentGroup<T>[] {
-  const companyMap = new Map(companies.map((company) => [company.id, company]));
+  const companyMap = new Map<string, Company>();
+  for (const company of companies) {
+    companyMap.set(company.id, company);
+    const businessNo = normalizeBusinessNoValue(company.businessRegistrationNumberNormalized ?? company.businessRegistrationNumber);
+    if (businessNo) companyMap.set(businessNo, company);
+  }
   const groupMap = new Map<string, CompanyPaymentGroup<T>>();
 
   for (const item of items) {
-    const company = companyMap.get(item.companyId);
+    const itemCompanyId = resolvePaymentCompanyId(item.productId, item.sellerCompanyId ?? item.companyId);
+    const itemBusinessNo = normalizeBusinessNoValue(item.sellerBusinessNoNormalized ?? item.sellerBusinessNo);
+    const company = companyMap.get(itemCompanyId) ?? companyMap.get(itemBusinessNo ?? "");
+    const companyId = company?.id ?? itemCompanyId;
     const profile = company?.pgProfile;
-    const current = groupMap.get(item.companyId);
+    const current = groupMap.get(companyId);
     const lineAmount = item.unitPrice * item.quantity;
 
     if (current) {
@@ -38,14 +48,14 @@ export function groupCartItemsByCompany<T extends CartItemSnapshot>(items: T[], 
       continue;
     }
 
-    groupMap.set(item.companyId, {
-      id: item.companyId,
-      companyId: item.companyId,
-      companyName: company?.name ?? item.companyId,
+    groupMap.set(companyId, {
+      id: companyId,
+      companyId,
+      companyName: company?.name ?? item.sellerCompanyName ?? companyId,
       merchantId: profile?.merchantId,
       merchantIdMasked: profile?.merchantIdMasked ?? "MID 발급 대기",
       merchantStatus: profile?.merchantStatus ?? "not_applied",
-      paymentReady: Boolean(profile?.merchantId && profile.merchantStatus === "active"),
+      paymentReady: Boolean(profile?.credentialReady && profile.vaultReady && profile.merchantStatus === "active"),
       items: [item],
       itemCount: 1,
       quantity: item.quantity,
@@ -54,6 +64,11 @@ export function groupCartItemsByCompany<T extends CartItemSnapshot>(items: T[], 
   }
 
   return [...groupMap.values()];
+}
+
+function normalizeBusinessNoValue(value: unknown): string | undefined {
+  const text = String(value ?? "").replace(/[^0-9]/g, "");
+  return text ? text : undefined;
 }
 
 export function removePaidItemsFromCart<T extends CartItemSnapshot>(cartItems: T[], paidItems: CartItemSnapshot[]): T[] {

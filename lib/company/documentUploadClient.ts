@@ -1,22 +1,13 @@
 "use client";
 
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { ensureAnonymousFirebaseUser, getFirebaseDb, getFirebaseStorageClient } from "@/lib/firebase/client";
-import { createCmsId } from "@/lib/firebase/contentRepository";
+import { ensureCompanyFirebaseAuthFromSession } from "@/lib/auth/companyFirebaseAuth";
+import { ensureAnonymousFirebaseUser, getFirebaseDb } from "@/lib/firebase/client";
+import { createCmsId, uploadCmsFile } from "@/lib/firebase/contentRepository";
 import type { CompanyDocumentType } from "@/types/company";
 
 const COMPANY_DOCUMENT_MAX_BYTES = 15 * 1024 * 1024;
-export const COMPANY_DOCUMENT_GMAIL_RECIPIENT = "qsc0921@gmail.com";
-
-const productDocumentTypes = new Set<CompanyDocumentType>([
-  "kc_certificate",
-  "test_report",
-  "brand_import_certificate",
-  "product_detail_image",
-  "product_video",
-  "product_detail_asset",
-]);
+export const COMPANY_DOCUMENT_GMAIL_RECIPIENT = "withcadmin@gmail.com";
 
 type UploadCompanyDocumentInput = {
   companyId: string;
@@ -29,6 +20,7 @@ type UploadCompanyDocumentInput = {
   destinationEmail?: string;
   sendToGmail?: boolean;
   createA1Inbox?: boolean;
+  persistRecord?: boolean;
 };
 
 export type UploadedCompanyDocument = {
@@ -41,11 +33,6 @@ export type UploadedCompanyDocument = {
   a1InboxStatus: "not_queued" | "queued";
   gmailStatus: "not_requested" | "queued";
 };
-
-function safeFileName(name: string) {
-  const normalized = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-  return normalized || "company-document";
-}
 
 function assertSupportedFile(file: File) {
   if (file.size <= 0) {
@@ -70,21 +57,6 @@ function assertSupportedFile(file: File) {
   if (!allowed) {
     throw new Error("이미지, PDF, Word, Excel, 영상 파일만 업로드할 수 있습니다.");
   }
-}
-
-function storagePathFor(input: UploadCompanyDocumentInput, uploadId: string) {
-  const fileName = `${uploadId}-${safeFileName(input.file.name)}`;
-
-  if (input.documentType === "bankbook_copy") {
-    return `companies/${input.companyId}/bank-documents/${input.documentType}/${fileName}`;
-  }
-
-  if (productDocumentTypes.has(input.documentType)) {
-    const productId = input.productId || "product-draft";
-    return `companies/${input.companyId}/product-documents/${productId}/${input.documentType}/${fileName}`;
-  }
-
-  return `companies/${input.companyId}/onboarding/${input.documentType}/${fileName}`;
 }
 
 function documentRecord(input: UploadCompanyDocumentInput, upload: UploadedCompanyDocument) {
@@ -121,27 +93,33 @@ function documentRecord(input: UploadCompanyDocumentInput, upload: UploadedCompa
 export async function uploadCompanyDocument(input: UploadCompanyDocumentInput): Promise<UploadedCompanyDocument> {
   assertSupportedFile(input.file);
   try {
-    await ensureAnonymousFirebaseUser();
+    const companyUser = await ensureCompanyFirebaseAuthFromSession();
+    if (!companyUser) {
+      await ensureAnonymousFirebaseUser();
+    }
   } catch {
     // Company signup happens before an account exists. Storage rules allow this guarded
     // onboarding upload, so Firebase anonymous auth must not block the whole request.
   }
 
-  const storage = getFirebaseStorageClient();
-  const db = getFirebaseDb();
+  const shouldPersistRecord = input.persistRecord ?? true;
+  const db = shouldPersistRecord ? getFirebaseDb() : null;
 
-  if (!storage || !db) {
+  if (shouldPersistRecord && !db) {
     throw new Error("Firebase Storage 또는 Firestore 설정이 없습니다.");
   }
 
   const uploadId = createCmsId(`company-doc-${input.companyId}-${input.documentType}`);
-  const storagePath = storagePathFor(input, uploadId);
-  const uploadRef = ref(storage, storagePath);
   const contentType = input.file.type || "application/octet-stream";
-
-  await uploadBytes(uploadRef, input.file, {
-    contentType,
-    customMetadata: {
+  const uploaded = await uploadCmsFile(
+    "company_documents",
+    uploadId,
+    input.file,
+    {
+      companyId: input.companyId,
+      productId: input.productId,
+    },
+    {
       companyId: input.companyId,
       documentType: input.documentType,
       documentLabel: input.documentLabel,
@@ -150,23 +128,14 @@ export async function uploadCompanyDocument(input: UploadCompanyDocumentInput): 
       a1Inbox: (input.createA1Inbox ?? input.sendToGmail ?? false) ? "queued" : "not_queued",
       gmailDelivery: input.sendToGmail ? "queued" : "not_requested",
     },
-  });
-
-  let downloadUrl = "";
-
-  try {
-    downloadUrl = await getDownloadURL(uploadRef);
-  } catch {
-    const bucket = storage.app.options.storageBucket;
-    downloadUrl = bucket ? `gs://${bucket}/${storagePath}` : storagePath;
-  }
+  );
 
   const shouldCreateA1Inbox = input.createA1Inbox ?? input.sendToGmail ?? false;
   const shouldSendToGmail = input.sendToGmail ?? false;
   const upload: UploadedCompanyDocument = {
     id: uploadId,
-    storagePath,
-    downloadUrl,
+    storagePath: uploaded.path,
+    downloadUrl: uploaded.url,
     fileName: input.file.name,
     fileSize: input.file.size,
     contentType,
@@ -174,6 +143,14 @@ export async function uploadCompanyDocument(input: UploadCompanyDocumentInput): 
     gmailStatus: shouldSendToGmail ? "queued" : "not_requested",
   };
   const record = documentRecord(input, upload);
+
+  if (!shouldPersistRecord) {
+    return upload;
+  }
+
+  if (!db) {
+    throw new Error("Firestore config is missing.");
+  }
 
   const writes = [setDoc(doc(db, "company_documents", upload.id), record, { merge: true })];
 

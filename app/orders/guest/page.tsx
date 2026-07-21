@@ -1,5 +1,5 @@
-import { GuestOrderLookupPage } from "@/components/storefront/GuestQrExperience";
+import { GuestOrderLookupClientPage } from "@/components/storefront/GuestOrderPagesClient";
 
-export default async function Page() {
-  return <GuestOrderLookupPage />;
+export default function Page() {
+  return <GuestOrderLookupClientPage />;
 }

@@ -104,7 +104,7 @@ const badgeClasses: Record<BadgeTone, string> = {
 };
 
 function Badge({ children, tone = "slate" }: { children: React.ReactNode; tone?: BadgeTone }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${badgeClasses[tone]}`}>{children}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-normal ring-1 ${badgeClasses[tone]}`}>{children}</span>;
 }
 
 function formatMaybeDateTime(value: string) {
@@ -121,24 +121,24 @@ function FlowPanel() {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
       <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">Pull</p>
-        <h2 className="mt-2 text-lg font-black text-slate-950">외부 플랫폼 주문 수집</h2>
-        <div className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+        <p className="text-xs font-normal tracking-[0.12em] text-blue-600">가져오기</p>
+        <h2 className="mt-2 text-lg font-normal text-slate-950">외부 플랫폼 주문 수집</h2>
+        <div className="mt-4 grid gap-2 text-sm font-normal text-slate-700">
           {["기업 사용 플랫폼", "A5 외부 연동 커넥터", "A5 주문 DB", "기업 관리자 / 입점사 관리자", "배송 처리 / 정산 / 고객 안내"].map((step, index) => (
             <div key={step} className="flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50 p-3">
-              <span className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">{index + 1}</span>
+              <span className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-xs font-normal text-white">{index + 1}</span>
               <span>{step}</span>
             </div>
           ))}
         </div>
       </article>
       <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">Public API / Webhook</p>
-        <h2 className="mt-2 text-lg font-black text-slate-950">외부 시스템의 A5 주문 회수</h2>
-        <div className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+        <p className="text-xs font-normal tracking-[0.12em] text-emerald-600">공개 API / 웹훅</p>
+        <h2 className="mt-2 text-lg font-normal text-slate-950">외부 시스템의 A5 주문 회수</h2>
+        <div className="mt-4 grid gap-2 text-sm font-normal text-slate-700">
           {["A5 쇼핑몰 주문 발생", "A5 공개 API 또는 Webhook", "기업 ERP / WMS / 사방넷", "출고 처리", "송장번호 A5 회신"].map((step, index) => (
             <div key={step} className="flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50 p-3">
-              <span className="flex size-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>
+              <span className="flex size-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-normal text-white">{index + 1}</span>
               <span>{step}</span>
             </div>
           ))}
@@ -153,7 +153,7 @@ function ModuleGrid() {
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       {integrationCenterModules.map((module) => (
         <article key={module.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-black text-slate-950">{module.title}</h3>
+          <h3 className="text-sm font-normal text-slate-950">{module.title}</h3>
           <p className="mt-2 text-xs leading-5 text-slate-600">{module.body}</p>
         </article>
       ))}
@@ -177,17 +177,17 @@ function PlatformTable() {
         rows={integrationRecords.map((integration) => ({
           id: integration.id,
           cells: [
-            <span key="platform" className="font-semibold text-slate-950">{integration.displayName}</span>,
+            <span key="platform" className="font-normal text-slate-950">{integration.displayName}</span>,
             integration.companyName,
             <Badge key="status" tone={integrationStatusTone[integration.status]}>{integrationStatusLabels[integration.status]}</Badge>,
             authLabels[integration.authType],
             formatMaybeDateTime(integration.lastSyncAt),
-            <span key="failure" className={integration.failureCount > 0 ? "font-black text-red-700" : "font-bold text-emerald-700"}>
+            <span key="failure" className={integration.failureCount > 0 ? "font-normal text-red-700" : "font-normal text-emerald-700"}>
               {integration.failureCount}
             </span>,
             <div key="actions" className="flex flex-wrap gap-1">
               {["설정", "로그", "테스트", integration.status === "paused" ? "재개" : "중지"].map((action) => (
-                <span key={action} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-700">
+                <span key={action} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-normal text-slate-700">
                   {action}
                 </span>
               ))}
@@ -205,15 +205,15 @@ function DocumentAndEndpointPanel() {
       <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-600">API Docs</p>
-            <h2 className="mt-1 text-lg font-black text-slate-950">문서 등록 이후 처리 흐름</h2>
+            <p className="text-xs font-normal tracking-[0.12em] text-violet-600">API 문서</p>
+            <h2 className="mt-1 text-lg font-normal text-slate-950">문서 등록 이후 처리 흐름</h2>
           </div>
           <Badge tone="purple">버전관리</Badge>
         </div>
         <div className="mt-4 grid gap-2">
           {apiDocumentLifecycle.map((stage, index) => (
-            <div key={stage} className="flex items-center gap-3 rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-700">
-              <span className="flex size-7 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white">{index + 1}</span>
+            <div key={stage} className="flex items-center gap-3 rounded-md bg-slate-50 p-3 text-sm font-normal text-slate-700">
+              <span className="flex size-7 items-center justify-center rounded-full bg-slate-950 text-xs font-normal text-white">{index + 1}</span>
               <span>{stage}</span>
             </div>
           ))}
@@ -225,7 +225,7 @@ function DocumentAndEndpointPanel() {
           rows={integrationDocuments.map((document) => ({
             id: document.id,
             cells: [
-              <span key="title" className="font-semibold text-slate-950">{document.title}</span>,
+              <span key="title" className="font-normal text-slate-950">{document.title}</span>,
               document.documentType.toUpperCase(),
               findIntegrationName(document.integrationId),
               document.version,
@@ -245,7 +245,7 @@ function DocumentAndEndpointPanel() {
               findIntegrationName(endpoint.integrationId),
               purposeLabels[endpoint.purpose],
               <Badge key="method" tone={endpoint.method === "GET" ? "blue" : "green"}>{endpoint.method}</Badge>,
-              <code key="path" className="break-all rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-800">{endpoint.path}</code>,
+              <code key="path" className="break-all rounded bg-slate-100 px-2 py-1 text-xs font-normal text-slate-800">{endpoint.path}</code>,
               endpoint.mapping,
               <Badge key="test" tone={endpoint.testStatus === "passed" ? "green" : endpoint.testStatus === "failed" ? "red" : "slate"}>
                 {endpoint.testStatus === "passed" ? "성공" : endpoint.testStatus === "failed" ? "실패" : "대기"}
@@ -269,8 +269,8 @@ function MappingPanel() {
             id: mapping.id,
             cells: [
               findIntegrationName(mapping.integrationId),
-              <code key="external" className="rounded bg-slate-100 px-2 py-1 text-xs font-bold">{mapping.externalField}</code>,
-              <code key="internal" className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-800">{mapping.internalField}</code>,
+              <code key="external" className="rounded bg-slate-100 px-2 py-1 text-xs font-normal">{mapping.externalField}</code>,
+              <code key="internal" className="rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-800">{mapping.internalField}</code>,
               mapping.transformRule,
             ],
           }))}
@@ -337,8 +337,8 @@ function SchedulerAndLogPanel() {
       <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">Webhook</p>
-            <h2 className="mt-1 text-lg font-black text-slate-950">웹훅 수신 관리</h2>
+            <p className="text-xs font-normal tracking-[0.12em] text-emerald-600">웹훅</p>
+            <h2 className="mt-1 text-lg font-normal text-slate-950">웹훅 수신 관리</h2>
           </div>
           <Badge tone="green">서명 검증 대상</Badge>
         </div>
@@ -346,11 +346,11 @@ function SchedulerAndLogPanel() {
           {webhookEvents.map((event) => (
             <div key={event.id} className="rounded-md border border-slate-100 bg-slate-50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-black text-slate-950">{event.eventType}</p>
+                <p className="font-normal text-slate-950">{event.eventType}</p>
                 <Badge tone={event.processed ? "green" : "amber"}>{event.processed ? "처리완료" : "대기"}</Badge>
               </div>
-              <p className="mt-2 text-sm font-semibold text-slate-600">{findIntegrationName(event.integrationId)}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">{formatMaybeDateTime(event.receivedAt)}</p>
+              <p className="mt-2 text-sm font-normal text-slate-600">{findIntegrationName(event.integrationId)}</p>
+              <p className="mt-1 text-xs font-normal text-slate-500">{formatMaybeDateTime(event.receivedAt)}</p>
             </div>
           ))}
         </div>
@@ -364,16 +364,16 @@ function StandardModelPanel() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">A5 Standard Model</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">표준 주문/물류 프로세스</h2>
+          <p className="text-xs font-normal tracking-[0.12em] text-slate-500">A5 표준 모델</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">표준 주문/물류 프로세스</h2>
         </div>
         <Badge tone="blue">중복 방지 키: {duplicateGuardKey}</Badge>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {standardOrderFlow.map((step, index) => (
           <div key={step} className="flex items-center gap-3 rounded-md border border-slate-100 bg-slate-50 p-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white">{index + 1}</span>
-            <span className="text-sm font-bold text-slate-700">{step}</span>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-normal text-white">{index + 1}</span>
+            <span className="text-sm font-normal text-slate-700">{step}</span>
           </div>
         ))}
       </div>
@@ -392,7 +392,7 @@ function PublicApiPanel() {
             id: endpoint.id,
             cells: [
               <Badge key="method" tone={endpoint.method === "GET" ? "blue" : endpoint.method === "PATCH" ? "purple" : "green"}>{endpoint.method}</Badge>,
-              <code key="path" className="break-all rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-800">{endpoint.path}</code>,
+              <code key="path" className="break-all rounded bg-slate-100 px-2 py-1 text-xs font-normal text-slate-800">{endpoint.path}</code>,
               endpoint.scope,
               endpoint.purpose,
               <Badge key="status" tone={publicApiStatusTone[endpoint.status]}>
@@ -403,11 +403,11 @@ function PublicApiPanel() {
         />
       </article>
       <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-600">Access Control</p>
-        <h2 className="mt-1 text-lg font-black text-slate-950">기업 API 접근키 발급</h2>
+        <p className="text-xs font-normal tracking-[0.12em] text-blue-600">접근 제어</p>
+        <h2 className="mt-1 text-lg font-normal text-slate-950">기업 API 접근키 발급</h2>
         <div className="mt-4 grid gap-2">
           {apiAccessControls.map((control) => (
-            <div key={control} className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm font-bold text-slate-700">
+            <div key={control} className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm font-normal text-slate-700">
               {control}
             </div>
           ))}
@@ -422,17 +422,17 @@ function FirestoreBlueprintPanel() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Firestore Blueprint</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">외부 연동 센터 컬렉션 구조</h2>
+          <p className="text-xs font-normal tracking-[0.12em] text-slate-500">Firestore 설계도</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">외부 연동 센터 컬렉션 구조</h2>
         </div>
         <Badge tone="red">Secret 평문 저장 금지</Badge>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {firestoreCollections.map((item) => (
           <article key={item.collection} className="rounded-md border border-slate-100 bg-slate-50 p-3">
-            <code className="text-sm font-black text-blue-800">{item.collection}</code>
+            <code className="text-sm font-normal text-blue-800">{item.collection}</code>
             <p className="mt-2 text-sm leading-6 text-slate-700">{item.purpose}</p>
-            <p className="mt-2 text-xs font-bold text-red-700">{item.security}</p>
+            <p className="mt-2 text-xs font-normal text-red-700">{item.security}</p>
           </article>
         ))}
       </div>

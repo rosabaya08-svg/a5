@@ -55,7 +55,7 @@ export function CertificationEvidenceUploader({
       productId={productId}
       productName={productName}
       title="인증/증빙 파일 업로드"
-      description="제품 인증서, 시험성적서, 상세페이지 원본 등 상품 자료는 실제 Firebase Storage에 저장하고 Firestore 파일 기록으로만 관리합니다."
+      description="회원가입 서류는 위 연동 영역에서 상품 승인 요청에 함께 붙이고, 여기서는 상품별 KC 인증서, 시험성적서, 상세페이지 원본 등 추가 자료만 업로드합니다."
       documents={evidenceSlots}
       deliveryMode="firebase_only"
     />

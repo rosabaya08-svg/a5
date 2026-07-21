@@ -17,20 +17,28 @@ const toneClasses: Record<StatusTone, string> = {
   purple: "bg-violet-50 text-violet-800 ring-violet-200",
 };
 
-const labels: Record<string, string> = {
-  ...productStatusLabels,
-  ...qrSessionStatusLabels,
-  ...orderStatusLabels,
-  ...paymentStatusLabels,
-  ...settlementStatusLabels,
-};
+const labels: Record<string, string> = Object.assign(
+  {},
+  productStatusLabels,
+  qrSessionStatusLabels,
+  orderStatusLabels,
+  paymentStatusLabels,
+  settlementStatusLabels,
+  {
+    approved: "승인 완료",
+    paid: "결제 완료",
+    failed: "실패",
+    cancelled: "취소 완료",
+  },
+);
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone = status in statusToneMap ? statusToneMap[status as keyof typeof statusToneMap] : "neutral";
+  const liveTone = status === "approved" || status === "paid" ? "green" : status === "failed" ? "red" : undefined;
+  const tone = liveTone ?? (status in statusToneMap ? statusToneMap[status as keyof typeof statusToneMap] : "neutral");
 
   return (
     <span
-      className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-bold ring-1 ${toneClasses[tone]}`}
+      className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-normal ring-1 ${toneClasses[tone]}`}
     >
       {labels[status] ?? status}
     </span>

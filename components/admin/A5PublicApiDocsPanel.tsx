@@ -327,8 +327,8 @@ export function A5PublicApiDocsPanel() {
   return (
     <div className="grid gap-4">
       <section className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-950">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-700">A5 Public API</p>
-        <h2 className="mt-1 text-xl font-black">주문내역 상세 실시간 연동 API 공유 문서</h2>
+        <p className="text-xs font-normal tracking-[0.12em] text-blue-700">A5 공개 API</p>
+        <h2 className="mt-1 text-xl font-normal">주문내역 상세 실시간 연동 API 공유 문서</h2>
         <p className="mt-2 max-w-4xl text-sm leading-6">
           기업이 본인 ERP, WMS, 사방넷, 물류 연동 프로그램에서 A5 주문 상세를 가져가고 송장번호를 회신할 수 있도록 제공하는 개발자 공유 문서입니다.
         </p>
@@ -337,13 +337,13 @@ export function A5PublicApiDocsPanel() {
       <section className="grid gap-4 lg:grid-cols-2">
         {documents.map((document) => (
           <article key={document.filename} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{document.filename}</p>
-            <h3 className="mt-2 text-lg font-black text-slate-950">{document.title}</h3>
+            <p className="text-xs font-normal uppercase tracking-[0.12em] text-slate-500">{document.filename}</p>
+            <h3 className="mt-2 text-lg font-normal text-slate-950">{document.title}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{document.description}</p>
             <button
               type="button"
               onClick={() => downloadFile(document.filename, document.mimeType, document.content)}
-              className="mt-4 rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white"
+              className="mt-4 rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white"
             >
               문서 내려받기
             </button>
@@ -352,7 +352,7 @@ export function A5PublicApiDocsPanel() {
       </section>
 
       <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-lg font-black text-slate-950">기업 전달 전 확인 항목</h3>
+        <h3 className="text-lg font-normal text-slate-950">기업 전달 전 확인 항목</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {[
             ["API Key", "기업별 접근키 발급 후 전달"],
@@ -363,8 +363,8 @@ export function A5PublicApiDocsPanel() {
             ["송장 회신", "택배사 코드와 송장번호 검증"],
           ].map(([label, value]) => (
             <div key={label} className="rounded-md bg-slate-50 p-3">
-              <p className="text-xs font-black text-blue-700">{label}</p>
-              <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+              <p className="text-xs font-normal text-blue-700">{label}</p>
+              <p className="mt-1 text-sm font-normal text-slate-800">{value}</p>
             </div>
           ))}
         </div>

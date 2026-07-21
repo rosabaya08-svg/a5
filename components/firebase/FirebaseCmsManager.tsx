@@ -17,12 +17,10 @@ import {
   type OptimizedUploadAsset,
   type UploadAssetKind,
 } from "@/lib/media/optimizeUploadAsset";
+import { buildProductUrlFields } from "@/lib/storefront/productUrls";
 
 type CmsMode = "admin" | "company" | "nursery" | "tablet";
 type CmsTab = "banners" | "videos" | "brands" | "detail" | "theme" | "exposure";
-
-const VIDEO_ACTION_TYPES = ["none", "hotdeal", "luxury"] as const;
-type VideoActionType = (typeof VIDEO_ACTION_TYPES)[number];
 
 type FormState = {
   id: string;
@@ -37,9 +35,6 @@ type FormState = {
   order: string;
   productId: string;
   themeMode: string;
-  videoActionType: VideoActionType;
-  videoActionTarget: string;
-  videoCtaText: string;
 };
 
 const tabs: Array<{
@@ -106,9 +101,6 @@ const emptyForm: FormState = {
   order: "1",
   productId: "",
   themeMode: "light",
-  videoActionType: "none",
-  videoActionTarget: "",
-  videoCtaText: "산후조리원 전용 최대 80% 할인을 받아가세요",
 };
 
 const defaultScope = {
@@ -158,6 +150,30 @@ const themeModeLabels: Record<string, string> = {
 function valueOf(record: CmsRecord, key: string) {
   const value = record[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function productRecordId(record: CmsRecord) {
+  return valueOf(record, "product_id") || record.id;
+}
+
+function productRecordTitle(record: CmsRecord) {
+  return valueOf(record, "title") || valueOf(record, "name") || productRecordId(record);
+}
+
+function productRecordTabletPath(record: CmsRecord) {
+  const productId = productRecordId(record);
+  return (
+    valueOf(record, "tablet_path") ||
+    valueOf(record, "public_path") ||
+    valueOf(record, "ad_target_path") ||
+    buildProductUrlFields(productId).tablet_path
+  );
+}
+
+function isApprovedProductRecord(record: CmsRecord) {
+  const status = valueOf(record, "status") || "active";
+  const approval = valueOf(record, "product_approval_status") || valueOf(record, "approval_status") || "approved";
+  return ["active", "approved"].includes(status) && approval === "approved";
 }
 
 function scopeForMode(mode: CmsMode, productId?: string): CmsUploadScope {
@@ -244,17 +260,6 @@ function metadataString(value: unknown) {
   return "";
 }
 
-function normalizeVideoActionType(value: string) {
-  return VIDEO_ACTION_TYPES.includes(value as VideoActionType) ? (value as VideoActionType) : "none";
-}
-
-function videoActionPlaceholder(type: VideoActionType) {
-  if (type === "hotdeal") return "/tablet/products/deals/clearance-80/";
-  if (type === "luxury") return "/tablet/products/brands/brand-mong/";
-
-  return "";
-}
-
 export function FirebaseCmsManager({
   mode,
   defaultTab = "banners",
@@ -296,19 +301,30 @@ export function FirebaseCmsManager({
   const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
   const uploadFile = optimizedAsset?.file ?? file;
   const uploadTooLarge = Boolean(uploadFile && uploadFile.size >= 25 * 1024 * 1024);
+  const approvedProducts = useMemo(
+    () => records.products.filter(isApprovedProductRecord).sort((left, right) => productRecordTitle(left).localeCompare(productRecordTitle(right), "ko-KR")),
+    [records.products],
+  );
 
   useEffect(() => {
     if (!runtime.configured) {
       return;
     }
 
-    const unsubscribers = tabs.map((tab) =>
+    const unsubscribers = [
+      ...tabs.map((tab) =>
+        subscribeCmsRecords(
+          tab.collection,
+          (next) => setRecords((current) => ({ ...current, [tab.collection]: next })),
+          setMessage,
+        ),
+      ),
       subscribeCmsRecords(
-        tab.collection,
-        (next) => setRecords((current) => ({ ...current, [tab.collection]: next })),
+        "products",
+        (next) => setRecords((current) => ({ ...current, products: next })),
         setMessage,
       ),
-    );
+    ];
 
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -325,6 +341,16 @@ export function FirebaseCmsManager({
 
   function updateForm(key: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function selectLinkedProduct(productId: string) {
+    const product = approvedProducts.find((item) => productRecordId(item) === productId);
+
+    setForm((current) => ({
+      ...current,
+      productId,
+      link: product ? productRecordTabletPath(product) : current.link,
+    }));
   }
 
   function clearSelectedAsset() {
@@ -362,8 +388,6 @@ export function FirebaseCmsManager({
   }
 
   function editRecord(record: CmsRecord) {
-    const actionType = normalizeVideoActionType(valueOf(record, "video_action_type") || valueOf(record, "action_type"));
-
     setForm({
       id: record.id,
       title: valueOf(record, "title"),
@@ -377,9 +401,6 @@ export function FirebaseCmsManager({
       order: valueOf(record, "display_order") || emptyForm.order,
       productId: valueOf(record, "product_id"),
       themeMode: valueOf(record, "mode") || emptyForm.themeMode,
-      videoActionType: actionType,
-      videoActionTarget: valueOf(record, "video_action_target") || valueOf(record, "action_target"),
-      videoCtaText: valueOf(record, "video_cta_text") || valueOf(record, "cta_text"),
     });
     setActiveTab(activeTab);
     clearSelectedAsset();
@@ -418,16 +439,6 @@ export function FirebaseCmsManager({
         scope_id: form.target,
         source_app: mode,
       };
-
-      if (active.collection === "marketing_videos") {
-        const actionType = normalizeVideoActionType(form.videoActionType);
-        const actionTarget = actionType === "none" ? "" : form.videoActionTarget.trim();
-        const ctaText = form.videoCtaText.trim();
-
-        payload.video_action_type = actionType;
-        payload.video_action_target = actionTarget;
-        payload.video_cta_text = ctaText;
-      }
 
       await saveCmsRecord(active.collection, payload);
 
@@ -507,8 +518,8 @@ export function FirebaseCmsManager({
     <section className="my-5 rounded-md border border-slate-200 bg-white p-4 text-slate-950 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase text-slate-500">콘텐츠 업로드 센터</p>
-          <h2 className="mt-1 text-2xl font-black">폐쇄몰 배너/영상 등록</h2>
+          <p className="text-xs font-normal uppercase text-slate-500">콘텐츠 업로드 센터</p>
+          <h2 className="mt-1 text-2xl font-normal">폐쇄몰 배너/영상 등록</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
             이미지와 영상을 태블릿 폐쇄몰 노출 규격에 맞춰 자동 경량화하고, 저장 전후 미리보기까지 확인합니다.
           </p>
@@ -518,21 +529,21 @@ export function FirebaseCmsManager({
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">현재 탭</p>
-          <p className="mt-1 font-black">{active.label}</p>
+          <p className="text-xs font-normal uppercase text-slate-500">현재 탭</p>
+          <p className="mt-1 font-normal">{active.label}</p>
         </div>
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="text-xs font-bold uppercase text-slate-500">등록 항목</p>
-          <p className="mt-1 font-black">{records[active.collection].length}건</p>
+          <p className="text-xs font-normal uppercase text-slate-500">등록 항목</p>
+          <p className="mt-1 font-normal">{records[active.collection].length}건</p>
         </div>
         <div className={`rounded-md p-3 ${runtime.configured ? "bg-emerald-50" : "bg-amber-50"}`}>
-          <p className="text-xs font-bold uppercase text-slate-500">업로드</p>
-          <p className="mt-1 font-black">{runtime.configured ? "등록 가능" : "저장소 설정 필요"}</p>
+          <p className="text-xs font-normal uppercase text-slate-500">업로드</p>
+          <p className="mt-1 font-normal">{runtime.configured ? "등록 가능" : "저장소 설정 필요"}</p>
         </div>
       </div>
 
       {!runtime.configured ? (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-normal text-amber-900">
           저장소 연결값이 없어 등록/수정이 비활성화되어 있습니다: {runtime.missing.join(", ")}
         </div>
       ) : null}
@@ -543,7 +554,7 @@ export function FirebaseCmsManager({
             key={tab.id}
             type="button"
             onClick={() => switchTab(tab.id)}
-            className={`shrink-0 rounded-md px-3 py-2 text-sm font-black ${
+            className={`shrink-0 rounded-md px-3 py-2 text-sm font-normal ${
               activeTab === tab.id ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700"
             }`}
           >
@@ -557,7 +568,7 @@ export function FirebaseCmsManager({
       <div className={`mt-4 grid gap-4 ${compact ? "" : "lg:grid-cols-[0.9fr_1.1fr]"}`}>
         <form onSubmit={submitForm} className="rounded-md border border-slate-200 bg-slate-50 p-4">
           <div className="grid gap-3">
-            <label className="grid gap-1 text-sm font-bold">
+            <label className="grid gap-1 text-sm font-normal">
               제목
               <input
                 value={form.title}
@@ -567,7 +578,7 @@ export function FirebaseCmsManager({
               />
             </label>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 노출 위치
                 <input
                   value={form.placement}
@@ -575,7 +586,7 @@ export function FirebaseCmsManager({
                   className="rounded-md border border-slate-200 px-3 py-2"
                 />
               </label>
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 노출 대상
                 <input
                   value={form.target}
@@ -585,7 +596,7 @@ export function FirebaseCmsManager({
               </label>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 링크 / 미리보기 경로
                 <input
                   value={form.link}
@@ -593,7 +604,7 @@ export function FirebaseCmsManager({
                   className="rounded-md border border-slate-200 px-3 py-2"
                 />
               </label>
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 상태
                 <select
                   value={form.status}
@@ -609,7 +620,7 @@ export function FirebaseCmsManager({
               </label>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 시작
                 <input
                   type="datetime-local"
@@ -618,7 +629,7 @@ export function FirebaseCmsManager({
                   className="rounded-md border border-slate-200 px-3 py-2"
                 />
               </label>
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 종료
                 <input
                   type="datetime-local"
@@ -627,7 +638,7 @@ export function FirebaseCmsManager({
                   className="rounded-md border border-slate-200 px-3 py-2"
                 />
               </label>
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 노출 순서
                 <input
                   value={form.order}
@@ -637,7 +648,7 @@ export function FirebaseCmsManager({
               </label>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 상품 ID
                 <input
                   value={form.productId}
@@ -645,8 +656,24 @@ export function FirebaseCmsManager({
                   className="rounded-md border border-slate-200 px-3 py-2"
                   placeholder="예: product-care-kit"
                 />
+                <select
+                  value={approvedProducts.some((product) => productRecordId(product) === form.productId) ? form.productId : ""}
+                  onChange={(event) => selectLinkedProduct(event.target.value)}
+                  className="rounded-md border border-slate-200 px-3 py-2"
+                >
+                  <option value="">상품 URL 선택</option>
+                  {approvedProducts.map((product) => {
+                    const productId = productRecordId(product);
+
+                    return (
+                      <option key={product.id} value={productId}>
+                        {productRecordTitle(product)}
+                      </option>
+                    );
+                  })}
+                </select>
               </label>
-              <label className="grid gap-1 text-sm font-bold">
+              <label className="grid gap-1 text-sm font-normal">
                 테마 모드
                 <select
                   value={form.themeMode}
@@ -661,7 +688,7 @@ export function FirebaseCmsManager({
                 </select>
               </label>
             </div>
-            <label className="grid gap-1 text-sm font-bold">
+            <label className="grid gap-1 text-sm font-normal">
               본문 / JSON 메모
               <textarea
                 value={form.body}
@@ -671,42 +698,11 @@ export function FirebaseCmsManager({
               />
             </label>
             {activeTab === "videos" ? (
-              <>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1 text-sm font-bold">
-                    터치 동작
-                    <select
-                      value={form.videoActionType}
-                      onChange={(event) => updateForm("videoActionType", event.target.value)}
-                      className="rounded-md border border-slate-200 px-3 py-2"
-                    >
-                      <option value="none">해당없음</option>
-                      <option value="hotdeal">핫딜 이동</option>
-                      <option value="luxury">명품관 이동</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-bold">
-                    터치 연결 경로
-                    <input
-                      value={form.videoActionTarget}
-                      onChange={(event) => updateForm("videoActionTarget", event.target.value)}
-                      placeholder={videoActionPlaceholder(form.videoActionType)}
-                      className="rounded-md border border-slate-200 px-3 py-2"
-                    />
-                  </label>
-                </div>
-                <label className="grid gap-1 text-sm font-bold">
-                  클릭 유도 문구
-                  <input
-                    value={form.videoCtaText}
-                    onChange={(event) => updateForm("videoCtaText", event.target.value)}
-                    className="rounded-md border border-slate-200 px-3 py-2"
-                    placeholder="예: 산후조리원 전용 최대 80% 할인을 받아가세요"
-                  />
-                </label>
-              </>
+              <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm font-normal text-blue-900">
+                A5 영상은 최대 5개까지 등록하고 폐쇄몰 영상 영역에서 순서대로 송출합니다. 클릭 이동, 클릭 유도 문구, 모션 효과는 사용하지 않습니다.
+              </div>
             ) : null}
-            <label className="grid gap-1 text-sm font-bold">
+            <label className="grid gap-1 text-sm font-normal">
               이미지 / 영상 파일
               <input
                 key={fileInputKey}
@@ -717,7 +713,7 @@ export function FirebaseCmsManager({
               />
             </label>
             {optimizing ? (
-              <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm font-black text-blue-900">
+              <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm font-normal text-blue-900">
                 파일을 업로드 규격에 맞게 최적화하는 중입니다.
               </div>
             ) : null}
@@ -725,14 +721,14 @@ export function FirebaseCmsManager({
               <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase text-slate-500">업로드 전 미리보기</p>
-                    <p className="mt-1 text-sm font-bold text-slate-900">{optimizedAsset.optimized.name}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                    <p className="text-xs font-normal uppercase text-slate-500">업로드 전 미리보기</p>
+                    <p className="mt-1 text-sm font-normal text-slate-900">{optimizedAsset.optimized.name}</p>
+                    <p className="mt-1 text-xs font-normal text-slate-500">
                       {formatBytes(optimizedAsset.original.size)} → {formatBytes(optimizedAsset.optimized.size)}
                       {optimizedAsset.reductionRatio > 0 ? ` / ${optimizedAsset.reductionRatio}% 경량화` : ""}
                     </p>
                   </div>
-                  <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-800">
+                  <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-normal text-emerald-800">
                     {formatDimensions(optimizedAsset.optimized) || "규격 확인"}
                   </span>
                 </div>
@@ -742,14 +738,14 @@ export function FirebaseCmsManager({
                   <img src={optimizedAsset.previewUrl} alt="" className="aspect-video w-full rounded-md object-cover" />
                 )}
                 {optimizedAsset.notes.length ? (
-                  <div className="grid gap-1 text-xs font-semibold text-slate-600">
+                  <div className="grid gap-1 text-xs font-normal text-slate-600">
                     {optimizedAsset.notes.map((note) => (
                       <p key={note}>{note}</p>
                     ))}
                   </div>
                 ) : null}
                 {uploadTooLarge ? (
-                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-black text-rose-800">
+                  <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-normal text-rose-800">
                     업로드 가능 용량을 초과했습니다. 더 짧은 영상 또는 더 낮은 해상도 파일을 선택하세요.
                   </p>
                 ) : null}
@@ -758,7 +754,7 @@ export function FirebaseCmsManager({
             <div className="flex flex-wrap gap-2">
               <button
                 disabled={saving || optimizing || uploadTooLarge || !runtime.configured}
-                className="rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-md bg-slate-950 px-4 py-2 text-sm font-normal text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {saving ? "저장 중..." : form.id ? "수정 저장" : "등록 저장"}
               </button>
@@ -768,7 +764,7 @@ export function FirebaseCmsManager({
                   setForm(emptyForm);
                   clearSelectedAsset();
                 }}
-                className="rounded-md bg-white px-4 py-2 text-sm font-black text-slate-700 ring-1 ring-slate-200"
+                className="rounded-md bg-white px-4 py-2 text-sm font-normal text-slate-700 ring-1 ring-slate-200"
               >
                 초기화
               </button>
@@ -779,14 +775,14 @@ export function FirebaseCmsManager({
         <div className="rounded-md border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">등록 목록</p>
-              <h3 className="text-lg font-black">{cmsCollectionLabels[active.collection]}</h3>
+              <p className="text-xs font-normal uppercase text-slate-500">등록 목록</p>
+              <h3 className="text-lg font-normal">{cmsCollectionLabels[active.collection]}</h3>
             </div>
-            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-normal text-slate-600">
               {records[active.collection].length}
             </span>
           </div>
-          {message ? <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-700">{message}</p> : null}
+          {message ? <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm font-normal text-slate-700">{message}</p> : null}
           <div className="mt-3 grid gap-3">
             {records[active.collection].length === 0 ? (
               <div className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">
@@ -797,14 +793,14 @@ export function FirebaseCmsManager({
                 <article key={record.id} className="rounded-md border border-slate-200 p-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase text-slate-400">{record.id}</p>
-                      <h4 className="mt-1 font-black">{valueOf(record, "title") || "제목 없음"}</h4>
+                      <p className="text-xs font-normal uppercase text-slate-400">{record.id}</p>
+                      <h4 className="mt-1 font-normal">{valueOf(record, "title") || "제목 없음"}</h4>
                       <p className="mt-1 text-sm text-slate-600">
                         {valueOf(record, "placement") || valueOf(record, "scope_type")} /{" "}
                         {valueOf(record, "target") || valueOf(record, "scope_id")}
                       </p>
                     </div>
-                    <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-800">
+                    <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-normal text-emerald-800">
                       {cmsStatusLabels[valueOf(record, "approval_status") || valueOf(record, "status")] ?? "초안"}
                     </span>
                   </div>
@@ -816,7 +812,7 @@ export function FirebaseCmsManager({
                     )
                   ) : null}
                   {record.asset_optimized_size || record.asset_width || record.asset_height ? (
-                    <p className="mt-2 text-xs font-semibold text-slate-500">
+                    <p className="mt-2 text-xs font-normal text-slate-500">
                       {metadataString(record.asset_optimized_size) ? `용량 ${formatBytes(Number(record.asset_optimized_size))}` : ""}
                       {metadataString(record.asset_width) && metadataString(record.asset_height)
                         ? ` / ${metadataString(record.asset_width)}x${metadataString(record.asset_height)}`
@@ -827,7 +823,7 @@ export function FirebaseCmsManager({
                     <button
                       type="button"
                       onClick={() => editRecord(record)}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700"
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-normal text-slate-700"
                     >
                       수정
                     </button>
@@ -837,7 +833,7 @@ export function FirebaseCmsManager({
                         type="button"
                         onClick={() => quickStatus(record, status)}
                         disabled={!runtime.configured}
-                        className="rounded-md bg-white px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-200 disabled:opacity-50"
+                        className="rounded-md bg-white px-3 py-1.5 text-xs font-normal text-slate-600 ring-1 ring-slate-200 disabled:opacity-50"
                       >
                         {cmsStatusLabels[status]}
                       </button>

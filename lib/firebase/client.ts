@@ -29,6 +29,18 @@ const firebaseConfig = {
   measurementId: publicEnv("NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID", defaultFirebasePublicConfig.measurementId),
 };
 
+const adminFirebaseAppName = "a5-admin";
+
+function isBrowserRuntime() {
+  return typeof window !== "undefined";
+}
+
+function isNextProductionBuildRuntime() {
+  if (isBrowserRuntime()) return false;
+
+  return process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build";
+}
+
 export type FirebaseRuntimeStatus = {
   configured: boolean;
   projectId: string;
@@ -54,28 +66,54 @@ export function getFirebaseRuntimeStatus(): FirebaseRuntimeStatus {
   };
 }
 
+export function getFirebasePublicConfig() {
+  return { ...firebaseConfig };
+}
+
 export function getFirebaseApp(): FirebaseApp | null {
   if (!getFirebaseRuntimeStatus().configured) {
     return null;
   }
 
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  initializeFirebaseAppCheck(app);
+  if (isNextProductionBuildRuntime()) {
+    return null;
+  }
+
+  return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+}
+
+function getFirebaseAppWithAppCheck(): FirebaseApp | null {
+  const app = getFirebaseApp();
+
+  if (app) {
+    initializeFirebaseAppCheck(app);
+  }
+
   return app;
 }
 
 export function getFirebaseDb(): Firestore | null {
-  const app = getFirebaseApp();
+  const app = getFirebaseAppWithAppCheck();
   return app ? getFirestore(app) : null;
 }
 
 export function getFirebaseAuthClient(): Auth | null {
-  const app = getFirebaseApp();
+  const app = getFirebaseAppWithAppCheck();
   return app ? getAuth(app) : null;
 }
 
+export function getFirebaseAdminAuthClient(): Auth | null {
+  if (!getFirebaseRuntimeStatus().configured || isNextProductionBuildRuntime()) {
+    return null;
+  }
+
+  const app = getApps().find((candidate) => candidate.name === adminFirebaseAppName)
+    ?? initializeApp(firebaseConfig, adminFirebaseAppName);
+  return getAuth(app);
+}
+
 export function getFirebaseStorageClient(): FirebaseStorage | null {
-  const app = getFirebaseApp();
+  const app = getFirebaseAppWithAppCheck();
   return app ? getStorage(app, `gs://${firebaseConfig.storageBucket}`) : null;
 }
 

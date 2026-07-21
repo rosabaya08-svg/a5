@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 
 export default function Page() {
-  redirect("/admin/pg-integration");
+  redirect("/admin/pg-settings/a5mall/");
 }

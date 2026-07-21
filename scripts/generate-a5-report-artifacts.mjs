@@ -43,7 +43,7 @@ function stripInlineMarkdown(value) {
 function renderInlineHtml(value) {
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*([^*]+)\*\*/g, "<span>$1</span>")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<span class="link">$1</span>');
 }
 
@@ -232,7 +232,7 @@ function renderHtml(blocksToRender) {
       background: var(--soft);
       color: #153b39;
       text-align: left;
-      font-weight: 700;
+      font-weight: 400;
     }
     tr:nth-child(even) td { background: #fbfcfe; }
     ul, ol { margin: 8px 0 8px 22px; padding: 0; }

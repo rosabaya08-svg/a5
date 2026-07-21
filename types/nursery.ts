@@ -108,3 +108,27 @@ export type A4RoomSyncErrorResponse = {
 };
 
 export type A4RoomSyncResponse = A4RoomSyncSuccessResponse | A4RoomSyncErrorResponse;
+
+export type A4LocalRoomUpsertRoom = {
+  targetRoomId: string;
+  roomNumber: string;
+  name: string;
+  floor: string;
+  pickupEnabled: boolean;
+  activeTabletId?: string;
+  importSource: "A5_LOCAL" | "SIGNAGE_PARTNER_BUSINESS_NO";
+};
+
+export type A4LocalRoomUpsertSuccessResponse = {
+  ok: true;
+  mode: "firestore";
+  nurseryId: string;
+  businessRegistrationNo?: string;
+  room: A4LocalRoomUpsertRoom;
+  actor: string;
+  message: string;
+};
+
+export type A4LocalRoomUpsertErrorResponse = A4RoomSyncErrorResponse;
+
+export type A4LocalRoomUpsertResponse = A4LocalRoomUpsertSuccessResponse | A4LocalRoomUpsertErrorResponse;

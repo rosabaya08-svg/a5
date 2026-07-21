@@ -7,7 +7,10 @@ import {
   serverTimestamp,
   setDoc,
   where,
+  type DocumentData,
   type QueryConstraint,
+  type QueryDocumentSnapshot,
+  type QuerySnapshot,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import type {
@@ -53,12 +56,24 @@ function movementId(prefix: string, optionId: string) {
   return `${prefix}-${optionId}-${Date.now()}`;
 }
 
-function movementConstraints(filters?: InventoryMovementListFilters) {
+function movementConstraints(filters?: InventoryMovementListFilters, companyField: "company_id" | "companyId" = "company_id") {
   const constraints: QueryConstraint[] = [];
-  if (filters?.companyId) constraints.push(where("company_id", "==", filters.companyId));
+  if (filters?.companyId) {
+    constraints.push(where(companyField, "==", filters.companyId));
+  }
   if (filters?.productId) constraints.push(where("product_id", "==", filters.productId));
   if (filters?.optionId) constraints.push(where("option_id", "==", filters.optionId));
   return constraints;
+}
+
+function uniqueDocuments(documents: QueryDocumentSnapshot<DocumentData>[]) {
+  return [...new Map(documents.map((document) => [document.id, document])).values()];
+}
+
+function successfulSnapshots(results: PromiseSettledResult<QuerySnapshot<DocumentData>>[]) {
+  return results
+    .filter((result): result is PromiseFulfilledResult<QuerySnapshot<DocumentData>> => result.status === "fulfilled")
+    .map((result) => result.value);
 }
 
 function mapMovement(documentId: string, data: Record<string, unknown>): InventoryMovement {
@@ -92,6 +107,7 @@ async function createMovement(movement: Omit<InventoryMovement, "id">, idPrefix:
       option_id: payload.optionId,
       product_id: payload.productId,
       company_id: payload.companyId,
+      companyId: payload.companyId,
       source_id: payload.sourceId,
       created_by: payload.createdBy,
       guest_write_enabled: true,
@@ -115,8 +131,21 @@ export const firebaseInventoryRepository: InventoryRepository = {
     }
 
     try {
-      const snapshot = await getDocs(query(collection(db, movementsCollection), ...movementConstraints(filters)));
-      return repositoryOk(snapshot.docs.map((item) => mapMovement(item.id, item.data())));
+      const movementRef = collection(db, movementsCollection);
+      const snapshots = filters?.companyId
+        ? successfulSnapshots(
+            await Promise.allSettled([
+              getDocs(query(movementRef, ...movementConstraints(filters, "company_id"))),
+              getDocs(query(movementRef, ...movementConstraints(filters, "companyId"))),
+            ]),
+          )
+        : [await getDocs(query(movementRef, ...movementConstraints(filters)))];
+
+      if (!snapshots.length) {
+        throw new Error("No Firestore inventory company scope query succeeded.");
+      }
+
+      return repositoryOk(uniqueDocuments(snapshots.flatMap((snapshot) => snapshot.docs)).map((item) => mapMovement(item.id, item.data())));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Firestore inventory movement read error.";
       return repositoryError("EXTERNAL_BLOCKED", `Firestore inventory movements read failed. ${message}`);

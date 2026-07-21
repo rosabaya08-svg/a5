@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  clearPortalSession,
   portalHomePaths,
   portalLoginPaths,
   readPortalSession,
+  syncPortalSessionCookie,
   type PortalRole,
   type PortalSession,
 } from "@/lib/auth/session";
+import { ensureCompanyFirebaseAuthFromSession } from "@/lib/auth/companyFirebaseAuth";
 
 type RoleGuardProps = {
   role: PortalRole;
@@ -40,16 +43,36 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const session = readPortalSession(role);
-      const ok = isValidSession(role, session);
-      setAllowed(ok);
-      setReady(true);
+      void (async () => {
+        const session = readPortalSession(role);
+        const sessionIsValid = isValidSession(role, session);
+        let ok = sessionIsValid;
 
-      if (!ok) {
-        const next = window.location.pathname + window.location.search;
-        const target = `${loginPath}?next=${encodeURIComponent(next || portalHomePaths[role])}`;
-        window.location.replace(target);
-      }
+        if (role === "company" && sessionIsValid) {
+          try {
+            await ensureCompanyFirebaseAuthFromSession();
+          } catch {
+            ok = false;
+            clearPortalSession("company");
+          }
+        } else if (role === "company" && !sessionIsValid) {
+          clearPortalSession("company");
+        }
+
+        setAllowed(ok);
+        setReady(true);
+
+        if (ok && session) {
+          syncPortalSessionCookie(role, session);
+        }
+
+        if (!ok) {
+          const next = window.location.pathname + window.location.search;
+          const reason = role === "company" && sessionIsValid ? "&reason=firebase-auth-mismatch" : "";
+          const target = `${loginPath}?next=${encodeURIComponent(next || portalHomePaths[role])}${reason}`;
+          window.location.replace(target);
+        }
+      })();
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -59,8 +82,8 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
         <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
-          <p className="text-sm font-bold text-slate-500">{label} 확인 중</p>
-          <h1 className="mt-2 text-2xl font-black">로그인이 필요합니다</h1>
+          <p className="text-sm font-normal text-slate-500">{label} 확인 중</p>
+          <h1 className="mt-2 text-2xl font-normal">로그인이 필요합니다</h1>
         </section>
       </main>
     );

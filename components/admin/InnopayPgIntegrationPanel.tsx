@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { mockCompanies } from "@/data/mockCompanies";
 import { getFirebaseAuthClient } from "@/lib/firebase/client";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { maskMerchantId } from "@/lib/payments/infinySettlementPolicy";
+import type { Company } from "@/types/commerce";
 
 type SaveState = {
   status: "idle" | "saving" | "saved" | "error";
@@ -42,6 +42,8 @@ type CredentialInput = {
 const storageKey = "a5.admin.innopay-rest-pg-integration";
 
 const endpointRows = [
+  ["Return Trace", "POST", "paymentsReturnTrace", "masked PG return params"],
+  ["로그 모니터", "GET", "paymentsLogMonitor", "운영자 해석 로그"],
   ["결제창/웹뷰", "JS", "https://pg.innopay.co.kr/tpay/js/v1/innopay.js → innopay.goPay", "Return URL"],
   ["SMS 카드결제", "POST", "/api/smsPayApi", "0000"],
   ["통합 취소", "POST", "/api/cancelApi", "2001"],
@@ -72,13 +74,13 @@ function defaultRuntime(): RuntimeConfig {
     scriptUrl: "https://pg.innopay.co.kr/tpay/js/v1/innopay.js",
     globalName: "innopay",
     requestFunctionName: "goPay",
-    successUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=success&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
-    failUrl: "https://a5-closed-mall.pages.dev/q/live?code={shortCode}&paymentResult=failed&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
+    successUrl: "https://a5-closed-mall.pages.dev/q/live/?code={shortCode}&paymentResult=success&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
+    failUrl: "https://a5-closed-mall.pages.dev/q/live/?code={shortCode}&paymentResult=failed&orderNo={orderNo}&paymentIntentId={paymentIntentId}",
   };
 }
 
-function defaultCredentials(): CredentialInput[] {
-  return mockCompanies.map((company) => ({
+function defaultCredentials(companies: Company[]): CredentialInput[] {
+  return companies.map((company) => ({
     companyId: company.id,
     companyName: company.name,
     mid: company.pgProfile?.merchantId ?? "",
@@ -92,8 +94,20 @@ function defaultCredentials(): CredentialInput[] {
   }));
 }
 
-function readInitialState(): { runtime: RuntimeConfig; credentials: CredentialInput[] } {
-  const fallback = { runtime: defaultRuntime(), credentials: defaultCredentials() };
+function mergeCredentials(defaultRows: CredentialInput[], savedRows: CredentialInput[]) {
+  const nextRows = new Map(defaultRows.map((row) => [row.companyId, row]));
+
+  for (const row of savedRows) {
+    const current = nextRows.get(row.companyId);
+    nextRows.set(row.companyId, current ? { ...current, ...row, companyName: current.companyName } : row);
+  }
+
+  return [...nextRows.values()];
+}
+
+function readInitialState(companies: Company[]): { runtime: RuntimeConfig; credentials: CredentialInput[] } {
+  const defaultRows = defaultCredentials(companies);
+  const fallback = { runtime: defaultRuntime(), credentials: defaultRows };
   if (typeof window === "undefined") return fallback;
 
   try {
@@ -102,7 +116,7 @@ function readInitialState(): { runtime: RuntimeConfig; credentials: CredentialIn
     const parsed = JSON.parse(raw) as Partial<{ runtime: RuntimeConfig; credentials: CredentialInput[] }>;
     return {
       runtime: { ...fallback.runtime, ...parsed.runtime },
-      credentials: parsed.credentials?.length ? parsed.credentials.map((row) => ({ ...defaultCredentials()[0], ...row })) : fallback.credentials,
+      credentials: parsed.credentials?.length ? mergeCredentials(defaultRows, parsed.credentials) : fallback.credentials,
     };
   } catch {
     return fallback;
@@ -110,7 +124,7 @@ function readInitialState(): { runtime: RuntimeConfig; credentials: CredentialIn
 }
 
 function inputClass() {
-  return "h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950 outline-none focus:border-blue-600";
+  return "h-11 rounded-md border border-slate-200 px-3 text-sm font-normal text-slate-950 outline-none focus:border-blue-600";
 }
 
 function passwordClass(value: string) {
@@ -178,11 +192,11 @@ function Badge({ tone, children }: { tone: "blue" | "green" | "red" | "amber" | 
     slate: "bg-slate-100 text-slate-700",
   };
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-black ${tones[tone]}`}>{children}</span>;
+  return <span className={`rounded-full px-3 py-1 text-xs font-normal ${tones[tone]}`}>{children}</span>;
 }
 
-export function InnopayPgIntegrationPanel() {
-  const initial = useMemo(() => readInitialState(), []);
+export function InnopayPgIntegrationPanel({ companies }: { companies: Company[] }) {
+  const initial = useMemo(() => readInitialState(companies), [companies]);
   const [runtime, setRuntime] = useState<RuntimeConfig>(initial.runtime);
   const [credentials, setCredentials] = useState<CredentialInput[]>(initial.credentials);
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle", message: "" });
@@ -271,8 +285,8 @@ export function InnopayPgIntegrationPanel() {
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-700">innopay rest api</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">인피니 PG 연동 운영 대시보드</h2>
+              <p className="text-xs font-normal tracking-[0.16em] text-blue-700">인피니 REST API</p>
+              <h2 className="mt-1 text-2xl font-normal text-slate-950">인피니 PG 연동 운영 대시보드</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 A5는 인피니 결제창 웹뷰와 문서로 확인된 REST API만 호출합니다. 고객 결제는 `innopay.goPay()`, 승인 확정은
                 인피니 거래조회로 검증합니다.
@@ -289,14 +303,14 @@ export function InnopayPgIntegrationPanel() {
               ["취소 준비", `${metrics.cancelReady}개`],
             ].map(([label, value]) => (
               <div key={label} className="rounded-md bg-slate-50 p-3">
-                <p className="text-xs font-black text-slate-500">{label}</p>
-                <p className="mt-1 text-xl font-black text-slate-950">{value}</p>
+                <p className="text-xs font-normal text-slate-500">{label}</p>
+                <p className="mt-1 text-xl font-normal text-slate-950">{value}</p>
               </div>
             ))}
           </div>
 
           <div className="mt-5">
-            <div className="flex items-center justify-between text-xs font-black text-slate-600">
+            <div className="flex items-center justify-between text-xs font-normal text-slate-600">
               <span>연동 준비율</span>
               <span>{metrics.progress}%</span>
             </div>
@@ -307,8 +321,8 @@ export function InnopayPgIntegrationPanel() {
         </div>
 
         <div className="rounded-md border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-300">call flow</p>
-          <h3 className="mt-1 text-xl font-black">A5 결제 확정 흐름</h3>
+          <p className="text-xs font-normal tracking-[0.16em] text-blue-300">호출 흐름</p>
+          <h3 className="mt-1 text-xl font-normal">A5 결제 확정 흐름</h3>
           <div className="mt-4 grid gap-2 text-sm">
             {[
               "1. paymentsReady: QR, 금액, 재고, 회사 MID 검증",
@@ -317,7 +331,7 @@ export function InnopayPgIntegrationPanel() {
               "4. 승인 확인 후 paymentsConfirm으로 주문/재고 확정",
               "5. 보조 기능: SMS /api/smsPayApi, 취소 /api/cancelApi, Noti 0000",
             ].map((item) => (
-              <p key={item} className="rounded-md bg-white/10 p-3 font-bold">{item}</p>
+              <p key={item} className="rounded-md bg-white/10 p-3 font-normal">{item}</p>
             ))}
           </div>
         </div>
@@ -326,19 +340,19 @@ export function InnopayPgIntegrationPanel() {
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-slate-950">인피니 API 런타임 설정</h3>
+            <h3 className="text-lg font-normal text-slate-950">인피니 API 런타임 설정</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">운영 전에는 실호출 잠금을 유지하고, 테스트 MID로 SMS 결제요청과 거래조회를 먼저 확인합니다.</p>
           </div>
           <Badge tone="blue">문서 API 고정</Badge>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+          <label className="grid gap-1 text-sm font-normal text-slate-700 lg:col-span-2">
             INNOPAY_API_BASE_URL
             <input value={runtime.apiBaseUrl} onChange={(event) => updateRuntime({ apiBaseUrl: event.target.value })} className={inputClass()} />
           </label>
 
-          <label className="grid gap-1 text-sm font-black text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             결제 모드
             <select value={runtime.paymentMode} onChange={(event) => updateRuntime({ paymentMode: event.target.value as RuntimeConfig["paymentMode"] })} className={inputClass()}>
               <option value="webview">결제창/웹뷰 우선</option>
@@ -349,7 +363,7 @@ export function InnopayPgIntegrationPanel() {
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm font-black text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             SMS 서비스구분
             <select value={runtime.smsSvcPrdtCd} onChange={(event) => updateRuntime({ smsSvcPrdtCd: event.target.value as RuntimeConfig["smsSvcPrdtCd"] })} className={inputClass()}>
               <option value="03">03 SMS 카드결제</option>
@@ -357,42 +371,42 @@ export function InnopayPgIntegrationPanel() {
             </select>
           </label>
 
-          <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm font-black text-slate-800">
+          <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm font-normal text-slate-800">
             <input type="checkbox" checked={runtime.smsEnabled} onChange={(event) => updateRuntime({ smsEnabled: event.target.checked })} />
             SMS API 사용
           </label>
-          <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm font-black text-slate-800">
+          <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm font-normal text-slate-800">
             <input type="checkbox" checked={runtime.vbankEnabled} onChange={(event) => updateRuntime({ vbankEnabled: event.target.checked })} />
             가상계좌 API 사용
           </label>
-          <label className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm font-black text-red-800">
+          <label className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm font-normal text-red-800">
             <input type="checkbox" checked={runtime.realCallsEnabled} onChange={(event) => updateRuntime({ realCallsEnabled: event.target.checked })} />
             실 PG 호출 허용
           </label>
-          <label className="grid gap-1 text-sm font-black text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             가상계좌 Noti URL
             <input value={runtime.vbankNotiUrl} onChange={(event) => updateRuntime({ vbankNotiUrl: event.target.value })} className={inputClass()} />
           </label>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+          <label className="grid gap-1 text-sm font-normal text-slate-700 lg:col-span-2">
             INNOPAY_CHECKOUT_SCRIPT_URL
             <input value={runtime.scriptUrl} onChange={(event) => updateRuntime({ scriptUrl: event.target.value })} className={inputClass()} />
           </label>
-          <label className="grid gap-1 text-sm font-black text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             globalName
             <input value={runtime.globalName} onChange={(event) => updateRuntime({ globalName: event.target.value })} className={inputClass()} />
           </label>
-          <label className="grid gap-1 text-sm font-black text-slate-700">
+          <label className="grid gap-1 text-sm font-normal text-slate-700">
             request function
             <input value={runtime.requestFunctionName} onChange={(event) => updateRuntime({ requestFunctionName: event.target.value })} className={inputClass()} />
           </label>
-          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+          <label className="grid gap-1 text-sm font-normal text-slate-700 lg:col-span-2">
             Success Return URL
             <input value={runtime.successUrl} onChange={(event) => updateRuntime({ successUrl: event.target.value })} className={inputClass()} />
           </label>
-          <label className="grid gap-1 text-sm font-black text-slate-700 lg:col-span-2">
+          <label className="grid gap-1 text-sm font-normal text-slate-700 lg:col-span-2">
             Fail Return URL
             <input value={runtime.failUrl} onChange={(event) => updateRuntime({ failUrl: event.target.value })} className={inputClass()} />
           </label>
@@ -400,13 +414,13 @@ export function InnopayPgIntegrationPanel() {
       </section>
 
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-black text-slate-950">문서 기준 엔드포인트 매핑</h3>
+        <h3 className="text-lg font-normal text-slate-950">문서 기준 엔드포인트 매핑</h3>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-black text-slate-500">
+            <thead className="bg-slate-50 text-xs font-normal text-slate-500">
               <tr>
                 <th className="px-3 py-3">기능</th>
-                <th className="px-3 py-3">Method</th>
+                <th className="px-3 py-3">방식</th>
                 <th className="px-3 py-3">A5가 호출하는 경로</th>
                 <th className="px-3 py-3">성공 기준</th>
               </tr>
@@ -414,10 +428,10 @@ export function InnopayPgIntegrationPanel() {
             <tbody className="divide-y divide-slate-100">
               {endpointRows.map(([label, method, path, success]) => (
                 <tr key={label}>
-                  <td className="px-3 py-3 font-black text-slate-950">{label}</td>
-                  <td className="px-3 py-3 font-bold text-blue-700">{method}</td>
-                  <td className="px-3 py-3 font-mono text-xs font-bold text-slate-700">{path}</td>
-                  <td className="px-3 py-3 font-bold text-slate-700">{success}</td>
+                  <td className="px-3 py-3 font-normal text-slate-950">{label}</td>
+                  <td className="px-3 py-3 font-normal text-blue-700">{method}</td>
+                  <td className="px-3 py-3 font-mono text-xs font-normal text-slate-700">{path}</td>
+                  <td className="px-3 py-3 font-normal text-slate-700">{success}</td>
                 </tr>
               ))}
             </tbody>
@@ -428,7 +442,7 @@ export function InnopayPgIntegrationPanel() {
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-slate-950">기업별 MID / 키값 입력</h3>
+            <h3 className="text-lg font-normal text-slate-950">기업별 MID / 키값 입력</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               입력한 원문 키는 저장 요청 시 Functions에서 암호화됩니다. 화면에는 저장 여부만 남기고, Firestore 평문 저장은 하지 않습니다.
             </p>
@@ -442,9 +456,9 @@ export function InnopayPgIntegrationPanel() {
             return (
               <div key={row.companyId} className="grid gap-3 rounded-md border border-slate-200 p-3 xl:grid-cols-[1.1fr_1fr_1fr_1fr_1fr]">
                 <div>
-                  <p className="text-xs font-black text-slate-500">입점사</p>
-                  <p className="mt-1 font-black text-slate-950">{row.companyName}</p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">{row.companyId}</p>
+                  <p className="text-xs font-normal text-slate-500">입점사</p>
+                  <p className="mt-1 font-normal text-slate-950">{row.companyName}</p>
+                  <p className="mt-1 text-xs font-normal text-slate-500">{row.companyId}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     <Badge tone={ready.webviewReady ? "green" : "amber"}>웹뷰 {ready.webviewReady ? "가능" : "대기"}</Badge>
                     <Badge tone={ready.smsReady ? "green" : "amber"}>SMS {ready.smsReady ? "가능" : "대기"}</Badge>
@@ -452,36 +466,36 @@ export function InnopayPgIntegrationPanel() {
                   </div>
                 </div>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   MID
-                  <input value={row.mid} onChange={(event) => updateCredential(row.companyId, { mid: event.target.value })} className={inputClass()} placeholder="testpay02m / 운영 MID" />
-                  <span className="font-bold text-slate-400">{maskMerchantId(row.mid || undefined)}</span>
+                  <input value={row.mid} onChange={(event) => updateCredential(row.companyId, { mid: event.target.value })} className={inputClass()} placeholder="testpay01m / 운영 MID" />
+                  <span className="font-normal text-slate-400">{maskMerchantId(row.mid || undefined)}</span>
                 </label>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   Merchant-Key
                   <input type="password" value={row.merchantKey} onChange={(event) => updateCredential(row.companyId, { merchantKey: event.target.value })} className={passwordClass(row.merchantKey)} autoComplete="new-password" />
-                  <span className="font-bold text-slate-400">거래조회: {maskSecret(row.merchantKey)}</span>
+                  <span className="font-normal text-slate-400">거래조회: {maskSecret(row.merchantKey)}</span>
                 </label>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   licenseKey
                   <input type="password" value={row.licenseKey} onChange={(event) => updateCredential(row.companyId, { licenseKey: event.target.value })} className={passwordClass(row.licenseKey)} autoComplete="new-password" />
-                  <span className="font-bold text-slate-400">가상계좌: {maskSecret(row.licenseKey)}</span>
+                  <span className="font-normal text-slate-400">가상계좌: {maskSecret(row.licenseKey)}</span>
                 </label>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   cancelPwd
                   <input type="password" value={row.cancelPwd} onChange={(event) => updateCredential(row.companyId, { cancelPwd: event.target.value })} className={passwordClass(row.cancelPwd)} autoComplete="new-password" />
-                  <span className="font-bold text-slate-400">취소 API: {maskSecret(row.cancelPwd)}</span>
+                  <span className="font-normal text-slate-400">취소 API: {maskSecret(row.cancelPwd)}</span>
                 </label>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   webhook secret
                   <input type="password" value={row.webhookSecret} onChange={(event) => updateCredential(row.companyId, { webhookSecret: event.target.value })} className={passwordClass(row.webhookSecret)} autoComplete="new-password" />
                 </label>
 
-                <label className="grid gap-1 text-xs font-black text-slate-500">
+                <label className="grid gap-1 text-xs font-normal text-slate-500">
                   발급 상태
                   <select value={row.status} onChange={(event) => updateCredential(row.companyId, { status: event.target.value as CredentialInput["status"] })} className={inputClass()}>
                     {Object.entries(statusLabels).map(([value, label]) => (
@@ -490,18 +504,18 @@ export function InnopayPgIntegrationPanel() {
                   </select>
                 </label>
 
-                <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-xs font-black text-slate-700">
+                <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-xs font-normal text-slate-700">
                   <input type="checkbox" checked={row.smsCard} onChange={(event) => updateCredential(row.companyId, { smsCard: event.target.checked })} />
                   SMS 카드결제 허용
                 </label>
 
-                <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-xs font-black text-slate-700">
+                <label className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-xs font-normal text-slate-700">
                   <input type="checkbox" checked={row.vbank} onChange={(event) => updateCredential(row.companyId, { vbank: event.target.checked })} />
                   가상계좌 허용
                 </label>
 
-                <div className="rounded-md bg-slate-50 p-3 text-xs font-bold text-slate-600">
-                  <p className="font-black text-slate-950">운영 판정</p>
+                <div className="rounded-md bg-slate-50 p-3 text-xs font-normal text-slate-600">
+                  <p className="font-normal text-slate-950">운영 판정</p>
                   <p className="mt-1">{ready.fullyReady ? "실결제 전환 후보" : "필수값 대기"}</p>
                   <p className="mt-1">상태: {statusLabels[row.status]}</p>
                 </div>
@@ -511,10 +525,10 @@ export function InnopayPgIntegrationPanel() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <p className={`text-sm font-black ${saveState.status === "error" ? "text-red-700" : saveState.status === "saved" ? "text-emerald-700" : "text-slate-600"}`}>
+          <p className={`text-sm font-normal ${saveState.status === "error" ? "text-red-700" : saveState.status === "saved" ? "text-emerald-700" : "text-slate-600"}`}>
             {saveState.message || "저장 전에는 실호출 잠금을 유지하세요. 운영 MID로 전환할 때만 실 PG 호출을 허용합니다."}
           </p>
-          <button type="button" onClick={saveIntegration} disabled={saveState.status === "saving"} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:opacity-50">
+          <button type="button" onClick={saveIntegration} disabled={saveState.status === "saving"} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-normal text-white disabled:opacity-50">
             {saveState.status === "saving" ? "저장 중" : "PG 연동값 저장"}
           </button>
         </div>

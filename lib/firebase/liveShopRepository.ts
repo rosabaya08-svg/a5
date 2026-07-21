@@ -88,6 +88,11 @@ function asCartItems(value: unknown): CartItemSnapshot[] {
         unitPrice: asNumber(data.unitPrice ?? data.unit_price),
         quantity: asNumber(data.quantity),
         companyId: asString(data.companyId ?? data.company_id),
+        sellerCompanyId: asString(data.sellerCompanyId ?? data.seller_company_id ?? data.pg_owner_company_id) || undefined,
+        sellerBusinessNo: asString(data.sellerBusinessNo ?? data.seller_business_no ?? data.business_registration_number ?? data.company_business_no) || undefined,
+        sellerBusinessNoNormalized:
+          asString(data.sellerBusinessNoNormalized ?? data.seller_business_no_normalized ?? data.business_registration_number_normalized ?? data.company_business_no_normalized) || undefined,
+        sellerCompanyName: asString(data.sellerCompanyName ?? data.seller_company_name ?? data.company_name) || undefined,
       };
     })
     .filter((item) => item.productId && item.productName && item.quantity > 0);
@@ -272,7 +277,7 @@ function normalizePayload(collectionName: LiveShopCollection, id: string, data: 
       customer_order_share_enabled: data.customer_order_share_enabled ?? true,
       notification_payload: data.notification_payload,
       guest_lookup_enabled: true,
-      payment_status: data.payment_status ?? "approved_mock",
+      payment_status: data.payment_status ?? data.status ?? "paid",
     };
   }
 

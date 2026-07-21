@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  readLocalCompanySignupRequests,
   reviewCompanySignupRequest,
   subscribeCompanySignupRequests,
   type CompanySignupRequestPayload,
@@ -53,6 +54,9 @@ function requestSummaryForInfiny(request: CompanySignupRequestPayload) {
     ["상호", request.companyName],
     ["사업자등록번호", request.businessRegistrationNumber],
     ["대표자", request.representativeName || "-"],
+    ["대표 생년월일", request.representativeBirthDate || "-"],
+    ["내외국인", request.representativeNationality === "foreign" ? "외국인" : request.representativeNationality === "domestic" ? "내국인" : "-"],
+    ["성별", request.representativeGender === "female" ? "여자" : request.representativeGender === "male" ? "남자" : "-"],
     ["담당자", `${request.managerName} / ${request.managerPhone}`],
     ["이메일", request.managerEmail],
     ["통신판매업", request.commerceLicenseNo || "-"],
@@ -68,12 +72,18 @@ export function CompanySignupRequestsPanel() {
 
   useEffect(() => {
     const mergeRequests = (remoteRequests: CompanySignupRequestPayload[]) => {
-      setRequests(remoteRequests);
+      const localById = new Map(readLocalCompanySignupRequests().map((request) => [request.id, request]));
+      const remoteById = new Map(remoteRequests.map((request) => [request.id, request]));
+      const merged = [...remoteById.values(), ...localById.values().filter((request) => !remoteById.has(request.id))];
+
+      setRequests(merged);
       setDrafts((current) => ({
-        ...Object.fromEntries(remoteRequests.map((request) => [request.id, draftFor(request)])),
+        ...Object.fromEntries(merged.map((request) => [request.id, draftFor(request)])),
         ...current,
       }));
     };
+
+    mergeRequests([]);
 
     const unsubscribe = subscribeCompanySignupRequests(
       (remoteRequests) => {
@@ -131,17 +141,14 @@ export function CompanySignupRequestsPanel() {
   async function approveWithMid(request: CompanySignupRequestPayload) {
     const draft = drafts[request.id] ?? draftFor(request);
 
-    if (!draft.merchantId.trim() || !draft.moduleKey.trim()) {
-      updateDraft(request.id, { result: "기업별 인피니 MID와 결제 모듈 키를 입력해야 승인할 수 있습니다." });
-      return;
-    }
-
     const nextDraft = {
       ...draft,
       transferStatus: "approved" as const,
-      merchantStatus: draft.merchantStatus === "active" ? draft.merchantStatus : "mid_issued" as PgMerchantStatus,
+      merchantStatus: draft.merchantId.trim() && draft.moduleKey.trim()
+        ? (draft.merchantStatus === "active" ? draft.merchantStatus : "mid_issued")
+        : "not_applied" as PgMerchantStatus,
     };
-    updateDraft(request.id, { ...nextDraft, result: "서버에서 기업 승인과 MID 저장을 처리하는 중입니다." });
+    updateDraft(request.id, { ...nextDraft, result: "서버에서 상품등록 권한 승인 상태를 처리하는 중입니다." });
 
     try {
       await reviewCompanySignupRequest({
@@ -153,7 +160,7 @@ export function CompanySignupRequestsPanel() {
         merchantStatus: nextDraft.merchantStatus,
         reviewMemo: nextDraft.memo,
       });
-      updateDraft(request.id, { ...nextDraft, result: "기업 승인, MID 저장, 권한 준비, 감사 로그 기록을 완료했습니다." });
+      updateDraft(request.id, { ...nextDraft, result: "기업 상품등록 권한 승인, 계정 상태, 감사 로그 기록을 완료했습니다." });
     } catch (error) {
       updateDraft(request.id, { ...nextDraft, result: error instanceof Error ? error.message : "기업 승인 처리에 실패했습니다." });
     }
@@ -163,20 +170,20 @@ export function CompanySignupRequestsPanel() {
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-700">signup requests</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">회원가입 승인대기 / 인피니 MID 입력</h2>
+          <p className="text-xs font-normal tracking-[0.12em] text-blue-700">가입 요청</p>
+          <h2 className="mt-1 text-lg font-normal text-slate-950">기업 가입 목록 / 상품등록 권한 승인</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            기업이 제출한 가입 정보를 인피니에 전달하고, 인피니가 기업별로 발급한 MID와 결제 모듈 키만 이 목록에서 입력합니다.
-            기업 어드민은 입력 권한 없이 상태와 마스킹된 MID만 확인합니다.
+            기업 회원가입은 자동 생성되며, 최고관리자는 상품등록 권한 승인과 인피니 MID 입력을 이 목록에서 처리합니다.
+            MID는 발급된 뒤 선택 입력할 수 있고, 승인 전 기업은 로그인만 가능하도록 상태를 분리합니다.
           </p>
-          <p className="mt-2 text-xs font-bold text-slate-500">{sourceMessage}</p>
+          <p className="mt-2 text-xs font-normal text-slate-500">{sourceMessage}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{pendingCount}건 대기</span>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-normal text-slate-700">{pendingCount}건 대기</span>
       </div>
 
       <div className="mt-4 grid gap-3">
         {requests.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-sm font-bold text-slate-500">
+          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-sm font-normal text-slate-500">
             접수된 기업 회원가입 요청이 없습니다.
           </div>
         ) : null}
@@ -189,28 +196,28 @@ export function CompanySignupRequestsPanel() {
               <div className="grid gap-3 lg:grid-cols-[1fr_1.15fr]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-black text-slate-950">{request.companyName}</h3>
-                    <span className="rounded-full bg-white px-2 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">{request.status}</span>
+                    <h3 className="font-normal text-slate-950">{request.companyName}</h3>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-normal text-slate-600 ring-1 ring-slate-200">{request.status}</span>
                   </div>
-                  <p className="mt-1 text-sm font-bold text-slate-600">{request.businessRegistrationNumber}</p>
+                  <p className="mt-1 text-sm font-normal text-slate-600">{request.businessRegistrationNumber}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     {request.managerName} / {request.managerPhone} / {request.managerEmail}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-slate-500">서류: {request.documentNames.join(", ") || "제출 파일명 없음"}</p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">
+                  <p className="mt-2 text-xs font-normal text-slate-500">서류: {request.documentNames.join(", ") || "제출 파일명 없음"}</p>
+                  <p className="mt-1 text-xs font-normal text-slate-500">
                     Gmail: {request.gmailDeliveryStatus === "queued" ? "발송 큐 등록" : "미등록"} / 업로드 ID:{" "}
                     {request.documentUploadIds?.join(", ") || "-"}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-slate-500">승인 companyId: {companyId}</p>
+                  <p className="mt-2 text-xs font-normal text-slate-500">승인 companyId: {companyId}</p>
                 </div>
 
                 <div className="rounded-md bg-white p-3 ring-1 ring-slate-200">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">인피니 전달 정보</p>
+                  <p className="text-xs font-normal uppercase tracking-[0.12em] text-slate-500">인피니 전달 정보</p>
                   <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
                     {requestSummaryForInfiny(request).map(([label, value]) => (
                       <div key={label} className="rounded-md bg-slate-50 p-2">
-                        <p className="font-black text-slate-500">{label}</p>
-                        <p className="mt-1 break-words font-bold text-slate-950">{value}</p>
+                        <p className="font-normal text-slate-500">{label}</p>
+                        <p className="mt-1 break-words font-normal text-slate-950">{value}</p>
                       </div>
                     ))}
                   </div>
@@ -218,31 +225,31 @@ export function CompanySignupRequestsPanel() {
               </div>
 
               <div className="grid gap-3 rounded-md border border-blue-100 bg-blue-50 p-3 lg:grid-cols-[1fr_1fr_220px_1fr]">
-                <label className="grid gap-1 text-xs font-black text-slate-600">
+                <label className="grid gap-1 text-xs font-normal text-slate-600">
                   인피니 MID
                   <input
                     value={draft.merchantId}
                     onChange={(event) => updateDraft(request.id, { merchantId: event.target.value })}
-                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-normal text-slate-950"
                     placeholder="기업별 MID"
                   />
-                  <span className="font-bold text-slate-500">{maskMerchantId(draft.merchantId || undefined)}</span>
+                  <span className="font-normal text-slate-500">{maskMerchantId(draft.merchantId || undefined)}</span>
                 </label>
-                <label className="grid gap-1 text-xs font-black text-slate-600">
+                <label className="grid gap-1 text-xs font-normal text-slate-600">
                   결제 모듈 키
                   <input
                     value={draft.moduleKey}
                     onChange={(event) => updateDraft(request.id, { moduleKey: event.target.value })}
-                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-normal text-slate-950"
                     placeholder="인피니가 기업별로 발급한 키"
                   />
                 </label>
-                <label className="grid gap-1 text-xs font-black text-slate-600">
+                <label className="grid gap-1 text-xs font-normal text-slate-600">
                   MID 상태
                   <select
                     value={draft.merchantStatus}
                     onChange={(event) => updateDraft(request.id, { merchantStatus: event.target.value as PgMerchantStatus })}
-                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-normal text-slate-950"
                   >
                     {Object.entries(merchantStatusLabels).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -251,12 +258,12 @@ export function CompanySignupRequestsPanel() {
                     ))}
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-black text-slate-600">
+                <label className="grid gap-1 text-xs font-normal text-slate-600">
                   인피니 전달 상태
                   <select
                     value={draft.transferStatus}
                     onChange={(event) => updateDraft(request.id, { transferStatus: event.target.value as PgReviewDraft["transferStatus"] })}
-                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-950"
+                    className="h-11 rounded-md border border-slate-200 px-3 text-sm font-normal text-slate-950"
                   >
                     {Object.entries(transferStatusLabels).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -265,26 +272,26 @@ export function CompanySignupRequestsPanel() {
                     ))}
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-black text-slate-600 lg:col-span-4">
+                <label className="grid gap-1 text-xs font-normal text-slate-600 lg:col-span-4">
                   심사 메모
                   <textarea
                     value={draft.memo}
                     onChange={(event) => updateDraft(request.id, { memo: event.target.value })}
-                    className="min-h-20 rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-950"
+                    className="min-h-20 rounded-md border border-slate-200 px-3 py-2 text-sm font-normal text-slate-950"
                     placeholder="인피니 전달/승인/반려 메모"
                   />
                 </label>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs font-black text-slate-600">
+                <p className="text-xs font-normal text-slate-600">
                   {draft.result || "인피니 승인 후 기업별 MID와 결제 모듈 키를 입력해야 해당 기업 상품 결제가 열립니다."}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => markSent(request)} className="rounded-md border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-800">
+                  <button type="button" onClick={() => markSent(request)} className="rounded-md border border-slate-200 bg-white px-4 py-3 text-xs font-normal text-slate-800">
                     인피니 전달 완료
                   </button>
-                  <button type="button" onClick={() => approveWithMid(request)} className="rounded-md bg-slate-950 px-4 py-3 text-xs font-black text-white">
+                  <button type="button" onClick={() => approveWithMid(request)} className="rounded-md bg-slate-950 px-4 py-3 text-xs font-normal text-white">
                     기업 승인 + MID 저장
                   </button>
                 </div>

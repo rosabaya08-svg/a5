@@ -1,6 +1,6 @@
-export type PaymentProviderCandidate = "mock" | "infiny" | "toss" | "portone" | "kcp" | "nice" | "unknown";
+export type PaymentProviderCandidate = "mock" | "payup" | "infiny" | "toss" | "portone" | "kcp" | "nice" | "unknown";
 
-export type PaymentProviderId = "mock" | "pg_skeleton" | "infiny" | "toss" | "portone" | "kcp" | "nice";
+export type PaymentProviderId = "mock" | "pg_skeleton" | "payup" | "infiny" | "toss" | "portone" | "kcp" | "nice";
 
 export type PaymentEnvironment = "test" | "production";
 

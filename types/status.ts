@@ -47,9 +47,9 @@ export type DeliveryStatus =
 export type StatusTone = "neutral" | "blue" | "green" | "amber" | "red" | "purple";
 
 export const productStatusLabels: Record<ProductStatus, string> = {
-  draft: "임시저장",
-  pending_approval: "승인요청",
-  approved: "승인완료",
+  draft: "임시 저장",
+  pending_approval: "검토 대기",
+  approved: "판매중",
   rejected: "반려",
   suspended: "판매중지",
   archived: "보관",
@@ -66,13 +66,13 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   pending_payment: "결제 대기",
   paid: "결제 완료",
   preparing: "상품 준비",
-  shipping: "배송 중",
+  shipping: "배송중",
   ready_for_pickup: "현장수령 준비",
   delivered: "배송 완료",
   picked_up: "현장수령 완료",
   refund_requested: "환불 요청",
   refund_reviewed: "환불 검토",
-  refund_approved_mock: "mock 환불 승인",
+  refund_approved_mock: "모의 환불 승인",
   refund_rejected: "환불 반려",
   refunded: "환불 완료",
   cancelled: "취소",
@@ -80,17 +80,17 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {
   ready: "결제 준비",
-  approved_mock: "mock 승인",
-  failed_mock: "mock 실패",
+  approved_mock: "모의 승인",
+  failed_mock: "모의 실패",
   cancel_requested: "취소 요청",
-  cancelled_mock: "mock 취소",
+  cancelled_mock: "모의 취소",
 };
 
 export const settlementStatusLabels: Record<SettlementStatus, string> = {
-  draft: "계산 초안",
-  review: "검산 중",
-  confirmed_mock: "mock 확정",
-  payout_blocked: "지급 보류",
+  draft: "정산 초안",
+  review: "검토중",
+  confirmed_mock: "모의 확정",
+  payout_blocked: "페이업 정산 보류",
 };
 
 export const statusToneMap: Record<

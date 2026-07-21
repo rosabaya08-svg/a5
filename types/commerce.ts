@@ -30,13 +30,27 @@ export type PriceComparison = {
   closedMallPrice: number;
 };
 
-export type PgProvider = "mock" | "infiny" | "toss" | "portone" | "kcp" | "nice";
+export type ShippingFeeMode = "free" | "paid";
+
+export type ShippingFeePolicy = {
+  mode: ShippingFeeMode;
+  baseFee: number;
+  freeThreshold: number;
+  remoteAreaEnabled: boolean;
+  remoteAreaFee: number;
+  islandAreaEnabled: boolean;
+  islandAreaFee: number;
+};
+
+export type PgProvider = "mock" | "infiny" | "payup" | "toss" | "portone" | "kcp" | "nice";
 export type PgMerchantStatus = "not_applied" | "in_review" | "mid_issued" | "active" | "blocked";
-export type SettlementOwner = "infiny" | "platform" | "manual";
+export type SettlementOwner = "infiny" | "payup" | "platform" | "manual";
 
 export type CompanyPgProfile = {
   provider: PgProvider;
   providerLabel: string;
+  taxationType?: "taxable";
+  taxFreeEnabled?: false;
   merchantId?: string;
   merchantIdMasked: string;
   merchantSerialNoStored?: boolean;
@@ -50,6 +64,20 @@ export type CompanyPgProfile = {
   signKeyRefMasked?: string;
   webhookSecretRefMasked?: string;
   credentialRefsStored?: boolean;
+  environment?: "test" | "production";
+  credentialReady?: boolean;
+  encryptedSecretStored?: boolean;
+  vaultReady?: boolean;
+  credentialStorageLabel?: string;
+  lastConnectionTest?: {
+    status: string;
+    providerCalled: boolean;
+    environment?: string;
+    code?: string;
+    testedAt?: string;
+    blockerCount: number;
+  };
+  transactions?: { paymentIntents: number; payments: number; orders: number; total: number };
   merchantStatus: PgMerchantStatus;
   adminManaged: boolean;
   companyEditable: boolean;
@@ -63,7 +91,17 @@ export type CompanyPgProfile = {
 export type Company = {
   id: string;
   name: string;
+  businessRegistrationNumber?: string;
+  businessRegistrationNumberNormalized?: string;
+  representativeName?: string;
   managerName: string;
+  publicContactPhone?: string;
+  publicKakaoChannel?: string;
+  publicEmail?: string;
+  commerceLicenseNo?: string;
+  businessAddress?: string;
+  returnAddress?: string;
+  signupDocumentStatus?: string;
   status: "pending" | "approved" | "suspended";
   commissionRate: number;
   productCount: number;
@@ -111,6 +149,10 @@ export type ProductOption = {
 export type Product = {
   id: string;
   companyId: string;
+  sellerCompanyId?: string;
+  sellerBusinessNo?: string;
+  sellerBusinessNoNormalized?: string;
+  sellerCompanyName?: string;
   nurseryId?: string;
   name: string;
   category: string;
@@ -120,7 +162,21 @@ export type Product = {
   price: number;
   stock: number;
   externalProductCode?: string;
+  publicPath?: string;
+  tabletPath?: string;
+  mobilePath?: string;
+  canonicalUrl?: string;
+  productUrl?: string;
+  adTargetPath?: string;
+  mobileAdTargetPath?: string;
+  businessBrandPath?: string;
+  businessProductPath?: string;
+  businessBrandUrl?: string;
+  businessProductUrl?: string;
+  urlVersion?: number;
   comparison: PriceComparison;
+  priceComparisonVerified?: boolean;
+  priceComparisonStatus?: "pending_verification" | "verified" | "needs_review" | string;
   optionIds: string[];
   thumbnailTone: "sage" | "rose" | "sky" | "gold" | "ink";
   imageUrl?: string;
@@ -131,9 +187,16 @@ export type Product = {
     delivery: boolean;
     pickup: boolean;
   };
+  shippingFeePolicy?: ShippingFeePolicy;
   detailSections?: {
+    id?: string;
+    type?: string;
     title: string;
     body: string;
+    assetUrl?: string;
+    assetPath?: string;
+    assetFileName?: string;
+    sortOrder?: number;
   }[];
   reviewSummary?: {
     rating: number;
@@ -153,6 +216,11 @@ export type CartItemSnapshot = {
   unitPrice: number;
   quantity: number;
   companyId: string;
+  sellerCompanyId?: string;
+  sellerBusinessNo?: string;
+  sellerBusinessNoNormalized?: string;
+  sellerCompanyName?: string;
+  shippingFeePolicy?: ShippingFeePolicy;
 };
 
 export type QrPickupLocation = {
@@ -172,6 +240,7 @@ export type QrPaymentSession = {
   tabletId: string;
   cartId: string;
   expiresAt: string;
+  qrDisplayExpiresAt?: string;
   createdAt: string;
   items: CartItemSnapshot[];
   deliveryMethod: DeliveryMethod;
@@ -183,6 +252,10 @@ export type OrderItem = {
   id: string;
   orderId: string;
   companyId: string;
+  sellerCompanyId?: string;
+  sellerBusinessNo?: string;
+  sellerBusinessNoNormalized?: string;
+  sellerCompanyName?: string;
   productName: string;
   optionName: string;
   quantity: number;

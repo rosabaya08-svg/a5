@@ -5,14 +5,49 @@ export type PaymentFunctionKey =
   | "startInnopayVbank"
   | "innopayVbankNoti"
   | "confirm"
+  | "returnTrace"
   | "webhook"
   | "cancel"
   | "status"
   | "diagnostics"
+  | "a5LinkageDiagnostics"
+  | "adminA5sCustomerMonitor"
+  | "logMonitor"
   | "adminPgCredentialSave"
+  | "adminPgCredentialList"
+  | "adminA5sPgCredentialSave"
+  | "adminProgramPgRead"
+  | "adminProgramPgSave"
+  | "adminProgramPgConnectionTest"
+  | "adminProgramPartnerSave"
   | "adminPgConnectionTest"
   | "adminPgActivation"
-  | "companySignupReview";
+  | "cmsUploadFile"
+  | "commerceLiveRead"
+  | "companyBetaAuthToken"
+  | "companyAccountSecurity"
+  | "companyProductUpsert"
+  | "companyProductLifecycle"
+  | "companySignupSubmit"
+  | "companySignupReview"
+  | "adminProductReview"
+  | "adminProductModeration"
+  | "publishStorefrontSnapshot"
+  | "adminCancelRequestReview"
+  | "analyticsRecordVisit"
+  | "analyticsSummary"
+  | "companyOrderDeliveryUpdate"
+  | "companyIntegrationEventRetry"
+  | "integrationEventDelivery"
+  | "qrCreate"
+  | "qrLookup"
+  | "guestShopClaim"
+  | "guestShopLookup"
+  | "guestShopCartSave"
+  | "guestShopCartLookup"
+  | "guestShopProducts"
+  | "guestShopProductDetail"
+  | "guestOrderLookup";
 
 const functionNames: Record<PaymentFunctionKey, string> = {
   ready: "paymentsReady",
@@ -21,14 +56,49 @@ const functionNames: Record<PaymentFunctionKey, string> = {
   startInnopayVbank: "paymentsStartInnopayVbank",
   innopayVbankNoti: "paymentsInnopayVbankNoti",
   confirm: "paymentsConfirm",
+  returnTrace: "paymentsReturnTrace",
   webhook: "paymentsWebhook",
   cancel: "paymentsCancel",
   status: "paymentsStatus",
   diagnostics: "paymentsDiagnostics",
+  a5LinkageDiagnostics: "a5LinkageDiagnostics",
+  adminA5sCustomerMonitor: "adminA5sCustomerMonitor",
+  logMonitor: "paymentsLogMonitor",
   adminPgCredentialSave: "adminPgCredentialSave",
+  adminPgCredentialList: "adminPgCredentialList",
+  adminA5sPgCredentialSave: "adminA5sPgCredentialSave",
+  adminProgramPgRead: "adminProgramPgRead",
+  adminProgramPgSave: "adminProgramPgSave",
+  adminProgramPgConnectionTest: "adminProgramPgConnectionTest",
+  adminProgramPartnerSave: "adminProgramPartnerSave",
   adminPgConnectionTest: "adminPgConnectionTest",
   adminPgActivation: "adminPgActivation",
+  cmsUploadFile: "cmsUploadFile",
+  commerceLiveRead: "commerceLiveRead",
+  companyBetaAuthToken: "companyBetaAuthToken",
+  companyAccountSecurity: "companyAccountSecurity",
+  companyProductUpsert: "companyProductUpsert",
+  companyProductLifecycle: "companyProductLifecycle",
+  companySignupSubmit: "companySignupSubmit",
   companySignupReview: "companySignupReview",
+  adminProductReview: "adminProductReview",
+  adminProductModeration: "adminProductModeration",
+  publishStorefrontSnapshot: "adminStorefrontSnapshotPublish",
+  adminCancelRequestReview: "adminCancelRequestReview",
+  analyticsRecordVisit: "analyticsRecordVisit",
+  analyticsSummary: "analyticsSummary",
+  companyOrderDeliveryUpdate: "companyOrderDeliveryUpdate",
+  companyIntegrationEventRetry: "companyIntegrationEventRetry",
+  integrationEventDelivery: "integrationEventDelivery",
+  qrCreate: "qrCreate",
+  qrLookup: "qrLookup",
+  guestShopClaim: "guestShopClaim",
+  guestShopLookup: "guestShopLookup",
+  guestShopCartSave: "guestShopCartSave",
+  guestShopCartLookup: "guestShopCartLookup",
+  guestShopProducts: "guestShopProducts",
+  guestShopProductDetail: "guestShopProductDetail",
+  guestOrderLookup: "guestOrderLookup",
 };
 
 function trimSlash(value: string) {
@@ -66,14 +136,49 @@ export function getPaymentEndpointReadiness() {
       startInnopayVbank: getPaymentFunctionUrl("startInnopayVbank"),
       innopayVbankNoti: getPaymentFunctionUrl("innopayVbankNoti"),
       confirm: getPaymentFunctionUrl("confirm"),
+      returnTrace: getPaymentFunctionUrl("returnTrace"),
       webhook: getPaymentFunctionUrl("webhook"),
       cancel: getPaymentFunctionUrl("cancel"),
       status: getPaymentFunctionUrl("status"),
       diagnostics: getPaymentFunctionUrl("diagnostics"),
+      a5LinkageDiagnostics: getPaymentFunctionUrl("a5LinkageDiagnostics"),
+      adminA5sCustomerMonitor: getPaymentFunctionUrl("adminA5sCustomerMonitor"),
+      logMonitor: getPaymentFunctionUrl("logMonitor"),
       adminPgCredentialSave: getPaymentFunctionUrl("adminPgCredentialSave"),
+      adminPgCredentialList: getPaymentFunctionUrl("adminPgCredentialList"),
+      adminA5sPgCredentialSave: getPaymentFunctionUrl("adminA5sPgCredentialSave"),
+      adminProgramPgRead: getPaymentFunctionUrl("adminProgramPgRead"),
+      adminProgramPgSave: getPaymentFunctionUrl("adminProgramPgSave"),
+      adminProgramPgConnectionTest: getPaymentFunctionUrl("adminProgramPgConnectionTest"),
+      adminProgramPartnerSave: getPaymentFunctionUrl("adminProgramPartnerSave"),
       adminPgConnectionTest: getPaymentFunctionUrl("adminPgConnectionTest"),
       adminPgActivation: getPaymentFunctionUrl("adminPgActivation"),
+      cmsUploadFile: getPaymentFunctionUrl("cmsUploadFile"),
+      commerceLiveRead: getPaymentFunctionUrl("commerceLiveRead"),
+      companyBetaAuthToken: getPaymentFunctionUrl("companyBetaAuthToken"),
+      companyAccountSecurity: getPaymentFunctionUrl("companyAccountSecurity"),
+      companyProductUpsert: getPaymentFunctionUrl("companyProductUpsert"),
+      companyProductLifecycle: getPaymentFunctionUrl("companyProductLifecycle"),
+      companySignupSubmit: getPaymentFunctionUrl("companySignupSubmit"),
       companySignupReview: getPaymentFunctionUrl("companySignupReview"),
+      adminProductReview: getPaymentFunctionUrl("adminProductReview"),
+      adminProductModeration: getPaymentFunctionUrl("adminProductModeration"),
+      publishStorefrontSnapshot: getPaymentFunctionUrl("publishStorefrontSnapshot"),
+      adminCancelRequestReview: getPaymentFunctionUrl("adminCancelRequestReview"),
+      analyticsRecordVisit: getPaymentFunctionUrl("analyticsRecordVisit"),
+      analyticsSummary: getPaymentFunctionUrl("analyticsSummary"),
+      companyOrderDeliveryUpdate: getPaymentFunctionUrl("companyOrderDeliveryUpdate"),
+      companyIntegrationEventRetry: getPaymentFunctionUrl("companyIntegrationEventRetry"),
+      integrationEventDelivery: getPaymentFunctionUrl("integrationEventDelivery"),
+      qrCreate: getPaymentFunctionUrl("qrCreate"),
+      qrLookup: getPaymentFunctionUrl("qrLookup"),
+      guestShopClaim: getPaymentFunctionUrl("guestShopClaim"),
+      guestShopLookup: getPaymentFunctionUrl("guestShopLookup"),
+      guestShopCartSave: getPaymentFunctionUrl("guestShopCartSave"),
+      guestShopCartLookup: getPaymentFunctionUrl("guestShopCartLookup"),
+      guestShopProducts: getPaymentFunctionUrl("guestShopProducts"),
+      guestShopProductDetail: getPaymentFunctionUrl("guestShopProductDetail"),
+      guestOrderLookup: getPaymentFunctionUrl("guestOrderLookup"),
     },
     missing: baseUrl ? [] : ["NEXT_PUBLIC_PAYMENT_API_BASE_URL or NEXT_PUBLIC_FIREBASE_PROJECT_ID"],
   };

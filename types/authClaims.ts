@@ -10,9 +10,15 @@ export type A5AssignableAuthRole = Exclude<A5AuthRole, "CUSTOMER_GUEST">;
 
 export type A5RoleScope = {
   company_id?: string;
+  business_no?: string;
   nursery_id?: string;
   room_id?: string;
   tablet_id?: string;
+  owner_uid?: string;
+  site_scope?: "a5" | "a5s" | string;
+  source_project?: string;
+  source_site?: string;
+  member_type?: "company" | "guest" | "customer" | "nursery" | "tablet" | string;
 };
 
 export type A5AuthClaims = A5RoleScope & {
@@ -127,9 +133,15 @@ export function buildAssignableClaims(role: A5AssignableAuthRole, scope: A5RoleS
   return {
     role,
     company_id: scope.company_id,
+    business_no: scope.business_no,
     nursery_id: scope.nursery_id,
     room_id: scope.room_id,
     tablet_id: scope.tablet_id,
+    owner_uid: scope.owner_uid,
+    site_scope: scope.site_scope,
+    source_project: scope.source_project,
+    source_site: scope.source_site,
+    member_type: scope.member_type,
     seed_admin: role === "seed_admin" ? true : undefined,
   };
 }

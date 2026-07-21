@@ -1,8 +1,8 @@
 import type { CartItemSnapshot, Company, CompanyPgProfile, PgMerchantStatus } from "@/types/commerce";
 
-export const INFINY_PROVIDER = "infiny";
-export const INFINY_PROVIDER_LABEL = "인피니 PG";
-export const INFINY_PG_FEE_RATE = 2.5;
+export const INFINY_PROVIDER = "payup";
+export const INFINY_PROVIDER_LABEL = "Payup PG";
+export const INFINY_PG_FEE_RATE = 0;
 export const A5_PLATFORM_FEE_RATE = 4.5;
 export const INFINY_TOTAL_FEE_RATE = INFINY_PG_FEE_RATE + A5_PLATFORM_FEE_RATE;
 export const INFINY_PAYOUT_RATE = 1 - INFINY_TOTAL_FEE_RATE / 100;
@@ -67,6 +67,8 @@ export function buildInfinyPgProfile(input: {
   return {
     provider: INFINY_PROVIDER,
     providerLabel: INFINY_PROVIDER_LABEL,
+    taxationType: "taxable",
+    taxFreeEnabled: false,
     merchantId: input.merchantId,
     merchantIdMasked: maskMerchantId(input.merchantId),
     merchantStatus: input.merchantStatus,
@@ -75,7 +77,7 @@ export function buildInfinyPgProfile(input: {
     pgFeeRate: INFINY_PG_FEE_RATE,
     platformFeeRate: A5_PLATFORM_FEE_RATE,
     totalFeeRate: INFINY_TOTAL_FEE_RATE,
-    settlementOwner: "infiny",
+    settlementOwner: "payup",
     settlementExecutionBlocked: true,
   };
 }

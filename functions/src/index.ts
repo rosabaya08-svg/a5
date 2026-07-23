@@ -42,6 +42,14 @@ const paymentFunctionOptions = {
   maxInstances: 10,
   secrets: [pgCredentialEncryptionKey],
 };
+const companyOperationsFunctionOptions = {
+  region: paymentFunctionOptions.region,
+  cors: paymentFunctionOptions.cors,
+  maxInstances: 10,
+  // Public invocation only reaches handlers that verify Firebase identity or
+  // guest order proof before returning order data.
+  invoker: "public" as const,
+};
 
 export const paymentsReady = onRequest(paymentFunctionOptions, paymentsReadyHandler);
 export const paymentsStartInnopaySms = onRequest(paymentFunctionOptions, paymentsStartInnopaySmsHandler);
@@ -57,9 +65,12 @@ export const adminPgCredentialSave = onRequest(paymentFunctionOptions, adminPgCr
 export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgConnectionTestHandler);
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
-export const companyOrderOperations = onRequest(paymentFunctionOptions, companyOrderOperationsHandler);
-export const guestClaimSubmit = onRequest(paymentFunctionOptions, guestClaimSubmitHandler);
-export const guestOrderContactsRead = onRequest(paymentFunctionOptions, guestOrderContactsReadHandler);
+export const companyOrderOperations = onRequest(
+  companyOperationsFunctionOptions,
+  companyOrderOperationsHandler,
+);
+export const guestClaimSubmit = onRequest(companyOperationsFunctionOptions, guestClaimSubmitHandler);
+export const guestOrderContactsRead = onRequest(companyOperationsFunctionOptions, guestOrderContactsReadHandler);
 export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
 export const tabletNurseryLogin = onRequest(paymentFunctionOptions, tabletNurseryLoginHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);

@@ -79,7 +79,7 @@ export const companyDocumentInboxDelivery = onDocumentCreated(
   },
   companyDocumentInboxCreatedHandler,
 );
-export const companyOrderCreatedProjection = onDocumentCreated(
+export const companyOrderProjectionOnCreate = onDocumentCreated(
   {
     document: "orders/{orderId}",
     region: "asia-northeast3",
@@ -87,7 +87,7 @@ export const companyOrderCreatedProjection = onDocumentCreated(
   },
   companyOrderCreatedProjectionHandler,
 );
-export const companyOrderItemCreatedProjection = onDocumentCreated(
+export const companyOrderItemProjectionOnCreate = onDocumentCreated(
   {
     document: "order_items/{itemId}",
     region: "asia-northeast3",

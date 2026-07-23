@@ -91,10 +91,15 @@ export type PaymentConfirmRequest = PaymentReadyRequest & {
   transactionId?: string;
   receiptUrl?: string;
   customerName?: string;
+  customerPhone?: string;
   customerPhoneMasked?: string;
   deliveryMethod?: "pickup" | "delivery";
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverPostalCode?: string;
   receiverAddress?: string;
   receiverAddressDetail?: string;
+  deliveryMemo?: string;
 };
 
 export type PgApproval = {

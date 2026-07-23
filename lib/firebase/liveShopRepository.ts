@@ -39,8 +39,10 @@ export type LiveShopStoredOrder = {
     customerName: string;
     customerPhone: string;
     deliveryMethod: QrPaymentSession["deliveryMethod"];
+    postalCode: string;
     address: string;
     addressDetail: string;
+    deliveryMemo: string;
     consent: boolean;
   };
   guestOrderUrl?: string;
@@ -198,6 +200,8 @@ function mapStoredOrder(documentId: string, data: DocumentData): LiveShopStoredO
   });
   const receiverAddress = asString(receiverRaw.address ?? data.receiver_address);
   const receiverAddressDetail = asString(receiverRaw.address_detail ?? receiverRaw.addressDetail ?? data.receiver_address_detail);
+  const receiverPostalCode = asString(receiverRaw.postal_code ?? receiverRaw.postalCode ?? data.receiver_postal_code);
+  const deliveryMemo = asString(receiverRaw.delivery_memo ?? receiverRaw.deliveryMemo ?? data.delivery_memo);
 
   return {
     orderNo: asString(data.orderNo ?? data.order_no, documentId),
@@ -209,8 +213,10 @@ function mapStoredOrder(documentId: string, data: DocumentData): LiveShopStoredO
           customerName,
           customerPhone: customerPhoneMasked,
           deliveryMethod,
+          postalCode: receiverPostalCode,
           address: receiverAddress,
           addressDetail: receiverAddressDetail,
+          deliveryMemo,
           consent: true,
         }
       : undefined,

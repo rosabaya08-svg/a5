@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const files = {
+  shipment: read("functions/src/company/shipmentOperations.ts"),
   operations: read("functions/src/company/orderOperations.ts"),
   guestClaims: read("functions/src/company/guestClaims.ts"),
   guestContacts: read("functions/src/company/guestOrderContacts.ts"),
@@ -16,8 +17,8 @@ const files = {
 
 const checks = [
   ["company actor comes from verified Firebase claims", files.operations.includes("verifyIdToken(token)") && files.operations.includes("claims.company_id ?? claims.companyId")],
-  ["order item ownership is rechecked on the server", files.operations.includes("itemCompanyId !== actor.companyId")],
-  ["bulk invoices are bounded, duplicate checked, and audited", files.operations.includes("rows.length > 100") && files.operations.includes("BULK_DELIVERY_DUPLICATE") && files.operations.includes("company_order_delivery_bulk_update")],
+  ["order item ownership is rechecked on the server", files.shipment.includes("itemCompanyId !== companyId")],
+  ["bulk invoices are bounded, duplicate checked, and audited", files.shipment.includes("rows.length > 100") && files.shipment.includes("BULK_DELIVERY_DUPLICATE") && files.shipment.includes("company_order_delivery_bulk_update")],
   ["claims use server quantities and server prices", files.operations.includes("requestedQuantity <= 0") && files.operations.includes("unitPrice * requestedQuantity")],
   ["guest claims require token or phone verification", files.guestClaims.includes("guest_lookup_token_hash") && files.guestClaims.includes("customer_phone_last4") && files.guestClaims.includes("if (!tokenOk && !phoneOk)")],
   ["guest claim items use real order_items document IDs", files.guestContacts.includes("id: item.id") && files.guestContacts.includes('collection("order_items").where("order_no", "==", orderNo)')],

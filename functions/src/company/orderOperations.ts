@@ -1,19 +1,15 @@
 import { FieldValue, type DocumentData, type DocumentSnapshot, type Firestore } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "../firebaseAdmin";
 import { readObjectBody, sendJson, type HttpRequestLike, type HttpResponseLike } from "../payments/types";
+import { companyCarriers } from "./carrierCatalog";
 import { readSellerContactSnapshot, sellerContactDocument } from "./sellerContact";
+import { updateCompanyShipment, updateCompanyShipmentsBulk } from "./shipmentOperations";
 
 type CompanyActor = { uid: string; companyId: string; role: string };
 type ClaimType = "cancel" | "return" | "exchange" | "defect" | "wrong_delivery";
 
 const claimTypes = new Set<ClaimType>(["cancel", "return", "exchange", "defect", "wrong_delivery"]);
 const terminalClaimStatuses = new Set(["completed", "rejected", "cancelled"]);
-const allowedDeliveryTransitions: Record<string, string[]> = {
-  invoice_pending: ["invoice_entered"],
-  invoice_entered: ["in_transit"],
-  in_transit: ["delivered"],
-  pickup_ready: ["picked_up"],
-};
 const allowedClaimTransitions: Record<string, string[]> = {
   requested: ["accepted", "rejected"],
   accepted: ["return_in_transit", "refund_processing", "replacement_shipping", "completed"],
@@ -46,12 +42,12 @@ export async function companyOrderOperationsHandler(request: HttpRequestLike, re
       return;
     }
     if (action === "delivery_update") {
-      const result = await updateDelivery(getAdminDb(), actor.actor, body);
+      const result = await updateCompanyShipment(getAdminDb(), actor.actor, body);
       sendJson(response, 200, { ok: true, ...result });
       return;
     }
     if (action === "delivery_bulk_update") {
-      const result = await updateDeliveriesBulk(getAdminDb(), actor.actor, body);
+      const result = await updateCompanyShipmentsBulk(getAdminDb(), actor.actor, body);
       sendJson(response, 200, { ok: true, ...result });
       return;
     }
@@ -90,154 +86,13 @@ async function readCompanyOperations(db: Firestore, companyId: string) {
 
   return {
     companyId,
+    carriers: companyCarriers,
     orders: orderSnapshots.filter((snapshot) => snapshot.exists).map(mapOrder),
     items: itemDocs.map((doc) => mapOrderItem(doc.id, doc.data())),
     claims: claimSnapshot.docs
       .map<Record<string, unknown>>((doc) => ({ id: doc.id, ...(serialize(doc.data()) as Record<string, unknown>) }))
       .sort((left, right) => text(right.updated_at ?? right.created_at).localeCompare(text(left.updated_at ?? left.created_at))),
   };
-}
-
-async function updateDelivery(db: Firestore, actor: CompanyActor, body: Record<string, unknown>) {
-  const itemId = text(body.itemId);
-  const requestedStatus = text(body.deliveryStatus);
-  const carrierCode = text(body.carrierCode);
-  const invoiceNumber = text(body.invoiceNumber);
-  if (!itemId || !requestedStatus) throw new Error("DELIVERY_INPUT_INVALID:itemId and deliveryStatus are required.");
-
-  const itemRef = db.collection("order_items").doc(itemId);
-  const itemSnapshot = await itemRef.get();
-  if (!itemSnapshot.exists) throw new Error("ORDER_ITEM_NOT_FOUND:Order item was not found.");
-  const itemData = itemSnapshot.data() ?? {};
-  const itemCompanyId = text(itemData.company_id ?? itemData.companyId ?? itemData.seller_company_id);
-  if (itemCompanyId !== actor.companyId) throw new Error("COMPANY_SCOPE_FORBIDDEN:This company cannot update that order item.");
-
-  const currentStatus = text(itemData.delivery_status ?? itemData.deliveryStatus) || "invoice_pending";
-  if (!(allowedDeliveryTransitions[currentStatus] ?? []).includes(requestedStatus)) {
-    throw new Error("DELIVERY_TRANSITION_INVALID:Delivery status transition is not allowed.");
-  }
-  if (["invoice_entered", "in_transit", "delivered"].includes(requestedStatus) && !invoiceNumber) {
-    throw new Error("INVOICE_REQUIRED:Invoice number is required for delivery orders.");
-  }
-
-  const orderNo = text(itemData.order_no ?? itemData.orderNo ?? itemData.order_id);
-  if (!orderNo) throw new Error("ORDER_SCOPE_MISSING:Order number is missing from the order item.");
-  const now = new Date().toISOString();
-  await db.runTransaction(async (transaction) => {
-    transaction.set(itemRef, {
-      delivery_status: requestedStatus,
-      carrier_code: carrierCode || null,
-      invoice_no: invoiceNumber || null,
-      shipment_updated_by: actor.uid,
-      shipment_updated_at: now,
-      updated_at: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    transaction.set(db.collection("order_fulfillments").doc(`${orderNo}-${actor.companyId}`), {
-      order_no: orderNo,
-      company_id: actor.companyId,
-      delivery_status: requestedStatus,
-      carrier_code: carrierCode || null,
-      invoice_no: invoiceNumber || null,
-      updated_by: actor.uid,
-      updated_at: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    transaction.set(db.collection("audit_logs").doc(), {
-      action: "company_order_delivery_update",
-      target: itemId,
-      order_no: orderNo,
-      company_id: actor.companyId,
-      actor_uid: actor.uid,
-      before_status: currentStatus,
-      after_status: requestedStatus,
-      created_at: now,
-      updated_at: FieldValue.serverTimestamp(),
-    });
-  });
-
-  await updateOrderAggregateStatus(db, orderNo);
-  return { itemId, orderNo, deliveryStatus: requestedStatus, message: "Delivery status was updated." };
-}
-
-async function updateDeliveriesBulk(db: Firestore, actor: CompanyActor, body: Record<string, unknown>) {
-  const rows = Array.isArray(body.rows) ? body.rows : [];
-  if (!rows.length || rows.length > 100) {
-    throw new Error("BULK_DELIVERY_INPUT_INVALID:One to 100 invoice rows are required.");
-  }
-
-  const normalizedRows = rows.map((value, index) => {
-    const row = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-    return {
-      rowNumber: index + 2,
-      itemId: text(row.itemId ?? row.orderItemId ?? row["주문상품ID"]),
-      carrierCode: text(row.carrierCode ?? row["택배사코드"]),
-      invoiceNumber: text(row.invoiceNumber ?? row.invoiceNo ?? row["송장번호"]),
-      requestedStatus: text(row.deliveryStatus ?? row["배송상태"]) || "invoice_entered",
-    };
-  });
-  const duplicateIds = normalizedRows
-    .map((row) => row.itemId)
-    .filter((itemId, index, values) => itemId && values.indexOf(itemId) !== index);
-  if (duplicateIds.length) throw new Error("BULK_DELIVERY_DUPLICATE:Duplicate order item IDs are not allowed.");
-  if (normalizedRows.some((row) => !row.itemId || !row.invoiceNumber)) {
-    throw new Error("BULK_DELIVERY_ROW_INVALID:Every row requires order item ID and invoice number.");
-  }
-
-  const refs = normalizedRows.map((row) => db.collection("order_items").doc(row.itemId));
-  const snapshots = await db.getAll(...refs);
-  const prepared = normalizedRows.map((row, index) => {
-    const snapshot = snapshots[index];
-    if (!snapshot?.exists) throw new Error(`ORDER_ITEM_NOT_FOUND:Row ${row.rowNumber} order item was not found.`);
-    const data = snapshot.data() ?? {};
-    const itemCompanyId = text(data.company_id ?? data.companyId ?? data.seller_company_id);
-    if (itemCompanyId !== actor.companyId) {
-      throw new Error(`COMPANY_SCOPE_FORBIDDEN:Row ${row.rowNumber} does not belong to this company.`);
-    }
-    const currentStatus = text(data.delivery_status ?? data.deliveryStatus) || "invoice_pending";
-    if (!(allowedDeliveryTransitions[currentStatus] ?? []).includes(row.requestedStatus)) {
-      throw new Error(`DELIVERY_TRANSITION_INVALID:Row ${row.rowNumber} status transition is not allowed.`);
-    }
-    const orderNo = text(data.order_no ?? data.orderNo ?? data.order_id);
-    if (!orderNo) throw new Error(`ORDER_SCOPE_MISSING:Row ${row.rowNumber} order number is missing.`);
-    return { ...row, ref: refs[index], orderNo, currentStatus };
-  });
-
-  const now = new Date().toISOString();
-  const batch = db.batch();
-  for (const row of prepared) {
-    batch.set(row.ref, {
-      delivery_status: row.requestedStatus,
-      carrier_code: row.carrierCode || null,
-      invoice_no: row.invoiceNumber,
-      shipment_updated_by: actor.uid,
-      shipment_updated_at: now,
-      updated_at: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    batch.set(db.collection("order_fulfillments").doc(`${row.orderNo}-${actor.companyId}`), {
-      order_no: row.orderNo,
-      company_id: actor.companyId,
-      delivery_status: row.requestedStatus,
-      carrier_code: row.carrierCode || null,
-      invoice_no: row.invoiceNumber,
-      updated_by: actor.uid,
-      updated_at: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    batch.set(db.collection("audit_logs").doc(), {
-      action: "company_order_delivery_bulk_update",
-      target: row.itemId,
-      order_no: row.orderNo,
-      company_id: actor.companyId,
-      actor_uid: actor.uid,
-      before_status: row.currentStatus,
-      after_status: row.requestedStatus,
-      created_at: now,
-      updated_at: FieldValue.serverTimestamp(),
-    });
-  }
-  await batch.commit();
-  for (const orderNo of [...new Set(prepared.map((row) => row.orderNo))]) {
-    await updateOrderAggregateStatus(db, orderNo);
-  }
-  return { updatedCount: prepared.length, message: "Bulk delivery rows were updated." };
 }
 
 async function createCompanyClaim(db: Firestore, actor: CompanyActor, body: Record<string, unknown>) {
@@ -350,17 +205,6 @@ async function assertClaimQuantityAvailable(db: Firestore, itemId: string, reque
   if (claimed + requested > ordered) throw new Error("CLAIM_QUANTITY_EXCEEDED:Active claim quantity exceeds ordered quantity.");
 }
 
-async function updateOrderAggregateStatus(db: Firestore, orderNo: string) {
-  const snapshot = await db.collection("order_items").where("order_no", "==", orderNo).get();
-  const statuses = snapshot.docs.map((doc) => text(doc.get("delivery_status")) || "invoice_pending");
-  if (!statuses.length) return;
-  const terminal = new Set(["delivered", "picked_up"]);
-  const allTerminal = statuses.every((status) => terminal.has(status));
-  const anyMoving = statuses.some((status) => ["invoice_entered", "in_transit", "delivered", "picked_up"].includes(status));
-  const status = allTerminal ? "fulfilled" : anyMoving ? "partially_shipping" : "preparing";
-  await db.collection("orders").doc(orderNo).set({ status, updated_at: FieldValue.serverTimestamp() }, { merge: true });
-}
-
 async function requireCompanyActor(request: HttpRequestLike): Promise<
   | { ok: true; actor: CompanyActor }
   | { ok: false; httpStatus: number; code: string; message: string }
@@ -411,9 +255,13 @@ function mapOrder(snapshot: DocumentSnapshot<DocumentData>) {
     status: text(data.status) || "paid",
     customerName: text(data.customer_name ?? data.customerName),
     customerPhoneMasked: text(data.customer_phone_masked ?? data.customerPhoneMasked),
+    receiverName: text(data.receiver_name ?? data.customer_name ?? data.customerName),
+    receiverPhone: text(data.receiver_phone ?? data.customer_phone ?? data.customerPhone),
     deliveryMethod: text(data.delivery_method ?? data.deliveryMethod) || "pickup",
+    receiverPostalCode: text(data.receiver_postal_code ?? data.receiverPostalCode),
     receiverAddress: text(data.receiver_address),
     receiverAddressDetail: text(data.receiver_address_detail),
+    deliveryMemo: text(data.delivery_memo ?? data.deliveryMemo),
     totalAmount: money(data.total_amount ?? data.totalAmount),
     paidAt: iso(data.paid_at ?? data.paidAt),
     providerTransactionId: text(data.provider_transaction_id),
@@ -435,7 +283,9 @@ function mapOrderItem(id: string, data: DocumentData) {
     unitPrice: money(data.unit_price ?? data.unitPrice),
     deliveryStatus: text(data.delivery_status ?? data.deliveryStatus) || "invoice_pending",
     carrierCode: text(data.carrier_code ?? data.carrierCode),
+    carrierName: text(data.carrier_name ?? data.carrierName),
     invoiceNumber: text(data.invoice_no ?? data.invoiceNo),
+    shipmentId: text(data.shipment_id ?? data.shipmentId),
     sellerCompanyName: text(data.seller_company_name ?? data.sellerCompanyName),
     sellerBusinessNo: text(data.seller_business_no ?? data.sellerBusinessNo),
     sellerRepresentativeName: text(data.seller_representative_name),

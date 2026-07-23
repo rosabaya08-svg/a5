@@ -46,6 +46,11 @@ jobs:
           lib/payments/paymentEndpoints.ts
           types/commerce.ts
 
+      - name: Verify company order and shipping contracts
+        run: |
+          node scripts/check-company-operations-contract.mjs
+          node scripts/check-company-shipping-contract.mjs
+
       - name: Verify secrets are not committed
         run: node scripts/check-no-secrets.mjs
 

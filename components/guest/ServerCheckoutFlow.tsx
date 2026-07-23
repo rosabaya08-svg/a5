@@ -200,8 +200,12 @@ function receiverPayload(receiver?: QrReceiverFormValue) {
     customerPhone: receiver.customerPhone.trim(),
     customerPhoneMasked: maskCustomerPhone(receiver.customerPhone),
     deliveryMethod: receiver.deliveryMethod,
+    receiverName: receiver.customerName.trim(),
+    receiverPhone: receiver.customerPhone.trim(),
+    receiverPostalCode: receiver.postalCode.trim(),
     receiverAddress: receiver.address,
     receiverAddressDetail: receiver.addressDetail,
+    deliveryMemo: receiver.deliveryMemo.trim(),
   };
 }
 

@@ -7,8 +7,10 @@ export type QrReceiverFormValue = {
   customerName: string;
   customerPhone: string;
   deliveryMethod: DeliveryMethod;
+  postalCode: string;
   address: string;
   addressDetail: string;
+  deliveryMemo: string;
   consent: boolean;
 };
 
@@ -23,14 +25,19 @@ export function initialQrReceiverFormValue(session: QrPaymentSession): QrReceive
     customerName: "",
     customerPhone: "",
     deliveryMethod: canPickup ? "pickup" : "delivery",
+    postalCode: "",
     address: canPickup ? session.pickupLocation?.nurseryAddress ?? "" : "",
     addressDetail: canPickup ? session.pickupLocation?.roomName ?? "" : "",
+    deliveryMemo: "",
     consent: false,
   };
 }
 
 export function isQrReceiverFormComplete(value: QrReceiverFormValue) {
-  return Boolean(value.customerName.trim() && value.customerPhone.trim() && value.address.trim() && value.consent);
+  const baseComplete = Boolean(
+    value.customerName.trim() && value.customerPhone.trim() && value.address.trim() && value.consent,
+  );
+  return value.deliveryMethod === "delivery" ? baseComplete && Boolean(value.postalCode.trim()) : baseComplete;
 }
 
 export function maskCustomerPhone(phone: string) {
@@ -61,6 +68,7 @@ export function QrReceiverForm({
       setValue((current) => ({
         ...current,
         deliveryMethod: "pickup",
+        postalCode: "",
         address: session.pickupLocation?.nurseryAddress ?? "",
         addressDetail: session.pickupLocation?.roomName ?? "",
       }));
@@ -70,6 +78,7 @@ export function QrReceiverForm({
     setValue((current) => ({
       ...current,
       deliveryMethod: "delivery",
+      postalCode: "",
       address: "",
       addressDetail: "",
     }));
@@ -124,6 +133,20 @@ export function QrReceiverForm({
             placeholder="010-0000-0000"
           />
         </label>
+        {!isPickup ? (
+          <label className="grid min-w-0 gap-1 text-sm font-normal text-slate-700">
+            우편번호
+            <input
+              value={value.postalCode}
+              onChange={(event) =>
+                setValue((current) => ({ ...current, postalCode: event.target.value.replace(/[^0-9-]/g, "") }))
+              }
+              className="w-full min-w-0 rounded-md border border-slate-200 px-3 py-3 text-base font-normal text-slate-700"
+              inputMode="numeric"
+              placeholder="우편번호를 입력해 주세요"
+            />
+          </label>
+        ) : null}
         <label className="grid min-w-0 gap-1 text-sm font-normal text-slate-700">
           주소
           <input
@@ -142,6 +165,17 @@ export function QrReceiverForm({
             readOnly={isPickup}
             className="w-full min-w-0 rounded-md border border-slate-200 px-3 py-3 text-base font-normal text-slate-700 read-only:bg-slate-50"
             placeholder={isPickup ? "QR 객실번호 자동 입력" : "상세주소를 입력해 주세요"}
+          />
+        </label>
+        <label className="grid min-w-0 gap-1 text-sm font-normal text-slate-700">
+          배송 메모
+          <input
+            value={value.deliveryMemo}
+            onChange={(event) =>
+              setValue((current) => ({ ...current, deliveryMemo: event.target.value }))
+            }
+            className="w-full min-w-0 rounded-md border border-slate-200 px-3 py-3 text-base font-normal text-slate-700"
+            placeholder={isPickup ? "현장수령 참고사항(선택)" : "배송 요청사항(선택)"}
           />
         </label>
       </div>

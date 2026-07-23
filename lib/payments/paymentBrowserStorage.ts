@@ -3,8 +3,12 @@ export type StoredPaymentReceiver = {
   customerPhone?: string;
   customerPhoneMasked?: string;
   deliveryMethod?: "pickup" | "delivery";
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverPostalCode?: string;
   receiverAddress?: string;
   receiverAddressDetail?: string;
+  deliveryMemo?: string;
   storedAt?: number;
   expiresAt?: number;
 };

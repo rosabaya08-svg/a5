@@ -10,10 +10,14 @@ import {
   type PortalRole,
   type PortalSession,
 } from "@/lib/auth/session";
-import { ensureCompanyFirebaseAuthFromSession } from "@/lib/auth/companyFirebaseAuth";
+import {
+  CompanyFirebaseAuthMismatchError,
+  ensureCompanyFirebaseAuthFromSession,
+} from "@/lib/auth/companyFirebaseAuth";
 
 type RoleGuardProps = {
   role: PortalRole;
+  initiallyAllowed?: boolean;
   children: React.ReactNode;
 };
 
@@ -29,9 +33,9 @@ function isValidSession(role: PortalRole, session: PortalSession | null) {
   return true;
 }
 
-export function RoleGuard({ role, children }: RoleGuardProps) {
-  const [ready, setReady] = useState(false);
-  const [allowed, setAllowed] = useState(false);
+export function RoleGuard({ role, initiallyAllowed = false, children }: RoleGuardProps) {
+  const [ready, setReady] = useState(initiallyAllowed);
+  const [allowed, setAllowed] = useState(initiallyAllowed);
   const loginPath = portalLoginPaths[role];
 
   const label = useMemo(() => {
@@ -51,9 +55,13 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
         if (role === "company" && sessionIsValid) {
           try {
             await ensureCompanyFirebaseAuthFromSession();
-          } catch {
-            ok = false;
-            clearPortalSession("company");
+          } catch (error) {
+            if (error instanceof CompanyFirebaseAuthMismatchError) {
+              ok = false;
+              clearPortalSession("company");
+            } else {
+              ok = true;
+            }
           }
         } else if (role === "company" && !sessionIsValid) {
           clearPortalSession("company");
@@ -82,8 +90,8 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
         <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
-          <p className="text-sm font-normal text-slate-500">{label} 확인 중</p>
-          <h1 className="mt-2 text-2xl font-normal">로그인이 필요합니다</h1>
+          <p className="text-sm font-normal text-slate-500">{label}</p>
+          <h1 className="mt-2 text-xl font-normal">접속 권한을 확인하고 있습니다</h1>
         </section>
       </main>
     );

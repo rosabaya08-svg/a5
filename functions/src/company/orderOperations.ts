@@ -74,18 +74,26 @@ export async function companyOrderOperationsHandler(request: HttpRequestLike, re
 }
 
 async function readCompanyOperations(db: Firestore, companyId: string) {
+  const itemLimit = 1000;
   const snapshots = await Promise.all([
-    db.collection("order_items").where("company_id", "==", companyId).limit(500).get(),
-    db.collection("order_items").where("seller_company_id", "==", companyId).limit(500).get(),
+    db.collection("order_items")
+      .where("company_id", "==", companyId)
+      .orderBy("created_at", "desc")
+      .limit(itemLimit + 1)
+      .get(),
+    db.collection("order_items").where("seller_company_id", "==", companyId).limit(itemLimit + 1).get(),
   ]);
-  const itemDocs = [...new Map(snapshots.flatMap((snapshot) => snapshot.docs).map((doc) => [doc.id, doc])).values()]
+  const allItemDocs = [...new Map(snapshots.flatMap((snapshot) => snapshot.docs).map((doc) => [doc.id, doc])).values()]
     .sort((left, right) => iso(right.data().created_at).localeCompare(iso(left.data().created_at)));
+  const truncated = allItemDocs.length > itemLimit;
+  const itemDocs = allItemDocs.slice(0, itemLimit);
   const orderNos = [...new Set(itemDocs.map((doc) => text(doc.get("order_no") ?? doc.get("orderNo"))).filter(Boolean))];
   const orderSnapshots = orderNos.length ? await db.getAll(...orderNos.map((orderNo) => db.collection("orders").doc(orderNo))) : [];
   const claimSnapshot = await db.collection("claims").where("company_id", "==", companyId).limit(300).get();
 
   return {
     companyId,
+    resultMeta: { itemLimit, truncated },
     carriers: companyCarriers,
     orders: orderSnapshots.filter((snapshot) => snapshot.exists).map(mapOrder),
     items: itemDocs.map((doc) => mapOrderItem(doc.id, doc.data())),

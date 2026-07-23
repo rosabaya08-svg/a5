@@ -50,6 +50,7 @@ jobs:
         run: |
           node scripts/check-company-operations-contract.mjs
           node scripts/check-company-shipping-contract.mjs
+          node scripts/check-portal-auth-order-date-contract.mjs
 
       - name: Verify secrets are not committed
         run: node scripts/check-no-secrets.mjs

@@ -65,7 +65,7 @@ function sessionMatchesCompanyUser(session: PortalSession, uid: string | undefin
 async function userHasCompanyClaims(user: User, session: PortalSession) {
   if (!sessionMatchesCompanyUser(session, user.uid)) return false;
 
-  const token = await user.getIdTokenResult(true);
+  const token = await user.getIdTokenResult();
   return token.claims.role === "COMPANY_ADMIN" && token.claims.company_id === session.companyId;
 }
 
@@ -77,21 +77,31 @@ export class CompanyFirebaseAuthMismatchError extends Error {
   }
 }
 
-function waitForRestoredCompanyUser(timeoutMs = 1800): Promise<User | null> {
+function waitForRestoredCompanyUser(timeoutMs = 8000): Promise<User | null> {
   const auth = getFirebaseAuthClient();
   if (!auth) return Promise.resolve(null);
   if (auth.currentUser) return Promise.resolve(auth.currentUser);
 
   return new Promise((resolve) => {
-    const timer = window.setTimeout(() => {
-      unsubscribe();
-      resolve(auth.currentUser ?? null);
-    }, timeoutMs);
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let settled = false;
+    let unsubscribe: () => void = () => undefined;
+    const finish = (user: User | null) => {
+      if (settled) return;
+      settled = true;
       window.clearTimeout(timer);
       unsubscribe();
       resolve(user);
+    };
+    const timer = window.setTimeout(() => {
+      finish(auth.currentUser ?? null);
+    }, timeoutMs);
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      finish(user);
     });
+
+    if (typeof auth.authStateReady === "function") {
+      void auth.authStateReady().then(() => finish(auth.currentUser ?? null)).catch(() => undefined);
+    }
   });
 }
 

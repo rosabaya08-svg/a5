@@ -572,7 +572,10 @@ export async function CompanyOrdersPage() {
   const companyId = scope.companyId;
 
   return (
-    <CompanyShell title="주문 목록" subtitle="입점사에 배정된 주문 상품을 확인하고 출고 상태를 관리합니다.">
+    <CompanyShell
+      title="일자별 주문관리"
+      subtitle="결제일 또는 주문 접수일 기준으로 주문을 조회하고 출고 상태를 관리합니다."
+    >
       <CompanyOrderOperationsPanel companyId={companyId} mode="orders" />
     </CompanyShell>
   );
@@ -667,7 +670,10 @@ export async function CompanyDeliveriesPage() {
   const companyId = scope.companyId;
 
   return (
-    <CompanyShell title="배송/현장수령" subtitle="송장 입력과 현장수령 준비 상태를 관리합니다.">
+    <CompanyShell
+      title="일자별 배송관리"
+      subtitle="결제일 또는 주문 접수일 기준으로 송장 입력, 배송 진행과 현장수령 상태를 관리합니다."
+    >
       <CompanyOrderOperationsPanel companyId={companyId} mode="deliveries" />
     </CompanyShell>
   );

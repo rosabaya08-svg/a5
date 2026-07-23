@@ -33,7 +33,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const sidebarTitle = accent ? roleTitles[accent] : sectionTitle;
-  const guardedRole = accent === "admin" || accent === "company" || accent === "nursery" ? accent : null;
+  const guardedRole = accent === "nursery" ? accent : null;
   const sidebarLogoutRole = accent === "company" || accent === "nursery" ? accent : undefined;
 
   const shell = (

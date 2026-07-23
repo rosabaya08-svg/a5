@@ -77,11 +77,13 @@ type ApiPayload = {
   items?: ItemRow[];
   claims?: ClaimRow[];
   carriers?: CompanyCarrierOption[];
+  resultMeta?: { itemLimit?: number; truncated?: boolean };
   message?: string;
   error?: { message?: string };
 };
 
 type PanelMode = "orders" | "deliveries" | "claims";
+type DateField = "paidAt" | "createdAt";
 
 const orderStatusLabels: Record<string, string> = {
   paid: "결제 완료",
@@ -121,6 +123,52 @@ const claimStatusLabels: Record<string, string> = {
   completed: "처리 완료",
 };
 
+const dateRangePresets: ReadonlyArray<{ label: string; days: number; offset?: number }> = [
+  { label: "오늘", days: 1 },
+  { label: "어제", days: 1, offset: 1 },
+  { label: "3일", days: 3 },
+  { label: "7일", days: 7 },
+  { label: "10일", days: 10 },
+  { label: "20일", days: 20 },
+  { label: "30일", days: 30 },
+  { label: "90일", days: 90 },
+];
+
+function koreaDateKey(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const shifted = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function koreaDateDaysAgo(daysAgo: number) {
+  return koreaDateKey(new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000));
+}
+
+function presetDateRange(days: number, offset = 0) {
+  return {
+    from: koreaDateDaysAgo(days - 1 + offset),
+    to: koreaDateDaysAgo(offset),
+  };
+}
+
+function itemDateKey(item: ItemRow, order: OrderRow | undefined, field: DateField) {
+  const value = field === "paidAt" ? order?.paidAt || item.createdAt : item.createdAt || order?.paidAt;
+  return value ? koreaDateKey(value) : "";
+}
+
+function dateHeading(dateKey: string) {
+  if (!dateKey) return "일자 확인 전";
+  const date = new Date(`${dateKey}T00:00:00+09:00`);
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(date);
+}
+
 export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: string; mode?: PanelMode }) {
   const endpoint = useMemo(() => getPaymentFunctionUrl("companyOrderOperations"), []);
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -129,6 +177,9 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
   const [carriers, setCarriers] = useState<CompanyCarrierOption[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(mode === "deliveries" ? "invoice_pending" : "all");
+  const [dateField, setDateField] = useState<DateField>("paidAt");
+  const [fromDate, setFromDate] = useState(() => presetDateRange(90).from);
+  const [toDate, setToDate] = useState(() => presetDateRange(90).to);
   const [selectedItem, setSelectedItem] = useState<ItemRow | null>(null);
   const [message, setMessage] = useState("주문 데이터를 불러오는 중입니다.");
   const [loading, setLoading] = useState(false);
@@ -138,7 +189,7 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
     async (body?: Record<string, unknown>) => {
       if (!endpoint) throw new Error("기업 주문 서버 주소가 설정되지 않았습니다.");
       const user = await ensureCompanyFirebaseAuthFromSession();
-      const token = await user?.getIdToken(true);
+      const token = await user?.getIdToken();
       if (!token) throw new Error("기업관리자 로그인이 필요합니다.");
       const response = await fetch(body ? endpoint : `${endpoint}?action=list`, {
         method: body ? "POST" : "GET",
@@ -164,8 +215,11 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
       setItems(payload.items ?? []);
       setClaims(payload.claims ?? []);
       setCarriers(payload.carriers ?? []);
+      const limitNotice = payload.resultMeta?.truncated
+        ? ` 최근 ${payload.resultMeta.itemLimit ?? 1000}개 상품까지만 조회됐습니다. 기간을 좁혀 주세요.`
+        : "";
       setMessage(
-        `주문 ${payload.orders?.length ?? 0}건, 상품 ${payload.items?.length ?? 0}건, 클레임 ${payload.claims?.length ?? 0}건을 불러왔습니다.`,
+        `주문 ${payload.orders?.length ?? 0}건, 상품 ${payload.items?.length ?? 0}건, 클레임 ${payload.claims?.length ?? 0}건을 불러왔습니다.${limitNotice}`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "주문 데이터를 불러오지 못했습니다.");
@@ -180,39 +234,80 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
   }, [load]);
 
   const orderByNo = useMemo(() => new Map(orders.map((order) => [order.orderNo, order])), [orders]);
+  const dateFilteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const dateKey = itemDateKey(item, orderByNo.get(item.orderNo), dateField);
+        if (!dateKey) return true;
+        return (!fromDate || dateKey >= fromDate) && (!toDate || dateKey <= toDate);
+      }),
+    [dateField, fromDate, items, orderByNo, toDate],
+  );
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return items.filter((item) => {
-      const order = orderByNo.get(item.orderNo);
-      const statusMatches =
-        statusFilter === "all" || item.deliveryStatus === statusFilter || order?.status === statusFilter;
-      if (!statusMatches) return false;
-      if (!normalizedQuery) return true;
-      return [
-        item.orderNo,
-        item.id,
-        item.productName,
-        item.optionName,
-        item.productId,
-        order?.customerName,
-        order?.customerPhoneMasked,
-        order?.receiverName,
-        order?.receiverPhone,
-        item.invoiceNumber,
-      ].some((value) => String(value ?? "").toLowerCase().includes(normalizedQuery));
-    });
-  }, [items, orderByNo, query, statusFilter]);
+    return dateFilteredItems
+      .filter((item) => {
+        const order = orderByNo.get(item.orderNo);
+        const statusMatches =
+          statusFilter === "all" || item.deliveryStatus === statusFilter || order?.status === statusFilter;
+        if (!statusMatches) return false;
+        if (!normalizedQuery) return true;
+        return [
+          item.orderNo,
+          item.id,
+          item.productName,
+          item.optionName,
+          item.productId,
+          order?.customerName,
+          order?.customerPhoneMasked,
+          order?.receiverName,
+          order?.receiverPhone,
+          item.invoiceNumber,
+        ].some((value) => String(value ?? "").toLowerCase().includes(normalizedQuery));
+      })
+      .sort((left, right) => {
+        const leftDate = itemDateKey(left, orderByNo.get(left.orderNo), dateField);
+        const rightDate = itemDateKey(right, orderByNo.get(right.orderNo), dateField);
+        return rightDate.localeCompare(leftDate) || right.createdAt.localeCompare(left.createdAt);
+      });
+  }, [dateField, dateFilteredItems, orderByNo, query, statusFilter]);
 
   const queueCounts = useMemo(
     () =>
       Object.fromEntries(
         Object.keys(deliveryStatusLabels).map((status) => [
           status,
-          items.filter((item) => item.deliveryStatus === status).length,
+          dateFilteredItems.filter((item) => item.deliveryStatus === status).length,
         ]),
       ),
-    [items],
+    [dateFilteredItems],
   );
+
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, ItemRow[]>();
+    filteredItems.forEach((item) => {
+      const key = itemDateKey(item, orderByNo.get(item.orderNo), dateField);
+      groups.set(key, [...(groups.get(key) ?? []), item]);
+    });
+    return [...groups.entries()]
+      .sort(([left], [right]) => {
+        if (!left) return 1;
+        if (!right) return -1;
+        return right.localeCompare(left);
+      })
+      .map(([dateKey, groupItems]) => ({
+        dateKey,
+        items: groupItems,
+        orderCount: new Set(groupItems.map((item) => item.orderNo)).size,
+        totalAmount: groupItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+      }));
+  }, [dateField, filteredItems, orderByNo]);
+
+  function applyDatePreset(days: number, offset = 0) {
+    const range = presetDateRange(days, offset);
+    setFromDate(range.from);
+    setToDate(range.to);
+  }
 
   async function submitAction(body: Record<string, unknown>, successMessage: string) {
     setLoading(true);
@@ -358,38 +453,97 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
         </>
       ) : null}
 
-      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-[1fr_220px_auto]">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="주문번호, 주문고유번호, 고객, 연락처, 상품명, 송장번호 검색"
-          className="rounded-md border border-slate-200 px-3 py-2"
-        />
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          className="rounded-md border border-slate-200 px-3 py-2"
-        >
-          <option value="all">전체 상태</option>
-          {Object.entries(deliveryStatusLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
+      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-[180px_1fr_1fr]">
+          <label className="grid gap-1 text-xs text-slate-600">
+            조회 기준
+            <select
+              value={dateField}
+              onChange={(event) => setDateField(event.target.value as DateField)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-950"
+            >
+              <option value="paidAt">결제일</option>
+              <option value="createdAt">주문 접수일</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-slate-600">
+            시작일
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-950"
+            />
+          </label>
+          <label className="grid gap-1 text-xs text-slate-600">
+            종료일
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(event) => setToDate(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-950"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {dateRangePresets.map((preset) => (
+            <button
+              type="button"
+              key={`${preset.label}-${preset.offset ?? 0}`}
+              onClick={() => applyDatePreset(preset.days, preset.offset ?? 0)}
+              className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+            >
+              {preset.label}
+            </button>
           ))}
-        </select>
-        <button
-          type="button"
-          disabled={loading || !filteredItems.length}
-          onClick={() => void downloadShippingWorklist(filteredItems, orderByNo, carriers)}
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
-        >
-          배송 작업목록 다운로드
-        </button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="주문번호, 주문고유번호, 고객, 연락처, 상품명, 송장번호 검색"
+            className="rounded-md border border-slate-200 px-3 py-2"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-md border border-slate-200 px-3 py-2"
+          >
+            <option value="all">전체 상태</option>
+            {Object.entries(mode === "orders" ? orderStatusLabels : deliveryStatusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={loading || !filteredItems.length}
+            onClick={() => void downloadShippingWorklist(filteredItems, orderByNo, carriers)}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
+          >
+            배송 작업목록 다운로드
+          </button>
+        </div>
       </section>
 
-      <div className="grid gap-3">
-        {filteredItems.map((item) => {
-          const order = orderByNo.get(item.orderNo);
+      <div className="grid gap-5">
+        {groupedItems.map((group) => (
+          <section key={group.dateKey || "unknown-date"} className="grid gap-3">
+            <header className="flex flex-wrap items-end justify-between gap-2 border-b-2 border-slate-800 px-1 pb-2">
+              <div>
+                <p className="text-xs text-slate-500">{dateField === "paidAt" ? "결제일" : "주문 접수일"}</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-950">{dateHeading(group.dateKey)}</h2>
+              </div>
+              <p className="text-sm text-slate-600">
+                주문 {group.orderCount}건 · 상품 {group.items.length}건 · {formatCurrency(group.totalAmount)}
+              </p>
+            </header>
+            <div className="grid gap-3">
+              {group.items.map((item) => {
+                const order = orderByNo.get(item.orderNo);
           return (
             <article key={item.id} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -456,8 +610,11 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
                 </button>
               </div>
             </article>
-          );
-        })}
+                );
+              })}
+            </div>
+          </section>
+        ))}
         {!filteredItems.length ? <EmptyState text="조건에 맞는 주문 상품이 없습니다." /> : null}
       </div>
 

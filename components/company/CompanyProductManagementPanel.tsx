@@ -75,7 +75,7 @@ function discountBucket(rate: number) {
 }
 
 function priceMetrics(product: Product) {
-  if (product.priceComparisonVerified !== true) {
+  if (product.priceComparisonVerified !== true || !product.comparisonVerificationSource?.trim()) {
     return {
       normalDiscountAmount: 0,
       platformDiscountAmount: 0,
@@ -117,14 +117,21 @@ function timeValue(product: Product) {
 function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const metrics = priceMetrics(product);
   const closedMallPrice = product.price;
-  const comparisonVerified = product.priceComparisonVerified === true;
+  const comparisonVerified = product.priceComparisonVerified === true && Boolean(product.comparisonVerificationSource?.trim());
+  const listPrice = comparisonVerified ? product.comparison.listPrice : (product.comparisonCandidateListPrice ?? 0);
+  const openMallPrice = comparisonVerified
+    ? product.comparison.platformLowestPrice
+    : (product.comparisonCandidateOpenMallPrice ?? 0);
+  const hasCandidatePrices = listPrice > 0 && openMallPrice > 0;
+  const verificationSource = product.comparisonVerificationSource?.trim() ?? "";
+  const verificationSourceUrl = /^https?:\/\//i.test(verificationSource) ? verificationSource : "";
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4">
       <section className="w-full max-w-md rounded-sm bg-white p-5 text-slate-950 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-normal tracking-[0.14em] text-rose-600">인공지능 가격 비교</p>
+            <p className="text-xs font-normal tracking-[0.14em] text-rose-600">A5 MALL AI 가격 비교</p>
             <h2 className="mt-1 text-2xl font-normal">{product.name}</h2>
           </div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-sm bg-slate-100 text-sm font-normal">
@@ -133,10 +140,11 @@ function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: 
         </div>
         <div className="mt-4 grid gap-3">
           {[
-            ["원판매가", comparisonVerified ? formatCurrency(product.comparison.listPrice) : "확인 전"],
-            ["오픈몰 판매가", comparisonVerified ? formatCurrency(product.comparison.platformLowestPrice) : "확인 전"],
+            [comparisonVerified ? "원판매가" : "원판매가 후보", listPrice > 0 ? formatCurrency(listPrice) : "확인 전"],
+            [comparisonVerified ? "오픈몰 판매가" : "오픈몰 판매가 후보", openMallPrice > 0 ? formatCurrency(openMallPrice) : "확인 전"],
             ["폐쇄몰 판매가", formatCurrency(closedMallPrice)],
-            ["할인률", comparisonVerified ? `${metrics.normalDiscountRate}%` : "확인 전"],
+            ["AI 비교 상태", comparisonVerified ? "검증 완료" : hasCandidatePrices ? "출처 확인 필요" : "비교가격 없음"],
+            ["할인율", comparisonVerified ? `${metrics.normalDiscountRate}%` : "확인 전"],
             ["인공지능 비교 차액", comparisonVerified ? formatCurrency(metrics.platformDiscountAmount) : "확인 전"],
             ["오픈몰 대비 차액률", comparisonVerified ? `${metrics.platformDiscountRate}%` : "확인 전"],
           ].map(([label, value]) => (
@@ -147,8 +155,13 @@ function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: 
           ))}
         </div>
         <div className="mt-4 rounded-sm bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
-          {comparisonVerified ? "검증된 비교가격만 사용해 할인률과 차액을 계산했습니다." : "원판매가와 오픈몰 판매가는 검증 전이므로 할인률과 비교 차액을 표시하지 않습니다."}
+          {comparisonVerified ? "검증된 비교가격으로 할인율과 차액을 계산했습니다." : hasCandidatePrices ? "업로드된 비교가격 후보를 불러왔습니다. 출처 확인 전에는 할인율과 차액을 고객 화면에 표시하지 않습니다." : "비교할 원판매가와 오픈몰 판매가가 없습니다. 폐쇄몰 판매가는 그대로 유지됩니다."}
         </div>
+        {verificationSourceUrl ? (
+          <a href={verificationSourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-normal text-blue-700 underline">
+            검증 출처 열기
+          </a>
+        ) : null}
       </section>
     </div>
   );

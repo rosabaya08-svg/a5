@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  calculateProductPriceMetrics,
   validateProductPriceOrder,
   type ProductPriceComparisonStatus,
 } from "@/lib/company/priceMetrics";
@@ -81,8 +80,18 @@ export function ProductPricePolicyForm({
     const listPrice = toNumber(listPriceText);
     const platformLowestPrice = toNumber(openMallPriceText);
     const closedMallPrice = toNumber(closedMallPriceText);
-    const priceOrder = validateProductPriceOrder({ listPrice, platformLowestPrice, closedMallPrice });
-    const metrics = calculateProductPriceMetrics({ listPrice, platformLowestPrice, closedMallPrice });
+    const numericPriceOrder = validateProductPriceOrder({ listPrice, platformLowestPrice, closedMallPrice });
+    const priceOrder = {
+      ...numericPriceOrder,
+      comparisonVerified: false,
+      status: numericPriceOrder.status === "needs_review" ? "needs_review" as const : "pending_verification" as const,
+    };
+    const metrics = {
+      normalDiscountAmount: 0,
+      platformDiscountAmount: 0,
+      normalDiscountRate: 0,
+      platformDiscountRate: 0,
+    };
     const platformPriceInvalid = !priceOrder.valid || priceOrder.status === "needs_review";
     const exposeBlocked = !priceOrder.valid;
 
@@ -122,7 +131,7 @@ export function ProductPricePolicyForm({
           <p className="text-xs font-normal tracking-[0.14em] text-rose-600">가격 입력</p>
           <h2 className="mt-1 text-xl font-normal">판매가 및 가격 비교</h2>
           <p className="mt-2 text-sm font-normal leading-6 text-slate-600">
-            폐쇄몰 판매가는 업로드 파일에 적힌 판매가를 그대로 입력합니다. 원판매가와 오픈몰 판매가는 확인된 근거가 있을 때만 함께 입력합니다.
+            폐쇄몰 판매가는 업로드 파일의 판매가를 그대로 유지합니다. 원판매가와 오픈몰 판매가는 비교 후보이며 검증된 출처가 있을 때만 공개됩니다.
           </p>
         </div>
         <span className={"rounded-full px-3 py-1 text-xs font-normal ring-1 " + pricing.band.tone}>
@@ -132,7 +141,7 @@ export function ProductPricePolicyForm({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <label className="grid gap-2 text-sm font-normal">
-          원판매가
+          원판매가 후보
           <input
             value={listPriceText}
             onChange={(event) => setListPriceText(event.target.value)}
@@ -142,7 +151,7 @@ export function ProductPricePolicyForm({
           />
         </label>
         <label className="grid gap-2 text-sm font-normal">
-          오픈몰 판매가
+          오픈몰 판매가 후보
           <input
             value={openMallPriceText}
             onChange={(event) => setOpenMallPriceText(event.target.value)}
@@ -199,12 +208,6 @@ export function ProductPricePolicyForm({
       {pricing.priceOrder.status === "pending_verification" && pricing.priceOrder.valid ? (
         <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm font-normal leading-6 text-slate-700">
           폐쇄몰 판매가는 저장할 수 있습니다. 원판매가와 오픈몰 판매가가 확인되기 전에는 할인율과 가격 비교 문구를 고객 화면에 표시하지 않습니다.
-        </p>
-      ) : null}
-
-      {pricing.priceOrder.status === "verified" ? (
-        <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-normal leading-6 text-emerald-800">
-          가격 비교 확인 완료: 할인율 {pricing.normalDiscountRate}%, 오픈몰보다 {formatCurrency(pricing.platformDiscountAmount)} 저렴합니다.
         </p>
       ) : null}
     </section>

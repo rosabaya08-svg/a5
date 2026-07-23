@@ -33,7 +33,7 @@ import {
   type ProductOptionGroup,
   type ProductOptionValue,
 } from "@/lib/company/productDraft";
-import { calculateProductPriceMetrics, validateProductPriceOrder } from "@/lib/company/priceMetrics";
+import { validateProductPriceOrder } from "@/lib/company/priceMetrics";
 
 import { readPortalSession } from "@/lib/auth/session";
 
@@ -211,7 +211,6 @@ function ProductRegistrationLivePreview({
   completionRate,
 
   isEditMode,
-  editProductId,
   mediaPreviewUrls,
   onPreviewChecked,
 }: {
@@ -220,7 +219,6 @@ function ProductRegistrationLivePreview({
   completionRate: number;
 
   isEditMode: boolean;
-  editProductId?: string;
   mediaPreviewUrls: Record<string, string>;
   onPreviewChecked: () => void;
 }) {
@@ -247,7 +245,7 @@ function ProductRegistrationLivePreview({
             {representativeUrl ? (
               <img src={representativeUrl} alt={draft.productName || representative?.fileName || "대표 이미지"} className="h-full w-full object-cover" />
             ) : (
-              <span className="p-4">{representative?.fileName ?? "대표 이미지 미등록"}</span>
+              <span className="p-4">대표 이미지 미등록</span>
             )}
           </div>
           <div className="p-4">
@@ -261,10 +259,7 @@ function ProductRegistrationLivePreview({
             <p className="mt-2 text-sm leading-6 text-slate-600">{draft.summary || "상품 요약 미입력"}</p>
             <p className="mt-4 text-3xl font-normal text-rose-600">{formatCurrency(draft.pricing.closedMallPrice)}</p>
             <div className="mt-3 grid gap-2 text-xs font-normal text-slate-700">
-              <p className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">상품 할인율 {draft.pricing.normalDiscountRate}%</p>
-              <p className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
-                오픈몰 판매가 대비 {formatCurrency(draft.pricing.platformDiscountAmount)}
-              </p>
+              <p className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">AI 가격 비교는 출처 검증 후 표시됩니다.</p>
             </div>
           </div>
         </div>
@@ -306,7 +301,7 @@ function ProductRegistrationLivePreview({
         </div>
 
         <div className="rounded-md border border-slate-200 bg-white p-3">
-          <p className="text-sm font-normal text-slate-950">SKU/재고 미리보기</p>
+          <p className="text-sm font-normal text-slate-950">옵션별 판매정보</p>
           <div className="mt-3 grid gap-2">
             {visibleVariants.map((variant) => (
               <div key={variant.id} className="grid gap-1 rounded-md bg-slate-50 p-2 text-xs">
@@ -314,10 +309,7 @@ function ProductRegistrationLivePreview({
                   <span className="font-normal text-slate-950">{variant.optionPath || "기본 옵션"}</span>
                   <span className="font-normal text-rose-600">{formatCurrency(toNumber(variant.finalSalePrice))}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2 font-normal text-slate-500">
-                  <span>{variant.sku || "SKU 미입력"}</span>
-                  <span>{toNumber(variant.stock) > 0 ? `재고 ${variant.stock}` : "품절/재고 미입력"}</span>
-                </div>
+                <p className="font-normal text-slate-500">{toNumber(variant.stock) > 0 ? `재고 ${variant.stock}` : "품절/재고 미입력"}</p>
               </div>
             ))}
           </div>
@@ -341,7 +333,6 @@ function ProductRegistrationLivePreview({
                       />
                     </div>
                   ) : null}
-                  <p className="text-[11px] font-normal uppercase tracking-[0.12em] text-slate-500">{section.type}</p>
                   <h4 className="mt-1 text-sm font-normal text-slate-950">{section.title || "제목 미입력"}</h4>
                   <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-slate-600">{section.body || section.assetFileName || "내용 미입력"}</p>
                 </article>
@@ -357,7 +348,7 @@ function ProductRegistrationLivePreview({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-normal text-slate-950">등록 상태</p>
             <span className={`rounded-md px-2 py-1 text-[11px] font-normal ${blockers.length ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>
-              {isEditMode ? editProductId ?? "수정 상품" : blockers.length ? "확인 필요" : "등록 가능"}
+              {isEditMode ? "수정 중" : blockers.length ? "확인 필요" : "등록 가능"}
             </span>
           </div>
           <p className="mt-2 text-xs font-normal leading-5 text-slate-500">필수 상품 정보가 준비되면 바로 등록할 수 있습니다.</p>
@@ -1045,7 +1036,7 @@ export function CompanyProductRegistrationWorkspace({
             <p className="text-xs font-normal text-slate-500">등록 준비도</p>
             <p className="mt-1 text-2xl font-normal text-slate-950">{completionRate}%</p>
             <p className={`mt-2 text-sm font-normal ${readiness.blockers.length ? "text-red-700" : "text-emerald-700"}`}>
-              {isEditMode ? `수정 대상: ${editProduct?.id}` : readiness.blockers.length ? `확인 필요 ${readiness.blockers.length}개` : "상품 등록 가능"}
+              {isEditMode ? "등록 상품 수정 중" : readiness.blockers.length ? `확인 필요 ${readiness.blockers.length}개` : "상품 등록 가능"}
             </p>
             <p className="mt-1 text-xs font-normal leading-5 text-slate-500">상품 정보와 이미지를 확인한 뒤 등록해 주세요.</p>
           </div>
@@ -1298,7 +1289,7 @@ export function CompanyProductRegistrationWorkspace({
       ) : null}
 
       {activeStep === "pricing" ? (
-      <ProductEditorAccordion eyebrow="4단계" title="가격 정책" body="원판매가, 오픈몰 판매가, 폐쇄몰 판매가와 할인률, 인공지능 비교 차액을 계산합니다.">
+      <ProductEditorAccordion eyebrow="4단계" title="가격 정책" body="폐쇄몰 판매가는 그대로 유지하고 원판매가·오픈몰가 후보는 출처 검증 후 AI 가격 비교에 사용합니다.">
       <ProductPricePolicyForm
         initialPricing={draft.pricing}
         onPricingChange={handlePricingChange}
@@ -1407,20 +1398,7 @@ export function CompanyProductRegistrationWorkspace({
                       <td className="px-3 py-2"><input value={variant.additionalPrice} onChange={(event) => updateVariant(index, "additionalPrice", event.target.value)} inputMode="numeric" className={compactInputClass()} /></td>
                       <td className="px-3 py-2">
                         <p className="font-normal text-rose-600">{formatCurrency(toNumber(variant.finalSalePrice))}</p>
-                        <p className="mt-1 text-xs font-normal text-slate-500">
-                          상품 할인율 {calculateProductPriceMetrics({
-                            listPrice: toNumber(variant.normalPrice),
-                            platformLowestPrice: toNumber(variant.platformLowestPrice),
-                            closedMallPrice: toNumber(variant.finalSalePrice),
-                          }).normalDiscountRate}%
-                        </p>
-                        <p className="mt-1 text-xs font-normal text-slate-500">
-                          플랫폼 대비 {formatCurrency(calculateProductPriceMetrics({
-                            listPrice: toNumber(variant.normalPrice),
-                            platformLowestPrice: toNumber(variant.platformLowestPrice),
-                            closedMallPrice: toNumber(variant.finalSalePrice),
-                          }).platformDiscountAmount)}
-                        </p>
+                        <p className="mt-1 text-xs font-normal text-slate-500">AI 가격 비교 확인 전</p>
                       </td>
                       <td className="px-3 py-2"><input value={variant.stock} onChange={(event) => updateVariant(index, "stock", event.target.value)} inputMode="numeric" className={compactInputClass()} /></td>
                       <td className="px-3 py-2"><input value={variant.safetyStock} onChange={(event) => updateVariant(index, "safetyStock", event.target.value)} inputMode="numeric" className={compactInputClass()} /></td>
@@ -1567,7 +1545,6 @@ export function CompanyProductRegistrationWorkspace({
         completionRate={completionRate}
 
         isEditMode={isEditMode}
-        editProductId={editProduct?.id}
         mediaPreviewUrls={mediaPreviewUrls}
         onPreviewChecked={() => updateDraft("previewCheckedAt", new Date().toISOString())}
       />

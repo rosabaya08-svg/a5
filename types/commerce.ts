@@ -177,6 +177,10 @@ export type Product = {
   comparison: PriceComparison;
   priceComparisonVerified?: boolean;
   priceComparisonStatus?: "pending_verification" | "verified" | "needs_review" | string;
+  comparisonCandidateListPrice?: number;
+  comparisonCandidateOpenMallPrice?: number;
+  comparisonVerificationSource?: string;
+  comparisonVerifiedAt?: string;
   optionIds: string[];
   thumbnailTone: "sage" | "rose" | "sky" | "gold" | "ink";
   imageUrl?: string;

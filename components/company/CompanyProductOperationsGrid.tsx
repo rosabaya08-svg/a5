@@ -58,6 +58,8 @@ function statusPill(status: Product["status"]) {
 }
 
 function discountRate(product: Product) {
+  if (product.priceComparisonVerified !== true || !product.comparisonVerificationSource?.trim()) return 0;
+
   return calculateProductPriceMetrics({
     listPrice: product.comparison.listPrice,
     platformLowestPrice: product.comparison.platformLowestPrice,

@@ -472,7 +472,7 @@ export async function CompanyProductPreviewPage({ productId }: { productId?: str
       {productId && !product ? (
         <section className="rounded-md border border-red-200 bg-red-50 p-5 text-red-900">
           <h2 className="text-lg font-normal">미리보기 권한이 없거나 상품을 찾을 수 없습니다.</h2>
-          <p className="mt-2 text-sm font-normal">현재 기업 범위({scope.companyId})의 상품만 미리볼 수 있습니다.</p>
+          <p className="mt-2 text-sm font-normal">로그인한 사업자의 상품만 미리볼 수 있습니다.</p>
         </section>
       ) : (
         <CompanyProductDraftPreview product={product} options={options} />

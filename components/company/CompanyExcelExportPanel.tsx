@@ -133,7 +133,7 @@ function downloadExcelTemplate() {
   const exampleRows = [
     { item: "상세이미지URL", description: "여러 장은 | 기호로 구분합니다." },
     { item: "무료배송여부", description: "Y 또는 N으로 입력합니다." },
-    { item: "가격 계산", description: "할인률과 AI 비교금액은 업로드 미리보기에서 자동 계산됩니다." },
+    { item: "가격 비교", description: "원판매가·오픈몰가는 비교 후보로 저장되며 출처 검증 전 할인율과 차액은 표시하지 않습니다." },
   ];
   const exampleHeaders = [
     { key: "item", label: "항목" }, { key: "description", label: "설명" },

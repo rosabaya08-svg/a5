@@ -190,6 +190,10 @@ function mapProduct(documentId: string, data: DocumentData): Product {
     0,
   );
   const listPrice = asNumber(data.list_price ?? data.listPrice ?? comparison.listPrice, 0);
+  const comparisonCandidateListPrice = asNumber(data.comparison_candidate_list_price ?? data.comparisonCandidateListPrice ?? comparison.candidateListPrice, 0);
+  const comparisonCandidateOpenMallPrice = asNumber(data.comparison_candidate_open_mall_price ?? data.comparisonCandidateOpenMallPrice ?? comparison.candidateOpenMallPrice, 0);
+  const comparisonVerificationSource = asString(data.comparison_price_verification_source ?? data.comparisonPriceVerificationSource ?? comparison.verificationSource ?? comparison.sourceUrl);
+  const comparisonVerifiedAt = asIsoDate(data.comparison_verified_at ?? data.comparisonVerifiedAt ?? comparison.verifiedAt);
   const priceComparisonVerified = asBoolean(
     data.price_comparison_verified ?? data.priceComparisonVerified ?? comparison.verified,
     false,
@@ -237,6 +241,10 @@ function mapProduct(documentId: string, data: DocumentData): Product {
     },
     priceComparisonVerified,
     priceComparisonStatus,
+    comparisonCandidateListPrice: comparisonCandidateListPrice || undefined,
+    comparisonCandidateOpenMallPrice: comparisonCandidateOpenMallPrice || undefined,
+    comparisonVerificationSource: comparisonVerificationSource || undefined,
+    comparisonVerifiedAt,
     optionIds: asStringArray(data.option_ids ?? data.optionIds),
     thumbnailTone: "sage",
     imageUrl,

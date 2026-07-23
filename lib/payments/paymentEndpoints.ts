@@ -37,6 +37,9 @@ export type PaymentFunctionKey =
   | "analyticsRecordVisit"
   | "analyticsSummary"
   | "companyOrderDeliveryUpdate"
+  | "companyOrderOperations"
+  | "guestClaimSubmit"
+  | "guestOrderContactsRead"
   | "companyIntegrationEventRetry"
   | "integrationEventDelivery"
   | "qrCreate"
@@ -88,6 +91,9 @@ const functionNames: Record<PaymentFunctionKey, string> = {
   analyticsRecordVisit: "analyticsRecordVisit",
   analyticsSummary: "analyticsSummary",
   companyOrderDeliveryUpdate: "companyOrderDeliveryUpdate",
+  companyOrderOperations: "companyOrderOperations",
+  guestClaimSubmit: "guestClaimSubmit",
+  guestOrderContactsRead: "guestOrderContactsRead",
   companyIntegrationEventRetry: "companyIntegrationEventRetry",
   integrationEventDelivery: "integrationEventDelivery",
   qrCreate: "qrCreate",
@@ -172,6 +178,9 @@ export function getPaymentEndpointReadiness() {
       analyticsRecordVisit: getPaymentFunctionUrl("analyticsRecordVisit"),
       analyticsSummary: getPaymentFunctionUrl("analyticsSummary"),
       companyOrderDeliveryUpdate: getPaymentFunctionUrl("companyOrderDeliveryUpdate"),
+      companyOrderOperations: getPaymentFunctionUrl("companyOrderOperations"),
+      guestClaimSubmit: getPaymentFunctionUrl("guestClaimSubmit"),
+      guestOrderContactsRead: getPaymentFunctionUrl("guestOrderContactsRead"),
       companyIntegrationEventRetry: getPaymentFunctionUrl("companyIntegrationEventRetry"),
       integrationEventDelivery: getPaymentFunctionUrl("integrationEventDelivery"),
       qrCreate: getPaymentFunctionUrl("qrCreate"),

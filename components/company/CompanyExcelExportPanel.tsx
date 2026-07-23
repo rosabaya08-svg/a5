@@ -337,6 +337,46 @@ function parseProductImportRows(records: Record<string, unknown>[]): ParsedProdu
     return row;
   });
 }
+function validateImportGroupConsistency(rows: ParsedProductImportRow[]) {
+  const groups = rows.reduce((map, row) => {
+    const key = sanitizeId(row.externalProductCode);
+    if (!key) return map;
+    const group = map.get(key) ?? [];
+    group.push(row);
+    map.set(key, group);
+    return map;
+  }, new Map<string, ParsedProductImportRow[]>());
+  const sharedFields: Array<[keyof ParsedProductImportRow, string]> = [
+    ["productName", "상품명"],
+    ["brandName", "브랜드명"],
+    ["shoppingMallCategory", "쇼핑몰카테고리"],
+    ["listPrice", "원판매가 후보"],
+    ["openMallPrice", "오픈몰판매가 후보"],
+    ["closedMallPrice", "판매가"],
+    ["orderAvailableFrom", "발주가능시작일"],
+    ["orderAvailableTo", "발주가능종료일"],
+    ["shippingFee", "배송비"],
+    ["deliveryLeadDays", "배송도착예정일"],
+    ["minimumOrderQuantity", "최소발주수량"],
+    ["cancellationOrderAmount", "취소발주금액"],
+    ["representativeImageUrl", "제품사진URL"],
+    ["refundReturnPolicy", "환불반품규정"],
+  ];
+  for (const group of groups.values()) {
+    const first = group[0];
+    for (const [field, label] of sharedFields) {
+      if (group.some((row) => String(row[field] ?? "") !== String(first[field] ?? ""))) {
+        group.forEach((row) => row.errors.push(`같은 외부상품코드의 ${label} 불일치`));
+      }
+    }
+    const optionNames = group.map((row) => row.optionName.trim().toLowerCase());
+    if (new Set(optionNames).size !== optionNames.length) {
+      group.forEach((row) => row.errors.push("같은 외부상품코드에 중복 옵션명 존재"));
+    }
+  }
+  return rows;
+}
+
 
 function fileNameFromUrl(url: string, fallback: string) {
   try {
@@ -458,7 +498,7 @@ export function CompanyExcelExportPanel({ companyId, orderRows, productRows }: {
 
   async function readProductImportFile(file: File | null) {
     if (!file) return;
-    const rows = parseProductImportRows(await readImportRecords(file));
+    const rows = validateImportGroupConsistency(parseProductImportRows(await readImportRecords(file)));
     setParsedRows(rows);
     setImportState({ status: rows.length ? "ready" : "error", message: rows.length ? `${rows.length}개 행을 읽었습니다. 오류가 없는 행만 업로드할 수 있습니다.` : "읽을 수 있는 상품 행이 없습니다." });
   }

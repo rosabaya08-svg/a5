@@ -26,9 +26,9 @@ type ProductStatusFilter = Product["status"] | "all";
 
 const statusLabels: Record<Product["status"], string> = {
   draft: "임시 저장",
-  pending_approval: "검토 대기",
+  pending_approval: "기존자료 판매중지",
   approved: "판매중",
-  rejected: "반려",
+  rejected: "기존자료 판매중지",
   suspended: "판매중지",
   archived: "보관",
 };
@@ -62,8 +62,7 @@ function statusLabel(status: Product["status"]) {
 
 function statusClass(status: Product["status"]) {
   if (status === "approved") return "bg-emerald-50 text-emerald-800 ring-emerald-200";
-  if (status === "pending_approval") return "bg-amber-50 text-amber-800 ring-amber-200";
-  if (status === "rejected" || status === "suspended") return "bg-rose-50 text-rose-800 ring-rose-200";
+  if (status === "pending_approval" || status === "rejected" || status === "suspended") return "bg-rose-50 text-rose-800 ring-rose-200";
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
@@ -76,6 +75,14 @@ function discountBucket(rate: number) {
 }
 
 function priceMetrics(product: Product) {
+  if (product.priceComparisonVerified !== true) {
+    return {
+      normalDiscountAmount: 0,
+      platformDiscountAmount: 0,
+      normalDiscountRate: 0,
+      platformDiscountRate: 0,
+    };
+  }
   return calculateProductPriceMetrics({
     listPrice: product.comparison.listPrice,
     platformLowestPrice: product.comparison.platformLowestPrice,
@@ -109,7 +116,8 @@ function timeValue(product: Product) {
 
 function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const metrics = priceMetrics(product);
-  const closedMallPrice = product.comparison.closedMallPrice || product.price;
+  const closedMallPrice = product.price;
+  const comparisonVerified = product.priceComparisonVerified === true;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4">
@@ -125,12 +133,12 @@ function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: 
         </div>
         <div className="mt-4 grid gap-3">
           {[
-            ["원판매가", formatCurrency(product.comparison.listPrice)],
-            ["오픈몰 판매가", formatCurrency(product.comparison.platformLowestPrice)],
+            ["원판매가", comparisonVerified ? formatCurrency(product.comparison.listPrice) : "확인 전"],
+            ["오픈몰 판매가", comparisonVerified ? formatCurrency(product.comparison.platformLowestPrice) : "확인 전"],
             ["폐쇄몰 판매가", formatCurrency(closedMallPrice)],
-            ["할인률", `${metrics.normalDiscountRate}%`],
-            ["인공지능 비교 차액", formatCurrency(metrics.platformDiscountAmount)],
-            ["오픈몰 대비 차액률", `${metrics.platformDiscountRate}%`],
+            ["할인률", comparisonVerified ? `${metrics.normalDiscountRate}%` : "확인 전"],
+            ["인공지능 비교 차액", comparisonVerified ? formatCurrency(metrics.platformDiscountAmount) : "확인 전"],
+            ["오픈몰 대비 차액률", comparisonVerified ? `${metrics.platformDiscountRate}%` : "확인 전"],
           ].map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 rounded-sm bg-slate-50 p-3 text-sm">
               <span className="font-normal text-slate-500">{label}</span>
@@ -139,7 +147,7 @@ function AiPriceCompareModal({ product, onClose }: { product: Product; onClose: 
           ))}
         </div>
         <div className="mt-4 rounded-sm bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
-          할인률은 원판매가와 폐쇄몰 판매가 기준으로 계산됩니다. 인공지능 비교 차액은 오픈몰 판매가와 폐쇄몰 판매가의 차이입니다.
+          {comparisonVerified ? "검증된 비교가격만 사용해 할인률과 차액을 계산했습니다." : "원판매가와 오픈몰 판매가는 검증 전이므로 할인률과 비교 차액을 표시하지 않습니다."}
         </div>
       </section>
     </div>
@@ -348,8 +356,6 @@ export function CompanyProductManagementPanel({
                 <option value="approved">판매중</option>
                 <option value="suspended">판매중지</option>
                 <option value="draft">임시 저장</option>
-                <option value="pending_approval">검토 대기</option>
-                <option value="rejected">반려</option>
                 <option value="archived">보관</option>
               </select>
               <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-sm border border-slate-300 bg-white px-3 py-3 text-sm">
@@ -384,7 +390,8 @@ export function CompanyProductManagementPanel({
               const productOrderItems = orderItems.filter((item) => item.productName === product.name);
               const soldQuantity = productOrderItems.reduce((total, item) => total + item.quantity, 0);
               const salesTotal = productOrderItems.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
-              const closedMallPrice = product.comparison.closedMallPrice || product.price;
+              const closedMallPrice = product.price;
+              const comparisonVerified = product.priceComparisonVerified === true;
 
               return {
                 id: product.id,
@@ -404,11 +411,11 @@ export function CompanyProductManagementPanel({
                   brand: product.brand ?? product.companyId,
                   businessNo: <span className="font-mono text-xs">{productBusinessNo(product)}</span>,
                   category: product.category,
-                  listPrice: formatCurrency(product.comparison.listPrice),
-                  openPrice: formatCurrency(product.comparison.platformLowestPrice),
+                  listPrice: comparisonVerified ? formatCurrency(product.comparison.listPrice) : "확인 전",
+                  openPrice: comparisonVerified ? formatCurrency(product.comparison.platformLowestPrice) : "확인 전",
                   closedPrice: <span className="font-normal text-rose-600">{formatCurrency(closedMallPrice)}</span>,
-                  discount: `${metrics.normalDiscountRate}%`,
-                  discountBucket: discountBucket(metrics.normalDiscountRate),
+                  discount: comparisonVerified ? `${metrics.normalDiscountRate}%` : "확인 전",
+                  discountBucket: comparisonVerified ? discountBucket(metrics.normalDiscountRate) : "확인 전",
                   stock: <span className={product.stock < 10 ? "font-normal text-amber-700" : "font-normal text-slate-950"}>{product.stock}</span>,
                   options: productOptions.map((option) => option.name).join(", ") || "기본",
                   sold: soldQuantity,

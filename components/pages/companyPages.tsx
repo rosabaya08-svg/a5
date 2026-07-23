@@ -7,8 +7,7 @@ import {
 } from "@/components/company/CompanyExcelExportPanel";
 import { CompanyConsentSummary } from "@/components/company/CompanyConsentSummary";
 import { CompanyDocumentUploadPanel } from "@/components/company/CompanyDocumentUploadPanel";
-import { CompanyDeliveryActionPanel } from "@/components/company/CompanyDeliveryActionPanel";
-import { CompanyLiveOrdersPanel } from "@/components/company/CompanyLiveOrdersPanel";
+import { CompanyOrderOperationsPanel } from "@/components/company/CompanyOrderOperationsPanel";
 import { CompanyAdManager } from "@/components/company/CompanyAdManager";
 import { CompanyAccountSecurityPanel } from "@/components/company/CompanyAccountSecurityPanel";
 import { CompanyBrandPageEditor } from "@/components/company/CompanyBrandPageEditor";
@@ -574,7 +573,16 @@ export async function CompanyOrdersPage() {
 
   return (
     <CompanyShell title="주문 목록" subtitle="입점사에 배정된 주문 상품을 확인하고 출고 상태를 관리합니다.">
-      <CompanyLiveOrdersPanel companyId={companyId} businessNo={scope.businessNo} />
+      <CompanyOrderOperationsPanel companyId={companyId} mode="orders" />
+    </CompanyShell>
+  );
+}
+
+export async function CompanyClaimsPage() {
+  const scope = await readCompanyRuntimeScope();
+  return (
+    <CompanyShell title="클레임 관리" subtitle="업체 상품의 취소, 반품, 교환 처리 상태를 관리합니다.">
+      <CompanyOrderOperationsPanel companyId={scope.companyId} mode="claims" />
     </CompanyShell>
   );
 }
@@ -657,27 +665,10 @@ export async function CompanyInventoryPage() {
 export async function CompanyDeliveriesPage() {
   const scope = await readCompanyRuntimeScope();
   const companyId = scope.companyId;
-  const orderItemsRead = await getLiveCompanyOrderItems(companyId);
 
   return (
     <CompanyShell title="배송/현장수령" subtitle="송장 입력과 현장수령 준비 상태를 관리합니다.">
-      <div className="mb-4">
-        <RepositorySourceNotice title="배송 화면 실제 연동 범위" reads={[orderItemsRead]} />
-      </div>
-      <DataTable
-        columns={["주문상품", "상품", "수량", "배송상태", "송장/수령 처리"]}
-        rows={orderItemsRead.data.map((item) => ({
-          id: item.id,
-          cells: [
-            item.id,
-            item.productName,
-            item.quantity,
-            item.deliveryStatus,
-            <CompanyDeliveryActionPanel key="action" companyId={companyId} item={item} />,
-          ],
-        }))}
-        emptyMessage="배송 처리할 주문이 없습니다."
-      />
+      <CompanyOrderOperationsPanel companyId={companyId} mode="deliveries" />
     </CompanyShell>
   );
 }

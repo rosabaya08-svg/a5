@@ -1,0 +1,5 @@
+import { CompanyClaimsPage } from "@/components/pages/companyPages";
+
+export default function Page() {
+  return <CompanyClaimsPage />;
+}

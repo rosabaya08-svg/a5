@@ -107,6 +107,7 @@ export const companyNavItems: NavSection[] = [
     items: [
       { href: "/company/orders", label: "주문 목록" },
       { href: "/company/deliveries", label: "배송 및 현장수령" },
+      { href: "/company/claims", label: "클레임 관리" },
     ],
   },
   {
@@ -119,8 +120,8 @@ export const companyNavItems: NavSection[] = [
     ],
   },
   {
-    title: "매출 관리",
-    items: [{ href: "/company/sales", label: "매출 현황" }],
+    title: "결제 관리",
+    items: [{ href: "/company/payup", label: "PayUp 관리자" }],
   },
   {
     title: "계정",

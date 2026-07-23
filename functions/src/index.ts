@@ -5,6 +5,11 @@ import { a4NurseryBulkSignupHandler } from "./a4/bulkSignupNurseries";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
 import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
+import { guestClaimSubmitHandler } from "./company/guestClaims";
+import { guestOrderContactsReadHandler } from "./company/guestOrderContacts";
+import { companyOrderItemCreatedProjectionHandler } from "./company/orderItemProjection";
+import { companyOrderOperationsHandler } from "./company/orderOperations";
+import { companyOrderCreatedProjectionHandler } from "./company/orderProjection";
 import { companySignupReviewHandler } from "./company/signupReview";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
@@ -52,6 +57,9 @@ export const adminPgCredentialSave = onRequest(paymentFunctionOptions, adminPgCr
 export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgConnectionTestHandler);
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
+export const companyOrderOperations = onRequest(paymentFunctionOptions, companyOrderOperationsHandler);
+export const guestClaimSubmit = onRequest(paymentFunctionOptions, guestClaimSubmitHandler);
+export const guestOrderContactsRead = onRequest(paymentFunctionOptions, guestOrderContactsReadHandler);
 export const ordersCreate = onRequest(paymentFunctionOptions, ordersCreateHandler);
 export const tabletNurseryLogin = onRequest(paymentFunctionOptions, tabletNurseryLoginHandler);
 export const qrCreate = onRequest(paymentFunctionOptions, qrCreateHandler);
@@ -70,4 +78,20 @@ export const companyDocumentInboxDelivery = onDocumentCreated(
     maxInstances: 5,
   },
   companyDocumentInboxCreatedHandler,
+);
+export const companyOrderCreatedProjection = onDocumentCreated(
+  {
+    document: "orders/{orderId}",
+    region: "asia-northeast3",
+    maxInstances: 10,
+  },
+  companyOrderCreatedProjectionHandler,
+);
+export const companyOrderItemCreatedProjection = onDocumentCreated(
+  {
+    document: "order_items/{itemId}",
+    region: "asia-northeast3",
+    maxInstances: 20,
+  },
+  companyOrderItemCreatedProjectionHandler,
 );

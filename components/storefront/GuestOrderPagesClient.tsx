@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { GuestRefundRequestBridge } from "@/components/storefront/GuestRefundRequestBridge";
+import { GuestClaimRequestForm } from "@/components/storefront/GuestClaimRequestForm";
+import { GuestSellerContacts } from "@/components/storefront/GuestSellerContacts";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { getPaymentEndpointReadiness } from "@/lib/payments/paymentEndpoints";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
@@ -507,16 +508,7 @@ export function GuestOrderDetailClientPage({
             <CancelRequestStatus order={order} />
             <OrderTimeline order={order} />
             <OrderItems items={order.items} />
-            {order.vendorContact?.companyName || order.vendorContact?.phone || order.vendorContact?.email ? (
-              <section className="rounded-md bg-white p-4 text-sm shadow-sm">
-                <h2 className="text-lg font-normal">판매자 연락처</h2>
-                <div className="mt-3 grid gap-1 text-slate-700">
-                  {order.vendorContact.companyName ? <p>{order.vendorContact.companyName}</p> : null}
-                  {order.vendorContact.phone ? <p>{order.vendorContact.phone}</p> : null}
-                  {order.vendorContact.email ? <p>{order.vendorContact.email}</p> : null}
-                </div>
-              </section>
-            ) : null}
+            <GuestSellerContacts orderNo={order.orderNo} lookupToken={token || undefined} phoneLast4={token ? undefined : phoneLast4} />
             <Link href={`/orders/guest/${order.orderNo}/refund`} className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-normal text-red-700">
               Refund or cancellation request
             </Link>
@@ -644,17 +636,18 @@ export function GuestRefundClientPage({
             <OrderSummary order={order} />
             <CancelRequestStatus order={order} />
             <OrderItems items={order.items} />
-            <GuestRefundRequestBridge orderNo={order.orderNo} amount={order.totalAmount}>
-              <section className="rounded-md border border-red-200 bg-white p-4">
-                <label className="grid gap-2 text-sm font-normal text-slate-700">
-                  Request reason
-                  <textarea className="min-h-32 rounded-md border border-slate-200 px-3 py-3" placeholder="Enter refund or cancellation reason." />
-                </label>
-                <button type="submit" className="mt-4 w-full rounded-md bg-red-600 px-4 py-3 text-sm font-normal text-white">
-                  Submit request
-                </button>
-              </section>
-            </GuestRefundRequestBridge>
+            <GuestSellerContacts orderNo={order.orderNo} lookupToken={token || undefined} phoneLast4={token ? undefined : phoneLast4} />
+            <GuestClaimRequestForm
+              orderNo={order.orderNo}
+              lookupToken={token || undefined}
+              phoneLast4={token ? undefined : phoneLast4}
+              items={(order.items ?? []).map((item, index) => ({
+                id: `${order.orderNo}-${index + 1}`,
+                productName: item.productName,
+                optionName: item.optionName,
+                quantity: item.quantity,
+              }))}
+            />
             <p className={`rounded-md px-3 py-3 text-sm font-normal ${messageClass(failed)}`}>{message}</p>
           </>
         )}

@@ -115,6 +115,7 @@ export function AdminSidebar({
           const isOpen =
             sectionOverrides[section.title] ?? (hasActiveSection || (!activeSectionTitle && sectionIndex === 0));
           const firstHref = section.items[0]?.href ?? "#";
+          const firstItemIsExternal = Boolean(section.items[0]?.external);
           const isSingleItem = section.items.length === 1 && !section.items[0]?.children?.length;
           const sectionClass = hasActiveSection
             ? "border-sky-500 bg-sky-50 text-sky-800"
@@ -125,12 +126,17 @@ export function AdminSidebar({
               <Link
                 key={section.title}
                 href={firstHref}
+                target={firstItemIsExternal ? "_blank" : undefined}
+                rel={firstItemIsExternal ? "noopener noreferrer" : undefined}
+                prefetch={firstItemIsExternal ? false : undefined}
+                aria-label={firstItemIsExternal ? `${section.title} 새 탭에서 열기` : undefined}
                 aria-current={hasActiveSection ? "page" : undefined}
                 className={
                   "mx-2 flex min-h-11 items-center border-l-2 px-3 py-2 text-sm font-normal transition " + sectionClass
                 }
               >
                 <span className="truncate">{section.title}</span>
+                {firstItemIsExternal ? <span className="ml-auto text-xs text-slate-400" aria-hidden="true">↗</span> : null}
               </Link>
             );
           }
@@ -140,6 +146,10 @@ export function AdminSidebar({
               <div className={"mx-2 flex min-h-11 items-center border-l-2 transition " + sectionClass}>
                 <Link
                   href={firstHref}
+                  target={firstItemIsExternal ? "_blank" : undefined}
+                  rel={firstItemIsExternal ? "noopener noreferrer" : undefined}
+                  prefetch={firstItemIsExternal ? false : undefined}
+                  aria-label={firstItemIsExternal ? `${section.title} 새 탭에서 열기` : undefined}
                   onClick={() => setSectionOpen(section.title, true)}
                   className="flex min-w-0 flex-1 items-center px-3 py-2 text-sm font-normal"
                 >
@@ -170,6 +180,10 @@ export function AdminSidebar({
                       <div key={item.href}>
                         <Link
                           href={item.href}
+                          target={item.external ? "_blank" : undefined}
+                          rel={item.external ? "noopener noreferrer" : undefined}
+                          prefetch={item.external ? false : undefined}
+                          aria-label={item.external ? `${item.label} 새 탭에서 열기` : undefined}
                           aria-current={item.href === activeHref ? "page" : undefined}
                           className={
                             "relative flex min-h-9 items-center rounded-sm px-3 py-2 text-[13px] font-normal transition " +
@@ -180,6 +194,7 @@ export function AdminSidebar({
                             <span className="absolute left-0 top-2 h-5 w-0.5 bg-sky-500" aria-hidden="true" />
                           ) : null}
                           <span className="truncate">{item.label}</span>
+                          {item.external ? <span className="ml-auto text-xs text-slate-400" aria-hidden="true">↗</span> : null}
                         </Link>
                         {item.children?.length ? (
                           <div className="ml-3 border-l border-slate-200 pl-2">
@@ -193,12 +208,17 @@ export function AdminSidebar({
                                 <Link
                                   key={child.href}
                                   href={child.href}
+                                  target={child.external ? "_blank" : undefined}
+                                  rel={child.external ? "noopener noreferrer" : undefined}
+                                  prefetch={child.external ? false : undefined}
+                                  aria-label={child.external ? `${child.label} 새 탭에서 열기` : undefined}
                                   aria-current={childActive ? "page" : undefined}
                                   className={
                                     "flex min-h-8 items-center px-3 py-1.5 text-xs font-normal transition " + childClass
                                   }
                                 >
                                   <span className="truncate">{child.label}</span>
+                                  {child.external ? <span className="ml-auto text-xs text-slate-400" aria-hidden="true">↗</span> : null}
                                 </Link>
                               );
                             })}

@@ -2,6 +2,7 @@ export type NavItem = {
   href: string;
   label: string;
   badge?: string;
+  external?: boolean;
   children?: NavItem[];
 };
 
@@ -14,6 +15,36 @@ export const adminNavItems: NavSection[] = [
   {
     title: "메인",
     items: [{ href: "/admin/dashboard", label: "운영 대시보드" }],
+  },
+  {
+    title: "A5S 관리자",
+    items: [
+      {
+        href: "https://withfarmbaro.co.kr/a5s-admin/",
+        label: "A5S 관리자",
+        external: true,
+      },
+    ],
+  },
+  {
+    title: "A5WS 관리자",
+    items: [
+      {
+        href: "https://withcommerce.co.kr/admin",
+        label: "A5WS 관리자",
+        external: true,
+      },
+    ],
+  },
+  {
+    title: "A5LS 관리자",
+    items: [
+      {
+        href: "https://lussoboutique.co.kr/admin",
+        label: "A5LS 관리자",
+        external: true,
+      },
+    ],
   },
   {
     title: "입점사 관리",

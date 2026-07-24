@@ -26,10 +26,7 @@ export function PriceAnalysisButton({
 
     return { platformSavings, platformRate };
   }, [closedMallPrice, platformLowestPrice]);
-
-  if (!verified || platformLowestPrice <= closedMallPrice || closedMallPrice <= 0) {
-    return null;
-  }
+  const comparisonReady = verified && platformLowestPrice > closedMallPrice && closedMallPrice > 0;
 
   function openModal(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -49,9 +46,9 @@ export function PriceAnalysisButton({
         type="button"
         onClick={openModal}
         className={"min-h-12 rounded-md border border-rose-600 px-4 py-3 text-sm font-normal text-rose-600 transition hover:bg-rose-50 active:scale-[0.98] " + className}
-        aria-label={productName + " 가격 비교"}
+        aria-label={productName + " AI 분석"}
       >
-        가격 비교
+        AI 분석
       </button>
 
       {open ? (
@@ -69,7 +66,7 @@ export function PriceAnalysisButton({
           >
             <div className="flex items-start justify-between gap-4">
               <h2 id="price-analysis-title" className="text-2xl font-normal">
-                확인된 가격 비교
+                AI 가격 비교
               </h2>
               <button
                 type="button"
@@ -82,17 +79,28 @@ export function PriceAnalysisButton({
             </div>
 
             <div className="mt-5 grid gap-3">
-              <div className="rounded-md bg-slate-50 p-3">
-                <p className="text-sm font-normal text-slate-500">오픈몰 확인가</p>
-                <p className="mt-1 text-xl font-normal">{formatCurrency(platformLowestPrice)}</p>
-              </div>
               <div className="rounded-md bg-rose-50 p-3">
                 <p className="text-sm font-normal text-rose-700">폐쇄몰 판매가</p>
                 <p className="mt-1 text-2xl font-normal text-rose-600">{formatCurrency(closedMallPrice)}</p>
               </div>
-              <p className="rounded-md bg-emerald-50 p-3 text-lg font-normal text-emerald-700">
-                오픈몰보다 {formatCurrency(analysis.platformSavings)} 저렴합니다. 차이율은 {analysis.platformRate}%입니다.
-              </p>
+              {comparisonReady ? (
+                <>
+                  <div className="rounded-md bg-slate-50 p-3">
+                    <p className="text-sm font-normal text-slate-500">검증된 오픈몰 판매가</p>
+                    <p className="mt-1 text-xl font-normal">{formatCurrency(platformLowestPrice)}</p>
+                  </div>
+                  <p className="rounded-md bg-emerald-50 p-3 text-lg font-normal text-emerald-700">
+                    오픈몰보다 {formatCurrency(analysis.platformSavings)} 저렴합니다. 차이율은 {analysis.platformRate}%입니다.
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-md bg-amber-50 p-3 text-amber-900">
+                  <p className="font-normal">비교가격 확인 전</p>
+                  <p className="mt-1 text-sm leading-6">
+                    검증된 원판매가와 오픈몰 판매가가 확인되면 비교 결과를 표시합니다. 폐쇄몰 판매가는 변경하지 않습니다.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
         </div>

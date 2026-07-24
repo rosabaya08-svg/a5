@@ -516,10 +516,6 @@ function ProductCard({ product, content }: { product: Product; content?: Storefr
             </span>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-md bg-white/45 p-3 text-xs font-normal text-slate-700">
-          <span>\uD6C4\uAE30 {profile.review.count}\uAC1C</span>
-          <span className="text-right">\uD3C9\uC810 {profile.review.rating.toFixed(1)}</span>
-        </div>
         <form action={productHref}>
           <button type="submit" className="w-full rounded-md bg-slate-950 px-4 py-3 text-center text-sm font-normal text-white">
             {"\uC0C1\uD488 \uC0C1\uC138 \uBCF4\uAE30"}
@@ -549,14 +545,14 @@ function CategoryProductSections({ products, content }: { products: Product[]; c
           <section key={category} id={categoryAnchorId(category)} className="grid gap-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <p className="text-xs font-normal uppercase tracking-[0.18em] text-rose-400">\uB4F1\uB85D \uC0C1\uD488</p>
+                <p className="text-xs font-normal uppercase tracking-[0.18em] text-rose-400">등록 상품</p>
                 <h2 className="mt-1 text-2xl font-normal">{category}</h2>
               </div>
               <Link
                 href={categoryTabletPathFromLabel(category)}
                 className="rounded-md bg-white/70 px-3 py-2 text-sm font-normal text-slate-800 ring-1 ring-white/70 transition hover:bg-white"
               >
-                \uC804\uCCB4\uBCF4\uAE30 {categoryProducts.length}\uAC1C
+                전체보기 {categoryProducts.length}개
               </Link>
             </div>
             <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">

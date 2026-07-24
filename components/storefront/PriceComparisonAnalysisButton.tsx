@@ -19,6 +19,12 @@ export function PriceComparisonAnalysisButton({ productName, listPrice, platform
   const [searching, setSearching] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savings = useMemo(() => Math.max(0, platformLowestPrice - closedMallPrice), [closedMallPrice, platformLowestPrice]);
+  const listPriceDiscountRate = useMemo(
+    () => listPrice > closedMallPrice && closedMallPrice > 0
+      ? Math.max(0, Math.ceil(((listPrice - closedMallPrice) / listPrice) * 100))
+      : 0,
+    [closedMallPrice, listPrice],
+  );
   const comparisonReady = verified && Boolean(verificationSource.trim()) && listPrice >= platformLowestPrice && platformLowestPrice > closedMallPrice && closedMallPrice > 0;
 
   useEffect(() => () => {
@@ -69,7 +75,10 @@ export function PriceComparisonAnalysisButton({ productName, listPrice, platform
               <div className="flex items-center justify-between gap-4 py-4"><dt className="text-sm text-slate-500">오픈몰</dt><dd className="text-lg">{comparisonReady ? formatCurrency(platformLowestPrice) : "확인 전"}</dd></div>
               <div className="flex items-center justify-between gap-4 py-4"><dt className="text-sm text-slate-500">산후조리원 판매가</dt><dd className="text-xl text-rose-600">{formatCurrency(closedMallPrice)}</dd></div>
             </dl>
-            {comparisonReady ? <p className="rounded-md bg-emerald-50 p-4 text-center text-lg text-emerald-700">오픈몰보다 {formatCurrency(savings)} 저렴합니다.</p> : null}
+            {comparisonReady ? <div className="grid gap-2">
+              <p className="rounded-md bg-rose-50 p-4 text-center text-lg text-rose-700">원가 대비 {listPriceDiscountRate}% 할인</p>
+              <p className="rounded-md bg-emerald-50 p-4 text-center text-lg text-emerald-700">오픈몰보다 {formatCurrency(savings)} 저렴합니다.</p>
+            </div> : null}
           </div>}
         </div>
       </section>

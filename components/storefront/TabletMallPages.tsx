@@ -150,7 +150,7 @@ function discountRate(product: Product) {
   if (product.priceComparisonVerified !== true) return 0;
   const { listPrice, closedMallPrice } = product.comparison;
   if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return 0;
-  return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
+  return Math.max(0, Math.ceil(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
 function normalDeal(product: Product) {
@@ -158,7 +158,7 @@ function normalDeal(product: Product) {
   const { listPrice, closedMallPrice } = product.comparison;
   if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return { savings: 0, rate: 0 };
   const savings = listPrice - closedMallPrice;
-  const rate = Math.round((savings / listPrice) * 100);
+  const rate = Math.ceil((savings / listPrice) * 100);
   return { savings, rate };
 }
 

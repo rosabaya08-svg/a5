@@ -4,6 +4,8 @@ import { defineSecret } from "firebase-functions/params";
 import { a4NurseryBulkSignupHandler } from "./a4/bulkSignupNurseries";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
+import { storefrontProductDetailHandler } from "./commerce/storefrontProductDetail";
+import { storefrontProductsHandler } from "./commerce/storefrontProducts";
 import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
 import { guestClaimSubmitHandler } from "./company/guestClaims";
 import { guestOrderContactsReadHandler } from "./company/guestOrderContacts";
@@ -50,6 +52,12 @@ const companyOperationsFunctionOptions = {
   // guest order proof before returning order data.
   invoker: "public" as const,
 };
+const publicStorefrontFunctionOptions = {
+  region: paymentFunctionOptions.region,
+  cors: paymentFunctionOptions.cors,
+  maxInstances: 10,
+  invoker: "public" as const,
+};
 
 export const paymentsReady = onRequest(paymentFunctionOptions, paymentsReadyHandler);
 export const paymentsStartInnopaySms = onRequest(paymentFunctionOptions, paymentsStartInnopaySmsHandler);
@@ -65,6 +73,8 @@ export const adminPgCredentialSave = onRequest(paymentFunctionOptions, adminPgCr
 export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgConnectionTestHandler);
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
+export const storefrontProducts = onRequest(publicStorefrontFunctionOptions, storefrontProductsHandler);
+export const storefrontProductDetail = onRequest(publicStorefrontFunctionOptions, storefrontProductDetailHandler);
 export const companyOrderOperations = onRequest(
   companyOperationsFunctionOptions,
   companyOrderOperationsHandler,

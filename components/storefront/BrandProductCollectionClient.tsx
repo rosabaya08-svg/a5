@@ -54,7 +54,7 @@ function discountRate(product: Product) {
   if (product.priceComparisonVerified !== true) return 0;
   const { listPrice, closedMallPrice } = product.comparison;
   if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return 0;
-  return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
+  return Math.max(0, Math.ceil(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
 function profileFor(product: Product, content: StorefrontContent) {

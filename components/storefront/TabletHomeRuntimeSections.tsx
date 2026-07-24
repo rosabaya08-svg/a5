@@ -79,7 +79,7 @@ function discountRate(product: Product) {
   const listPrice = product.comparison.listPrice;
   const closedMallPrice = product.comparison.closedMallPrice;
   if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return 0;
-  return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
+  return Math.max(0, Math.ceil(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
 function productsInDiscountBand(products: Product[], min: number, max: number) {

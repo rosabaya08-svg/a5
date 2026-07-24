@@ -550,7 +550,7 @@ function mobileDiscountRate(product: Product) {
   const listPrice = product.comparison?.listPrice ?? 0;
   const closedMallPrice = product.comparison?.closedMallPrice ?? product.price;
   if (!(listPrice > closedMallPrice && closedMallPrice > 0)) return 0;
-  return Math.max(0, Math.round(((listPrice - closedMallPrice) / listPrice) * 100));
+  return Math.max(0, Math.ceil(((listPrice - closedMallPrice) / listPrice) * 100));
 }
 
 function mobileFulfillmentLabel(product: Product) {

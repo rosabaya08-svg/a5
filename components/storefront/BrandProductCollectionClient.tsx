@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
-import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
+import { PriceComparisonAnalysisButton } from "@/components/storefront/PriceComparisonAnalysisButton";
 import {
   companyBrandPageConfigFromRecord,
   companyBrandPageConfigMatchesBrand,
@@ -125,7 +125,8 @@ function popupStorageKey(notice: CompanyBrandEventNotice) {
 function ProductCard({ product, content }: { product: Product; content: StorefrontContent }) {
   const profile = profileFor(product, content);
   const productHref = productBusinessProductPath(product);
-  const comparisonVerified = product.priceComparisonVerified === true;
+  const comparisonVerified =
+    product.priceComparisonVerified === true && Boolean(product.comparisonVerificationSource?.trim());
   const rate = discountRate(product);
 
   return (
@@ -149,11 +150,13 @@ function ProductCard({ product, content }: { product: Product; content: Storefro
           ) : null}
           <p className="text-2xl font-normal text-rose-600">{formatCurrency(product.comparison.closedMallPrice)}</p>
           <p className="text-xs font-normal text-slate-500">{productCategory(product, content)}</p>
-          <PriceAnalysisButton
+          <PriceComparisonAnalysisButton
             productName={profile.displayName}
+            listPrice={product.comparison.listPrice}
             closedMallPrice={product.comparison.closedMallPrice}
             platformLowestPrice={product.comparison.platformLowestPrice}
             verified={comparisonVerified}
+            verificationSource={product.comparisonVerificationSource}
             className="mt-2 w-full bg-white/70"
           />
         </div>

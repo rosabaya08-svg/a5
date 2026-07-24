@@ -5,7 +5,7 @@ import { VisitTracker } from "@/components/analytics/VisitTracker";
 import { HardNavigateLink } from "@/components/storefront/HardNavigateLink";
 import { AddToCartPanel, FloatingCartButton, LiveCartPage, LiveQrSessionPanel, LiveTabletOrderHistoryPage } from "@/components/storefront/LiveShopClient";
 import { BrandProductCollectionClient } from "@/components/storefront/BrandProductCollectionClient";
-import { PriceAnalysisButton } from "@/components/storefront/PriceAnalysisButton";
+import { PriceComparisonAnalysisButton } from "@/components/storefront/PriceComparisonAnalysisButton";
 import { ProductDetailTabs } from "@/components/storefront/ProductDetailTabs";
 import { TabletHomeRuntimeSections } from "@/components/storefront/TabletHomeRuntimeSections";
 import { FloatingHistoryButtons } from "@/components/tablet/FloatingHistoryButtons";
@@ -163,7 +163,8 @@ function normalDeal(product: Product) {
 }
 
 function ProductPriceSummary({ product, productName, large = false }: { product: Product; productName: string; large?: boolean }) {
-  const comparisonVerified = product.priceComparisonVerified === true;
+  const comparisonVerified =
+    product.priceComparisonVerified === true && Boolean(product.comparisonVerificationSource?.trim());
   const deal = normalDeal(product);
   const { listPrice, closedMallPrice, platformLowestPrice } = product.comparison;
 
@@ -177,15 +178,17 @@ function ProductPriceSummary({ product, productName, large = false }: { product:
           <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-normal text-white">{deal.rate}% 할인</span>
         </div>
       ) : null}
-      <p className={`${large ? "text-4xl" : "text-2xl"} font-normal text-rose-600`}>폐쇄몰 판매가 {formatCurrency(closedMallPrice)}</p>
+      <p className={`${large ? "text-4xl" : "text-2xl"} font-normal text-rose-600`}>산후조리원 판매가 {formatCurrency(closedMallPrice)}</p>
       {comparisonVerified && deal.rate > 0 ? (
         <p className={`${large ? "text-lg" : "text-sm"} font-normal text-slate-600`}>절약 금액 {formatCurrency(deal.savings)}</p>
       ) : null}
-      <PriceAnalysisButton
+      <PriceComparisonAnalysisButton
         productName={productName}
+        listPrice={listPrice}
         closedMallPrice={closedMallPrice}
         platformLowestPrice={platformLowestPrice}
         verified={comparisonVerified}
+        verificationSource={product.comparisonVerificationSource}
       />
     </div>
   );

@@ -12,6 +12,7 @@ import { guestOrderContactsReadHandler } from "./company/guestOrderContacts";
 import { companyOrderItemCreatedProjectionHandler } from "./company/orderItemProjection";
 import { companyOrderOperationsHandler } from "./company/orderOperations";
 import { companyOrderCreatedProjectionHandler } from "./company/orderProjection";
+import { companyProductUpsertHandler } from "./company/productUpsert";
 import { companySignupReviewHandler } from "./company/signupReview";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
@@ -78,6 +79,10 @@ export const storefrontProductDetail = onRequest(publicStorefrontFunctionOptions
 export const companyOrderOperations = onRequest(
   companyOperationsFunctionOptions,
   companyOrderOperationsHandler,
+);
+export const companyProductUpsert = onRequest(
+  companyOperationsFunctionOptions,
+  companyProductUpsertHandler,
 );
 export const guestClaimSubmit = onRequest(companyOperationsFunctionOptions, guestClaimSubmitHandler);
 export const guestOrderContactsRead = onRequest(companyOperationsFunctionOptions, guestOrderContactsReadHandler);

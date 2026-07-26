@@ -98,6 +98,13 @@ function mapOrder(documentId: string, data: DocumentData): Order {
     roomId: asString(data.roomId ?? data.room_id),
     customerName: asString(data.customerName ?? data.customer_name, "비회원 고객"),
     customerPhoneMasked: asString(data.customerPhoneMasked ?? data.customer_phone_masked, "010-****-0000"),
+    customerEmail: asString(data.customerEmail ?? data.customer_email),
+    receiverName: asString(data.receiverName ?? data.receiver_name ?? data.customerName ?? data.customer_name),
+    receiverPhone: asString(data.receiverPhone ?? data.receiver_phone ?? data.customerPhone ?? data.customer_phone ?? data.customerPhoneMasked ?? data.customer_phone_masked),
+    receiverPostalCode: asString(data.receiverPostalCode ?? data.receiver_postal_code),
+    receiverAddress: asString(data.receiverAddress ?? data.receiver_address),
+    receiverAddressDetail: asString(data.receiverAddressDetail ?? data.receiver_address_detail),
+    deliveryMemo: asString(data.deliveryMemo ?? data.delivery_memo),
     status: asOrderStatus(data.status),
     deliveryMethod: asDeliveryMethod(data.deliveryMethod ?? data.delivery_method),
     totalAmount: asNumber(data.totalAmount ?? data.total_amount),
@@ -121,6 +128,9 @@ function mapOrderItem(documentId: string, data: DocumentData, orderIdFallback = 
     unitPrice,
     deliveryStatus: asDeliveryStatus(data.deliveryStatus ?? data.delivery_status),
     settlementAmount: asNumber(data.settlementAmount ?? data.settlement_amount, quantity * unitPrice),
+    carrierCode: asString(data.carrierCode ?? data.carrier_code),
+    carrierName: asString(data.carrierName ?? data.carrier_name),
+    invoiceNumber: asString(data.invoiceNumber ?? data.invoice_no ?? data.invoiceNo ?? data.sheet_no),
   };
 }
 

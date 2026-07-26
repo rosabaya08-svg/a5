@@ -268,6 +268,9 @@ export type OrderItem = {
   unitPrice: number;
   deliveryStatus: DeliveryStatus;
   settlementAmount: number;
+  carrierCode?: string;
+  carrierName?: string;
+  invoiceNumber?: string;
 };
 
 export type Order = {
@@ -278,6 +281,13 @@ export type Order = {
   roomId: string;
   customerName: string;
   customerPhoneMasked: string;
+  customerEmail?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverPostalCode?: string;
+  receiverAddress?: string;
+  receiverAddressDetail?: string;
+  deliveryMemo?: string;
   status: OrderStatus;
   deliveryMethod: DeliveryMethod;
   totalAmount: number;

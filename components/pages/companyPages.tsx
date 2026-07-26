@@ -15,6 +15,7 @@ import { CompanyBrandEventBoard } from "@/components/company/CompanyBrandEventBo
 import { CompanyBrandMessageCenter } from "@/components/company/CompanyBrandMessageCenter";
 
 import { CompanyCommerceCommandCenter } from "@/components/company/CompanyCommerceCommandCenter";
+import { CompanyDashboardTables } from "@/components/company/CompanyDashboardTables";
 import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import { CompanyProductManagementPanel, type ProductManagementView } from "@/components/company/CompanyProductManagementPanel";
 import { CompanyProductRegistrationWorkspace } from "@/components/company/CompanyProductRegistrationWorkspace";
@@ -22,7 +23,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
 import { companyOnboardingDocuments } from "@/data/company/onboarding";
 import { DataTable } from "@/components/ui/DataTable";
-import { FilterBar } from "@/components/ui/FilterBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { readPortalServerSession } from "@/lib/auth/serverSession";
@@ -250,11 +250,22 @@ function companyMetrics(data: CompanyRuntimeData): DashboardMetric[] {
 function companyExcelOrderRows(data: CompanyRuntimeData, scope: CompanyRuntimeScope): CompanyExcelOrderRow[] {
   const productsByName = new Map(data.products.map((product) => [product.name, product]));
   const ordersById = new Map(data.orders.map((order) => [order.id, order]));
+  const orderItemTotals = new Map<string, number>();
+  const firstItemByOrder = new Map<string, string>();
+
+  for (const item of data.orderItems) {
+    orderItemTotals.set(item.orderId, (orderItemTotals.get(item.orderId) ?? 0) + item.unitPrice * item.quantity);
+    if (!firstItemByOrder.has(item.orderId)) firstItemByOrder.set(item.orderId, item.id);
+  }
 
   return data.orderItems.map((item) => {
     const order = ordersById.get(item.orderId);
     const product = productsByName.get(item.productName);
     const isPickup = order?.deliveryMethod === "pickup";
+    const shippingFee =
+      !isPickup && firstItemByOrder.get(item.orderId) === item.id
+        ? Math.max(0, (order?.totalAmount ?? 0) - (orderItemTotals.get(item.orderId) ?? 0))
+        : 0;
 
     return {
       orderNo: order?.orderNo ?? item.orderId,
@@ -263,24 +274,24 @@ function companyExcelOrderRows(data: CompanyRuntimeData, scope: CompanyRuntimeSc
       orderStatus: order?.status ?? "paid",
       buyerName: order?.customerName ?? "",
       buyerPhone: order?.customerPhoneMasked ?? "",
-      buyerEmail: "",
-      receiverName: order?.customerName ?? "",
-      receiverPhone: order?.customerPhoneMasked ?? "",
-      postalCode: "",
-      address: isPickup ? "조리원 현장수령" : "",
-      addressDetail: order?.roomId ?? "",
+      buyerEmail: order?.customerEmail ?? "",
+      receiverName: order?.receiverName || order?.customerName || "",
+      receiverPhone: order?.receiverPhone || order?.customerPhoneMasked || "",
+      postalCode: isPickup ? "" : order?.receiverPostalCode ?? "",
+      address: isPickup ? "조리원 현장수령" : order?.receiverAddress ?? "",
+      addressDetail: isPickup ? order?.roomId ?? "" : order?.receiverAddressDetail ?? "",
       productCode: product?.externalProductCode ?? product?.id ?? item.id,
       productName: item.productName,
       optionName: item.optionName,
       quantity: item.quantity,
       salePrice: item.unitPrice,
       productAmount: item.unitPrice * item.quantity,
-      shippingFee: 0,
+      shippingFee,
       totalPaidAmount: order?.totalAmount ?? item.unitPrice * item.quantity,
       paymentMethod: "위드커머스 결제",
-      carrier: isPickup ? "현장수령" : "",
-      invoiceNo: "",
-      deliveryMemo: isPickup ? "조리원 데스크 수령" : "",
+      carrier: isPickup ? "현장수령" : item.carrierName || item.carrierCode || "",
+      invoiceNo: isPickup ? "" : item.invoiceNumber ?? "",
+      deliveryMemo: isPickup ? "조리원 데스크 수령" : order?.deliveryMemo ?? "",
       companyId: scope.companyId,
       supplierName: scope.companyName,
       settlementStatus: "PayUp 대조 대기",
@@ -345,36 +356,8 @@ export async function CompanyDashboardPage() {
           <StatCard key={metric.label} metric={metric} />
         ))}
       </div>
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <section>
-          <FilterBar title="최근 상품" filters={["전체", "판매중", "검토 대기", "재고 부족"]} resultCount={products.length} />
-          <DataTable
-            columns={["상품", "상태", "판매가", "재고"]}
-            rows={products.map((product) => ({
-              id: product.id,
-              cells: [product.name, <StatusBadge key="status" status={product.status} />, formatCurrency(product.price), product.stock],
-            }))}
-            emptyMessage="등록된 상품이 없습니다."
-          />
-        </section>
-        <section>
-          <FilterBar title="최근 주문" filters={["전체", "결제 완료", "배송 준비", "배송 중"]} resultCount={orders.length} />
-          <DataTable
-            columns={["주문번호", "고객", "상태", "금액"]}
-            rows={orders.map((order) => ({
-              id: order.id,
-              cells: [
-                <Link key="order" href="/company/orders" className="font-normal text-emerald-700">
-                  {order.orderNo}
-                </Link>,
-                order.customerName,
-                <StatusBadge key="status" status={order.status} />,
-                formatCurrency(order.totalAmount),
-              ],
-            }))}
-            emptyMessage="배정된 주문이 없습니다."
-          />
-        </section>
+      <div className="mt-6">
+        <CompanyDashboardTables products={products} orders={orders} />
       </div>
     </CompanyShell>
   );
@@ -684,14 +667,20 @@ export async function CompanySalesPage() {
   const companyId = scope.companyId;
   const [ordersRead, orderItemsRead] = await Promise.all([getLiveCompanyOrders(companyId), getLiveCompanyOrderItems(companyId)]);
   const orders = ordersRead.data;
-  const total = orderItemsRead.data.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const ordersById = new Map(orders.map((order) => [order.id, order]));
+  const excludedStatuses = new Set(["cancelled", "refunded"]);
+  const total = orderItemsRead.data.reduce((sum, item) => {
+    const orderStatus = ordersById.get(item.orderId)?.status;
+    return excludedStatuses.has(String(orderStatus)) ? sum : sum + item.unitPrice * item.quantity;
+  }, 0);
+  const cancelledOrRefunded = orders.filter((order) => excludedStatuses.has(String(order.status))).length;
 
   return (
     <CompanyShell title="매출 현황" subtitle="확정 매출과 환불 보류 금액을 확인합니다.">
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard metric={{ label: "주문 수", value: String(orders.length), tone: "blue", helper: "기업 배정 주문 기준" }} />
-        <StatCard metric={{ label: "매출 기준 금액", value: formatCurrency(total), tone: "green", helper: "주문상품 기준" }} />
-        <StatCard metric={{ label: "환불 보류", value: "0건", tone: "amber", helper: "처리 대기 없음" }} />
+        <StatCard metric={{ label: "매출 기준 금액", value: formatCurrency(total), tone: "green", helper: "취소·환불 주문 제외" }} />
+        <StatCard metric={{ label: "취소·환불 주문", value: `${cancelledOrRefunded}건`, tone: "amber", helper: "주문 상태 기준" }} />
       </div>
       <div className="mt-4">
         <RepositorySourceNotice title="매출 화면 실제 연동 범위" reads={[ordersRead, orderItemsRead]} />

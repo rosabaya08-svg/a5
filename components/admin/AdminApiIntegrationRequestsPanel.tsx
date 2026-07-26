@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   apiIntegrationStatusLabel,
-  buildApiDeployment,
   buildApiIntegrationCmsRecord,
   requestFromCmsRecord,
   type CompanyApiIntegrationRequest,
@@ -57,10 +56,18 @@ export function AdminApiIntegrationRequestsPanel() {
       status,
       updatedAt: now,
       approvedAt: status === "approved" || status === "live" ? request.approvedAt ?? now : request.approvedAt,
-      deployedAt: status === "live" ? now : request.deployedAt,
+      deployedAt: request.deployedAt,
       rejectedReason: status === "rejected" ? reviewMemo : undefined,
-      deployment: status === "live" ? request.deployment ?? buildApiDeployment(request) : request.deployment,
+      deployment: request.deployment,
     };
+
+    if (status === "live") {
+      setReviewState({
+        status: "error",
+        message: "실제 API 키 발급과 서버 배포 증거가 없어 배포 완료로 전환할 수 없습니다.",
+      });
+      return;
+    }
 
     setReviewState({ status: "saving", message: "API 연동 요청 상태를 저장하는 중입니다." });
     setRequests((current) => [nextRequest, ...current.filter((item) => item.id !== nextRequest.id)]);
@@ -70,11 +77,9 @@ export function AdminApiIntegrationRequestsPanel() {
       setReviewState({
         status: "saved",
         message:
-          status === "live"
-            ? "API 배포 상태로 전환했습니다. 기업관리자에서 연동 문서를 내려받을 수 있습니다."
-            : status === "approved"
-              ? "API 연동 요청을 승인했습니다. 배포를 누르면 기업관리자 문서 다운로드가 열립니다."
-              : "API 연동 요청을 반려했습니다.",
+          status === "approved"
+            ? "API 연동 요청을 승인했습니다. 실제 서버 배포와 키 발급 전에는 배포 완료로 표시되지 않습니다."
+            : "API 연동 요청을 반려했습니다.",
       });
     } catch (error) {
       setReviewState({
@@ -146,8 +151,8 @@ export function AdminApiIntegrationRequestsPanel() {
                 <button type="button" onClick={() => updateRequest(request, "approved")} className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-normal text-blue-700">
                   승인
                 </button>
-                <button type="button" onClick={() => updateRequest(request, "live")} className="rounded-md bg-slate-950 px-3 py-2 text-xs font-normal text-white">
-                  배포
+                <button type="button" disabled title="실제 API 서버와 키 발급 기능 구현 후 활성화됩니다." className="cursor-not-allowed rounded-md bg-slate-300 px-3 py-2 text-xs font-normal text-slate-600">
+                  서버 배포 미구현
                 </button>
                 <button type="button" onClick={() => updateRequest(request, "rejected")} className="rounded-md bg-red-50 px-3 py-2 text-xs font-normal text-red-700 ring-1 ring-red-200">
                   반려

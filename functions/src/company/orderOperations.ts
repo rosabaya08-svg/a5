@@ -51,6 +51,16 @@ export async function companyOrderOperationsHandler(request: HttpRequestLike, re
       sendJson(response, 200, { ok: true, ...result });
       return;
     }
+    if (action === "order_item_decision") {
+      const result = await decideCompanyOrderItem(getAdminDb(), actor.actor, body);
+      sendJson(response, 200, { ok: true, ...result });
+      return;
+    }
+    if (action === "inventory_adjust") {
+      const result = await adjustCompanyInventory(getAdminDb(), actor.actor, body);
+      sendJson(response, 200, { ok: true, ...result });
+      return;
+    }
     if (action === "claim_create") {
       const result = await createCompanyClaim(getAdminDb(), actor.actor, body);
       sendJson(response, 200, { ok: true, ...result });
@@ -156,6 +166,250 @@ async function createCompanyClaim(db: Firestore, actor: CompanyActor, body: Reco
   });
 
   return { claimId: claimRef.id, status: "requested", requestedAmount, message: "Claim was created." };
+}
+
+async function decideCompanyOrderItem(
+  db: Firestore,
+  actor: CompanyActor,
+  body: Record<string, unknown>,
+) {
+  const itemId = text(body.itemId);
+  const decision = text(body.decision);
+  const reason = text(body.reason);
+  if (!itemId || !["accept", "stockout"].includes(decision)) {
+    throw new Error(
+      "ORDER_ITEM_DECISION_INVALID:itemId and accept or stockout decision are required.",
+    );
+  }
+  if (decision === "stockout" && !reason) {
+    throw new Error("ORDER_ITEM_STOCKOUT_REASON_REQUIRED:Stockout reason is required.");
+  }
+
+  const itemRef = db.collection("order_items").doc(itemId);
+  const now = new Date().toISOString();
+  const result = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(itemRef);
+    if (!snapshot.exists) {
+      throw new Error("ORDER_ITEM_NOT_FOUND:Order item was not found.");
+    }
+    const data = snapshot.data() ?? {};
+    const companyId = text(
+      data.company_id ?? data.companyId ?? data.seller_company_id,
+    );
+    if (companyId !== actor.companyId) {
+      throw new Error(
+        "COMPANY_SCOPE_FORBIDDEN:This company cannot process that order item.",
+      );
+    }
+    const current = text(data.fulfillment_status) || "new";
+    if (["accepted", "stockout_pending_cancel"].includes(current)) {
+      return { status: current, changed: false };
+    }
+
+    const nextStatus =
+      decision === "accept" ? "accepted" : "stockout_pending_cancel";
+    transaction.set(
+      itemRef,
+      {
+        fulfillment_status: nextStatus,
+        fulfillment_decision_reason: reason || null,
+        fulfillment_decided_by_uid: actor.uid,
+        fulfillment_decided_at: now,
+        updated_at: now,
+      },
+      { merge: true },
+    );
+    writeAudit(
+      transaction,
+      db,
+      actor,
+      decision === "accept"
+        ? "company_order_item_accepted"
+        : "company_order_item_stockout",
+      itemId,
+      {
+        before_status: current,
+        after_status: nextStatus,
+        reason: reason || null,
+        order_no: text(data.order_no ?? data.orderNo ?? data.order_id),
+      },
+      now,
+    );
+    return { status: nextStatus, changed: true };
+  });
+
+  return {
+    itemId,
+    decision,
+    ...result,
+    paymentCancellationRequired: decision === "stockout",
+    message:
+      decision === "stockout"
+        ? "Stockout was recorded. Payment cancellation must be processed separately."
+        : "Order item was accepted.",
+  };
+}
+
+async function adjustCompanyInventory(
+  db: Firestore,
+  actor: CompanyActor,
+  body: Record<string, unknown>,
+) {
+  const productId = text(body.productId);
+  const optionId = text(body.optionId);
+  const delta = Math.trunc(Number(body.delta ?? 0));
+  const reason = text(body.reason);
+  if (!productId || !Number.isFinite(delta) || delta === 0 || !reason) {
+    throw new Error(
+      "INVENTORY_ADJUST_INPUT_INVALID:productId, non-zero delta, and reason are required.",
+    );
+  }
+
+  const productRef = db.collection("products").doc(productId);
+  const optionRef = optionId
+    ? db.collection("product_options").doc(optionId)
+    : null;
+  const now = new Date().toISOString();
+  const result = await db.runTransaction(async (transaction) => {
+    const productSnapshot = await transaction.get(productRef);
+    if (!productSnapshot.exists) {
+      throw new Error("PRODUCT_NOT_FOUND:Product was not found.");
+    }
+    const product = productSnapshot.data() ?? {};
+    const companyId = text(
+      product.company_id ??
+        product.companyId ??
+        product.seller_company_id ??
+        product.sellerCompanyId,
+    );
+    if (companyId !== actor.companyId) {
+      throw new Error(
+        "COMPANY_SCOPE_FORBIDDEN:This company cannot adjust that product.",
+      );
+    }
+
+    let before = positiveInteger(product.stock ?? product.inventory, 0);
+    let after = before + delta;
+    if (optionRef) {
+      const [optionSnapshot, productOptionsSnapshot] = await Promise.all([
+        transaction.get(optionRef),
+        transaction.get(
+          db.collection("product_options").where("product_id", "==", productId),
+        ),
+      ]);
+      if (!optionSnapshot.exists) {
+        throw new Error("PRODUCT_OPTION_NOT_FOUND:Product option was not found.");
+      }
+      const option = optionSnapshot.data() ?? {};
+      if (
+        text(option.product_id ?? option.productId) !== productId ||
+        text(option.company_id ?? option.companyId) !== actor.companyId
+      ) {
+        throw new Error(
+          "COMPANY_SCOPE_FORBIDDEN:This company cannot adjust that option.",
+        );
+      }
+      before = positiveInteger(option.stock ?? option.inventory, 0);
+      after = before + delta;
+      if (after < 0) {
+        throw new Error(
+          "INVENTORY_ADJUST_UNDERFLOW:Inventory cannot be negative.",
+        );
+      }
+      transaction.set(
+        optionRef,
+        {
+          stock: after,
+          inventory: after,
+          inventory_adjusted_at: now,
+          inventory_adjusted_by_uid: actor.uid,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      const productStockAfter = productOptionsSnapshot.docs.reduce(
+        (sum, optionDocument) =>
+          sum +
+          (optionDocument.id === optionId
+            ? after
+            : positiveInteger(
+                optionDocument.get("stock") ?? optionDocument.get("inventory"),
+                0,
+              )),
+        0,
+      );
+      transaction.set(
+        productRef,
+        {
+          stock: productStockAfter,
+          inventory: productStockAfter,
+          inventory_adjusted_at: now,
+          inventory_adjusted_by_uid: actor.uid,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else if (after < 0) {
+      throw new Error(
+        "INVENTORY_ADJUST_UNDERFLOW:Inventory cannot be negative.",
+      );
+    }
+
+    if (!optionRef) {
+      transaction.set(
+        productRef,
+        {
+          stock: after,
+          inventory: after,
+          inventory_adjusted_at: now,
+          inventory_adjusted_by_uid: actor.uid,
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    const movementRef = db.collection("inventory_movements").doc();
+    transaction.set(movementRef, {
+      company_id: actor.companyId,
+      product_id: productId,
+      option_id: optionId || null,
+      type: delta > 0 ? "manual_inbound" : "manual_outbound",
+      quantity: delta,
+      before_quantity: before,
+      after_quantity: after,
+      reason,
+      source_id: movementRef.id,
+      source: "company_admin_inventory_adjustment",
+      actor_uid: actor.uid,
+      created_at: now,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    writeAudit(
+      transaction,
+      db,
+      actor,
+      "company_inventory_adjusted",
+      productId,
+      {
+        option_id: optionId || null,
+        delta,
+        before_quantity: before,
+        after_quantity: after,
+        reason,
+      },
+      now,
+    );
+    return { movementId: movementRef.id, before, after };
+  });
+
+  return {
+    productId,
+    optionId: optionId || null,
+    delta,
+    ...result,
+    message: "Inventory was adjusted.",
+  };
 }
 
 async function transitionCompanyClaim(db: Firestore, actor: CompanyActor, body: Record<string, unknown>) {
@@ -289,6 +543,7 @@ function mapOrderItem(id: string, data: DocumentData) {
     optionName: text(data.option_name ?? data.optionName),
     quantity: positiveInteger(data.quantity, 1),
     unitPrice: money(data.unit_price ?? data.unitPrice),
+    fulfillmentStatus: text(data.fulfillment_status) || "new",
     deliveryStatus: text(data.delivery_status ?? data.deliveryStatus) || "invoice_pending",
     carrierCode: text(data.carrier_code ?? data.carrierCode),
     carrierName: text(data.carrier_name ?? data.carrierName),

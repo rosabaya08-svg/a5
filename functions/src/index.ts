@@ -4,18 +4,22 @@ import { defineSecret } from "firebase-functions/params";
 import { a4NurseryBulkSignupHandler } from "./a4/bulkSignupNurseries";
 import { a4NurseryAutoSignupHandler } from "./a4/autoSignupNursery";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
+import { companyBetaAuthTokenHandler } from "./auth/companyBetaAuthToken";
 import { storefrontProductDetailHandler } from "./commerce/storefrontProductDetail";
 import { storefrontProductsHandler } from "./commerce/storefrontProducts";
+import { companyAccountSecurityHandler } from "./company/accountSecurity";
 import { companyDocumentInboxCreatedHandler } from "./company/documentDelivery";
 import { guestClaimSubmitHandler } from "./company/guestClaims";
 import { guestOrderContactsReadHandler } from "./company/guestOrderContacts";
 import { companyOrderItemCreatedProjectionHandler } from "./company/orderItemProjection";
 import { companyOrderOperationsHandler } from "./company/orderOperations";
 import { companyOrderCreatedProjectionHandler } from "./company/orderProjection";
+import { companyProductLifecycleHandler } from "./company/productLifecycle";
 import { companyProductUpsertHandler } from "./company/productUpsert";
 import { companySignupReviewHandler } from "./company/signupReview";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";
 import { inventoryReserveHandler } from "./inventory/reserveInventory";
+import { companyIntegrationEventRetryHandler } from "./integrations/companyAdmin/handlers";
 import { ordersCreateHandler } from "./orders/createOrderSnapshot";
 import { tabletNurseryLoginHandler } from "./nursery/tabletNurseryLogin";
 import { paymentsCancelHandler } from "./payments/cancel";
@@ -31,6 +35,9 @@ import { paymentsWebhookHandler } from "./payments/webhook";
 import { qrCreateHandler, qrExpireHandler, qrLookupHandler, tabletPaymentCompletionReadHandler } from "./qr/validateQrSession";
 
 const pgCredentialEncryptionKey = defineSecret("PG_CREDENTIAL_ENCRYPTION_KEY");
+const gmailSendAs = defineSecret("GMAIL_SEND_AS");
+const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
+const emailVerificationSecret = defineSecret("A5_EMAIL_VERIFICATION_SECRET");
 
 const paymentFunctionOptions = {
   region: "asia-northeast3",
@@ -53,6 +60,10 @@ const companyOperationsFunctionOptions = {
   // guest order proof before returning order data.
   invoker: "public" as const,
 };
+const companyAccountSecurityOptions = {
+  ...companyOperationsFunctionOptions,
+  secrets: [gmailSendAs, gmailAppPassword, emailVerificationSecret],
+};
 const publicStorefrontFunctionOptions = {
   region: paymentFunctionOptions.region,
   cors: paymentFunctionOptions.cors,
@@ -74,6 +85,14 @@ export const adminPgCredentialSave = onRequest(paymentFunctionOptions, adminPgCr
 export const adminPgConnectionTest = onRequest(paymentFunctionOptions, adminPgConnectionTestHandler);
 export const adminPgActivation = onRequest(paymentFunctionOptions, adminPgActivationHandler);
 export const companySignupReview = onRequest(paymentFunctionOptions, companySignupReviewHandler);
+export const companyBetaAuthToken = onRequest(
+  companyOperationsFunctionOptions,
+  companyBetaAuthTokenHandler,
+);
+export const companyAccountSecurity = onRequest(
+  companyAccountSecurityOptions,
+  companyAccountSecurityHandler,
+);
 export const storefrontProducts = onRequest(publicStorefrontFunctionOptions, storefrontProductsHandler);
 export const storefrontProductDetail = onRequest(publicStorefrontFunctionOptions, storefrontProductDetailHandler);
 export const companyOrderOperations = onRequest(
@@ -83,6 +102,14 @@ export const companyOrderOperations = onRequest(
 export const companyProductUpsert = onRequest(
   companyOperationsFunctionOptions,
   companyProductUpsertHandler,
+);
+export const companyProductLifecycle = onRequest(
+  companyOperationsFunctionOptions,
+  companyProductLifecycleHandler,
+);
+export const companyIntegrationEventRetry = onRequest(
+  companyOperationsFunctionOptions,
+  companyIntegrationEventRetryHandler,
 );
 export const guestClaimSubmit = onRequest(companyOperationsFunctionOptions, guestClaimSubmitHandler);
 export const guestOrderContactsRead = onRequest(companyOperationsFunctionOptions, guestOrderContactsReadHandler);

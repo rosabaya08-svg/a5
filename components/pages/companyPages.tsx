@@ -18,6 +18,7 @@ import { CompanyCommerceCommandCenter } from "@/components/company/CompanyCommer
 import { CompanyDashboardTables } from "@/components/company/CompanyDashboardTables";
 import { CompanyProductDraftPreview } from "@/components/company/CompanyProductDraftPreview";
 import { CompanyProductManagementPanel, type ProductManagementView } from "@/components/company/CompanyProductManagementPanel";
+import { CompanyInventoryAdjustmentPanel } from "@/components/company/CompanyInventoryAdjustmentPanel";
 import { CompanyProductRegistrationWorkspace } from "@/components/company/CompanyProductRegistrationWorkspace";
 import { AppShell } from "@/components/layout/AppShell";
 import { companyNavItems } from "@/components/layout/navigation";
@@ -620,6 +621,19 @@ export async function CompanyInventoryPage() {
 
   return (
     <CompanyShell title="재고 현황" subtitle="SKU와 옵션별 재고 이동 상태를 관리합니다.">
+      <CompanyInventoryAdjustmentPanel
+        products={data.products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          stock: product.stock,
+        }))}
+        options={data.productOptions.map((option) => ({
+          id: option.id,
+          productId: option.productId,
+          name: option.name,
+          stock: option.stock,
+        }))}
+      />
       <div className="mb-4">
         <RepositorySourceNotice title="재고 이동 실제 연동 범위" reads={[...data.reads, inventoryRead]} />
       </div>

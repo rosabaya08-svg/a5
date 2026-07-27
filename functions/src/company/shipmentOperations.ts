@@ -67,7 +67,7 @@ export async function updateCompanyShipment(
     const shipment = resolveShipmentInput(itemData, body, requestedStatus);
     const shipmentRef = db.collection("shipments").doc(shipment.documentId);
     const shipmentSnapshot = await transaction.get(shipmentRef);
-    assertShipmentOwnership(shipmentSnapshot.data(), actor.companyId, itemId);
+    assertShipmentOwnership(shipmentSnapshot.data(), actor.companyId, orderNo);
 
     writeShipmentDocuments({
       db,
@@ -187,7 +187,11 @@ export async function updateCompanyShipmentsBulk(
     const shipmentRefs = prepared.map((row) => db.collection("shipments").doc(row.shipment.documentId));
     const shipmentSnapshots = await transaction.getAll(...shipmentRefs);
     shipmentSnapshots.forEach((snapshot, index) => {
-      assertShipmentOwnership(snapshot.data(), actor.companyId, prepared[index].itemId);
+      assertShipmentOwnership(
+        snapshot.data(),
+        actor.companyId,
+        prepared[index].orderNo,
+      );
     });
 
     prepared.forEach((row, index) => {
@@ -272,7 +276,8 @@ function writeShipmentDocuments(input: {
     {
       shipment_id: shipment.documentId,
       order_no: orderNo,
-      order_item_id: itemId,
+      ...(shipmentAlreadyExists ? {} : { order_item_id: itemId }),
+      order_item_ids: FieldValue.arrayUnion(itemId),
       company_id: actor.companyId,
       delivery_status: requestedStatus,
       carrier_code: shipment.carrier.code,
@@ -419,13 +424,17 @@ function assertItemOwnership(itemData: DocumentData, companyId: string) {
   }
 }
 
-function assertShipmentOwnership(data: DocumentData | undefined, companyId: string, itemId: string) {
+function assertShipmentOwnership(
+  data: DocumentData | undefined,
+  companyId: string,
+  orderNo: string,
+) {
   if (!data) return;
   const existingCompanyId = text(data.company_id ?? data.companyId);
-  const existingItemId = text(data.order_item_id ?? data.orderItemId);
-  if (existingCompanyId !== companyId || existingItemId !== itemId) {
+  const existingOrderNo = text(data.order_no ?? data.orderNo);
+  if (existingCompanyId !== companyId || existingOrderNo !== orderNo) {
     throw new Error(
-      "SHIPMENT_DUPLICATE:That carrier and invoice number are already assigned to another order item.",
+      "SHIPMENT_DUPLICATE:That carrier and invoice number are already assigned to another company or order.",
     );
   }
 }

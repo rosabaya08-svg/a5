@@ -46,9 +46,10 @@ const checks = [
       files.shipments.includes("company_order_delivery_bulk_update"),
   ],
   [
-    "carrier plus invoice duplication is blocked across order items",
+    "same-order bundled invoices are allowed but cross-order reuse is blocked",
     files.shipments.includes("SHIPMENT_DUPLICATE") &&
-      files.shipments.includes("existingCompanyId !== companyId || existingItemId !== itemId") &&
+      files.shipments.includes("existingCompanyId !== companyId || existingOrderNo !== orderNo") &&
+      files.shipments.includes("order_item_ids: FieldValue.arrayUnion(itemId)") &&
       files.shipments.includes('createHash("sha256")'),
   ],
   [

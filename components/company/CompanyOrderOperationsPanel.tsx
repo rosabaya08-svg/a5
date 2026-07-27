@@ -506,7 +506,7 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
             </button>
           ))}
         </div>
-        <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -525,14 +525,40 @@ export function CompanyOrderOperationsPanel({ mode = "orders" }: { companyId: st
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            disabled={loading || !filteredItems.length}
-            onClick={() => void downloadShippingWorklist(filteredItems, orderByNo, carriers)}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
-          >
-            배송 작업목록 다운로드
-          </button>
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <button
+              type="button"
+              disabled={loading || !filteredItems.length}
+              onClick={() => void downloadShippingWorklist(filteredItems, orderByNo, carriers)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
+            >
+              배송 작업목록 다운로드 (Excel)
+            </button>
+            <button
+              type="button"
+              disabled={loading || !filteredItems.length}
+              onClick={() => printPickingList(filteredItems)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
+            >
+              피킹리스트 인쇄
+            </button>
+            <button
+              type="button"
+              disabled={loading || !filteredItems.length}
+              onClick={() => printPackingSlips(filteredItems, orderByNo)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
+            >
+              포장명세서 인쇄
+            </button>
+            <button
+              type="button"
+              disabled={loading || !filteredItems.length}
+              onClick={() => printTransactionStatements(filteredItems, orderByNo)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 disabled:opacity-40"
+            >
+              거래명세서 인쇄
+            </button>
+          </div>
         </div>
       </section>
 
@@ -955,6 +981,222 @@ async function downloadShippingWorklist(
   anchor.download = `A5Mall_배송작업목록_${new Date().toISOString().slice(0, 10)}.xlsx`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function printPickingList(items: ItemRow[]) {
+  const grouped = new Map<
+    string,
+    { productName: string; optionName: string; quantity: number; orderNumbers: Set<string> }
+  >();
+  items.forEach((item) => {
+    const key = `${item.productId}\u0000${item.optionId}\u0000${item.productName}\u0000${item.optionName}`;
+    const current = grouped.get(key) ?? {
+      productName: item.productName,
+      optionName: item.optionName,
+      quantity: 0,
+      orderNumbers: new Set<string>(),
+    };
+    current.quantity += item.quantity;
+    current.orderNumbers.add(item.orderNo);
+    grouped.set(key, current);
+  });
+  const rows = Array.from(grouped.values())
+    .sort((left, right) =>
+      `${left.productName} ${left.optionName}`.localeCompare(`${right.productName} ${right.optionName}`, "ko"),
+    )
+    .map(
+      (row, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapePrintHtml(row.productName)}</td>
+          <td>${escapePrintHtml(row.optionName || "기본")}</td>
+          <td class="number">${row.orderNumbers.size}</td>
+          <td class="number strong">${row.quantity}</td>
+          <td class="check"></td>
+        </tr>`,
+    )
+    .join("");
+  openPrintDocument(
+    "A5 Mall 피킹리스트",
+    `
+      <section class="document">
+        ${printDocumentHeader("피킹리스트", `주문 ${new Set(items.map((item) => item.orderNo)).size}건 · 상품 ${items.length}건`)}
+        <table>
+          <thead><tr><th>번호</th><th>상품명</th><th>옵션</th><th>주문수</th><th>총 수량</th><th>확인</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>`,
+  );
+}
+
+function printPackingSlips(items: ItemRow[], orderByNo: Map<string, OrderRow>) {
+  const groups = groupItemsByOrder(items);
+  openPrintDocument(
+    "A5 Mall 포장명세서",
+    groups
+      .map(([orderNo, orderItems]) => {
+        const order = orderByNo.get(orderNo);
+        const rows = orderItems
+          .map(
+            (item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${escapePrintHtml(item.productName)}</td>
+                <td>${escapePrintHtml(item.optionName || "기본")}</td>
+                <td class="number">${item.quantity}</td>
+              </tr>`,
+          )
+          .join("");
+        return `
+          <section class="document page-break">
+            ${printDocumentHeader("포장명세서", `주문번호 ${escapePrintHtml(orderNo)}`)}
+            <dl class="info-grid">
+              <dt>수령인</dt><dd>${escapePrintHtml(order?.receiverName || order?.customerName || "")}</dd>
+              <dt>연락처</dt><dd>${escapePrintHtml(order?.receiverPhone || order?.customerPhoneMasked || "")}</dd>
+              <dt>배송지</dt><dd>${escapePrintHtml(formatDeliveryAddress(order))}</dd>
+              <dt>배송메모</dt><dd>${escapePrintHtml(order?.deliveryMemo || "-")}</dd>
+            </dl>
+            <table>
+              <thead><tr><th>번호</th><th>상품명</th><th>옵션</th><th>수량</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <p class="notice">포장 전 상품·옵션·수량과 수령정보를 확인해 주세요.</p>
+          </section>`;
+      })
+      .join(""),
+  );
+}
+
+function printTransactionStatements(items: ItemRow[], orderByNo: Map<string, OrderRow>) {
+  const groups = groupItemsByOrder(items);
+  openPrintDocument(
+    "A5 Mall 거래명세서",
+    groups
+      .map(([orderNo, orderItems]) => {
+        const order = orderByNo.get(orderNo);
+        const seller = orderItems[0];
+        const rows = orderItems
+          .map((item, index) => {
+            const amount = item.unitPrice * item.quantity;
+            return `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${escapePrintHtml(item.productName)}</td>
+                <td>${escapePrintHtml(item.optionName || "기본")}</td>
+                <td class="number">${item.quantity}</td>
+                <td class="number">${formatCurrency(item.unitPrice)}</td>
+                <td class="number">${formatCurrency(amount)}</td>
+              </tr>`;
+          })
+          .join("");
+        const total = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        return `
+          <section class="document page-break">
+            ${printDocumentHeader("거래명세서 (주문 확인용)", `주문번호 ${escapePrintHtml(orderNo)}`)}
+            <div class="party-grid">
+              <dl class="info-grid">
+                <dt>공급자</dt><dd>${escapePrintHtml(seller?.sellerCompanyName || "")}</dd>
+                <dt>사업자번호</dt><dd>${escapePrintHtml(seller?.sellerBusinessNo || "")}</dd>
+                <dt>대표자</dt><dd>${escapePrintHtml(seller?.sellerRepresentativeName || "")}</dd>
+                <dt>고객센터</dt><dd>${escapePrintHtml(seller?.sellerCustomerServicePhone || "")}</dd>
+              </dl>
+              <dl class="info-grid">
+                <dt>주문자</dt><dd>${escapePrintHtml(order?.customerName || "")}</dd>
+                <dt>수령인</dt><dd>${escapePrintHtml(order?.receiverName || order?.customerName || "")}</dd>
+                <dt>결제일</dt><dd>${escapePrintHtml(order?.paidAt ? formatDateTime(order.paidAt) : "")}</dd>
+                <dt>결제수단</dt><dd>${escapePrintHtml(order?.pgProvider || "PayUp")}</dd>
+              </dl>
+            </div>
+            <table>
+              <thead><tr><th>번호</th><th>상품명</th><th>옵션</th><th>수량</th><th>단가</th><th>금액</th></tr></thead>
+              <tbody>${rows}</tbody>
+              <tfoot><tr><th colspan="5">상품 합계</th><th class="number">${formatCurrency(total)}</th></tr></tfoot>
+            </table>
+            <p class="notice">본 문서는 주문·배송 확인용 거래명세서이며 정산서, 세금계산서 또는 결제 영수증이 아닙니다.</p>
+          </section>`;
+      })
+      .join(""),
+  );
+}
+
+function groupItemsByOrder(items: ItemRow[]) {
+  const grouped = new Map<string, ItemRow[]>();
+  items.forEach((item) => {
+    grouped.set(item.orderNo, [...(grouped.get(item.orderNo) ?? []), item]);
+  });
+  return Array.from(grouped.entries()).sort(([left], [right]) => left.localeCompare(right));
+}
+
+function formatDeliveryAddress(order?: OrderRow) {
+  if (!order) return "";
+  return [order.receiverPostalCode ? `(${order.receiverPostalCode})` : "", order.receiverAddress, order.receiverAddressDetail]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function escapePrintHtml(value: unknown) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function printDocumentHeader(title: string, subtitle: string) {
+  return `
+    <header class="document-header">
+      <div><p class="brand">A5 Mall 기업관리자</p><h1>${escapePrintHtml(title)}</h1></div>
+      <div class="meta"><p>${escapePrintHtml(subtitle)}</p><p>출력일시 ${escapePrintHtml(formatDateTime(new Date().toISOString()))}</p></div>
+    </header>`;
+}
+
+function openPrintDocument(title: string, body: string) {
+  const popup = window.open("", "_blank", "noopener,noreferrer");
+  if (!popup) {
+    window.alert("인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해 주세요.");
+    return;
+  }
+  popup.document.open();
+  popup.document.write(`<!doctype html>
+    <html lang="ko">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>${escapePrintHtml(title)}</title>
+        <style>
+          @page { size: A4; margin: 14mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #0f172a; font-family: Arial, "Noto Sans KR", sans-serif; font-size: 12px; }
+          .document { width: 100%; }
+          .document-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
+          .document-header h1 { margin: 3px 0 0; font-size: 24px; }
+          .brand { margin: 0; color: #0f766e; font-weight: 700; }
+          .meta { text-align: right; color: #475569; }
+          .meta p { margin: 2px 0; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #cbd5e1; padding: 7px 8px; vertical-align: middle; }
+          thead th, tfoot th { background: #f1f5f9; }
+          .number { text-align: right; white-space: nowrap; }
+          .strong { font-size: 14px; font-weight: 700; }
+          .check { width: 44px; height: 32px; }
+          .info-grid { display: grid; grid-template-columns: 86px 1fr; margin: 0 0 16px; border-top: 1px solid #cbd5e1; border-left: 1px solid #cbd5e1; }
+          .info-grid dt, .info-grid dd { margin: 0; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 7px 8px; }
+          .info-grid dt { background: #f8fafc; font-weight: 700; }
+          .party-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+          .notice { margin-top: 12px; color: #475569; font-size: 11px; }
+          .page-break + .page-break { break-before: page; page-break-before: always; }
+          @media screen {
+            body { margin: 24px auto; max-width: 900px; padding: 0 20px; }
+            .document { margin-bottom: 60px; }
+          }
+        </style>
+      </head>
+      <body>${body}</body>
+    </html>`);
+  popup.document.close();
+  popup.focus();
+  window.setTimeout(() => popup.print(), 250);
 }
 
 function carrierName(carriers: CompanyCarrierOption[], code: string) {

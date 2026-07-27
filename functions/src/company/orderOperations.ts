@@ -607,6 +607,13 @@ function operationErrorStatus(code: string) {
   if (code.endsWith("NOT_FOUND")) return 404;
   if (code.includes("FORBIDDEN")) return 403;
   if (code.startsWith("AUTH_")) return 401;
-  if (code.includes("TRANSITION") || code.includes("QUANTITY") || code.includes("INVOICE")) return 409;
+  if (
+    code.includes("TRANSITION") ||
+    code.includes("QUANTITY") ||
+    code.includes("INVOICE") ||
+    code.includes("SHIPMENT_DUPLICATE")
+  ) {
+    return 409;
+  }
   return 400;
 }

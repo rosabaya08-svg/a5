@@ -28,9 +28,6 @@ jobs:
       - name: Type-check web
         run: pnpm exec tsc --noEmit -p tsconfig.json
 
-      - name: Build Firebase functions
-        run: pnpm --dir functions exec tsc -p tsconfig.json
-
       - name: Build OpenNext on Linux
         run: pnpm exec opennextjs-cloudflare build
 

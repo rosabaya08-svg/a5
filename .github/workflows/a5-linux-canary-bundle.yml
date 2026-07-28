@@ -34,7 +34,7 @@ jobs:
       - name: Reject Windows paths and broken links
         shell: bash
         run: |
-          if grep -RIl 'C:\\Users\\' .open-next --include='*.js' --include='*.json' | grep -q .; then
+          if grep -RIlF 'C:\Users\' .open-next --include='*.js' --include='*.json' | grep -q .; then
             echo 'Windows absolute paths found in Linux bundle.'
             exit 1
           fi

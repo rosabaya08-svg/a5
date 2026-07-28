@@ -1,0 +1,433 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  type DocumentData,
+} from "firebase/firestore";
+import { getFirebaseDb } from "@/lib/firebase/client";
+import { withResolvedQrPickupLocation } from "@/lib/qr/pickupLocation";
+import type { QrSessionDraftInput, QrSessionRepository, RepositoryActor } from "@/lib/repositories/types";
+import { assertNeverStatus, repositoryError, repositoryOk } from "@/lib/repositories/types";
+import { normalizeShippingFeePolicy } from "@/lib/shipping/shippingFee";
+import type { CartItemSnapshot, DeliveryMethod, QrPaymentSession, QrPickupLocation, QrSessionType } from "@/types/commerce";
+import type { QrSessionStatus } from "@/types/status";
+
+const collectionName = "qr_payment_sessions";
+
+function asString(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asIsoDate(value: unknown) {
+  if (!value) return new Date().toISOString();
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+
+  if (typeof value === "object") {
+    const maybeTimestamp = value as { seconds?: number; toDate?: () => Date };
+
+    if (typeof maybeTimestamp.toDate === "function") return maybeTimestamp.toDate().toISOString();
+    if (typeof maybeTimestamp.seconds === "number") return new Date(maybeTimestamp.seconds * 1000).toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
+function asQrStatus(value: unknown): QrSessionStatus {
+  return value === "paid" || value === "expired" || value === "cancelled" ? value : "active";
+}
+
+function asQrType(value: unknown): QrSessionType {
+  return value === "ask" ? "ask" : "purchase";
+}
+
+function asDeliveryMethod(value: unknown): DeliveryMethod {
+  return value === "delivery" ? "delivery" : "pickup";
+}
+
+function asCartItems(value: unknown): CartItemSnapshot[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      const data = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+
+      return {
+        productId: asString(data.productId ?? data.product_id),
+        optionId: asString(data.optionId ?? data.option_id) || undefined,
+        productName: asString(data.productName ?? data.product_name),
+        optionName: asString(data.optionName ?? data.option_name, "default"),
+        unitPrice: asNumber(data.unitPrice ?? data.unit_price),
+        quantity: asNumber(data.quantity),
+        companyId: asString(data.companyId ?? data.company_id),
+        sellerCompanyId: asString(data.sellerCompanyId ?? data.seller_company_id ?? data.pg_owner_company_id) || undefined,
+        sellerBusinessNo: asString(data.sellerBusinessNo ?? data.seller_business_no ?? data.business_registration_number ?? data.company_business_no) || undefined,
+        sellerBusinessNoNormalized:
+          asString(data.sellerBusinessNoNormalized ?? data.seller_business_no_normalized ?? data.business_registration_number_normalized ?? data.company_business_no_normalized) || undefined,
+        sellerCompanyName: asString(data.sellerCompanyName ?? data.seller_company_name ?? data.company_name) || undefined,
+        shippingFeePolicy: normalizeShippingFeePolicy(data.shippingFeePolicy ?? data.shipping_fee_policy),
+      };
+    })
+    .filter((item) => item.productId && item.productName && item.quantity > 0);
+}
+
+function asPickupLocation(data: DocumentData): QrPickupLocation | undefined {
+  const raw = data.pickupLocation ?? data.pickup_location;
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const nurseryName = asString(value.nurseryName ?? value.nursery_name ?? data.nurseryName ?? data.nursery_name);
+  const nurseryAddress = asString(value.nurseryAddress ?? value.nursery_address ?? data.nurseryAddress ?? data.nursery_address);
+  const roomId = asString(value.roomId ?? value.room_id ?? data.roomId ?? data.room_id);
+  const roomName = asString(value.roomName ?? value.room_name ?? data.roomName ?? data.room_name);
+
+  if (!nurseryAddress || !roomName) return undefined;
+
+  return {
+    nurseryName,
+    nurseryAddress,
+    roomId,
+    roomName,
+  };
+}
+
+function totalAmount(items: CartItemSnapshot[]) {
+  return items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+}
+
+function makeShortCode() {
+  const stamp = Date.now().toString(36).slice(-5).toUpperCase();
+  const random = Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `A5${stamp}${random}`;
+}
+
+function mapQrSession(documentId: string, data: DocumentData): QrPaymentSession {
+  const items = asCartItems(data.items ?? data.items_snapshot ?? data.itemsSnapshot);
+
+  return withResolvedQrPickupLocation({
+    id: asString(data.id ?? data.qr_session_id ?? data.qrSessionId, documentId),
+    shortCode: asString(data.shortCode ?? data.short_code, documentId),
+    type: asQrType(data.type),
+    status: asQrStatus(data.status),
+    nurseryId: asString(data.nurseryId ?? data.nursery_id),
+    roomId: asString(data.roomId ?? data.room_id),
+    tabletId: asString(data.tabletId ?? data.tablet_id),
+    cartId: asString(data.cartId ?? data.cart_id),
+    createdAt: asIsoDate(data.createdAt ?? data.created_at),
+    expiresAt: asIsoDate(data.expiresAt ?? data.expires_at),
+    deliveryMethod: asDeliveryMethod(data.deliveryMethod ?? data.delivery_method),
+    totalAmount: asNumber(data.totalAmount ?? data.total_amount ?? data.total_amount_snapshot ?? data.totalAmountSnapshot, totalAmount(items)),
+    items,
+    pickupLocation: asPickupLocation(data),
+  });
+}
+
+function toFirestorePayload(session: QrPaymentSession) {
+  return {
+    id: session.id,
+    qr_session_id: session.id,
+    shortCode: session.shortCode,
+    short_code: session.shortCode,
+    type: session.type,
+    status: session.status,
+    nurseryId: session.nurseryId,
+    nursery_id: session.nurseryId,
+    roomId: session.roomId,
+    room_id: session.roomId,
+    tabletId: session.tabletId,
+    tablet_id: session.tabletId,
+    cartId: session.cartId,
+    cart_id: session.cartId,
+    createdAt: session.createdAt,
+    created_at: session.createdAt,
+    expiresAt: session.expiresAt,
+    expires_at: session.expiresAt,
+    deliveryMethod: session.deliveryMethod,
+    delivery_method: session.deliveryMethod,
+    totalAmount: session.totalAmount,
+    total_amount: session.totalAmount,
+    total_amount_snapshot: session.totalAmount,
+    pickupLocation: session.pickupLocation ?? null,
+    pickup_location: session.pickupLocation
+      ? {
+          nursery_name: session.pickupLocation.nurseryName,
+          nursery_address: session.pickupLocation.nurseryAddress,
+          room_id: session.pickupLocation.roomId,
+          room_name: session.pickupLocation.roomName,
+        }
+      : null,
+    items: session.items,
+    items_snapshot: session.items.map((item) => ({
+      product_id: item.productId,
+      option_id: item.optionId ?? null,
+      product_name: item.productName,
+      option_name: item.optionName,
+      unit_price: item.unitPrice,
+      quantity: item.quantity,
+      company_id: item.companyId,
+      seller_company_id: item.sellerCompanyId ?? item.companyId,
+      pg_owner_company_id: item.sellerCompanyId ?? item.companyId,
+      seller_business_no: item.sellerBusinessNo ?? null,
+      seller_business_no_normalized: item.sellerBusinessNoNormalized ?? item.sellerBusinessNo ?? null,
+      seller_company_name: item.sellerCompanyName ?? null,
+      shipping_fee_policy: item.shippingFeePolicy ?? null,
+      line_amount: item.unitPrice * item.quantity,
+    })),
+    guest_read_enabled: true,
+    demo_read_enabled: true,
+    source: "firebase_storefront",
+    updated_at: serverTimestamp(),
+  };
+}
+
+function uniqueStrings(values: Array<string | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+function chunks<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
+}
+
+async function getSessionDocByShortCode(shortCode: string) {
+  const db = getFirebaseDb();
+
+  if (!db) {
+    return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.", shortCode);
+  }
+
+  const directIds = [shortCode, `qr-${shortCode}`];
+
+  for (const id of directIds) {
+    const direct = await getDoc(doc(db, collectionName, id));
+
+    if (direct.exists()) {
+      return repositoryOk({ id: direct.id, data: direct.data() });
+    }
+  }
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, collectionName),
+      where("short_code", "==", shortCode),
+      where("guest_read_enabled", "==", true),
+      limit(1),
+    ),
+  );
+  const found = snapshot.docs[0];
+
+  if (!found) {
+    return repositoryError("NOT_FOUND", "Firebase QR session not found.", shortCode);
+  }
+
+  return repositoryOk({ id: found.id, data: found.data() });
+}
+
+export const firebaseQrSessionRepository: QrSessionRepository = {
+  async listQrSessions(filters) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    try {
+      const constraints = [];
+      if (filters?.status) constraints.push(where("status", "==", filters.status));
+      if (filters?.nurseryId) constraints.push(where("nursery_id", "==", filters.nurseryId));
+      const snapshot = await getDocs(query(collection(db, collectionName), ...constraints));
+      return repositoryOk(snapshot.docs.map((item) => mapQrSession(item.id, item.data())));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR session read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR sessions read failed. ${message}`);
+    }
+  },
+
+  async listQrSessionsByRoomOrTablet(filters) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    const roomIds = uniqueStrings(filters.roomIds ?? []);
+    const tabletIds = uniqueStrings(filters.tabletIds ?? []);
+
+    if (roomIds.length === 0 && tabletIds.length === 0 && !filters.nurseryId) {
+      return repositoryOk([]);
+    }
+
+    try {
+      const byId = new Map<string, QrPaymentSession>();
+
+      if (filters.nurseryId) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("nursery_id", "==", filters.nurseryId)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      for (const group of chunks(roomIds, 10)) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("room_id", "in", group)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      for (const group of chunks(tabletIds, 10)) {
+        const snapshot = await getDocs(query(collection(db, collectionName), where("tablet_id", "in", group)));
+        snapshot.docs.forEach((item) => byId.set(item.id, mapQrSession(item.id, item.data())));
+      }
+
+      return repositoryOk(
+        [...byId.values()].sort((a, b) => {
+          const left = new Date(a.createdAt).getTime();
+          const right = new Date(b.createdAt).getTime();
+          return right - left;
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR session read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR sessions scope read failed. ${message}`);
+    }
+  },
+
+  async getQrSessionByShortCode(shortCode) {
+    try {
+      const result = await getSessionDocByShortCode(shortCode);
+      return result.ok ? repositoryOk(mapQrSession(result.data.id, result.data.data)) : result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR session read error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR session read failed. ${message}`, shortCode);
+    }
+  },
+
+  async createQrSessionDraft(input: QrSessionDraftInput) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.");
+    }
+
+    const shortCode = input.shortCode ?? makeShortCode();
+    const createdAt = input.createdAt ?? new Date().toISOString();
+    const session: QrPaymentSession = {
+      id: `qr-${shortCode}`,
+      shortCode,
+      type: input.type,
+      status: "active",
+      nurseryId: input.nurseryId,
+      roomId: input.roomId,
+      tabletId: input.tabletId,
+      cartId: input.cartId,
+      createdAt,
+      expiresAt: input.expiresAt,
+      deliveryMethod: input.deliveryMethod,
+      totalAmount: totalAmount(input.items),
+      items: input.items,
+      pickupLocation: input.pickupLocation,
+    };
+
+    try {
+      await setDoc(doc(db, collectionName, session.id), {
+        ...toFirestorePayload(session),
+        created_at_server: serverTimestamp(),
+      });
+
+      return repositoryOk(session);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR session write error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR session create failed. ${message}`);
+    }
+  },
+
+  async markQrPaid(qrSessionId) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.", qrSessionId);
+    }
+
+    try {
+      const snapshot = await getDoc(doc(db, collectionName, qrSessionId));
+
+      if (!snapshot.exists()) {
+        return repositoryError("NOT_FOUND", "Firebase QR session not found.", qrSessionId);
+      }
+
+      const session = mapQrSession(snapshot.id, snapshot.data());
+
+      if (session.status !== "active") {
+        return assertNeverStatus(session.status);
+      }
+
+      const paidSession = { ...session, status: "paid" as const };
+      await updateDoc(doc(db, collectionName, qrSessionId), {
+        status: "paid",
+        paid_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+
+      return repositoryOk(paidSession);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR paid update error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR paid update failed. ${message}`, qrSessionId);
+    }
+  },
+
+  async markQrExpired(qrSessionId) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.", qrSessionId);
+    }
+
+    try {
+      await updateDoc(doc(db, collectionName, qrSessionId), {
+        status: "expired",
+        expired_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+      const snapshot = await getDoc(doc(db, collectionName, qrSessionId));
+      return snapshot.exists()
+        ? repositoryOk(mapQrSession(snapshot.id, snapshot.data()))
+        : repositoryError("NOT_FOUND", "Firebase QR session not found.", qrSessionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR expired update error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR expired update failed. ${message}`, qrSessionId);
+    }
+  },
+
+  async markQrCancelled(qrSessionId, actor: RepositoryActor) {
+    const db = getFirebaseDb();
+
+    if (!db) {
+      return repositoryError("EXTERNAL_BLOCKED", "Firebase web config is missing.", qrSessionId);
+    }
+
+    try {
+      await updateDoc(doc(db, collectionName, qrSessionId), {
+        status: "cancelled",
+        cancelled_by: actor.name,
+        cancelled_role: actor.role,
+        cancelled_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+      const snapshot = await getDoc(doc(db, collectionName, qrSessionId));
+      return snapshot.exists()
+        ? repositoryOk(mapQrSession(snapshot.id, snapshot.data()))
+        : repositoryError("NOT_FOUND", "Firebase QR session not found.", qrSessionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Firestore QR cancel update error.";
+      return repositoryError("EXTERNAL_BLOCKED", `Firestore QR cancel update failed. ${message}`, qrSessionId);
+    }
+  },
+};

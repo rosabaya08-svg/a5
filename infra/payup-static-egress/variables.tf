@@ -17,15 +17,9 @@ variable "name_prefix" {
 }
 
 variable "subnet_cidr" {
-  description = "Subnet used by serverless resources and Cloud NAT."
+  description = "Dedicated /28 subnet used by the Serverless VPC Access connector and Cloud NAT."
   type        = string
-  default     = "10.24.0.0/24"
-}
-
-variable "connector_cidr" {
-  description = "Dedicated /28 range for the Serverless VPC Access connector."
-  type        = string
-  default     = "10.24.1.0/28"
+  default     = "10.24.0.0/28"
 }
 
 variable "connector_min_instances" {

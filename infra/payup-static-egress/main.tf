@@ -50,10 +50,13 @@ resource "google_compute_subnetwork" "payup" {
 }
 
 resource "google_vpc_access_connector" "payup" {
-  name          = "${local.prefix}-connector"
-  region        = var.region
-  network       = google_compute_network.payup.name
-  ip_cidr_range = var.connector_cidr
+  name   = "${local.prefix}-connector"
+  region = var.region
+
+  subnet {
+    name = google_compute_subnetwork.payup.name
+  }
+
   min_instances = var.connector_min_instances
   max_instances = var.connector_max_instances
   machine_type  = var.connector_machine_type

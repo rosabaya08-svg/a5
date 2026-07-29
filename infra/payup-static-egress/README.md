@@ -4,7 +4,7 @@
 
 ## 생성 자원
 
-- 전용 VPC와 Subnet
+- 전용 VPC와 Connector 전용 `/28` Subnet
 - Serverless VPC Access Connector
 - 고정 외부 IPv4 주소
 - Cloud Router와 Cloud NAT
@@ -28,7 +28,7 @@ PAYUP_VPC_CONNECTOR=a5-payup-connector
 PAYUP_FIXED_IP_REGISTERED=true
 ```
 
-Functions는 Connector가 설정된 경우 `ALL_TRAFFIC`을 사용합니다. Subnet의 Private Google Access가 활성화되어 Firebase Admin SDK의 Google API 접근도 유지됩니다.
+Functions는 Connector가 설정된 경우 `ALL_TRAFFIC`을 사용합니다. Connector는 Cloud NAT가 직접 대상으로 삼는 동일한 전용 `/28` Subnet을 사용합니다. Subnet의 Private Google Access가 활성화되어 Firebase Admin SDK의 Google API 접근도 유지됩니다.
 
 ## 안전 순서
 

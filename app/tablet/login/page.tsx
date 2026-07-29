@@ -1,5 +1,5 @@
-import { TabletLoginPage } from "@/components/tablet/TabletAccessFlow";
+import { TabletFirebaseLoginPage } from "@/components/tablet/TabletFirebaseAccess";
 
 export default function Page() {
-  return <TabletLoginPage />;
+  return <TabletFirebaseLoginPage />;
 }

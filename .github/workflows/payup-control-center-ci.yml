@@ -1,4 +1,4 @@
-name: PayUp Control Center Sandbox CI
+name: PayUp Control Center CI
 
 on:
   pull_request:
@@ -20,19 +20,22 @@ on:
       - "data/admin/payupSandbox.ts"
       - "lib/auth/**"
       - "lib/payup/**"
-      - "lib/firebase/appCheckClient.ts"
+      - "lib/firebase/**"
       - "functions/src/access/**"
       - "functions/src/payup/**"
+      - "functions/src/runtime/**"
       - "functions/src/tablet/**"
       - "functions/src/firebaseAdmin.ts"
       - "functions/src/index.ts"
       - "functions/.env.example"
+      - "infra/payup-static-egress/**"
       - "firestore.rules"
       - "firebase.json"
       - "scripts/check-routes.mjs"
       - "scripts/check-payup-safety.mjs"
       - "docs/PAYUP_CONTROL_CENTER_VIBECODE.md"
       - ".github/workflows/payup-control-center-ci.yml"
+      - ".github/workflows/payup-test-deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -41,7 +44,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -60,6 +63,18 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Validate fixed-egress Terraform
+        working-directory: infra/payup-static-egress
+        run: |
+          terraform fmt -check
+          terraform init -backend=false
+          terraform validate
 
       - name: Install web dependencies
         run: npm ci
@@ -90,7 +105,7 @@ jobs:
         run: |
           mkdir -p .payup-ci
           {
-            echo "PayUp Control Center sandbox verification"
+            echo "PayUp Control Center verification"
             echo "commit=${GITHUB_SHA}"
             echo "run=${GITHUB_RUN_ID}"
             echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

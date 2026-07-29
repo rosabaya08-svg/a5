@@ -38,12 +38,24 @@ expect("data/admin/payupSandbox.ts", 'key: "PARTIAL_CANCEL"', "부분취소 회�
 expect("data/admin/payupSandbox.ts", /key:\s*"PARTIAL_CANCEL"[\s\S]{0,300}locked:\s*true/, "부분취소 영구 잠금");
 expect("data/admin/payupSandbox.ts", /key:\s*"LOCAL_PAID_FALLBACK"[\s\S]{0,300}locked:\s*true/, "local paid fallback 영구 잠금");
 reject("components/storefront/PayupQrCheckoutPage.tsx", "approveBackendMockPayment", "PayUp 고객결제에서 mock 승인 제거");
+expect("components/storefront/PayupQrCheckoutPage.tsx", "readPayupPublicQr", "QR 조회 Cloud Functions Gateway 사용");
+reject("components/storefront/PayupQrCheckoutPage.tsx", "readLiveShopQrSessionByShortCode", "QR 금융세션 Firestore 직접조회 제거");
 expect("functions/src/payup/privateOrder.ts", "ORDER_PII_READ", "주문 개인정보 서버 권한검사");
 expect("functions/src/payup/privateOrder.ts", "PAYUP.ORDER_PRIVATE.READ", "주문 개인정보 감사로그");
 expect("functions/src/payup/distribution.ts", 'actionType: "DISTRIBUTION_POLICY_CHANGE"', "분배정책 2인 승인");
 expect("functions/src/access/requestGuards.ts", "requireFirebaseAppCheck", "결제 브라우저 App Check");
 expect("functions/src/payup/paymentOrder.ts", "encryptPrivateSnapshot", "주문 개인정보 암호화");
 expect("functions/src/payup/paymentApproval.ts", "PAYUP_RECONCILIATION_REQUIRED", "승인 불명확 시 재호출 금지");
+
+reject("firestore.rules", "rosabaya08@gmail.com", "Firestore 관리자 이메일 하드코딩 제거");
+reject("firestore.rules", "isMasterEmail", "Firestore 이메일 기반 최고관리자 함수 제거");
+expect("firestore.rules", 'hasRole("SUPER_ADMIN")', "Firestore Custom Claims 최고관리자 판정");
+expect("firestore.rules", 'hasRole("TABLET_DEVICE")', "Firestore TABLET_DEVICE Claim 판정");
+expect("firestore.rules", 'match /payment_transactions/{document=**} { allow read, write: if false; }', "결제거래 클라이언트 직접접근 차단");
+expect("firestore.rules", 'match /payment_distribution_lines/{document=**} { allow read, write: if false; }', "차액분배원장 클라이언트 직접접근 차단");
+expect("firestore.rules", 'match /payup_submerchants/{document=**} { allow read, write: if false; }', "PayUp 하위업체 원장 클라이언트 직접접근 차단");
+expect("firestore.rules", 'match /settlements/{document=**} { allow read, write: if false; }', "정산원장 클라이언트 직접접근 차단");
+expect("firestore.rules", 'match /access_members/{document=**} { allow read, write: if false; }', "권한원장 클라이언트 직접접근 차단");
 
 let failed = false;
 for (const check of checks) {

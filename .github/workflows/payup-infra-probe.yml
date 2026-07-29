@@ -1,0 +1,31 @@
+name: PayUp Infrastructure Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".deploy/payup-infra-request.json"
+      - "functions/.env.example"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report PR event and environment handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 3 --repo "$GITHUB_REPOSITORY" --body "## PayUp 인프라 PR 진단 결과
+
+- PR 이벤트: **정상 수신**
+- PR: #${{ github.event.pull_request.number }}
+- Head SHA: \`${{ github.event.pull_request.head.sha }}\`
+- 실행: [GitHub Actions run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+- 비밀정보 사용: 없음
+- 다음 차단 후보: \`payup-test\` 환경 승인 또는 Google Cloud WIF/서비스계정"

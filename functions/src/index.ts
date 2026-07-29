@@ -36,3 +36,4 @@ export {
   payupAdminSubmerchants,
   payupAdminTransactions,
 } from "./payup/admin";
+export { payupAdminLogs } from "./payup/logs";

@@ -7,14 +7,25 @@ on:
       - "app/admin/payup/**"
       - "app/admin/pg-settings/**"
       - "app/company/payup-activity/**"
+      - "app/tablet/cart/**"
+      - "app/tablet/qr/**"
+      - "app/q/**"
       - "components/admin/Payup*"
+      - "components/auth/RoleGuard.tsx"
       - "components/company/CompanyPayupActivityPanel.tsx"
+      - "components/storefront/Payup*"
       - "components/layout/navigation.ts"
+      - "components/layout/payupNavigation.ts"
       - "data/admin/payupSandbox.ts"
       - "lib/payup/**"
+      - "lib/firebase/appCheckClient.ts"
+      - "functions/src/access/**"
       - "functions/src/payup/**"
+      - "functions/src/firebaseAdmin.ts"
       - "functions/src/index.ts"
+      - "functions/.env.example"
       - "scripts/check-routes.mjs"
+      - "scripts/check-payup-safety.mjs"
       - "docs/PAYUP_CONTROL_CENTER_VIBECODE.md"
       - ".github/workflows/payup-control-center-ci.yml"
   workflow_dispatch:
@@ -44,6 +55,9 @@ jobs:
 
       - name: Verify required routes
         run: npm run check:routes
+
+      - name: Verify PayUp safety invariants
+        run: node scripts/check-payup-safety.mjs
 
       - name: Typecheck web
         run: npx tsc --noEmit

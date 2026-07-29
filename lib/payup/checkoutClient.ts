@@ -125,7 +125,7 @@ export function readPayupPaymentStatus(payload: { paymentSessionId?: string; cli
   return postPublic<PayupStatusResponse>("payupPaymentStatus", payload);
 }
 
-export function createPayupQrSession(payload: {
+export async function createPayupQrSession(payload: {
   cartId: string;
   nurseryId: string;
   roomId: string;
@@ -135,5 +135,6 @@ export function createPayupQrSession(payload: {
   items: import("@/types/commerce").CartItemSnapshot[];
   clientAmount: number;
 }) {
-  return postPublic<PayupQrCreateResponse>("payupQrCreate", payload, { includeAuth: true });
+  const result = await postPublic<PayupQrCreateResponse>("payupQrCreate", payload, { includeAuth: true });
+  return { ...result, customerPath: `/q/live?code=${encodeURIComponent(result.shortCode)}` };
 }

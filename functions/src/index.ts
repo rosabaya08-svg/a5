@@ -36,6 +36,6 @@ export {
   payupAdminSubmerchantsSecure as payupAdminSubmerchants,
   payupAdminTransactionsSecure as payupAdminTransactions,
 } from "./payup/adminSecure";
-export { payupAdminLogs } from "./payup/logs";
-export { payupPartnerActivity } from "./payup/partner";
+export { payupAdminLogsSecure as payupAdminLogs } from "./payup/logsSecure";
+export { payupPartnerActivitySecure as payupPartnerActivity } from "./payup/partnerSecure";
 export { payupAdminAccess, payupAdminApprovals } from "./payup/access";

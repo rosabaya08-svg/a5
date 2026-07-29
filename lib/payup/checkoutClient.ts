@@ -8,6 +8,8 @@ export type PayupOrderResponse = {
   provider: "payup";
   paymentSessionId: string;
   orderNumber: string;
+  sourceChannel?: string;
+  sourceOrderNo?: string;
   amount: number;
   userAgent: "WM" | "WP";
   formAction: string;
@@ -22,6 +24,8 @@ export type PayupApprovalResponse = {
   paymentSessionId?: string;
   orderNumber: string;
   transactionId: string;
+  sourceOrderNo?: string;
+  returnUrl?: string;
   amount: number;
   duplicate: boolean;
 };
@@ -32,6 +36,7 @@ export type PayupStatusResponse = {
   status: string;
   orderNumber?: string;
   transactionIdMasked?: string;
+  returnUrl?: string;
   amount: number;
   updatedAt?: string;
 };
@@ -144,7 +149,7 @@ export function approvePayupPayment(payload: { paymentSessionId: string; clientT
 }
 
 export function abortPayupPayment(payload: { paymentSessionId: string; clientToken: string; reason: string }) {
-  return postPublic<{ ok: true; paymentSessionId: string; status: string }>("payupPaymentAbort", payload);
+  return postPublic<{ ok: true; paymentSessionId: string; status: string; returnUrl?: string }>("payupPaymentAbort", payload);
 }
 
 export function readPayupPaymentStatus(payload: { paymentSessionId?: string; clientToken?: string; shortCode?: string }) {

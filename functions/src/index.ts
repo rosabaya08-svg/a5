@@ -29,13 +29,32 @@ export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryRelea
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
 
 export {
-  payupAdminCancelSecure as payupAdminCancel,
   payupAdminFeatureFlagsSecure as payupAdminFeatureFlags,
   payupAdminHealthSecure as payupAdminHealth,
   payupAdminSettlementsSecure as payupAdminSettlements,
   payupAdminSubmerchantsSecure as payupAdminSubmerchants,
   payupAdminTransactionsSecure as payupAdminTransactions,
 } from "./payup/adminSecure";
+export { payupAdminCancelFinal as payupAdminCancel } from "./payup/cancelFinal";
 export { payupAdminLogsSecure as payupAdminLogs } from "./payup/logsSecure";
 export { payupPartnerActivitySecure as payupPartnerActivity } from "./payup/partnerSecure";
-export { payupAdminAccess, payupAdminApprovals } from "./payup/access";
+export {
+  payupAdminAccessSecure as payupAdminAccess,
+  payupAdminApprovalsSecure as payupAdminApprovals,
+} from "./payup/accessSecure";
+export { payupAdminDistributionPolicies } from "./payup/distribution";
+export { payupQrCreate } from "./payup/qr";
+export { payupPaymentOrder } from "./payup/paymentOrder";
+export {
+  payupExpirePaymentSessions,
+  payupMobileAuthReturn,
+  payupPaymentAbort,
+  payupPaymentApprove,
+  payupPaymentStatus,
+} from "./payup/paymentApproval";
+export { payupOrderPrivateRead } from "./payup/privateOrder";
+export {
+  payupReconcileSettlementsScheduled,
+  payupReconcileTransactionsScheduled,
+  payupRepairCancelReversalsScheduled,
+} from "./payup/reconciliation";

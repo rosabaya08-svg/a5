@@ -146,7 +146,8 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
     delete window.nicepayClose;
     if (!paymentSessionId || !clientToken) return;
     try {
-      await abortPayupPayment({ paymentSessionId, clientToken, reason });
+      const result = await abortPayupPayment({ paymentSessionId, clientToken, reason });
+      if (result.returnUrl) window.location.assign(result.returnUrl);
     } catch {
       // 서버 만료 정리 작업이 남은 재고예약을 해제합니다.
     }
@@ -159,7 +160,7 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
       activeForm.current?.remove();
       activeForm.current = null;
       rememberGuestVerification(result.orderNumber, activeBuyerPhone.current);
-      window.location.assign(`/orders/guest/live?orderNo=${encodeURIComponent(result.orderNumber)}`);
+      window.location.assign(result.returnUrl || `/orders/guest/live?orderNo=${encodeURIComponent(result.orderNumber)}`);
     } catch (error) {
       setBusy(false);
       setMessage(error instanceof Error ? error.message : "PayUp 최종승인에 실패했습니다.");

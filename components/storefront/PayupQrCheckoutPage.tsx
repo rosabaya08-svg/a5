@@ -9,10 +9,10 @@ import {
   isQrReceiverFormComplete,
   type QrReceiverFormValue,
 } from "@/components/storefront/QrReceiverForm";
-import { readLiveShopQrSessionByShortCode } from "@/lib/firebase/liveShopRepository";
 import {
   abortPayupPayment,
   approvePayupPayment,
+  readPayupPublicQr,
   requestPayupOrder,
   type PayupOrderResponse,
 } from "@/lib/payup/checkoutClient";
@@ -87,6 +87,15 @@ async function loadPcScript(src: string) {
   });
 }
 
+function phoneLast4(value: string) {
+  return value.replace(/[^0-9]/g, "").slice(-4);
+}
+
+function rememberGuestVerification(orderNumber: string, phone: string) {
+  const last4 = phoneLast4(phone);
+  if (orderNumber && last4.length === 4) window.sessionStorage.setItem(`a5-payup-order-phone:${orderNumber}`, last4);
+}
+
 export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) {
   const params = useSearchParams();
   const code = fixedCode || params.get("code") || "";
@@ -98,6 +107,7 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
   const activeForm = useRef<HTMLFormElement | null>(null);
   const activePaymentSessionId = useRef("");
   const activeClientToken = useRef("");
+  const activeBuyerPhone = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -105,12 +115,18 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
       setMessage("QR 코드가 없습니다.");
       return;
     }
-    void readLiveShopQrSessionByShortCode(code).then((value) => {
-      if (cancelled) return;
-      setSession(value);
-      setReceiver(value ? initialQrReceiverFormValue(value) : null);
-      setMessage(value ? "상품·금액·수령정보를 확인한 뒤 결제를 진행하세요." : "QR 결제세션을 찾을 수 없습니다.");
-    });
+    void readPayupPublicQr(code)
+      .then((result) => {
+        if (cancelled) return;
+        setSession(result.session);
+        setReceiver(initialQrReceiverFormValue(result.session));
+        setMessage("상품·금액·수령정보를 확인한 뒤 결제를 진행하세요.");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setSession(null);
+        setMessage(error instanceof Error ? error.message : "QR 결제세션을 찾을 수 없습니다.");
+      });
     return () => {
       cancelled = true;
       delete window.nicepaySubmit;
@@ -142,6 +158,7 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
       const result = await approvePayupPayment({ paymentSessionId: order.paymentSessionId, clientToken: order.clientToken, authData: authDataFromForm(form) });
       activeForm.current?.remove();
       activeForm.current = null;
+      rememberGuestVerification(result.orderNumber, activeBuyerPhone.current);
       window.location.assign(`/orders/guest/live?orderNo=${encodeURIComponent(result.orderNumber)}`);
     } catch (error) {
       setBusy(false);
@@ -176,6 +193,8 @@ export function PayupQrCheckoutPage({ fixedCode = "" }: { fixedCode?: string }) 
       });
       activePaymentSessionId.current = order.paymentSessionId;
       activeClientToken.current = order.clientToken;
+      activeBuyerPhone.current = receiver.customerPhone.trim();
+      rememberGuestVerification(order.orderNumber, receiver.customerPhone);
       const form = buildPaymentForm(order, mobile);
       activeForm.current = form;
       if (mobile) {

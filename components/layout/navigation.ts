@@ -115,6 +115,7 @@ export const companyNavItems: NavSection[] = [
     items: [
       { href: "/company/sales", label: "매출 현황" },
       { href: "/company/payouts", label: "입금 예정" },
+      { href: "/company/payup-activity", label: "내 PayUp 판매·정산 로그", badge: "내 로그" },
     ],
   },
   {

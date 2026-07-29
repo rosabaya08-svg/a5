@@ -39,10 +39,23 @@ export async function callPayupAdmin<T>(functionName: string, payload: Record<st
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
-    const body = (await response.json()) as T & { message?: string; error?: { message?: string } | string };
+    const raw = await response.text();
+    let body: T & { message?: string; error?: { message?: string } | string };
+    try {
+      body = JSON.parse(raw) as T & { message?: string; error?: { message?: string } | string };
+    } catch {
+      body = { message: raw.slice(0, 500) || `HTTP ${response.status}` } as T & { message?: string };
+    }
 
     if (!response.ok) {
       const message = typeof body.error === "string" ? body.error : body.error?.message ?? body.message ?? `HTTP ${response.status}`;
+      if (response.status === 404) {
+        return {
+          ok: false,
+          error: `${functionName} 함수가 아직 샌드박스 서버에 배포되지 않았습니다.`,
+          source: "not_configured",
+        };
+      }
       return { ok: false, error: message, source: "firebase_functions" };
     }
 

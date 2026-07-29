@@ -1,0 +1,82 @@
+name: PayUp Control Center Sandbox CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/payup/**"
+      - "app/admin/pg-settings/**"
+      - "app/company/payup-activity/**"
+      - "components/admin/Payup*"
+      - "components/company/CompanyPayupActivityPanel.tsx"
+      - "components/layout/navigation.ts"
+      - "data/admin/payupSandbox.ts"
+      - "lib/payup/**"
+      - "functions/src/payup/**"
+      - "functions/src/index.ts"
+      - "scripts/check-routes.mjs"
+      - "docs/PAYUP_CONTROL_CENTER_VIBECODE.md"
+      - ".github/workflows/payup-control-center-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify required routes
+        run: pnpm run check:routes
+
+      - name: Typecheck web
+        run: pnpm exec tsc --noEmit
+
+      - name: Build web
+        run: pnpm run build
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Firebase Functions
+        run: npm --prefix functions run build
+
+      - name: Write verification report
+        if: always()
+        run: |
+          mkdir -p .payup-ci
+          {
+            echo "PayUp Control Center sandbox verification"
+            echo "commit=${GITHUB_SHA}"
+            echo "run=${GITHUB_RUN_ID}"
+            echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > .payup-ci/verification.txt
+
+      - name: Upload verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payup-control-center-verification-${{ github.sha }}
+          path: |
+            .payup-ci/verification.txt
+            docs/PAYUP_CONTROL_CENTER_VIBECODE.md
+          if-no-files-found: error
+          retention-days: 7

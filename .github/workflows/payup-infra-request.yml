@@ -3,6 +3,7 @@ name: PayUp Fixed IP Request
 on:
   push:
     branches:
+      - main
       - feature/payup-control-center-sandbox-20260729
     paths:
       - ".deploy/payup-infra-request.json"

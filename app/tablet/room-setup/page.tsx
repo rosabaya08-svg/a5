@@ -1,5 +1,5 @@
-import { TabletRoomSetupPage } from "@/components/tablet/TabletAccessFlow";
+import { TabletFirebaseRoomStatusPage } from "@/components/tablet/TabletFirebaseAccess";
 
 export default function Page() {
-  return <TabletRoomSetupPage />;
+  return <TabletFirebaseRoomStatusPage />;
 }

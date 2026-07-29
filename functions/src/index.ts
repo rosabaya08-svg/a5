@@ -29,13 +29,13 @@ export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryRelea
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
 
 export {
-  payupAdminCancel,
-  payupAdminFeatureFlags,
-  payupAdminHealth,
-  payupAdminSettlements,
-  payupAdminSubmerchants,
-  payupAdminTransactions,
-} from "./payup/admin";
+  payupAdminCancelSecure as payupAdminCancel,
+  payupAdminFeatureFlagsSecure as payupAdminFeatureFlags,
+  payupAdminHealthSecure as payupAdminHealth,
+  payupAdminSettlementsSecure as payupAdminSettlements,
+  payupAdminSubmerchantsSecure as payupAdminSubmerchants,
+  payupAdminTransactionsSecure as payupAdminTransactions,
+} from "./payup/adminSecure";
 export { payupAdminLogs } from "./payup/logs";
 export { payupPartnerActivity } from "./payup/partner";
 export { payupAdminAccess, payupAdminApprovals } from "./payup/access";

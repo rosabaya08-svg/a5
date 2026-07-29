@@ -29,6 +29,7 @@ on:
       - "functions/src/index.ts"
       - "functions/.env.example"
       - "infra/payup-static-egress/**"
+      - ".deploy/payup-infra-request.json"
       - "firestore.rules"
       - "firebase.json"
       - "scripts/check-routes.mjs"
@@ -40,6 +41,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  issues: write
 
 jobs:
   verify:
@@ -121,3 +124,123 @@ jobs:
             docs/PAYUP_CONTROL_CENTER_VIBECODE.md
           if-no-files-found: error
           retention-days: 7
+
+  provision-fixed-ip:
+    if: github.head_ref == 'ops/payup-fixed-ip-provision-20260730'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: payup-test
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'a5-closed-mall' }}
+      REGION: ${{ vars.GCP_REGION || 'asia-northeast3' }}
+      WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOY_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      RESULT_FILE: ${{ runner.temp }}/payup-infra-status.md
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: configuration
+        name: Check Google Cloud deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WIF_PROVIDER" || -z "$DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            cat > "$RESULT_FILE" <<EOF
+          ## PayUp 고정 IP 실제 실행 결과
+
+          - 결과: **SKIPPED — Google Cloud 배포 자격증명 미등록**
+          - 프로젝트: \`${PROJECT_ID}\`
+          - 리전: \`${REGION}\`
+          - 실행: [GitHub Actions run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - 누락 설정: GitHub Environment \`payup-test\`의 \`GCP_WORKLOAD_IDENTITY_PROVIDER\`, \`GCP_SERVICE_ACCOUNT\`
+          - PayUp 실호출: 실행하지 않음
+          - 비용 발생 인프라: 생성하지 않음
+          EOF
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: google-github-actions/auth@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          version: ">= 416.0.0"
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Apply fixed egress infrastructure
+        if: steps.configuration.outputs.ready == 'true'
+        working-directory: infra/payup-static-egress
+        shell: bash
+        run: |
+          set -euo pipefail
+          TF_STATE_BUCKET="${PROJECT_ID}-payup-tfstate"
+          if ! gcloud storage buckets describe "gs://${TF_STATE_BUCKET}" --project "$PROJECT_ID" >/dev/null 2>&1; then
+            gcloud storage buckets create "gs://${TF_STATE_BUCKET}" --project "$PROJECT_ID" --location "$REGION" --uniform-bucket-level-access
+          fi
+          gcloud storage buckets update "gs://${TF_STATE_BUCKET}" --versioning
+          terraform init -reconfigure \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=payup-static-egress"
+          terraform plan -out=tfplan -var="project_id=${PROJECT_ID}" -var="region=${REGION}"
+          terraform apply -auto-approve tfplan
+          FIXED_IP="$(terraform output -raw payup_static_egress_ip)"
+          CONNECTOR="$(terraform output -raw payup_vpc_connector)"
+          [[ "$FIXED_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "Terraform did not return a valid IPv4 address." >&2; exit 1; }
+          [[ -n "$CONNECTOR" ]] || { echo "Terraform did not return a VPC connector." >&2; exit 1; }
+          cat > "$RESULT_FILE" <<EOF
+          ## PayUp 고정 IP 실제 실행 결과
+
+          - 결과: **CREATED_OR_CONFIRMED**
+          - 프로젝트: \`${PROJECT_ID}\`
+          - 리전: \`${REGION}\`
+          - 고정 공인 IP: \`${FIXED_IP}\`
+          - VPC Connector: \`${CONNECTOR}\`
+          - Terraform 상태 버킷: \`gs://${TF_STATE_BUCKET}\`
+          - 실행: [GitHub Actions run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - 다음 조치: 위 IP를 PayUp 허용 IP로 등록
+          - PayUp 실호출: 아직 OFF
+          EOF
+
+      - name: Write failure result
+        if: failure()
+        shell: bash
+        run: |
+          if [[ ! -s "$RESULT_FILE" ]]; then
+            cat > "$RESULT_FILE" <<EOF
+          ## PayUp 고정 IP 실제 실행 결과
+
+          - 결과: **FAILED**
+          - 프로젝트: \`${PROJECT_ID}\`
+          - 리전: \`${REGION}\`
+          - 실행: [GitHub Actions run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - 원인: Google Cloud 인증 또는 Terraform Apply 실패
+          - PayUp 실호출: 실행하지 않음
+          EOF
+          fi
+
+      - name: Publish execution result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s "$RESULT_FILE" ]]; then
+            echo "## PayUp 고정 IP 실제 실행 결과" > "$RESULT_FILE"
+            echo "- 결과: **UNKNOWN** — 실행 결과 파일이 없습니다." >> "$RESULT_FILE"
+          fi
+          cat "$RESULT_FILE" >> "$GITHUB_STEP_SUMMARY"
+          gh issue comment 3 --repo "$GITHUB_REPOSITORY" --body-file "$RESULT_FILE"

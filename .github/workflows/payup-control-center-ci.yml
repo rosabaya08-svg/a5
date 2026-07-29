@@ -1,0 +1,123 @@
+name: PayUp Control Center CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/payup/**"
+      - "app/admin/pg-settings/**"
+      - "app/company/**"
+      - "app/tablet/**"
+      - "app/q/**"
+      - "components/admin/Payup*"
+      - "components/auth/**"
+      - "components/company/**"
+      - "components/storefront/Payup*"
+      - "components/tablet/**"
+      - "components/layout/navigation.ts"
+      - "components/layout/payupNavigation.ts"
+      - "data/accessCredentials.ts"
+      - "data/admin/payupSandbox.ts"
+      - "lib/auth/**"
+      - "lib/payup/**"
+      - "lib/firebase/**"
+      - "functions/src/access/**"
+      - "functions/src/payup/**"
+      - "functions/src/runtime/**"
+      - "functions/src/tablet/**"
+      - "functions/src/firebaseAdmin.ts"
+      - "functions/src/index.ts"
+      - "functions/.env.example"
+      - "infra/payup-static-egress/**"
+      - "firestore.rules"
+      - "firebase.json"
+      - "scripts/check-routes.mjs"
+      - "scripts/check-payup-safety.mjs"
+      - "docs/PAYUP_CONTROL_CENTER_VIBECODE.md"
+      - ".github/workflows/payup-control-center-ci.yml"
+      - ".github/workflows/payup-test-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Install Java for Firestore Rules compiler
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Validate fixed-egress Terraform
+        working-directory: infra/payup-static-egress
+        run: |
+          terraform fmt -check
+          terraform init -backend=false
+          terraform validate
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Verify required routes
+        run: npm run check:routes
+
+      - name: Verify PayUp safety invariants
+        run: node scripts/check-payup-safety.mjs
+
+      - name: Compile Firestore Rules in emulator
+        run: npx --yes firebase-tools@14.17.0 emulators:exec --only firestore --project demo-a5-payup "node -e \"console.log('Firestore rules compiled')\""
+
+      - name: Typecheck web
+        run: npx tsc --noEmit
+
+      - name: Build web
+        run: npm run build
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Firebase Functions
+        run: npm --prefix functions run build
+
+      - name: Write verification report
+        if: always()
+        run: |
+          mkdir -p .payup-ci
+          {
+            echo "PayUp Control Center verification"
+            echo "commit=${GITHUB_SHA}"
+            echo "run=${GITHUB_RUN_ID}"
+            echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > .payup-ci/verification.txt
+
+      - name: Upload verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payup-control-center-verification-${{ github.sha }}
+          path: |
+            .payup-ci/verification.txt
+            docs/PAYUP_CONTROL_CENTER_VIBECODE.md
+          if-no-files-found: error
+          retention-days: 7

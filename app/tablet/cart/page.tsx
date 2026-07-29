@@ -1,5 +1,5 @@
-import { TabletCartPage } from "@/components/storefront/TabletMallPages";
+import { PayupTabletCartPage } from "@/components/storefront/PayupTabletCartPage";
 
-export default async function Page() {
-  return <TabletCartPage />;
+export default function Page() {
+  return <PayupTabletCartPage />;
 }

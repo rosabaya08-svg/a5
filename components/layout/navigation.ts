@@ -48,8 +48,21 @@ export const adminNavItems: NavSection[] = [
     items: [
       { href: "/admin/orders", label: "주문 관리" },
       { href: "/admin/payments", label: "결제 관리" },
-      { href: "/admin/pg-settings", label: "PG 설정" },
+      { href: "/admin/pg-settings", label: "PayUp PG 설정 입구", badge: "PayUp" },
       { href: "/admin/settlements", label: "정산 검토" },
+    ],
+  },
+  {
+    title: "PayUp 장바구니 PG",
+    items: [
+      { href: "/admin/payup", label: "PayUp 통합 관제", badge: "HOME" },
+      { href: "/admin/payup/connection", label: "연결 설정" },
+      { href: "/admin/payup/switchboard", label: "운영 배전판", badge: "ON/OFF" },
+      { href: "/admin/payup/submerchants", label: "하위사업자" },
+      { href: "/admin/payup/transactions", label: "거래/분배" },
+      { href: "/admin/payup/settlements", label: "정산 대사" },
+      { href: "/admin/payup/cancellations", label: "전체취소" },
+      { href: "/admin/payup/logs", label: "통합 로그" },
     ],
   },
   {
@@ -102,6 +115,7 @@ export const companyNavItems: NavSection[] = [
     items: [
       { href: "/company/sales", label: "매출 현황" },
       { href: "/company/payouts", label: "입금 예정" },
+      { href: "/company/payup-activity", label: "내 PayUp 판매·정산 로그", badge: "내 로그" },
     ],
   },
   {

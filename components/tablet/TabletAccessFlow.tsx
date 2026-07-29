@@ -1,29 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { tabletNurseryAccess } from "@/data/accessCredentials";
-import { nurseryExternalMappings, nurseryRoomSelections } from "@/data/nursery/a4Mapping";
-import { normalizeBusinessNo } from "@/lib/auth/session";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { getFirebaseAuthClient } from "@/lib/firebase/client";
+import {
+  enrollTabletDevice,
+  logoutTabletDevice,
+  verifyTabletDeviceSession,
+  type TabletDeviceSession,
+} from "@/lib/firebase/tabletDeviceClient";
 
 const loginKey = "a5.tablet.login";
 const roomKey = "a5.tablet.room";
-const roomEditUnlockKey = "a5.tablet.room-edit-unlocked";
 
-export type TabletRoomSession = {
-  nurseryId: string;
-  businessNo: string;
-  businessName: string;
-  registeredAddress?: string;
-  roomId: string;
-  roomName: string;
-  tabletId: string;
-  fixedLogin: true;
-  updatedAt: string;
-};
+export type TabletRoomSession = TabletDeviceSession;
 
 export function readTabletRoomSession(): TabletRoomSession | null {
   if (typeof window === "undefined") return null;
-
   try {
     const raw = window.localStorage.getItem(roomKey);
     return raw ? (JSON.parse(raw) as TabletRoomSession) : null;
@@ -32,49 +25,94 @@ export function readTabletRoomSession(): TabletRoomSession | null {
   }
 }
 
-function readTabletLogin() {
-  if (typeof window === "undefined") return null;
+function persistTabletSession(session: TabletRoomSession) {
+  window.localStorage.setItem(roomKey, JSON.stringify(session));
+  window.localStorage.setItem(loginKey, JSON.stringify({
+    role: "TABLET_DEVICE",
+    nurseryId: session.nurseryId,
+    roomId: session.roomId,
+    tabletId: session.tabletId,
+    businessNo: session.businessNo,
+    signedInAt: new Date().toISOString(),
+  }));
+}
 
-  try {
-    const raw = window.localStorage.getItem(loginKey);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+function clearTabletSession() {
+  window.localStorage.removeItem(roomKey);
+  window.localStorage.removeItem(loginKey);
+}
+
+function redirect(path: string) {
+  window.location.replace(path);
 }
 
 export function TabletAccessGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);
+  const [message, setMessage] = useState("등록된 태블릿 Firebase 권한을 확인하고 있습니다.");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const hasLogin = readTabletLogin();
-      const hasRoom = readTabletRoomSession();
-      const ok = Boolean(hasLogin && hasRoom);
-
-      setAllowed(ok);
+    let cancelled = false;
+    const auth = getFirebaseAuthClient();
+    if (!auth) {
+      setMessage("Firebase 태블릿 인증 설정이 필요합니다.");
       setReady(true);
+      return;
+    }
 
-      if (!hasLogin) {
-        window.location.replace("/tablet/login");
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (cancelled) return;
+      if (!user) {
+        clearTabletSession();
+        setAllowed(false);
+        setReady(true);
+        redirect("/tablet/login");
         return;
       }
-
-      if (!hasRoom) {
-        window.location.replace("/tablet/room-setup");
+      try {
+        const verified = await verifyTabletDeviceSession();
+        const cached = readTabletRoomSession();
+        const matches = Boolean(
+          cached &&
+          cached.nurseryId === verified.status.nurseryId &&
+          cached.roomId === verified.status.roomId &&
+          cached.tabletId === verified.status.tabletId &&
+          cached.businessNo.replace(/[^0-9]/g, "") === verified.status.businessNo,
+        );
+        if (!matches) {
+          await logoutTabletDevice();
+          clearTabletSession();
+          setMessage("태블릿 로컬 정보와 Firebase Claim이 일치하지 않아 재등록이 필요합니다.");
+          setAllowed(false);
+          setReady(true);
+          redirect("/tablet/login");
+          return;
+        }
+        setAllowed(true);
+        setReady(true);
+      } catch (error) {
+        await logoutTabletDevice();
+        clearTabletSession();
+        setMessage(error instanceof Error ? error.message : "태블릿 권한을 확인하지 못했습니다.");
+        setAllowed(false);
+        setReady(true);
+        redirect("/tablet/login");
       }
-    }, 0);
+    });
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   if (!ready || !allowed) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
         <section className="w-full max-w-sm rounded-md bg-white p-6 text-center text-slate-950 shadow-2xl">
-          <p className="text-sm font-bold text-slate-500">태블릿 확인 중</p>
-          <h1 className="mt-2 text-2xl font-black">객실 설정이 필요합니다</h1>
+          <p className="text-sm font-bold text-slate-500">TABLET_DEVICE 확인 중</p>
+          <h1 className="mt-2 text-2xl font-black">{message}</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">사업자번호·공용 비밀번호·localStorage만으로는 접근할 수 없습니다.</p>
         </section>
       </main>
     );
@@ -89,84 +127,44 @@ export function TabletFirstLoginGate() {
 
 export function TabletContextBadge() {
   const [session, setSession] = useState<TabletRoomSession | null>(null);
-  const [isUnlockOpen, setIsUnlockOpen] = useState(false);
-  const [editPassword, setEditPassword] = useState("");
-  const [editMessage, setEditMessage] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSession(readTabletRoomSession()), 0);
-
-    function handleStorage() {
-      setSession(readTabletRoomSession());
-    }
-
-    window.addEventListener("storage", handleStorage);
+    const sync = () => setSession(readTabletRoomSession());
+    window.addEventListener("storage", sync);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("storage", sync);
     };
   }, []);
 
-  const businessName = session?.businessName ?? tabletNurseryAccess.businessName;
-  const roomName = session?.roomName ?? tabletNurseryAccess.defaultRoomName;
-
-  function unlockRoomEdit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (editPassword !== tabletNurseryAccess.defaultPassword) {
-      setEditMessage("등록 비밀번호를 확인해 주세요.");
-      return;
-    }
-
-    window.sessionStorage.setItem(roomEditUnlockKey, "true");
-    window.location.assign("/tablet/room-setup");
+  async function resetEnrollment() {
+    await logoutTabletDevice();
+    clearTabletSession();
+    redirect("/tablet/login");
   }
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-950 ring-1 ring-white/60">
-        <span>{businessName}</span>
+        <span>{session?.businessName ?? "등록 확인 중"}</span>
         <span className="text-slate-400">/</span>
-        <span>{roomName}</span>
-        <button
-          type="button"
-          onClick={() => {
-            setEditPassword("");
-            setEditMessage("");
-            setIsUnlockOpen(true);
-          }}
-          aria-label="객실 정보 수정"
-          title="객실 정보 수정"
-          className="grid h-7 w-7 place-items-center rounded-full bg-slate-950 text-white transition hover:bg-rose-600"
-        >
-          수정
-        </button>
+        <span>{session?.roomName ?? "객실"}</span>
+        <span className="text-slate-400">/</span>
+        <span>{session?.tabletLabel ?? session?.tabletId ?? "태블릿"}</span>
+        <button type="button" onClick={() => setConfirming(true)} className="rounded-full bg-slate-950 px-2.5 py-1 text-[11px] text-white">재등록</button>
       </div>
-
-      {isUnlockOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm">
-          <form onSubmit={unlockRoomEdit} className="w-full max-w-sm rounded-md bg-white p-5 text-slate-950 shadow-2xl">
-            <h2 className="text-2xl font-black">객실 정보 수정</h2>
-            <label className="mt-4 grid gap-2 text-sm font-black">
-              조리원 비밀번호
-              <input
-                type="password"
-                value={editPassword}
-                onChange={(event) => setEditPassword(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                autoFocus
-              />
-            </label>
-            {editMessage ? <p className="mt-3 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{editMessage}</p> : null}
+      {confirming ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 px-4 backdrop-blur-sm">
+          <section className="w-full max-w-sm rounded-md bg-white p-5 text-slate-950 shadow-2xl">
+            <h2 className="text-2xl font-black">태블릿 재등록</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">현재 Firebase 로그인과 로컬 객실 캐시를 삭제합니다. 관리자에게 새 일회용 등록코드를 받아야 합니다.</p>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setIsUnlockOpen(false)} className="h-11 rounded-md bg-slate-100 text-sm font-black text-slate-900">
-                취소
-              </button>
-              <button type="submit" className="h-11 rounded-md bg-rose-600 text-sm font-black text-white">
-                확인
-              </button>
+              <button type="button" onClick={() => setConfirming(false)} className="h-11 rounded-md bg-slate-100 text-sm font-black">취소</button>
+              <button type="button" onClick={() => void resetEnrollment()} className="h-11 rounded-md bg-red-600 text-sm font-black text-white">로그아웃·재등록</button>
             </div>
-          </form>
+          </section>
         </div>
       ) : null}
     </>
@@ -174,79 +172,58 @@ export function TabletContextBadge() {
 }
 
 export function TabletLoginPage() {
-  const [businessNo, setBusinessNo] = useState(tabletNurseryAccess.businessNo);
-  const [password, setPassword] = useState(tabletNurseryAccess.defaultPassword);
-  const [message, setMessage] = useState("");
+  const [businessNumber, setBusinessNumber] = useState("");
+  const [enrollmentCode, setEnrollmentCode] = useState("");
+  const [message, setMessage] = useState("A5S 기업관리자가 발급한 일회용 태블릿 등록코드를 입력하세요.");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const hasLogin = readTabletLogin();
-    const hasRoom = readTabletRoomSession();
-
-    if (hasLogin && hasRoom) {
-      window.location.replace("/tablet/products");
-    }
+    const auth = getFirebaseAuthClient();
+    if (!auth?.currentUser || !readTabletRoomSession()) return;
+    void verifyTabletDeviceSession()
+      .then(() => redirect("/tablet/products"))
+      .catch(async () => {
+        await logoutTabletDevice();
+        clearTabletSession();
+      });
   }, []);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const businessNoMatches =
-      normalizeBusinessNo(businessNo) === normalizeBusinessNo(tabletNurseryAccess.businessNo);
-
-    if (!businessNoMatches || password !== tabletNurseryAccess.defaultPassword) {
-      setMessage("산후조리원 사업자등록번호와 비밀번호를 확인해 주세요.");
+    const normalizedBusinessNumber = businessNumber.replace(/[^0-9]/g, "");
+    if (normalizedBusinessNumber.length !== 10 || !enrollmentCode.trim()) {
+      setMessage("사업자번호 10자리와 일회용 등록코드를 입력해 주세요.");
       return;
     }
-
-    window.localStorage.setItem(
-      loginKey,
-      JSON.stringify({
-        nurseryId: tabletNurseryAccess.nurseryId,
-        businessNo: tabletNurseryAccess.businessNo,
-        businessName: tabletNurseryAccess.businessName,
-        signedInAt: new Date().toISOString(),
-      }),
-    );
-    window.location.assign("/tablet/room-setup");
+    setBusy(true);
+    setMessage("등록코드, 조리원·객실·태블릿 범위와 Firebase Claim을 확인하고 있습니다.");
+    try {
+      const session = await enrollTabletDevice({ businessNumber: normalizedBusinessNumber, enrollmentCode: enrollmentCode.trim() });
+      persistTabletSession(session);
+      setMessage("TABLET_DEVICE 등록이 완료됐습니다.");
+      redirect("/tablet/room-setup");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "태블릿 등록에 실패했습니다.");
+      setBusy(false);
+    }
   }
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
       <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="rounded-md border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">TABLET</p>
-          <h1 className="mt-3 text-4xl font-black">태블릿 로그인</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-300">
-            등록된 산후조리원 사업자번호로 태블릿을 확인한 뒤 객실을 선택합니다.
-          </p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-300">FIREBASE TABLET_DEVICE</p>
+          <h1 className="mt-3 text-4xl font-black">태블릿 안전 등록</h1>
+          <p className="mt-4 text-sm leading-6 text-slate-300">한 번 사용하면 폐기되는 등록코드로 태블릿을 조리원·객실에 고정합니다. 등록 후 서버는 Firebase Claim의 조리원·객실·태블릿 ID를 매 요청마다 확인합니다.</p>
         </div>
-
         <form onSubmit={handleSubmit} className="rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-          <h2 className="text-2xl font-black">사업자 계정 확인</h2>
+          <h2 className="text-2xl font-black">기기 등록</h2>
           <div className="mt-5 grid gap-4">
-            <label className="grid gap-2 text-sm font-black">
-              사업자등록번호
-              <input
-                value={businessNo}
-                onChange={(event) => setBusinessNo(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                placeholder="1004-1004-1004"
-              />
-            </label>
-            <label className="grid gap-2 text-sm font-black">
-              비밀번호
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                placeholder="1004"
-              />
-            </label>
+            <label className="grid gap-2 text-sm font-black">조리원 사업자등록번호<input inputMode="numeric" value={businessNumber} onChange={(event) => setBusinessNumber(event.target.value)} className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold" placeholder="숫자 10자리" /></label>
+            <label className="grid gap-2 text-sm font-black">일회용 등록코드<input value={enrollmentCode} onChange={(event) => setEnrollmentCode(event.target.value)} className="h-12 rounded-md border border-slate-200 px-3 font-mono text-sm font-bold" placeholder="A5T-..." autoComplete="one-time-code" /></label>
           </div>
-          {message ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{message}</p> : null}
-          <button type="submit" className="mt-6 h-12 w-full rounded-md bg-rose-600 text-sm font-black text-white">
-            객실 선택으로 이동
-          </button>
+          <p className="mt-4 rounded-md bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-900">{message}</p>
+          <button type="submit" disabled={busy} className="mt-6 h-12 w-full rounded-md bg-rose-600 text-sm font-black text-white disabled:opacity-50">{busy ? "등록 확인 중" : "Firebase 태블릿 등록"}</button>
         </form>
       </section>
     </main>
@@ -254,132 +231,41 @@ export function TabletLoginPage() {
 }
 
 export function TabletRoomSetupPage() {
-  const [selectedRoomId, setSelectedRoomId] = useState(tabletNurseryAccess.defaultRoomId);
-  const [isBootstrapped, setIsBootstrapped] = useState(false);
-  const [requiresUnlock, setRequiresUnlock] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [editPassword, setEditPassword] = useState("");
-  const [editMessage, setEditMessage] = useState("");
-  const rooms = useMemo(() => nurseryRoomSelections, []);
+  const [session, setSession] = useState<TabletRoomSession | null>(null);
+  const [message, setMessage] = useState("등록된 객실 범위를 확인하고 있습니다.");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const login = readTabletLogin();
-      if (!login) {
-        window.location.replace("/tablet/login");
-        return;
-      }
-
-      const saved = readTabletRoomSession();
-      if (saved) {
-        setSelectedRoomId(saved.roomId);
-        setRequiresUnlock(true);
-        setIsUnlocked(window.sessionStorage.getItem(roomEditUnlockKey) === "true");
-      } else {
-        setRequiresUnlock(false);
-        setIsUnlocked(true);
-      }
-      setIsBootstrapped(true);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
+    const cached = readTabletRoomSession();
+    setSession(cached);
+    void verifyTabletDeviceSession()
+      .then(({ status }) => {
+        if (!cached || cached.nurseryId !== status.nurseryId || cached.roomId !== status.roomId || cached.tabletId !== status.tabletId) {
+          throw new Error("Firebase Claim과 객실 캐시가 일치하지 않습니다.");
+        }
+        setMessage("이 태블릿은 아래 조리원·객실에 고정 등록됐습니다.");
+      })
+      .catch(async (error) => {
+        setMessage(error instanceof Error ? error.message : "태블릿 범위를 확인하지 못했습니다.");
+        await logoutTabletDevice();
+        clearTabletSession();
+        window.setTimeout(() => redirect("/tablet/login"), 1200);
+      });
   }, []);
-
-  function saveRoom(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const room = rooms.find((item) => item.roomId === selectedRoomId) ?? rooms[0];
-    if (!room) return;
-    const nurseryMapping = nurseryExternalMappings.find((item) => item.nurseryId === tabletNurseryAccess.nurseryId);
-
-    const session: TabletRoomSession = {
-      nurseryId: tabletNurseryAccess.nurseryId,
-      businessNo: tabletNurseryAccess.businessNo,
-      businessName: tabletNurseryAccess.businessName,
-      registeredAddress: nurseryMapping?.registeredAddress,
-      roomId: room.roomId,
-      roomName: `${room.roomNumber}호`,
-      tabletId: room.activeTabletId ?? tabletNurseryAccess.defaultTabletId,
-      fixedLogin: true,
-      updatedAt: new Date().toISOString(),
-    };
-
-    window.localStorage.setItem(roomKey, JSON.stringify(session));
-    window.sessionStorage.removeItem(roomEditUnlockKey);
-    window.location.assign("/tablet/products");
-  }
-
-  function unlockRoomEdit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (editPassword !== tabletNurseryAccess.defaultPassword) {
-      setEditMessage("등록 비밀번호를 확인해 주세요.");
-      return;
-    }
-
-    window.sessionStorage.setItem(roomEditUnlockKey, "true");
-    setIsUnlocked(true);
-    setEditMessage("");
-  }
-
-  if (!isBootstrapped) {
-    return null;
-  }
-
-  if (requiresUnlock && !isUnlocked) {
-    return (
-      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-        <section className="mx-auto max-w-md rounded-md bg-white p-5 text-slate-950 shadow-2xl">
-          <h1 className="text-3xl font-black">객실 변경 확인</h1>
-          <form onSubmit={unlockRoomEdit} className="mt-5 grid gap-4">
-            <label className="grid gap-2 text-sm font-black">
-              조리원 비밀번호
-              <input
-                type="password"
-                value={editPassword}
-                onChange={(event) => setEditPassword(event.target.value)}
-                className="h-12 rounded-md border border-slate-200 px-3 text-base font-bold"
-                autoFocus
-              />
-            </label>
-            {editMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{editMessage}</p> : null}
-            <button type="submit" className="h-12 rounded-md bg-rose-600 text-sm font-black text-white">
-              확인
-            </button>
-          </form>
-        </section>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <section className="mx-auto max-w-4xl rounded-md bg-white p-6 text-slate-950 shadow-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">ROOM SETUP</p>
-        <h1 className="mt-2 text-4xl font-black">객실 선택</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          등록된 객실 중 하나를 선택하면 이 태블릿의 주문 출처가 고정됩니다.
-        </p>
-
-        <form onSubmit={saveRoom} className="mt-6 grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {rooms.map((room) => (
-              <button
-                key={room.roomId}
-                type="button"
-                onClick={() => setSelectedRoomId(room.roomId)}
-                className={`rounded-md border p-5 text-left transition ${
-                  selectedRoomId === room.roomId ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-950"
-                }`}
-              >
-                <p className="text-3xl font-black">{room.roomNumber}호</p>
-                <p className="mt-2 text-sm font-bold opacity-70">{room.activeTabletId}</p>
-              </button>
-            ))}
+      <section className="mx-auto max-w-xl rounded-md bg-white p-6 text-slate-950 shadow-2xl">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">ASSIGNED DEVICE SCOPE</p>
+        <h1 className="mt-2 text-3xl font-black">등록 객실 확인</h1>
+        <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-900">{message}</p>
+        {session ? (
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-md border border-slate-200 p-4"><p className="text-xs font-black text-slate-500">조리원</p><p className="mt-1 text-xl font-black">{session.businessName}</p></div>
+            <div className="rounded-md border border-slate-200 p-4"><p className="text-xs font-black text-slate-500">객실</p><p className="mt-1 text-xl font-black">{session.roomName}</p></div>
+            <div className="rounded-md border border-slate-200 p-4"><p className="text-xs font-black text-slate-500">태블릿</p><p className="mt-1 font-black">{session.tabletLabel ?? session.tabletId}</p></div>
+            <button type="button" onClick={() => window.location.assign("/tablet/products")} className="mt-2 h-12 rounded-md bg-rose-600 text-sm font-black text-white">쇼핑몰 시작</button>
           </div>
-          <button type="submit" className="h-12 rounded-md bg-rose-600 text-sm font-black text-white">
-            적용하고 산후조리원 핫딜 열기
-          </button>
-        </form>
+        ) : null}
       </section>
     </main>
   );

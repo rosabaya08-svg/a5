@@ -34,6 +34,10 @@ function boolEnv(name: string) {
   return String(process.env[name] ?? "").trim().toLowerCase() === "true";
 }
 
+function channelReturnUrl(session: JsonRecord, kind: "success" | "failure") {
+  return text(kind === "success" ? session.source_success_return_url : session.source_failure_return_url, 1000);
+}
+
 async function acquireApprovalCall(paymentSessionId: string) {
   const db = getAdminDb();
   const ref = db.doc(`payup_payment_sessions/${paymentSessionId}`);
@@ -66,8 +70,8 @@ async function writeApprovalRecovery(input: { paymentSessionId: string; error: u
   const orderNumber = text(session.order_number, 30);
   await Promise.all([
     db.doc(`payup_payment_sessions/${input.paymentSessionId}`).set({ status: "APPROVAL_UNKNOWN", last_error: message.slice(0, 500), updated_at: FieldValue.serverTimestamp(), updated_at_iso: new Date().toISOString() }, { merge: true }),
-    db.collection("manual_action_queue").add({ provider: "payup", type: "APPROVAL_UNKNOWN", payment_session_id: input.paymentSessionId, order_number: orderNumber || null, response_snapshot: input.response ? { responseCode: text(input.response.responseCode, 100), responseMsg: text(input.response.responseMsg, 500), transactionId: text(input.response.transactionId, 100) } : null, status: "OPEN", assigned_team: "FINANCE", created_at: FieldValue.serverTimestamp(), created_at_iso: new Date().toISOString() }),
-    db.collection("payup_reconciliation_queue").add({ provider: "payup", type: "APPROVAL_UNKNOWN_RECOVERY", payment_session_id: input.paymentSessionId, order_number: orderNumber || null, transaction_id: text(input.response?.transactionId, 100) || null, status: "PENDING", attempt_count: 0, created_at: FieldValue.serverTimestamp(), created_at_iso: new Date().toISOString() }),
+    db.collection("manual_action_queue").add({ provider: "payup", type: "APPROVAL_UNKNOWN", payment_session_id: input.paymentSessionId, order_number: orderNumber || null, source_channel: text(session.source_channel, 30) || null, source_order_no: text(session.source_order_no, 200) || null, response_snapshot: input.response ? { responseCode: text(input.response.responseCode, 100), responseMsg: text(input.response.responseMsg, 500), transactionId: text(input.response.transactionId, 100) } : null, status: "OPEN", assigned_team: "FINANCE", created_at: FieldValue.serverTimestamp(), created_at_iso: new Date().toISOString() }),
+    db.collection("payup_reconciliation_queue").add({ provider: "payup", type: "APPROVAL_UNKNOWN_RECOVERY", payment_session_id: input.paymentSessionId, order_number: orderNumber || null, transaction_id: text(input.response?.transactionId, 100) || null, source_channel: text(session.source_channel, 30) || null, source_order_no: text(session.source_order_no, 200) || null, status: "PENDING", attempt_count: 0, created_at: FieldValue.serverTimestamp(), created_at_iso: new Date().toISOString() }),
   ]);
 }
 
@@ -82,7 +86,16 @@ async function approvePayment(input: { paymentSessionId: string; clientToken?: s
   if (!initialSession.exists) throw new AccessHttpError(404, "PAYUP_PAYMENT_SESSION_NOT_FOUND", "PayUp 결제세션을 찾을 수 없습니다.");
   const initial = initialSession.data() ?? {};
   assertPublicSessionCredential(initial, { clientToken: input.clientToken, authReturnState: input.authReturnState });
-  if (text(initial.status, 30) === "APPROVED") return { orderNumber: text(initial.order_number, 30), transactionId: text(initial.transaction_id, 100), amount: numberValue(initial.amount), duplicate: true };
+  if (text(initial.status, 30) === "APPROVED") {
+    return {
+      orderNumber: text(initial.order_number, 30),
+      transactionId: text(initial.transaction_id, 100),
+      amount: numberValue(initial.amount),
+      duplicate: true,
+      returnUrl: channelReturnUrl(initial, "success") || undefined,
+      sourceOrderNo: text(initial.source_order_no, 200) || undefined,
+    };
+  }
   if (["APPROVAL_UNKNOWN", "LEDGER_COMMIT_PENDING"].includes(text(initial.status, 30))) throw new AccessHttpError(409, "PAYUP_RECONCILIATION_REQUIRED", "승인 결과가 이미 불명확하거나 원장 복구 중입니다. 거래조회 대사를 기다려 주세요.");
 
   const authResultCode = text(input.authData.AuthResultCode ?? input.authData.authResultCode, 20);
@@ -139,7 +152,14 @@ async function approvePayment(input: { paymentSessionId: string; clientToken?: s
   const approvedAt = normalizePayupDateTime(result.authDateTime);
   const orderNumber = responseOrderNumber || expectedOrderNumber;
   await commitPayupApproval({ paymentSessionId, result, transactionId, orderNumber, approvedAt });
-  return { orderNumber, transactionId, amount, duplicate: false };
+  return {
+    orderNumber,
+    transactionId,
+    amount,
+    duplicate: false,
+    returnUrl: channelReturnUrl(initial, "success") || undefined,
+    sourceOrderNo: text(initial.source_order_no, 200) || undefined,
+  };
 }
 
 export const payupPaymentApprove = onRequest(options, async (request, response) => {
@@ -167,7 +187,7 @@ export const payupPaymentAbort = onRequest(options, async (request, response) =>
     const status = text(sessionData.status, 30);
     if (["APPROVED", "APPROVAL_CALLING", "APPROVAL_UNKNOWN", "LEDGER_COMMIT_PENDING"].includes(status)) throw new AccessHttpError(409, "PAYUP_ABORT_NOT_ALLOWED", "승인 진행 또는 승인확인 상태에서는 결제세션을 해제할 수 없습니다.");
     await releaseReservation(paymentSessionId, "AUTH_CANCELLED", text(body.reason, 500) || "고객 결제창 종료");
-    response.status(200).json({ ok: true, paymentSessionId, status: "AUTH_CANCELLED" });
+    response.status(200).json({ ok: true, paymentSessionId, status: "AUTH_CANCELLED", returnUrl: channelReturnUrl(sessionData, "failure") || undefined });
   } catch (error) {
     sendAccessError(response, error);
   }
@@ -193,7 +213,7 @@ export const payupPaymentStatus = onRequest({ region: REGION, cors: true, maxIns
     const clientToken = text(body.clientToken, 500);
     const detailed = Boolean(paymentSessionId && clientToken);
     if (paymentSessionId) assertPublicSessionCredential(data, { clientToken });
-    response.status(200).json({ ok: true, paymentSessionId: snapshot.id, status: text(data.status, 30), orderNumber: detailed ? text(data.order_number, 30) || undefined : undefined, transactionIdMasked: detailed && text(data.transaction_id, 100) ? `${text(data.transaction_id, 100).slice(0, 5)}***${text(data.transaction_id, 100).slice(-4)}` : undefined, amount: numberValue(data.amount), updatedAt: text(data.updated_at_iso ?? data.approved_at, 50) });
+    response.status(200).json({ ok: true, paymentSessionId: snapshot.id, status: text(data.status, 30), orderNumber: detailed ? text(data.order_number, 30) || undefined : undefined, transactionIdMasked: detailed && text(data.transaction_id, 100) ? `${text(data.transaction_id, 100).slice(0, 5)}***${text(data.transaction_id, 100).slice(-4)}` : undefined, amount: numberValue(data.amount), updatedAt: text(data.updated_at_iso ?? data.approved_at, 50), returnUrl: detailed ? channelReturnUrl(data, text(data.status, 30) === "APPROVED" ? "success" : "failure") || undefined : undefined });
   } catch (error) {
     sendAccessError(response, error);
   }
@@ -207,14 +227,31 @@ export const payupMobileAuthReturn = onRequest(options, async (request, response
   try {
     const result = await approvePayment({ paymentSessionId, authReturnState, authData: { ...query, ...body } });
     const sessionSnapshot = await getAdminDb().doc(`payup_payment_sessions/${firestoreDocumentId(paymentSessionId, "paymentSessionId")}`).get();
-    const shortCode = text(sessionSnapshot.data()?.short_code, 80);
+    const session = sessionSnapshot.data() ?? {};
+    const shortCode = text(session.short_code, 80);
     const runtime = getPayupRuntime();
+    const sourceReturn = channelReturnUrl(session, "success");
+    if (sourceReturn) {
+      response.redirect(sourceReturn);
+      return;
+    }
     const fallback = shortCode ? `/q/${encodeURIComponent(shortCode)}/success` : "/orders/guest";
     const url = new URL(runtime.successReturnUrl || fallback, "https://a5.invalid");
     url.searchParams.set("orderNo", result.orderNumber);
     url.searchParams.set("transactionId", result.transactionId);
     response.redirect(url.origin === "https://a5.invalid" ? `${url.pathname}${url.search}` : url.toString());
   } catch (error) {
+    let sourceFailure = "";
+    try {
+      const sessionSnapshot = await getAdminDb().doc(`payup_payment_sessions/${firestoreDocumentId(paymentSessionId, "paymentSessionId")}`).get();
+      sourceFailure = channelReturnUrl(sessionSnapshot.data() ?? {}, "failure");
+    } catch {
+      // 기본 실패 URL로 이동합니다.
+    }
+    if (sourceFailure) {
+      response.redirect(sourceFailure);
+      return;
+    }
     const runtime = getPayupRuntime();
     const url = new URL(runtime.failureReturnUrl || "/orders/guest", "https://a5.invalid");
     url.searchParams.set("paymentSessionId", paymentSessionId);

@@ -1,6 +1,11 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { adminNavItems } from "@/components/layout/navigation";
 import { PayupAdminWorkspace, type PayupAdminView } from "@/components/admin/PayupAdminWorkspace";
+import {
+  PayupLogsLivePanel,
+  PayupSettlementsLivePanel,
+  PayupTransactionsLivePanel,
+} from "@/components/admin/PayupReconciliationWorkspace";
 
 const pageCopy: Record<PayupAdminView, { title: string; subtitle: string }> = {
   overview: {
@@ -37,6 +42,13 @@ const pageCopy: Record<PayupAdminView, { title: string; subtitle: string }> = {
   },
 };
 
+function workspace(view: PayupAdminView) {
+  if (view === "transactions") return <PayupTransactionsLivePanel />;
+  if (view === "settlements") return <PayupSettlementsLivePanel />;
+  if (view === "logs") return <PayupLogsLivePanel />;
+  return <PayupAdminWorkspace view={view} />;
+}
+
 export function PayupAdminPageShell({ view }: { view: PayupAdminView }) {
   const copy = pageCopy[view];
 
@@ -49,7 +61,7 @@ export function PayupAdminPageShell({ view }: { view: PayupAdminView }) {
       navItems={adminNavItems}
       accent="admin"
     >
-      <PayupAdminWorkspace view={view} />
+      {workspace(view)}
     </AppShell>
   );
 }

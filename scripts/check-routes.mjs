@@ -13,8 +13,10 @@ const requiredRoutes = [
   "/tablet/qr",
   "/q/[code]",
   "/q/[code]/checkout",
+  "/q/live",
   "/orders/guest",
   "/orders/guest/[orderNo]",
+  "/orders/guest/live",
   "/admin/login",
   "/admin/dashboard",
   "/admin/integrations",
@@ -22,6 +24,7 @@ const requiredRoutes = [
   "/admin/pg-settings",
   "/admin/payup",
   "/admin/payup/access",
+  "/admin/payup/distribution",
   "/admin/payup/connection",
   "/admin/payup/switchboard",
   "/admin/payup/submerchants",
@@ -52,27 +55,18 @@ const requiredRoutes = [
 
 function walk(dir, collected = []) {
   if (!fs.existsSync(dir)) return collected;
-
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const absolutePath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(absolutePath, collected);
-    } else if (pageFilePattern.test(entry.name)) {
-      collected.push(absolutePath);
-    }
+    if (entry.isDirectory()) walk(absolutePath, collected);
+    else if (pageFilePattern.test(entry.name)) collected.push(absolutePath);
   }
-
   return collected;
 }
 
 function toRoute(pagePath) {
   const relativeDir = path.relative(appDir, path.dirname(pagePath)).replaceAll("\\", "/");
   if (!relativeDir) return "/";
-
-  const segments = relativeDir
-    .split("/")
-    .filter((segment) => segment && !(segment.startsWith("(") && segment.endsWith(")")));
-
+  const segments = relativeDir.split("/").filter((segment) => segment && !(segment.startsWith("(") && segment.endsWith(")")));
   return `/${segments.join("/")}`.replace(/\/+/g, "/");
 }
 
@@ -81,14 +75,9 @@ const uniqueRoutes = [...new Set(routes)];
 const missing = requiredRoutes.filter((route) => !uniqueRoutes.includes(route));
 
 console.log("[check:routes] App Router page routes");
-for (const route of uniqueRoutes) {
-  console.log(`- ${route}`);
-}
-
+for (const route of uniqueRoutes) console.log(`- ${route}`);
 console.log("[check:routes] Required smoke routes");
-for (const route of requiredRoutes) {
-  console.log(`- ${route}: ${uniqueRoutes.includes(route) ? "present" : "missing"}`);
-}
+for (const route of requiredRoutes) console.log(`- ${route}: ${uniqueRoutes.includes(route) ? "present" : "missing"}`);
 
 if (missing.length > 0) {
   console.error(`[check:routes] Missing required routes: ${missing.join(", ")}`);

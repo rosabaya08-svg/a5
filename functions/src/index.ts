@@ -54,6 +54,7 @@ export {
   payupPaymentStatus,
 } from "./payup/paymentApproval";
 export { payupOrderPrivateRead } from "./payup/privateOrder";
+export { payupPublicOrderRead, payupPublicQrRead } from "./payup/publicRead";
 export {
   payupReconcileSettlementsScheduled,
   payupReconcileTransactionsScheduled,

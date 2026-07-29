@@ -1,11 +1,12 @@
 {
-  "requestId": "payup-fixed-ip-20260730-004",
-  "requestedAt": "2026-07-30T08:36:00+09:00",
+  "requestId": "payup-fixed-ip-20260730-005",
+  "requestedAt": "2026-07-30T08:40:00+09:00",
   "projectId": "a5-closed-mall",
   "region": "asia-northeast3",
   "purpose": "PayUp cart settlement test and production allowlist egress",
   "safeMode": true,
   "trackingIssue": 3,
   "branch": "ops/payup-fixed-ip-provision-20260730",
-  "executionMode": "pull_request_observable"
+  "executionMode": "pull_request_observable",
+  "triggerVersion": 2
 }

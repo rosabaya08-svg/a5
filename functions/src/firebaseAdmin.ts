@@ -1,4 +1,5 @@
 import { getApp, initializeApp, getApps, type App } from "firebase-admin/app";
+import { getAppCheck } from "firebase-admin/app-check";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -16,6 +17,10 @@ export function getAdminDb() {
 
 export function getAdminAuth() {
   return getAuth(getDefaultAdminApp());
+}
+
+export function getAdminAppCheck() {
+  return getAppCheck(getDefaultAdminApp());
 }
 
 export function getAdminDbForProject(appName: string, projectId: string) {

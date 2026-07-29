@@ -54,12 +54,12 @@ export const inventoryRelease = onRequest(paymentFunctionOptions, guardLegacyMoc
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
 
 export {
-  payupAdminFeatureFlagsSecure as payupAdminFeatureFlags,
   payupAdminHealthSecure as payupAdminHealth,
   payupAdminSettlementsSecure as payupAdminSettlements,
   payupAdminSubmerchantsSecure as payupAdminSubmerchants,
   payupAdminTransactionsSecure as payupAdminTransactions,
 } from "./payup/adminSecure";
+export { payupAdminFeatureFlagsV2 as payupAdminFeatureFlags } from "./payup/featureFlagsSecure";
 export { payupAdminCancelFinal as payupAdminCancel } from "./payup/cancelFinal";
 export { payupAdminLogsSecure as payupAdminLogs } from "./payup/logsSecure";
 export { payupPartnerActivitySecure as payupPartnerActivity } from "./payup/partnerSecure";

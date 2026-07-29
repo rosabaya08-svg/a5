@@ -21,6 +21,7 @@ const requiredRoutes = [
   "/admin/payments",
   "/admin/pg-settings",
   "/admin/payup",
+  "/admin/payup/access",
   "/admin/payup/connection",
   "/admin/payup/switchboard",
   "/admin/payup/submerchants",

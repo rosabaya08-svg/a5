@@ -14,7 +14,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  probe:
+    if: >-
+      github.event.issue.number == 3 &&
+      github.event.comment.user.login == 'rosabaya08-svg' &&
+      contains(github.event.comment.body, '/apply-payup-fixed-ip')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm command receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 3 --repo "$GITHUB_REPOSITORY" --body "## PayUp 고정 IP 실행 명령 접수
+
+- 명령 수신: **확인됨**
+- 실행: [GitHub Actions run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+- 다음 단계: GitHub Environment \`payup-test\` 승인 및 Google Cloud 자격증명 검사
+- PayUp 실호출: OFF"
+
   apply:
+    needs: probe
     if: >-
       github.event.issue.number == 3 &&
       github.event.comment.user.login == 'rosabaya08-svg' &&

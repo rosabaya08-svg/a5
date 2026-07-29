@@ -37,3 +37,4 @@ export {
   payupAdminTransactions,
 } from "./payup/admin";
 export { payupAdminLogs } from "./payup/logs";
+export { payupPartnerActivity } from "./payup/partner";

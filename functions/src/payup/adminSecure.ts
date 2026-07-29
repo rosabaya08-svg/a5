@@ -65,11 +65,12 @@ export const payupAdminHealthSecure = onRequest(options, async (request, respons
   try {
     const actor = await requireAccess(request, "PAYUP_HEALTH_PROBE");
     const config = getPayupRuntime();
-    const blockers = runtimeBlockers(config, { requirePiiKey: true });
+    const blockers = runtimeBlockers(config, { requireApiCertKey: true, requirePiiKey: true });
+    const cartApiBlockers = runtimeBlockers(config);
     const body = asRecord(request.body);
     let payupResponseCode = "";
     let payupResponseMsg = "";
-    if (body.probe === true && blockers.length === 0) {
+    if (body.probe === true && cartApiBlockers.length === 0) {
       const result = await postPayup({ config, actor, operation: "SUBMERCHANT_LIST_PROBE", pathOrUrl: `/cartpay/api/sub/${encodeURIComponent(config.merchantId)}/list`, payload: { apiKey: config.apiKey } });
       payupResponseCode = text(result.responseCode, 100);
       payupResponseMsg = text(result.responseMsg, 500);
@@ -89,6 +90,7 @@ export const payupAdminHealthSecure = onRequest(options, async (request, respons
         PAYUP_AUTH_RETURN_URL: Boolean(config.authReturnUrl),
       },
       blockers,
+      cartApiBlockers,
       actorRoles: actor.roles,
       lastProbeAt: new Date().toISOString(),
       payupResponseCode: payupResponseCode || undefined,
@@ -120,7 +122,11 @@ export const payupAdminFeatureFlagsSecure = onRequest(options, async (request, r
       await consumeApprovedChange({ approvalRequestId: text(body.approvalRequestId, 200), actionType: "FEATURE_FLAG_ENABLE", payload: { key, enabled: true }, actor });
     }
     if (enabled && ["PAYUP_MASTER", "NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL", "CART_DISTRIBUTION", "SUBMERCHANT_CREATE", "SUBMERCHANT_UPDATE", "FULL_CANCEL"].includes(key)) {
-      assertRuntimeReady(getPayupRuntime(), { requireAuthReturn: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key), requirePiiKey: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key) });
+      assertRuntimeReady(getPayupRuntime(), {
+        requireApiCertKey: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL", "FULL_CANCEL"].includes(key),
+        requireAuthReturn: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key),
+        requirePiiKey: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key),
+      });
     }
     const ref = getAdminDb().doc(`payment_feature_flags/payup_${safeDocumentId(key)}`);
     const beforeSnapshot = await ref.get();
@@ -192,7 +198,7 @@ export const payupAdminSubmerchantsSecure = onRequest(options, async (request, r
     if (runtimeBlockers(config).length === 0) {
       await assertFeatureFlags([gubun === "2" ? "SUBMERCHANT_UPDATE" : "SUBMERCHANT_CREATE"]);
       result = await postPayup({ config, actor, operation: gubun === "2" ? "SUBMERCHANT_UPDATE" : "SUBMERCHANT_CREATE", pathOrUrl: `/cartpay/api/sub/${encodeURIComponent(config.merchantId)}/update`, payload, subMerchantId });
-      status = text(result.responseCode, 100) === "0000" ? "ACTIVE" : "ERROR";
+      status = text(result.responseCode, 100) === "0000" ? "PENDING_VERIFICATION" : "ERROR";
     }
     const ref = getAdminDb().doc(`payup_submerchants/${safeDocumentId(subMerchantId)}`);
     const beforeSnapshot = await ref.get();
@@ -210,7 +216,7 @@ export const payupAdminSubmerchantsSecure = onRequest(options, async (request, r
       account_number_masked: maskAccount(accountNumber),
       account_owner: accountOwner,
       status,
-      payup_sync_status: status === "ACTIVE" ? "MATCHED" : "PENDING",
+      payup_sync_status: "PENDING",
       last_response_code: text(result.responseCode, 100),
       last_response_msg: text(result.responseMsg, 500),
       updated_by_uid: actor.uid,
@@ -303,9 +309,9 @@ export const payupAdminCancelSecure = onRequest(options, async (request, respons
     }
     await consumeApprovedChange({ approvalRequestId: text(body.approvalRequestId, 200), actionType: "FULL_CANCEL", payload: { transactionId, amount, orderNumber }, actor });
     const config = getPayupRuntime();
-    assertRuntimeReady(config);
+    assertRuntimeReady(config, { requireApiCertKey: true });
     await assertFeatureFlags(["PAYUP_MASTER", "FULL_CANCEL", "PAYOUT_HOLD"]);
-    const result = await postPayup({ config, actor, operation: "FULL_CANCEL", pathOrUrl: `/v2/api/payment/${encodeURIComponent(config.merchantId)}/cancel2`, payload: { transactionId, signature: sha256([config.merchantId, transactionId, config.apiCertKey]) }, transactionId, orderNumber });
+    const result = await postPayup({ config, actor, operation: "FULL_CANCEL", pathOrUrl: `/v2/api/payment/${encodeURIComponent(config.merchantId)}/cancel2`, payload: { transactionId, signature: sha256([config.merchantId, transactionId, config.apiCertKey]) }, transactionId, orderNumber, requireApiCertKey: true });
     const responseCode = text(result.responseCode, 100);
     const status = responseCode === "0000" ? "CANCELLED" : responseCode === "1003" ? "MANUAL_PAYUP_REQUIRED" : "CANCEL_FAILED";
     const db = getAdminDb();

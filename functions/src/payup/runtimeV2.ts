@@ -63,12 +63,12 @@ export function getPayupRuntime(): PayupRuntime {
 
 export function runtimeBlockers(
   config: PayupRuntime,
-  options: { requireAuthReturn?: boolean; requirePiiKey?: boolean } = {},
+  options: { requireApiCertKey?: boolean; requireAuthReturn?: boolean; requirePiiKey?: boolean } = {},
 ): string[] {
   const blockers: string[] = [];
   if (!config.merchantId) blockers.push("PAYUP_MERCHANT_ID 미등록");
   if (!config.apiKey) blockers.push("PAYUP_API_KEY Secret 미등록");
-  if (!config.apiCertKey) blockers.push("PAYUP_API_CERT_KEY Secret 미등록");
+  if (options.requireApiCertKey && !config.apiCertKey) blockers.push("PAYUP_API_CERT_KEY Secret 미등록");
   if (options.requirePiiKey && (!config.orderPiiEncryptionKey || config.orderPiiEncryptionKey.length < 32)) blockers.push("A5_ORDER_PII_ENCRYPTION_KEY Secret 미등록 또는 32자 미만");
   if (!config.vpcConnector) blockers.push("PAYUP_VPC_CONNECTOR 미등록");
   if (!config.fixedEgressIp || !validIpv4(config.fixedEgressIp)) blockers.push("PAYUP_FIXED_EGRESS_IP 미등록 또는 IPv4 형식 오류");
@@ -78,7 +78,7 @@ export function runtimeBlockers(
   return blockers;
 }
 
-export function assertRuntimeReady(config: PayupRuntime, options: { requireAuthReturn?: boolean; requirePiiKey?: boolean } = {}) {
+export function assertRuntimeReady(config: PayupRuntime, options: { requireApiCertKey?: boolean; requireAuthReturn?: boolean; requirePiiKey?: boolean } = {}) {
   const blockers = runtimeBlockers(config, options);
   if (blockers.length) throw new AccessHttpError(409, "PAYUP_CONFIGURATION_BLOCKED", blockers.join(", "));
 }
@@ -172,8 +172,9 @@ export async function postPayup(input: {
   subMerchantId?: string;
   orderNumber?: string;
   transactionId?: string;
+  requireApiCertKey?: boolean;
 }): Promise<JsonRecord> {
-  assertRuntimeReady(input.config);
+  assertRuntimeReady(input.config, { requireApiCertKey: input.requireApiCertKey });
   const url = input.pathOrUrl.startsWith("https://") ? validatePayupUrl(input.pathOrUrl, input.config) : new URL(input.pathOrUrl, input.config.baseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

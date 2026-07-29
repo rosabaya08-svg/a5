@@ -261,7 +261,7 @@ export async function findQrSession(input: { qrSessionId?: string; shortCode?: s
   return { id: snapshot.docs[0].id, data: snapshot.docs[0].data() };
 }
 
-export async function calculateDistributionPlan(qrSessionId: string, qrData: DocumentData, orderNumber: string): Promise<PreparedPlan> {
+export async function calculateDistributionPlan(qrSessionId: string, qrData: DocumentData, orderNumber: string, merchantId: string): Promise<PreparedPlan> {
   const db = getAdminDb();
   const status = text(qrData.status, 30).toLowerCase();
   if (status !== "active") throw new AccessHttpError(409, "PAYUP_QR_NOT_ACTIVE", `결제 가능한 QR 상태가 아닙니다: ${status || "unknown"}`);
@@ -302,6 +302,8 @@ export async function calculateDistributionPlan(qrSessionId: string, qrData: Doc
   subMerchantSnapshots.forEach((snapshot, index) => {
     const data = snapshot.data() ?? {};
     if (!snapshot.exists || !["ACTIVE", "APPROVED"].includes(text(data.status, 30).toUpperCase())) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${cartPayList[index].subMerchantId} 하위사업자가 활성 상태가 아닙니다.`);
+    if (text(data.payup_sync_status, 30).toUpperCase() !== "MATCHED") throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_SYNCED", `${cartPayList[index].subMerchantId} 하위사업자가 PayUp 운영 목록과 대사되지 않았습니다.`);
+    if (text(data.merchant_id, 100) !== merchantId) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_MID_MISMATCH", `${cartPayList[index].subMerchantId} 하위사업자가 현재 운영 MID에 매핑되지 않았습니다.`);
   });
 
   return {
@@ -397,7 +399,12 @@ export async function lockPlanAndReserve(input: {
   });
 }
 
-export async function releaseReservation(paymentSessionIdValue: unknown, nextStatus: string, reason: string) {
+export async function releaseReservation(
+  paymentSessionIdValue: unknown,
+  nextStatus: string,
+  reason: string,
+  provider?: { providerResponseCode?: string; providerResponseMsg?: string },
+) {
   const paymentSessionId = firestoreDocumentId(paymentSessionIdValue, "paymentSessionId");
   const db = getAdminDb();
   const sessionRef = db.doc(`payup_payment_sessions/${paymentSessionId}`);
@@ -420,7 +427,14 @@ export async function releaseReservation(paymentSessionIdValue: unknown, nextSta
     const qrSessionId = text(session.qr_session_id, 1500);
     const planId = text(session.distribution_plan_id, 180);
     transaction.set(reservationRef, { status: "RELEASED", released_reason: reason, released_at: FieldValue.serverTimestamp(), released_at_iso: new Date().toISOString() }, { merge: true });
-    transaction.set(sessionRef, { status: nextStatus, last_error: reason.slice(0, 500), updated_at: FieldValue.serverTimestamp(), updated_at_iso: new Date().toISOString() }, { merge: true });
+    transaction.set(sessionRef, {
+      status: nextStatus,
+      last_error: reason.slice(0, 500),
+      ...(provider?.providerResponseCode ? { provider_response_code: provider.providerResponseCode } : {}),
+      ...(provider?.providerResponseMsg ? { provider_response_msg: provider.providerResponseMsg.slice(0, 500) } : {}),
+      updated_at: FieldValue.serverTimestamp(),
+      updated_at_iso: new Date().toISOString(),
+    }, { merge: true });
     if (planId) transaction.set(db.doc(`payment_distribution_plans/${safeDocumentId(planId)}`), { status: "ABORTED", abort_reason: reason.slice(0, 500), updated_at: FieldValue.serverTimestamp() }, { merge: true });
     if (qrSessionId) transaction.set(db.doc(`qr_payment_sessions/${firestoreDocumentId(qrSessionId, "qrSessionId")}`), { active_payment_session_id: FieldValue.delete(), payment_state: nextStatus, updated_at: FieldValue.serverTimestamp() }, { merge: true });
   });

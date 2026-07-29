@@ -36,6 +36,35 @@ import {
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 30, secrets: [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY] };
 
+async function assertExternalSubmerchantsReady(config: ReturnType<typeof getPayupRuntime>, plan: Awaited<ReturnType<typeof calculateDistributionPlan>>) {
+  const businessNumberById = new Map<string, string>();
+  for (const line of plan.lines) {
+    if (line.businessNumber) businessNumberById.set(line.subMerchantId, line.businessNumber);
+  }
+  const subMerchantIds = [...new Set(plan.cartPayList.map((line) => line.subMerchantId))];
+  await Promise.all(subMerchantIds.map(async (subMerchantId) => {
+    const result = await postPayup({
+      config,
+      operation: "SUBMERCHANT_CHECKOUT_PREFLIGHT",
+      pathOrUrl: `/cartpay/api/sub/${encodeURIComponent(config.merchantId)}/list`,
+      payload: { apiKey: config.apiKey, subMerchantId },
+      subMerchantId,
+    });
+    const responseCode = text(result.responseCode, 100);
+    if (responseCode !== "0000") {
+      throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_LOOKUP_FAILED", `${subMerchantId} 운영 등록 조회가 실패했습니다: ${responseCode || "응답코드 없음"}`);
+    }
+    const list = Array.isArray(result.list) ? result.list.map(asRecord) : [];
+    const match = list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
+    if (!match) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_REGISTERED", `${subMerchantId}이 현재 운영 MID의 PayUp 하위가맹점 목록에 없습니다.`);
+    const expectedBusinessNumber = businessNumberById.get(subMerchantId);
+    const actualBusinessNumber = text(match.subBusinessNumber, 20).replace(/[^0-9]/g, "");
+    if (expectedBusinessNumber && actualBusinessNumber !== expectedBusinessNumber) {
+      throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_BUSINESS_MISMATCH", `${subMerchantId}의 PayUp 사업자번호 매핑이 내부 분배정책과 일치하지 않습니다.`);
+    }
+  }));
+}
+
 export const payupPaymentOrder = onRequest(options, async (request, response) => {
   let paymentSessionId = "";
   try {
@@ -43,7 +72,7 @@ export const payupPaymentOrder = onRequest(options, async (request, response) =>
     await enforceBrowserRequestGuards(request);
     await assertFeatureFlags(["PAYUP_MASTER", "NEW_ORDER", "PAYMENT_WINDOW", "CART_DISTRIBUTION"]);
     const config = getPayupRuntime();
-    assertRuntimeReady(config, { requireAuthReturn: true, requirePiiKey: true });
+    assertRuntimeReady(config, { requireApiCertKey: true, requireAuthReturn: true, requirePiiKey: true });
     const body = asRecord(request.body);
     const shortCode = text(body.shortCode, 80);
     if (shortCode) await enforceOrderRateLimit(request, shortCode);
@@ -78,7 +107,8 @@ export const payupPaymentOrder = onRequest(options, async (request, response) =>
     const clientToken = publicToken();
     const authReturnState = publicToken();
     paymentSessionId = firestoreDocumentId(`payup-${randomUUID().replaceAll("-", "")}`, "paymentSessionId");
-    const plan = await calculateDistributionPlan(qr.id, qr.data, orderNumber);
+    const plan = await calculateDistributionPlan(qr.id, qr.data, orderNumber, config.merchantId);
+    await assertExternalSubmerchantsReady(config, plan);
     await lockPlanAndReserve({
       paymentSessionId,
       plan,
@@ -137,7 +167,7 @@ export const payupPaymentOrder = onRequest(options, async (request, response) =>
       auth_return: authReturnUrl.toString(),
       bypassValue: paymentSessionId,
     };
-    const result = await postPayup({ config, operation: "PAYMENT_ORDER", pathOrUrl: `/ap/api/payment/${encodeURIComponent(config.merchantId)}/order`, payload, orderNumber: plan.orderNumber });
+    const result = await postPayup({ config, operation: "PAYMENT_ORDER", pathOrUrl: `/ap/api/payment/${encodeURIComponent(config.merchantId)}/order`, payload, orderNumber: plan.orderNumber, requireApiCertKey: true });
     if (text(result.responseCode, 100) !== "0000") {
       await releaseReservation(paymentSessionId, "ORDER_FAILED", text(result.responseMsg, 500) || "PayUp 주문요청 거절");
       throw new AccessHttpError(502, "PAYUP_ORDER_REJECTED", text(result.responseMsg, 500) || "PayUp 주문요청이 거절됐습니다.");

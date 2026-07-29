@@ -158,12 +158,11 @@ PayUp 장바구니 PG
 예금주
 ```
 
-자동 ID 규칙:
+운영 ID 규칙:
 
 ```text
-공급사: WCS + 사업자번호
-판매 파트너: WCP + 사업자번호
-위드커머스 본사: WCHQ + 사업자번호
+subMerchantId는 역할이나 사업자번호로 임의 생성하지 않는다.
+PayUp 운영 MID의 `/cartpay/api/sub/{merchantId}/list`에서 확인되거나 PayUp이 발급한 값을 대소문자까지 그대로 사용한다.
 ```
 
 등록 과정:

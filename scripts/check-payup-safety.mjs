@@ -46,6 +46,11 @@ expect("functions/src/payup/distribution.ts", 'actionType: "DISTRIBUTION_POLICY_
 expect("functions/src/access/requestGuards.ts", "requireFirebaseAppCheck", "결제 브라우저 App Check");
 expect("functions/src/payup/paymentOrder.ts", "encryptPrivateSnapshot", "주문 개인정보 암호화");
 expect("functions/src/payup/paymentApproval.ts", "PAYUP_RECONCILIATION_REQUIRED", "승인 불명확 시 재호출 금지");
+expect("functions/src/payup/paymentApproval.ts", 'providerResponseCode === "9108"', "9108 하위가맹점 등록 오류 운영큐 전환");
+expect("functions/src/payup/paymentOrder.ts", "SUBMERCHANT_CHECKOUT_PREFLIGHT", "결제창 전 운영 하위가맹점 조회");
+expect("functions/src/payup/paymentOrder.ts", "PAYUP_SUBMERCHANT_NOT_REGISTERED", "운영 목록 미등록 시 결제창 차단");
+expect("functions/src/payup/paymentShared.ts", "PAYUP_SUBMERCHANT_NOT_SYNCED", "내부 ACTIVE만으로 승인하지 않음");
+reject("components/admin/PayupAdminWorkspace.tsx", 'const prefix = role.includes("파트너")', "subMerchantId 역할 기반 자동생성 제거");
 
 reject("firestore.rules", "rosabaya08@gmail.com", "Firestore 관리자 이메일 하드코딩 제거");
 reject("firestore.rules", "isMasterEmail", "Firestore 이메일 기반 최고관리자 함수 제거");

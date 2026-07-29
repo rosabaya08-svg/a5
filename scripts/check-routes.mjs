@@ -36,6 +36,7 @@ const requiredRoutes = [
   "/company/inventory",
   "/company/products/new",
   "/company/products/preview",
+  "/company/payup-activity",
   "/nursery/dashboard",
   "/nursery/login",
   "/nursery/rooms",

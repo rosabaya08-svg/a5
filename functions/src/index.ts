@@ -70,6 +70,7 @@ export { payupAdminPartnerInvite } from "./payup/partnerProvisioning";
 export { payupBootstrapAccess } from "./payup/bootstrap";
 export { payupAdminDistributionPolicies } from "./payup/distribution";
 export { payupQrCreate } from "./payup/qr";
+export { payupA5lsHandoff, payupA5lsStatus } from "./payup/channelGateway";
 export { payupPaymentOrder } from "./payup/paymentOrder";
 export {
   payupExpirePaymentSessions,

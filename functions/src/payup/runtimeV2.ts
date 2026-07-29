@@ -21,6 +21,8 @@ export type PayupRuntime = {
   apiCertKey: string;
   liveCallsEnabled: boolean;
   fixedIpRegistered: boolean;
+  vpcConnector: string;
+  fixedEgressIp: string;
   authReturnUrl: string;
   successReturnUrl: string;
   failureReturnUrl: string;
@@ -31,6 +33,11 @@ type JsonRecord = Record<string, unknown>;
 
 function boolEnv(name: string): boolean {
   return String(process.env[name] ?? "").trim().toLowerCase() === "true";
+}
+
+function validIpv4(value: string): boolean {
+  const parts = value.split(".");
+  return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255);
 }
 
 export function getPayupRuntime(): PayupRuntime {
@@ -45,6 +52,8 @@ export function getPayupRuntime(): PayupRuntime {
     apiCertKey: text(PAYUP_API_CERT_KEY.value(), 200),
     liveCallsEnabled,
     fixedIpRegistered: boolEnv("PAYUP_FIXED_IP_REGISTERED"),
+    vpcConnector: text(process.env.PAYUP_VPC_CONNECTOR, 200),
+    fixedEgressIp: text(process.env.PAYUP_FIXED_EGRESS_IP, 100),
     authReturnUrl: text(process.env.PAYUP_AUTH_RETURN_URL, 500),
     successReturnUrl: text(process.env.PAYUP_SUCCESS_RETURN_URL, 500),
     failureReturnUrl: text(process.env.PAYUP_FAILURE_RETURN_URL, 500),
@@ -61,6 +70,8 @@ export function runtimeBlockers(
   if (!config.apiKey) blockers.push("PAYUP_API_KEY Secret 미등록");
   if (!config.apiCertKey) blockers.push("PAYUP_API_CERT_KEY Secret 미등록");
   if (options.requirePiiKey && (!config.orderPiiEncryptionKey || config.orderPiiEncryptionKey.length < 32)) blockers.push("A5_ORDER_PII_ENCRYPTION_KEY Secret 미등록 또는 32자 미만");
+  if (!config.vpcConnector) blockers.push("PAYUP_VPC_CONNECTOR 미등록");
+  if (!config.fixedEgressIp || !validIpv4(config.fixedEgressIp)) blockers.push("PAYUP_FIXED_EGRESS_IP 미등록 또는 IPv4 형식 오류");
   if (!config.fixedIpRegistered) blockers.push("PayUp 허용 공인 IP 미확인");
   if (!config.liveCallsEnabled) blockers.push("PAYUP_LIVE_CALLS_ENABLED=false");
   if (options.requireAuthReturn && !config.authReturnUrl) blockers.push("PAYUP_AUTH_RETURN_URL 미등록");
@@ -80,6 +91,12 @@ export function maskIdentifier(value: string): string {
   if (!value) return "미등록";
   if (value.length <= 6) return `${value.slice(0, 2)}***`;
   return `${value.slice(0, 4)}***${value.slice(-3)}`;
+}
+
+export function maskIp(value: string): string {
+  if (!validIpv4(value)) return "미등록";
+  const parts = value.split(".");
+  return `${parts[0]}.${parts[1]}.***.${parts[3]}`;
 }
 
 export function timestampToken(date = new Date()): string {

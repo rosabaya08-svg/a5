@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { BetaAdminLogin } from "@/components/auth/BetaAdminLogin";
+import { CompanyFirebaseLogin } from "@/components/auth/CompanyFirebaseLogin";
 
 export default function Page() {
   return (
     <Suspense>
-      <BetaAdminLogin role="company" />
+      <CompanyFirebaseLogin />
     </Suspense>
   );
 }

@@ -3,7 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { getAdminDb } from "../firebaseAdmin";
 import { enforceBrowserRequestGuards } from "../access/requestGuards";
-import { AccessHttpError, asRecord, firestoreDocumentId, sendAccessError, text } from "../access/policy";
+import { AccessHttpError, asRecord, firestoreDocumentId, safeDocumentId, sendAccessError, text } from "../access/policy";
 import {
   ORDER_PII_ENCRYPTION_KEY,
   PAYUP_API_CERT_KEY,
@@ -92,6 +92,30 @@ export const payupPaymentOrder = onRequest(options, async (request, response) =>
       userAgent,
     });
 
+    const sourceChannel = text(qr.data.source_channel, 30).toUpperCase();
+    const sourceSite = text(qr.data.source_site, 50);
+    const sourceOrderNo = text(qr.data.source_order_no, 200);
+    const successReturnUrl = text(qr.data.success_return_url, 1000);
+    const failureReturnUrl = text(qr.data.failure_return_url, 1000);
+    await getAdminDb().doc(`payup_payment_sessions/${paymentSessionId}`).set({
+      source_channel: sourceChannel || null,
+      source_site: sourceSite || null,
+      source_order_no: sourceOrderNo || null,
+      source_success_return_url: successReturnUrl || null,
+      source_failure_return_url: failureReturnUrl || null,
+      updated_at: FieldValue.serverTimestamp(),
+      updated_at_iso: new Date().toISOString(),
+    }, { merge: true });
+    if (sourceChannel && sourceOrderNo) {
+      await getAdminDb().doc(`channel_order_links/${safeDocumentId(`${sourceChannel}-${sourceOrderNo}`)}`).set({
+        central_order_number: plan.orderNumber,
+        payment_session_id: paymentSessionId,
+        status: "PAYUP_ORDER_CREATING",
+        updated_at: FieldValue.serverTimestamp(),
+        updated_at_iso: new Date().toISOString(),
+      }, { merge: true });
+    }
+
     const timestamp = timestampToken();
     const authReturnUrl = new URL(config.authReturnUrl);
     authReturnUrl.searchParams.set("session", paymentSessionId);
@@ -133,12 +157,20 @@ export const payupPaymentOrder = onRequest(options, async (request, response) =>
       updated_at: FieldValue.serverTimestamp(),
       updated_at_iso: new Date().toISOString(),
     }, { merge: true });
-    await getAdminDb().doc(`qr_payment_sessions/${qr.id}`).set({ payment_state: "AUTH_PENDING", updated_at: FieldValue.serverTimestamp() }, { merge: true });
+    if (sourceChannel && sourceOrderNo) {
+      await getAdminDb().doc(`channel_order_links/${safeDocumentId(`${sourceChannel}-${sourceOrderNo}`)}`).set({
+        status: "AUTH_PENDING",
+        updated_at: FieldValue.serverTimestamp(),
+        updated_at_iso: new Date().toISOString(),
+      }, { merge: true });
+    }
     response.status(200).json({
       ok: true,
       provider: "payup",
       paymentSessionId,
       orderNumber: plan.orderNumber,
+      sourceChannel: sourceChannel || undefined,
+      sourceOrderNo: sourceOrderNo || undefined,
       amount: plan.totalAmount,
       userAgent,
       formAction: "https://web.nicepay.co.kr/v3/v3Payment.jsp",

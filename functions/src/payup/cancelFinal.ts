@@ -68,7 +68,7 @@ export const payupAdminCancelFinal = onRequest(options, async (request, response
 
     await consumeApprovedChange({ approvalRequestId: text(body.approvalRequestId, 200), actionType: "FULL_CANCEL", payload: approvalPayload, actor });
     const config = getPayupRuntime();
-    assertRuntimeReady(config);
+    assertRuntimeReady(config, { requireApiCertKey: true });
     await assertFeatureFlags(["PAYUP_MASTER", "FULL_CANCEL", "PAYOUT_HOLD"]);
     if (text(payment.status, 30) !== "approved" && text(transactionData.status_code, 20) !== "2001") throw new AccessHttpError(409, "CANCEL_TRANSACTION_NOT_APPROVED", "승인 완료된 PayUp 거래만 전체취소할 수 있습니다.");
 
@@ -114,6 +114,7 @@ export const payupAdminCancelFinal = onRequest(options, async (request, response
         payload: { transactionId, signature: sha256([config.merchantId, transactionId, config.apiCertKey]) },
         transactionId,
         orderNumber,
+        requireApiCertKey: true,
       });
     } catch (error) {
       await Promise.all([

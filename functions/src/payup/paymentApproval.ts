@@ -78,7 +78,7 @@ async function writeApprovalRecovery(input: { paymentSessionId: string; error: u
 async function approvePayment(input: { paymentSessionId: string; clientToken?: string; authReturnState?: string; authData: JsonRecord }) {
   const db = getAdminDb();
   const config = getPayupRuntime();
-  assertRuntimeReady(config);
+  assertRuntimeReady(config, { requireApiCertKey: true });
   await assertFeatureFlags(["PAYUP_MASTER", "CART_DISTRIBUTION", "FINAL_APPROVAL"]);
   const paymentSessionId = firestoreDocumentId(input.paymentSessionId, "paymentSessionId");
   const sessionRef = db.doc(`payup_payment_sessions/${paymentSessionId}`);
@@ -128,14 +128,31 @@ async function approvePayment(input: { paymentSessionId: string; clientToken?: s
   const approvalPayload: JsonRecord = { AuthResultCode: authResultCode, AuthToken: authToken, MID: mid, Signature: authSignature, TxTid: txTid, cartPayFlag: "Y", cartPayList };
   let result: JsonRecord;
   try {
-    result = await postPayup({ config, operation: "PAYMENT_APPROVAL", pathOrUrl: text(initial.pay_url, 1000), payload: approvalPayload, orderNumber: text(initial.order_number, 30) });
+    result = await postPayup({ config, operation: "PAYMENT_APPROVAL", pathOrUrl: text(initial.pay_url, 1000), payload: approvalPayload, orderNumber: text(initial.order_number, 30), requireApiCertKey: true });
   } catch (error) {
     await writeApprovalRecovery({ paymentSessionId, error });
     throw new AccessHttpError(502, "PAYUP_APPROVAL_UNKNOWN", "PayUp 승인결과를 확정할 수 없습니다. 자동 대사와 관리자 확인이 필요합니다.");
   }
   if (text(result.responseCode, 100) !== "0000") {
-    await releaseReservation(paymentSessionId, "APPROVAL_FAILED", text(result.responseMsg, 500) || "PayUp 최종승인 거절");
-    throw new AccessHttpError(502, "PAYUP_APPROVAL_REJECTED", text(result.responseMsg, 500) || "PayUp 최종승인이 거절됐습니다.");
+    const providerResponseCode = text(result.responseCode, 100);
+    const providerResponseMsg = text(result.responseMsg, 500) || "PayUp 최종승인 거절";
+    await releaseReservation(paymentSessionId, "APPROVAL_FAILED", providerResponseMsg, { providerResponseCode, providerResponseMsg });
+    if (providerResponseCode === "9108") {
+      await db.collection("manual_action_queue").add({
+        provider: "payup",
+        type: "SUBMERCHANT_REGISTRATION_REQUIRED",
+        payment_session_id: paymentSessionId,
+        order_number: text(initial.order_number, 30) || null,
+        sub_merchant_ids: cartPayList.map((line) => line.subMerchantId),
+        response_code: providerResponseCode,
+        response_msg: providerResponseMsg,
+        status: "OPEN",
+        assigned_team: "PAYMENTS",
+        created_at: FieldValue.serverTimestamp(),
+        created_at_iso: new Date().toISOString(),
+      });
+    }
+    throw new AccessHttpError(502, "PAYUP_APPROVAL_REJECTED", `[${providerResponseCode}] ${providerResponseMsg}`);
   }
   const transactionId = text(result.transactionId, 100);
   if (!transactionId) {

@@ -1,5 +1,5 @@
-import { TabletQrPage } from "@/components/storefront/TabletMallPages";
+import { PayupTabletQrPage } from "@/components/storefront/PayupTabletCartPage";
 
-export default async function Page() {
-  return <TabletQrPage />;
+export default function Page() {
+  return <PayupTabletQrPage />;
 }

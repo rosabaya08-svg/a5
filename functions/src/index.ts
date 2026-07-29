@@ -84,3 +84,4 @@ export {
   payupReconcileTransactionsScheduled,
   payupRepairCancelReversalsScheduled,
 } from "./payup/reconciliation";
+export { tabletDeviceAdmin, tabletDeviceEnroll, tabletDeviceStatus } from "./tablet/device";

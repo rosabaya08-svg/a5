@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import {
   portalHomePaths,
   portalLoginPaths,
@@ -32,6 +32,33 @@ function redirectToLogin(loginPath: string, role: PortalRole) {
 function claimRoles(claims: Record<string, unknown>) {
   const values = [claims.role, claims.a5_role, claims.admin_role, ...(Array.isArray(claims.roles) ? claims.roles : [])];
   return [...new Set(values.map((value) => String(value ?? "").trim().toUpperCase()).filter(Boolean))];
+}
+
+function functionsBaseUrl() {
+  return (process.env.NEXT_PUBLIC_A5_FUNCTIONS_BASE_URL ?? process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL ?? "").replace(/\/$/, "");
+}
+
+async function tryBootstrap(user: User) {
+  const baseUrl = functionsBaseUrl();
+  if (!baseUrl) return false;
+  try {
+    const response = await fetch(`${baseUrl}/payupBootstrapAccess`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await user.getIdToken()}` },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) return false;
+    await user.getIdToken(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function permittedAdminClaims(claims: Record<string, unknown>) {
+  const roles = claimRoles(claims);
+  const status = String(claims.access_status ?? "ACTIVE").toUpperCase();
+  return status === "ACTIVE" && roles.some((candidate) => adminPortalRoles.has(candidate));
 }
 
 export function RoleGuard({ role, children }: RoleGuardProps) {
@@ -75,11 +102,13 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
         return;
       }
       try {
-        const token = await user.getIdTokenResult(true);
-        const roles = claimRoles(token.claims as Record<string, unknown>);
-        const status = String(token.claims.access_status ?? "ACTIVE").toUpperCase();
-        const permitted = status === "ACTIVE" && roles.some((candidate) => adminPortalRoles.has(candidate));
-        if (!permitted) {
+        let token = await user.getIdTokenResult(true);
+        if (!permittedAdminClaims(token.claims as Record<string, unknown>)) {
+          setMessage("초기 최고관리자 서버 등록을 확인하고 있습니다");
+          const bootstrapped = await tryBootstrap(user);
+          if (bootstrapped) token = await user.getIdTokenResult(true);
+        }
+        if (!permittedAdminClaims(token.claims as Record<string, unknown>)) {
           setMessage("서버에서 승인된 A5S 관리자 역할이 없습니다");
           setAllowed(false);
           setReady(true);

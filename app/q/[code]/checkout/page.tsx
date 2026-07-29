@@ -1,4 +1,4 @@
-import { QrCheckoutPage } from "@/components/storefront/GuestQrExperience";
+import { PayupQrCheckoutPage } from "@/components/storefront/PayupQrCheckoutPage";
 import { staticQrCodes } from "@/data/staticSmokeRoutes";
 
 export async function generateStaticParams() {
@@ -7,6 +7,5 @@ export async function generateStaticParams() {
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-
-  return <QrCheckoutPage code={code} />;
+  return <PayupQrCheckoutPage fixedCode={code} />;
 }

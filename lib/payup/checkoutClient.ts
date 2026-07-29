@@ -1,6 +1,7 @@
 "use client";
 
 import { getFirebaseAppCheckToken } from "@/lib/firebase/appCheckClient";
+import type { QrPaymentSession } from "@/types/commerce";
 
 export type PayupOrderResponse = {
   ok: true;
@@ -46,7 +47,32 @@ export type PayupQrCreateResponse = {
   itemCount: number;
   subMerchantCount: number;
   customerPath: string;
-  session: import("@/types/commerce").QrPaymentSession;
+  session: QrPaymentSession;
+};
+
+export type PayupGuestOrder = {
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  transactionIdMasked: string;
+  totalAmount: number;
+  customerName: string;
+  customerPhoneMasked: string;
+  deliveryMethod: string;
+  receiverAddressMasked: string;
+  receiverAddressDetailMasked: string;
+  paidAt: string;
+  cancelledAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    optionName: string;
+    quantity: number;
+    unitPrice: number;
+    lineAmount: number;
+    deliveryStatus: string;
+  }>;
 };
 
 type ErrorBody = {
@@ -123,6 +149,14 @@ export function abortPayupPayment(payload: { paymentSessionId: string; clientTok
 
 export function readPayupPaymentStatus(payload: { paymentSessionId?: string; clientToken?: string; shortCode?: string }) {
   return postPublic<PayupStatusResponse>("payupPaymentStatus", payload);
+}
+
+export function readPayupPublicQr(shortCode: string) {
+  return postPublic<{ ok: true; provider: "payup"; session: QrPaymentSession }>("payupPublicQrRead", { shortCode });
+}
+
+export function readPayupGuestOrder(orderNumber: string, phoneLast4: string) {
+  return postPublic<{ ok: true; provider: "payup"; order: PayupGuestOrder }>("payupPublicOrderRead", { orderNumber, phoneLast4 });
 }
 
 export async function createPayupQrSession(payload: {

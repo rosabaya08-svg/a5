@@ -1,0 +1,93 @@
+name: PayUp Fixed IP Request
+
+on:
+  push:
+    branches:
+      - feature/payup-control-center-sandbox-20260729
+    paths:
+      - ".deploy/payup-infra-request.json"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: payup-fixed-ip-request
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: payup-test
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'a5-closed-mall' }}
+      REGION: ${{ vars.GCP_REGION || 'asia-northeast3' }}
+      WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOY_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: configuration
+        name: Check Google Cloud deployment identity
+        shell: bash
+        run: |
+          if [[ -z "$WIF_PROVIDER" || -z "$DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### PayUp fixed IP request" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Result: SKIPPED" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing: GCP_WORKLOAD_IDENTITY_PROVIDER and/or GCP_SERVICE_ACCOUNT in the payup-test GitHub Environment." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: google-github-actions/auth@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          version: ">= 416.0.0"
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Apply fixed egress infrastructure
+        if: steps.configuration.outputs.ready == 'true'
+        working-directory: infra/payup-static-egress
+        shell: bash
+        run: |
+          set -euo pipefail
+          TF_STATE_BUCKET="${PROJECT_ID}-payup-tfstate"
+          if ! gcloud storage buckets describe "gs://${TF_STATE_BUCKET}" --project "$PROJECT_ID" >/dev/null 2>&1; then
+            gcloud storage buckets create "gs://${TF_STATE_BUCKET}" --project "$PROJECT_ID" --location "$REGION" --uniform-bucket-level-access
+          fi
+          gcloud storage buckets update "gs://${TF_STATE_BUCKET}" --versioning
+          terraform init -reconfigure \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=payup-static-egress"
+          terraform plan -out=tfplan -var="project_id=${PROJECT_ID}" -var="region=${REGION}"
+          terraform apply -auto-approve tfplan
+          FIXED_IP="$(terraform output -raw payup_static_egress_ip)"
+          CONNECTOR="$(terraform output -raw payup_vpc_connector)"
+          echo "### PayUp fixed IP request" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: CREATED_OR_CONFIRMED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Project: \`${PROJECT_ID}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public IP: \`${FIXED_IP}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- VPC connector: \`${CONNECTOR}\`" >> "$GITHUB_STEP_SUMMARY"
+          printf '{"projectId":"%s","region":"%s","fixedEgressIp":"%s","vpcConnector":"%s","createdAt":"%s"}\n' "$PROJECT_ID" "$REGION" "$FIXED_IP" "$CONNECTOR" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$GITHUB_WORKSPACE/payup-fixed-ip-result.json"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.configuration.outputs.ready == 'true'
+        with:
+          name: payup-fixed-ip-result-${{ github.sha }}
+          path: payup-fixed-ip-result.json
+          retention-days: 30

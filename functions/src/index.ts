@@ -66,6 +66,7 @@ export {
   payupAdminAccessSecure as payupAdminAccess,
   payupAdminApprovalsSecure as payupAdminApprovals,
 } from "./payup/accessSecure";
+export { payupAdminPartnerInvite } from "./payup/partnerProvisioning";
 export { payupBootstrapAccess } from "./payup/bootstrap";
 export { payupAdminDistributionPolicies } from "./payup/distribution";
 export { payupQrCreate } from "./payup/qr";

@@ -1,3 +1,4 @@
+import "./runtime/globalOptions";
 import { onRequest } from "firebase-functions/v2/https";
 import { a4RoomsSyncHandler } from "./a4/syncRooms";
 import { inventoryReleaseHandler } from "./inventory/releaseInventory";

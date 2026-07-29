@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { adminNavItems } from "@/components/layout/navigation";
+import { payupAdminNavItems } from "@/components/layout/payupNavigation";
 import { PayupAdminWorkspace, type PayupAdminView } from "@/components/admin/PayupAdminWorkspace";
 import {
   PayupLogsLivePanel,
@@ -58,7 +58,7 @@ export function PayupAdminPageShell({ view }: { view: PayupAdminView }) {
       title={copy.title}
       subtitle={copy.subtitle}
       scopeLabel="A5S 기업관리자 / PayUp 장바구니 PG"
-      navItems={adminNavItems}
+      navItems={payupAdminNavItems}
       accent="admin"
     >
       {workspace(view)}

@@ -6,24 +6,29 @@ on:
     paths:
       - "app/admin/payup/**"
       - "app/admin/pg-settings/**"
-      - "app/company/payup-activity/**"
-      - "app/tablet/cart/**"
-      - "app/tablet/qr/**"
+      - "app/company/**"
+      - "app/tablet/**"
       - "app/q/**"
       - "components/admin/Payup*"
-      - "components/auth/RoleGuard.tsx"
-      - "components/company/CompanyPayupActivityPanel.tsx"
+      - "components/auth/**"
+      - "components/company/**"
       - "components/storefront/Payup*"
+      - "components/tablet/**"
       - "components/layout/navigation.ts"
       - "components/layout/payupNavigation.ts"
+      - "data/accessCredentials.ts"
       - "data/admin/payupSandbox.ts"
+      - "lib/auth/**"
       - "lib/payup/**"
       - "lib/firebase/appCheckClient.ts"
       - "functions/src/access/**"
       - "functions/src/payup/**"
+      - "functions/src/tablet/**"
       - "functions/src/firebaseAdmin.ts"
       - "functions/src/index.ts"
       - "functions/.env.example"
+      - "firestore.rules"
+      - "firebase.json"
       - "scripts/check-routes.mjs"
       - "scripts/check-payup-safety.mjs"
       - "docs/PAYUP_CONTROL_CENTER_VIBECODE.md"
@@ -36,7 +41,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -50,6 +55,12 @@ jobs:
             package-lock.json
             functions/package-lock.json
 
+      - name: Install Java for Firestore Rules compiler
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Install web dependencies
         run: npm ci
 
@@ -58,6 +69,9 @@ jobs:
 
       - name: Verify PayUp safety invariants
         run: node scripts/check-payup-safety.mjs
+
+      - name: Compile Firestore Rules in emulator
+        run: npx --yes firebase-tools@14.17.0 emulators:exec --only firestore --project demo-a5-payup "node -e \"console.log('Firestore rules compiled')\""
 
       - name: Typecheck web
         run: npx tsc --noEmit

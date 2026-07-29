@@ -27,3 +27,12 @@ export const qrExpire = onRequest(paymentFunctionOptions, qrExpireHandler);
 export const inventoryReserve = onRequest(paymentFunctionOptions, inventoryReserveHandler);
 export const inventoryRelease = onRequest(paymentFunctionOptions, inventoryReleaseHandler);
 export const a4RoomsSync = onRequest(paymentFunctionOptions, a4RoomsSyncHandler);
+
+export {
+  payupAdminCancel,
+  payupAdminFeatureFlags,
+  payupAdminHealth,
+  payupAdminSettlements,
+  payupAdminSubmerchants,
+  payupAdminTransactions,
+} from "./payup/admin";

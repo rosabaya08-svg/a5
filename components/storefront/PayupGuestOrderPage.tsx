@@ -15,7 +15,7 @@ function statusLabel(status: string) {
     delivered: "배송완료",
     picked_up: "수령완료",
   };
-  return labels[status] ?? status || "확인 중";
+  return labels[status] ?? (status || "확인 중");
 }
 
 export function PayupGuestOrderPage() {

@@ -1,5 +1,5 @@
-import { PayupTabletQrPage } from "@/components/storefront/PayupTabletCartPage";
+import { PayupTabletQrRuntimePage } from "@/components/storefront/PayupTabletQrRuntimePage";
 
 export default function Page() {
-  return <PayupTabletQrPage />;
+  return <PayupTabletQrRuntimePage />;
 }

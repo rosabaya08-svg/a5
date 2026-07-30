@@ -164,6 +164,20 @@ export async function writeIntegrationLog(input: {
   return correlationId;
 }
 
+async function writeIntegrationLogBestEffort(
+  input: Parameters<typeof writeIntegrationLog>[0],
+) {
+  try {
+    await writeIntegrationLog(input);
+  } catch (error) {
+    console.error("PAYUP_INTEGRATION_LOG_WRITE_FAILED", {
+      operation: input.operation,
+      correlationId: input.correlationId ?? "",
+      error: error instanceof Error ? error.message.slice(0, 500) : "unknown",
+    });
+  }
+}
+
 export async function postPayup(input: {
   config: PayupRuntime;
   actor?: AccessActor;
@@ -199,7 +213,7 @@ export async function postPayup(input: {
     }
     responseCode = text(parsed.responseCode, 100) || `HTTP_${response.status}`;
     responseMsg = text(parsed.responseMsg, 500) || `HTTP ${response.status}`;
-    await writeIntegrationLog({
+    await writeIntegrationLogBestEffort({
       actor: input.actor,
       operation: input.operation,
       path: url.pathname,
@@ -216,7 +230,7 @@ export async function postPayup(input: {
     return parsed;
   } catch (error) {
     if (!(error instanceof AccessHttpError)) {
-      await writeIntegrationLog({ actor: input.actor, operation: input.operation, path: url.pathname, correlationId, responseCode, responseMsg: error instanceof Error ? error.message : responseMsg, status: "failed", merchantId: input.config.merchantId, subMerchantId: input.subMerchantId, orderNumber: input.orderNumber, transactionId: input.transactionId });
+      await writeIntegrationLogBestEffort({ actor: input.actor, operation: input.operation, path: url.pathname, correlationId, responseCode, responseMsg: error instanceof Error ? error.message : responseMsg, status: "failed", merchantId: input.config.merchantId, subMerchantId: input.subMerchantId, orderNumber: input.orderNumber, transactionId: input.transactionId });
     }
     throw error;
   } finally {

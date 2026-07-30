@@ -55,7 +55,11 @@ function apiKeyValue(value: unknown): string {
 }
 
 function subMerchantIdValue(value: unknown, required = false): string {
-  return requestText(value, "subMerchantId", 20, required);
+  const subMerchantId = requestText(value, "subMerchantId", 20, required);
+  if (subMerchantId && !/^[A-Za-z0-9]+$/.test(subMerchantId)) {
+    throw new AccessHttpError(400, "PAYUP_SUBMERCHANT_ID_INVALID", "subMerchantId must contain only ASCII letters and digits.");
+  }
+  return subMerchantId;
 }
 
 export function payupCartPath(
@@ -90,6 +94,9 @@ export function buildSubmerchantUpdatePayload(apiKey: unknown, value: unknown): 
     accountNumber: digitsOnly(input.accountNumber, "accountNumber", 30, gubun === "1"),
     accountOwner: requestText(input.accountOwner, "accountOwner", 30, gubun === "1"),
   };
+  if (fields.subBusinessNumber && fields.subBusinessNumber.length !== 10) {
+    throw new AccessHttpError(400, "PAYUP_BUSINESS_NUMBER_INVALID", "subBusinessNumber must contain exactly 10 digits.");
+  }
   Object.entries(fields).forEach(([key, fieldValue]) => {
     if (fieldValue) payload[key] = fieldValue;
   });
@@ -106,7 +113,15 @@ export function buildSubmerchantListPayload(apiKey: unknown, value: unknown): Js
 }
 
 function dateToken(date: Date): string {
-  return date.toISOString().slice(0, 10).replaceAll("-", "");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: "year" | "month" | "day") =>
+    parts.find((value) => value.type === type)?.value ?? "";
+  return `${part("year")}${part("month")}${part("day")}`;
 }
 
 function validDateToken(value: unknown, field: string): string {
@@ -175,6 +190,15 @@ function maskPhone(value: string): string {
   return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
 }
 
+function maskBusinessNumber(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 10 ? `${digits.slice(0, 3)}*****${digits.slice(-2)}` : "";
+}
+
+function requireFields(source: JsonRecord, fields: readonly string[]) {
+  fields.forEach((field) => requiredResponseText(source, field));
+}
+
 export function maskPayupAccount(value: string): string {
   const digits = value.replace(/\D/g, "");
   if (!digits) return "";
@@ -184,11 +208,29 @@ export function maskPayupAccount(value: string): string {
 
 export function projectSubmerchant(value: unknown): JsonRecord {
   const source = objectValue(value);
+  requireFields(source, [
+    "subMerchantId", "subMerchantName", "ownerName", "phoneNumber",
+    "subBusinessNumber", "accountBank", "accountNumber", "accountOwner", "businessScale",
+  ]);
   const result = pick(source, [
     "subMerchantId", "subMerchantName", "ownerName", "subBusinessNumber",
     "accountBank", "accountOwner", "businessScale",
   ]);
-  result.subMerchantId = requiredResponseText(source, "subMerchantId");
+  result.subMerchantId = subMerchantIdValue(requiredResponseText(source, "subMerchantId"), true);
+  const phone = responseText(source.phoneNumber);
+  const account = responseText(source.accountNumber);
+  result.phoneNumberMasked = maskPhone(phone);
+  result.accountNumberMasked = maskPayupAccount(account);
+  return result;
+}
+
+export function projectSubmerchantRequest(value: unknown): JsonRecord {
+  const source = objectValue(value);
+  const result = pick(source, [
+    "subMerchantId", "subMerchantName", "ownerName", "subBusinessNumber",
+    "accountBank", "accountOwner",
+  ]);
+  result.subMerchantId = subMerchantIdValue(requiredResponseText(source, "subMerchantId"), true);
   const phone = responseText(source.phoneNumber);
   const account = responseText(source.accountNumber);
   if (phone) result.phoneNumberMasked = maskPhone(phone);
@@ -198,66 +240,110 @@ export function projectSubmerchant(value: unknown): JsonRecord {
 
 export function projectTransaction(value: unknown): JsonRecord {
   const source = objectValue(value);
-  const result = pick(source, [
+  requireFields(source, [
     "transactionId", "orderNumber", "authNumber", "cardName", "itemName", "totalAmount",
+    "userName", "allotmentMonth", "authDatetime", "statusCode",
+  ]);
+  const result = pick(source, [
+    "transactionId", "orderNumber", "cardName", "itemName", "totalAmount",
     "userName", "allotmentMonth", "authDatetime", "statusCode", "cancelDatetime",
   ]);
   result.transactionId = requiredResponseText(source, "transactionId");
-  result.subList = Array.isArray(source.subList)
-    ? source.subList.map((item) => pick(objectValue(item), [
-      "subTransactionId", "subMerchantId", "subMerchantName", "subBusinessNumber",
-      "amount", "businessScale",
-    ]))
-    : [];
+  result.authNumberMasked = `****${requiredResponseText(source, "authNumber").slice(-4)}`;
+  if (!Array.isArray(source.subList)) {
+    throw new AccessHttpError(502, "PAYUP_RESPONSE_CONTRACT_INVALID", "PayUp transaction subList must be an array.");
+  }
+  result.subList = source.subList.map((item) => {
+    const sub = objectValue(item);
+    requireFields(sub, [
+      "subTransactionId", "subMerchantId", "subMerchantName",
+      "subBusinessNumber", "amount", "businessScale",
+    ]);
+    const projected = pick(sub, [
+      "subTransactionId", "subMerchantId", "subMerchantName", "amount", "businessScale",
+    ]);
+    projected.subMerchantId = subMerchantIdValue(requiredResponseText(sub, "subMerchantId"), true);
+    projected.subBusinessNumberMasked = maskBusinessNumber(requiredResponseText(sub, "subBusinessNumber"));
+    return projected;
+  });
   return result;
 }
 
 export function projectSettlementSummary(value: unknown): JsonRecord {
   const source = objectValue(value);
+  requireFields(source, [
+    "subMerchantId", "subMerchantName", "closeDate", "targetDate", "supplyDate",
+    "taxbillDate", "supplyType", "vatFlag", "accountCount", "accountRate",
+    "accountAmount", "feeAmount", "vatAmount", "supplyAmount", "accountOwner",
+    "accountNumber", "accountBank", "businessScale",
+  ]);
   const result = pick(source, [
     "subMerchantId", "subMerchantName", "closeDate", "targetDate", "supplyDate",
     "taxbillDate", "supplyType", "vatFlag", "accountCount",
     "accountRate", "accountAmount", "feeAmount", "vatAmount", "supplyAmount",
     "accountOwner", "accountBank", "businessScale",
   ]);
-  result.subMerchantId = requiredResponseText(source, "subMerchantId");
-  result.closeDate = requiredResponseText(source, "closeDate");
-  result.supplyDate = requiredResponseText(source, "supplyDate");
+  result.subMerchantId = subMerchantIdValue(requiredResponseText(source, "subMerchantId"), true);
   const account = responseText(source.accountNumber);
-  if (account) result.accountNumberMasked = maskPayupAccount(account);
+  result.accountNumberMasked = maskPayupAccount(account);
   return result;
 }
 
 export function projectSettlementDetail(value: unknown): JsonRecord {
   const source = objectValue(value);
+  requireFields(source, [
+    "subMerchantId", "subMerchantName", "closeDate", "targetDate", "supplyDate",
+    "transactionId", "subTransactionId", "orderNumber", "authDate", "amount",
+    "businessScale", "agentRate", "agentFee", "agentVat", "agentVatFlag",
+  ]);
   const result = pick(source, [
     "subMerchantId", "subMerchantName", "closeDate", "targetDate", "supplyDate",
     "transactionId", "subTransactionId", "orderNumber", "authDate", "cancelDate",
     "amount", "businessScale", "agentRate", "agentFee", "agentVat", "agentVatFlag",
   ]);
-  result.subMerchantId = requiredResponseText(source, "subMerchantId");
-  result.transactionId = requiredResponseText(source, "transactionId");
-  result.subTransactionId = requiredResponseText(source, "subTransactionId");
+  result.subMerchantId = subMerchantIdValue(requiredResponseText(source, "subMerchantId"), true);
   return result;
 }
 
 export function projectListResponse(
   value: unknown,
   projector: (item: unknown) => JsonRecord,
+  expectedMerchantId = "",
 ): { responseCode: string; responseMsg: string; merchantId: string; listCount: number; list: JsonRecord[] } {
   const source = objectValue(value);
-  const responseCode = responseText(source.responseCode);
+  const responseCode = requiredResponseText(source, "responseCode");
   const rawList = source.list;
   if (responseCode === "0000" && !Array.isArray(rawList)) {
     throw new AccessHttpError(502, "PAYUP_RESPONSE_CONTRACT_INVALID", "PayUp 성공 응답의 list가 배열이 아닙니다.");
   }
-  const list = responseCode === "0000" && Array.isArray(rawList) ? rawList.map(projector) : [];
-  const providerCount = Number(source.listCount);
+  if (responseCode !== "0000") {
+    return {
+      responseCode,
+      responseMsg: responseText(source.responseMsg),
+      merchantId: responseText(source.merchantId),
+      listCount: 0,
+      list: [],
+    };
+  }
+  const responseMsg = requiredResponseText(source, "responseMsg");
+  const merchantId = requiredResponseText(source, "merchantId");
+  if (expectedMerchantId && merchantId !== expectedMerchantId) {
+    throw new AccessHttpError(502, "PAYUP_RESPONSE_MID_MISMATCH", "PayUp response merchantId does not match the requested merchantId.");
+  }
+  const list = Array.isArray(rawList) ? rawList.map(projector) : [];
+  const providerCountText = requiredResponseText(source, "listCount");
+  if (!/^\d+$/.test(providerCountText)) {
+    throw new AccessHttpError(502, "PAYUP_RESPONSE_CONTRACT_INVALID", "PayUp listCount must be a non-negative integer.");
+  }
+  const providerCount = Number(providerCountText);
+  if (providerCount !== list.length) {
+    throw new AccessHttpError(502, "PAYUP_RESPONSE_LIST_COUNT_MISMATCH", "PayUp listCount does not match the number of list rows.");
+  }
   return {
     responseCode,
-    responseMsg: responseText(source.responseMsg),
-    merchantId: responseText(source.merchantId),
-    listCount: Number.isInteger(providerCount) && providerCount >= 0 ? providerCount : list.length,
+    responseMsg,
+    merchantId,
+    listCount: providerCount,
     list,
   };
 }

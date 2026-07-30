@@ -76,13 +76,17 @@ export function normalizeA5sSubmerchantMaterial(input: {
   const sourceSubMerchantId = input.environment === "test"
     ? sourceValue(input.partner, "payupTestSubMerchantId")
     : sourceValue(input.partner, "payupSubMerchantId");
-  const subMerchantId = requiredText(sourceSubMerchantId || generatedId, "subMerchantId", 20);
+  const subMerchantId = requiredText(
+    sourceSubMerchantId || (input.environment === "test" ? generatedId : ""),
+    "subMerchantId",
+    20,
+  );
   if (!/^[A-Za-z0-9]+$/.test(subMerchantId)) {
     throw new AccessHttpError(409, "A5S_SUBMERCHANT_ID_INVALID", "PayUp 하위가맹점 ID는 영문과 숫자만 사용할 수 있습니다.");
   }
 
-  const businessScale = requiredText(sourceValue(input.partner, "businessScale", "business_scale"), "businessScale", 10);
-  if (!businessScales.has(businessScale)) {
+  const businessScale = text(sourceValue(input.partner, "businessScale", "business_scale"), 10);
+  if (businessScale && !businessScales.has(businessScale)) {
     throw new AccessHttpError(409, "A5S_BUSINESS_SCALE_INVALID", "PayUp 사업자 규모 값이 올바르지 않습니다.");
   }
 

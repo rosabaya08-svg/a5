@@ -189,11 +189,18 @@ function normalizeDistributionTemplates(value: unknown, productId: string): Dist
     const line = asRecord(raw);
     const subMerchantId = text(line.sub_merchant_id ?? line.subMerchantId, 20);
     if (!subMerchantId) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_REQUIRED", `${productId} 상품 분배행 ${index + 1}의 subMerchantId가 없습니다.`);
+    if (!/^[A-Za-z0-9]{1,20}$/.test(subMerchantId)) {
+      throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_INVALID", `${productId} distribution row ${index + 1} has an invalid subMerchantId.`);
+    }
+    const businessNumber = text(line.business_number ?? line.businessNumber, 20).replace(/[^0-9]/g, "");
+    if (!/^\d{10}$/.test(businessNumber)) {
+      throw new AccessHttpError(409, "PAYUP_BUSINESS_NUMBER_REQUIRED", `${productId} distribution row ${index + 1} requires a 10-digit businessNumber.`);
+    }
     return {
       lineType: text(line.line_type ?? line.lineType, 80).toUpperCase() || "PRODUCT_AMOUNT",
       subMerchantId,
       organizationId: text(line.organization_id ?? line.organizationId, 160),
-      businessNumber: text(line.business_number ?? line.businessNumber, 20).replace(/[^0-9]/g, ""),
+      businessNumber,
       amountPerUnit: integer(line.amount_per_unit ?? line.amountPerUnit, `${productId}.distribution[${index}].amountPerUnit`, 1),
     };
   });

@@ -52,11 +52,18 @@ function normalizeLines(value: unknown): PolicyLine[] {
     if (!lineTypes.has(lineType)) throw new AccessHttpError(400, "DISTRIBUTION_LINE_TYPE_INVALID", `${index + 1}행 분배유형이 올바르지 않습니다.`);
     const subMerchantId = text(line.subMerchantId ?? line.sub_merchant_id, 20);
     if (!/^[A-Za-z0-9_-]{1,20}$/.test(subMerchantId)) throw new AccessHttpError(400, "DISTRIBUTION_SUBMERCHANT_INVALID", `${index + 1}행 subMerchantId가 올바르지 않습니다.`);
+    if (!/^[A-Za-z0-9]{1,20}$/.test(subMerchantId)) {
+      throw new AccessHttpError(400, "DISTRIBUTION_SUBMERCHANT_INVALID", `${index + 1} distribution line has an invalid subMerchantId.`);
+    }
+    const businessNumber = text(line.businessNumber ?? line.business_number, 20).replace(/[^0-9]/g, "");
+    if (!/^\d{10}$/.test(businessNumber)) {
+      throw new AccessHttpError(400, "DISTRIBUTION_BUSINESS_NUMBER_INVALID", `${index + 1} distribution line requires a 10-digit businessNumber.`);
+    }
     return {
       lineType,
       subMerchantId,
       organizationId: text(line.organizationId ?? line.organization_id, 160),
-      businessNumber: text(line.businessNumber ?? line.business_number, 20).replace(/[^0-9]/g, ""),
+      businessNumber,
       amountPerUnit: integer(line.amountPerUnit ?? line.amount_per_unit, `${index + 1}행 금액`, 1),
     };
   });

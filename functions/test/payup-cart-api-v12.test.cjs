@@ -45,6 +45,19 @@ test("update payload sends only non-empty changed fields", () => {
   });
 });
 
+test("partial update request can be safely projected without response-only fields", () => {
+  const projected = contract.projectSubmerchantRequest({
+    apiKey: API_KEY,
+    gubun: "2",
+    subMerchantId: "wc2158159188",
+    subMerchantName: "merchant",
+  });
+  assert.deepEqual(projected, {
+    subMerchantId: "wc2158159188",
+    subMerchantName: "merchant",
+  });
+});
+
 test("invalid lengths and non-string inputs are rejected instead of truncated", () => {
   expectCode(
     () => contract.buildSubmerchantListPayload("short", {}),
@@ -57,6 +70,24 @@ test("invalid lengths and non-string inputs are rejected instead of truncated", 
   expectCode(
     () => contract.buildSubmerchantListPayload(API_KEY, { subMerchantId: 1234 }),
     "PAYUP_FIELD_TYPE_INVALID",
+  );
+  expectCode(
+    () => contract.buildSubmerchantListPayload(API_KEY, { subMerchantId: "wc-invalid" }),
+    "PAYUP_SUBMERCHANT_ID_INVALID",
+  );
+  expectCode(
+    () => contract.buildSubmerchantUpdatePayload(API_KEY, {
+      gubun: "1",
+      subMerchantId: "wc2158159188",
+      subMerchantName: "merchant",
+      ownerName: "owner",
+      phoneNumber: "01012345678",
+      subBusinessNumber: "123456789",
+      accountBank: "bank",
+      accountNumber: "123456",
+      accountOwner: "owner",
+    }),
+    "PAYUP_BUSINESS_NUMBER_INVALID",
   );
 });
 
@@ -82,6 +113,14 @@ test("calendar dates are real and the inclusive range is at most 31 days", () =>
     }),
     "INVALID_DATE_RANGE",
   );
+  assert.equal(
+    contract.buildTransactionListPayload(
+      API_KEY,
+      {},
+      new Date("2026-07-29T15:30:00.000Z"),
+    ).searchFromDate,
+    "20260730",
+  );
 });
 
 test("settlement dateType defaults only when empty and rejects unknown values", () => {
@@ -106,21 +145,32 @@ test("provider extensions are tolerated but are not persisted or returned", () =
   const projected = contract.projectListResponse({
     responseCode: "0000",
     responseMsg: "정상",
+    merchantId: "merchant-test",
     listCount: "1",
     addedLater: "ignored",
     list: [{
       transactionId: "tx-1",
+      orderNumber: "order-1",
+      authNumber: "12345678",
+      cardName: "card",
+      itemName: "item",
       totalAmount: "1004",
+      userName: "buyer",
+      allotmentMonth: "00",
+      authDatetime: "20260730010101",
       statusCode: "2001",
       futureField: "ignored",
       subList: [{
         subTransactionId: "sub-tx-1",
         subMerchantId: "wc2158159188",
+        subMerchantName: "merchant",
+        subBusinessNumber: "2158159188",
         amount: "1004",
+        businessScale: "일반",
         futureNestedField: "ignored",
       }],
     }],
-  }, contract.projectTransaction);
+  }, contract.projectTransaction, "merchant-test");
   assert.equal(projected.listCount, 1);
   assert.equal(projected.list[0].futureField, undefined);
   assert.equal(projected.list[0].subList[0].futureNestedField, undefined);
@@ -129,8 +179,14 @@ test("provider extensions are tolerated but are not persisted or returned", () =
 test("submerchant and settlement responses mask personal account data", () => {
   const submerchant = contract.projectSubmerchant({
     subMerchantId: "wc2158159188",
+    subMerchantName: "merchant",
+    ownerName: "owner",
     phoneNumber: "01012345678",
+    subBusinessNumber: "2158159188",
+    accountBank: "bank",
     accountNumber: "123456789012",
+    accountOwner: "owner",
+    businessScale: "일반",
   });
   assert.equal(submerchant.phoneNumberMasked, "010****5678");
   assert.equal(submerchant.accountNumberMasked, "123-****-012");
@@ -139,12 +195,23 @@ test("submerchant and settlement responses mask personal account data", () => {
 
   const settlement = contract.projectSettlementSummary({
     subMerchantId: "wc2158159188",
+    subMerchantName: "merchant",
     closeDate: "20260701",
+    targetDate: "20260701",
     supplyDate: "20260702",
+    taxbillDate: "20260701",
+    supplyType: "0001",
+    vatFlag: "1",
+    accountCount: "1",
     accountNumber: "123456789012",
     accountRate: "3.3",
     accountAmount: "1004",
+    feeAmount: "0",
+    vatAmount: "0",
     supplyAmount: "1004",
+    accountOwner: "owner",
+    accountBank: "bank",
+    businessScale: "일반",
     rate: "ignored",
   });
   assert.equal(settlement.accountNumberMasked, "123-****-012");
@@ -155,8 +222,19 @@ test("submerchant and settlement responses mask personal account data", () => {
 
   const detail = contract.projectSettlementDetail({
     subMerchantId: "wc2158159188",
+    subMerchantName: "merchant",
+    closeDate: "20260701",
+    targetDate: "20260701",
+    supplyDate: "20260702",
     transactionId: "tx-1",
     subTransactionId: "sub-tx-1",
+    orderNumber: "order-1",
+    authDate: "20260701",
+    amount: "1004",
+    businessScale: "일반",
+    agentRate: "3.3",
+    agentFee: "0",
+    agentVat: "0",
     agentVatFlag: "1",
     vatFlag: "ignored",
   });
@@ -176,6 +254,29 @@ test("successful list response must contain a JSON array", () => {
   assert.deepEqual(
     contract.projectListResponse({ responseCode: "9108", responseMsg: "미등록" }, contract.projectSubmerchant).list,
     [],
+  );
+});
+
+test("successful list response requires matching MID and exact listCount", () => {
+  expectCode(
+    () => contract.projectListResponse({
+      responseCode: "0000",
+      responseMsg: "OK",
+      merchantId: "other-mid",
+      listCount: "0",
+      list: [],
+    }, contract.projectSubmerchant, "expected-mid"),
+    "PAYUP_RESPONSE_MID_MISMATCH",
+  );
+  expectCode(
+    () => contract.projectListResponse({
+      responseCode: "0000",
+      responseMsg: "OK",
+      merchantId: "expected-mid",
+      listCount: "1",
+      list: [],
+    }, contract.projectSubmerchant, "expected-mid"),
+    "PAYUP_RESPONSE_LIST_COUNT_MISMATCH",
   );
 });
 
@@ -279,6 +380,41 @@ test("A5S source material is registration-ready but central storage remains mask
   assert.equal(prepared.phone_number, undefined);
   assert.equal(prepared.account_number_masked, "123-****-012");
   assert.equal(prepared.phone_number_masked, "010****5678");
+});
+
+test("A5S test registration learns businessScale from PayUp and production requires an explicit ID", () => {
+  const basePartner = {
+    status: "active",
+    applicationStatus: "approved",
+    businessName: "merchant",
+    ownerName: "owner",
+    phone: "01012345678",
+  };
+  const finance = {
+    bankName: "bank",
+    accountNo: "1234567890",
+    accountHolder: "owner",
+  };
+  const testMaterial = a5sSync.normalizeA5sSubmerchantMaterial({
+    sourceProjectId: "a5s-mall",
+    businessNumber: "2158159188",
+    environment: "test",
+    partner: basePartner,
+    finance,
+  });
+  assert.equal(testMaterial.subMerchantId, "wc2158159188");
+  assert.equal(testMaterial.businessScale, "");
+
+  expectCode(
+    () => a5sSync.normalizeA5sSubmerchantMaterial({
+      sourceProjectId: "a5s-mall",
+      businessNumber: "2158159188",
+      environment: "production",
+      partner: basePartner,
+      finance,
+    }),
+    "A5S_SUBMERCHANT_SOURCE_INCOMPLETE",
+  );
 });
 
 test("A5S sync rejects inactive or incomplete partner data", () => {

@@ -36,6 +36,7 @@ import {
   projectSettlementDetail,
   projectSettlementSummary,
   projectSubmerchant,
+  projectSubmerchantRequest,
   projectTransaction,
 } from "./cartApiV12";
 import {
@@ -160,7 +161,7 @@ async function handleA5sSubmerchantAction(input: {
     payload: listPayload,
     subMerchantId: material.subMerchantId,
   });
-  const existing = projectListResponse(existingResult, projectSubmerchant);
+  const existing = projectListResponse(existingResult, projectSubmerchant, input.config.merchantId);
   const existingMatch = existing.list.find((item) =>
     text(item.subMerchantId, 20) === material.subMerchantId
   );
@@ -230,7 +231,7 @@ async function handleA5sSubmerchantAction(input: {
     payload: listPayload,
     subMerchantId: material.subMerchantId,
   });
-  const verification = projectListResponse(verificationResult, projectSubmerchant);
+  const verification = projectListResponse(verificationResult, projectSubmerchant, input.config.merchantId);
   const verifiedMatch = verification.list.find((item) =>
     text(item.subMerchantId, 20) === material.subMerchantId
     && text(item.subBusinessNumber, 20).replace(/\D/g, "") === material.businessNumber
@@ -415,7 +416,7 @@ export const payupAdminSubmerchantsSecure = onRequest(options, async (request, r
           });
           throw error;
         }
-        const projected = projectListResponse(result, projectSubmerchant);
+        const projected = projectListResponse(result, projectSubmerchant, config.merchantId);
         const matched = subMerchantId
           ? projected.list.some((item) => text(item.subMerchantId, 20) === subMerchantId)
           : undefined;
@@ -483,7 +484,7 @@ export const payupAdminSubmerchantsSecure = onRequest(options, async (request, r
     const payload = buildSubmerchantUpdatePayload(canCallPayup ? config.apiKey : "0".repeat(32), body);
     const gubun = text(payload.gubun, 1);
     const subMerchantId = text(payload.subMerchantId, 20);
-    const safePayload = projectSubmerchant(payload);
+    const safePayload = projectSubmerchantRequest(payload);
     let result: JsonRecord = { responseCode: "SANDBOX", responseMsg: "내부 등록 대기 상태로 저장했습니다." };
     let status = "PENDING_ACTIVATION";
     if (canCallPayup) {
@@ -546,7 +547,7 @@ export const payupAdminTransactionsSecure = onRequest(options, async (request, r
         payload,
         subMerchantId,
       });
-      const projected = projectListResponse(result, projectTransaction);
+      const projected = projectListResponse(result, projectTransaction, config.merchantId);
       const operations: Array<{ path: string; data: JsonRecord }> = [];
       projected.list.forEach((item) => {
         const transactionId = text(item.transactionId, 100);
@@ -585,7 +586,7 @@ export const payupAdminSettlementsSecure = onRequest(options, async (request, re
         payload,
         subMerchantId,
       });
-      const projected = projectListResponse(result, detail ? projectSettlementDetail : projectSettlementSummary);
+      const projected = projectListResponse(result, detail ? projectSettlementDetail : projectSettlementSummary, config.merchantId);
       const collection = detail ? "payup_settlement_detail_snapshots" : "payup_settlement_snapshots";
       const operations: Array<{ path: string; data: JsonRecord }> = [];
       projected.list.forEach((item, index) => {

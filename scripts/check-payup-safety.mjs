@@ -24,6 +24,8 @@ expect("functions/src/payup/paymentApproval.ts", "PAYUP_TRANSACTION_ID_MISSING",
 expect("functions/src/payup/paymentLedger.ts", 'status: "paid"', "승인 후 서버 주문 paid 원장");
 expect("functions/src/payup/paymentLedger.ts", "commitPayupApproval", "승인 원장 단일 커밋 함수");
 expect("functions/src/payup/cancelFinal.ts", 'actionType: "FULL_CANCEL"', "전체취소 2인 승인");
+expect("functions/src/payup/cancelFinal.ts", "PAYUP_DIRECT_CANCEL_ENABLED", "PayUp 직접취소 명시적 활성화");
+expect("functions/src/payup/cancelFinal.ts", 'cancellation_policy: "vendor_direct"', "기본 판매사 직접취소 정책");
 expect("functions/src/payup/cancellationLedger.ts", 'event_type: "PARTNER.SALE.REVERSED"', "파트너 취소 음수 이벤트");
 expect("functions/src/payup/reconciliation.ts", '"auth-list"', "거래조회 자동대사");
 expect("functions/src/payup/reconciliation.ts", '"closing-list"', "정산조회 자동대사");

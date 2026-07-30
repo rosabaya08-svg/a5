@@ -70,7 +70,7 @@ async function assertExternalSubmerchantsReady(config: ReturnType<typeof getPayu
       });
       throw error;
     }
-    const projected = projectListResponse(result, projectSubmerchant);
+    const projected = projectListResponse(result, projectSubmerchant, config.merchantId);
     const responseCode = projected.responseCode;
     const match = projected.list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
     const expectedBusinessNumber = businessNumberById.get(subMerchantId);

@@ -1,0 +1,173 @@
+name: PayUp Test Live Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_payup_live_test_calls:
+        description: "Allow actual calls to api.testpayup.co.kr"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: payup-test-live-deployment
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Verify A5 PayUp source and Firestore Rules
+        run: |
+          npm ci
+          npm run check:routes
+          node scripts/check-payup-safety.mjs
+          npx --yes firebase-tools@14.17.0 emulators:exec --only firestore --project demo-a5-payup "node -e \"console.log('Firestore rules compiled')\""
+          npx tsc --noEmit
+          npm run build
+          npm ci --prefix functions
+          npm --prefix functions run build
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: payup-test
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'a5-closed-mall' }}
+      REGION: ${{ vars.GCP_REGION || 'asia-northeast3' }}
+      PUBLIC_WEB_ORIGIN: ${{ vars.A5_PUBLIC_WEB_ORIGIN }}
+      PAYUP_MERCHANT_ID: ${{ vars.PAYUP_TEST_MERCHANT_ID }}
+      BOOTSTRAP_ADMIN_EMAILS: ${{ vars.A5_BOOTSTRAP_SUPER_ADMIN_EMAILS }}
+      PAYUP_API_KEY_VALUE: ${{ secrets.PAYUP_API_KEY_REISSUED }}
+      PAYUP_API_CERT_KEY_VALUE: ${{ secrets.PAYUP_API_CERT_KEY_REISSUED }}
+      ORDER_PII_KEY_VALUE: ${{ secrets.A5_ORDER_PII_ENCRYPTION_KEY }}
+      A5LS_HMAC_KEY_VALUE: ${{ secrets.A5LS_GATEWAY_HMAC_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate test deployment configuration without printing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]] || missing+=(GCP_WORKLOAD_IDENTITY_PROVIDER)
+          [[ -n "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]] || missing+=(GCP_SERVICE_ACCOUNT)
+          [[ -n "$PAYUP_API_KEY_VALUE" ]] || missing+=(PAYUP_API_KEY_REISSUED)
+          [[ -n "$PAYUP_API_CERT_KEY_VALUE" ]] || missing+=(PAYUP_API_CERT_KEY_REISSUED)
+          [[ ${#ORDER_PII_KEY_VALUE} -ge 32 ]] || missing+=(A5_ORDER_PII_ENCRYPTION_KEY)
+          [[ ${#A5LS_HMAC_KEY_VALUE} -ge 32 ]] || missing+=(A5LS_GATEWAY_HMAC_SECRET)
+          [[ -n "$PAYUP_MERCHANT_ID" ]] || missing+=(PAYUP_TEST_MERCHANT_ID_variable)
+          [[ -n "$PUBLIC_WEB_ORIGIN" ]] || missing+=(A5_PUBLIC_WEB_ORIGIN_variable)
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub Environment configuration: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          version: ">= 416.0.0"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Create or rotate Firebase Secret Manager values
+        shell: bash
+        run: |
+          set -euo pipefail
+          put_secret() {
+            local name="$1"
+            local value="$2"
+            if ! gcloud secrets describe "$name" --project "$PROJECT_ID" >/dev/null 2>&1; then
+              gcloud secrets create "$name" --project "$PROJECT_ID" --replication-policy=automatic
+            fi
+            printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=- >/dev/null
+          }
+          put_secret PAYUP_API_KEY "$PAYUP_API_KEY_VALUE"
+          put_secret PAYUP_API_CERT_KEY "$PAYUP_API_CERT_KEY_VALUE"
+          put_secret A5_ORDER_PII_ENCRYPTION_KEY "$ORDER_PII_KEY_VALUE"
+          put_secret A5LS_GATEWAY_HMAC_SECRET "$A5LS_HMAC_KEY_VALUE"
+
+      - name: Generate PayUp test runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_CALLS="${{ inputs.enable_payup_live_test_calls }}"
+          AUTH_RETURN_URL="https://${REGION}-${PROJECT_ID}.cloudfunctions.net/payupMobileAuthReturn"
+          cat > "functions/.env.${PROJECT_ID}" <<EOF
+          PAYUP_MERCHANT_ID=${PAYUP_MERCHANT_ID}
+          PAYUP_ENVIRONMENT=test
+          PAYUP_VPC_CONNECTOR=
+          PAYUP_FIXED_EGRESS_IP=
+          PAYUP_FIXED_IP_REGISTERED=false
+          PAYUP_LIVE_CALLS_ENABLED=${LIVE_CALLS}
+          PAYUP_AUTH_RETURN_URL=${AUTH_RETURN_URL}
+          PAYUP_SUCCESS_RETURN_URL=${PUBLIC_WEB_ORIGIN}/orders/guest/live
+          PAYUP_FAILURE_RETURN_URL=${PUBLIC_WEB_ORIGIN}/q/live
+          PAYUP_SESSION_CLEANUP_ENABLED=true
+          PAYUP_RECON_SCHEDULE_ENABLED=${LIVE_CALLS}
+          PAYUP_REQUIRE_APP_CHECK=false
+          PAYUP_REQUIRE_TABLET_AUTH=true
+          PAYUP_ENFORCE_ORIGIN_ALLOWLIST=true
+          A5_ALLOWED_PUBLIC_ORIGINS=${PUBLIC_WEB_ORIGIN}
+          A5_CHANNEL_RETURN_ORIGINS=https://lussoboutique.co.kr
+          A5_BOOTSTRAP_SUPER_ADMIN_EMAILS=${BOOTSTRAP_ADMIN_EMAILS}
+          A5_LEGACY_MOCK_PAYMENT_ENABLED=false
+          EOF
+
+      - name: Deploy Firestore Rules and Firebase Functions
+        run: |
+          npx --yes firebase-tools@14.17.0 deploy \
+            --project "$PROJECT_ID" \
+            --only firestore:rules,functions \
+            --non-interactive
+
+      - name: Initialize safe PayUp feature flags
+        working-directory: functions
+        env:
+          GCP_PROJECT_ID: ${{ env.PROJECT_ID }}
+        run: node scripts/bootstrapPayupTest.mjs
+
+      - name: Verify deployed PayUp Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          REQUIRED=(payupAdminHealth payupAdminSubmerchants payupPaymentOrder payupPaymentApprove payupMobileAuthReturn payupAdminCancel payupReconcileTransactionsScheduled payupReconcileSettlementsScheduled)
+          for name in "${REQUIRED[@]}"; do
+            gcloud functions describe "$name" --gen2 --region "$REGION" --project "$PROJECT_ID" --format='value(name)' >/dev/null
+          done
+          echo "### PayUp test deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Project: \`${PROJECT_ID}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Test API fixed-IP requirement: not required by PayUp" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live test calls: \`${{ inputs.enable_payup_live_test_calls }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Critical feature flags remain OFF and require 2-person approval." >> "$GITHUB_STEP_SUMMARY"

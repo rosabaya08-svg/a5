@@ -32,6 +32,12 @@ import {
   type JsonRecord,
   type ReceiverSnapshot,
 } from "./paymentShared";
+import {
+  buildSubmerchantListPayload,
+  payupCartPath,
+  projectListResponse,
+  projectSubmerchant,
+} from "./cartApiV12";
 
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 30, secrets: [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY] };
@@ -46,16 +52,16 @@ async function assertExternalSubmerchantsReady(config: ReturnType<typeof getPayu
     const result = await postPayup({
       config,
       operation: "SUBMERCHANT_CHECKOUT_PREFLIGHT",
-      pathOrUrl: `/cartpay/api/sub/${encodeURIComponent(config.merchantId)}/list`,
-      payload: { apiKey: config.apiKey, subMerchantId },
+      pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
+      payload: buildSubmerchantListPayload(config.apiKey, { subMerchantId }),
       subMerchantId,
     });
-    const responseCode = text(result.responseCode, 100);
+    const projected = projectListResponse(result, projectSubmerchant);
+    const responseCode = projected.responseCode;
     if (responseCode !== "0000") {
       throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_LOOKUP_FAILED", `${subMerchantId} 운영 등록 조회가 실패했습니다: ${responseCode || "응답코드 없음"}`);
     }
-    const list = Array.isArray(result.list) ? result.list.map(asRecord) : [];
-    const match = list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
+    const match = projected.list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
     if (!match) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_REGISTERED", `${subMerchantId}이 현재 운영 MID의 PayUp 하위가맹점 목록에 없습니다.`);
     const expectedBusinessNumber = businessNumberById.get(subMerchantId);
     const actualBusinessNumber = text(match.subBusinessNumber, 20).replace(/[^0-9]/g, "");

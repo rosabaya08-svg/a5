@@ -9,6 +9,7 @@ import {
   text,
 } from "../access/policy";
 import { sha256 } from "./runtimeV2";
+import { assertStoredSubmerchantReady } from "./cartApiV12";
 
 export const PAYMENT_SESSION_TTL_MS = 15 * 60 * 1000;
 export type JsonRecord = Record<string, unknown>;
@@ -300,10 +301,8 @@ export async function calculateDistributionPlan(qrSessionId: string, qrData: Doc
 
   const subMerchantSnapshots = await db.getAll(...cartPayList.map((line) => db.doc(`payup_submerchants/${safeDocumentId(line.subMerchantId)}`)));
   subMerchantSnapshots.forEach((snapshot, index) => {
-    const data = snapshot.data() ?? {};
-    if (!snapshot.exists || !["ACTIVE", "APPROVED"].includes(text(data.status, 30).toUpperCase())) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${cartPayList[index].subMerchantId} 하위사업자가 활성 상태가 아닙니다.`);
-    if (text(data.payup_sync_status, 30).toUpperCase() !== "MATCHED") throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_SYNCED", `${cartPayList[index].subMerchantId} 하위사업자가 PayUp 운영 목록과 대사되지 않았습니다.`);
-    if (text(data.merchant_id, 100) !== merchantId) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_MID_MISMATCH", `${cartPayList[index].subMerchantId} 하위사업자가 현재 운영 MID에 매핑되지 않았습니다.`);
+    if (!snapshot.exists) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${cartPayList[index].subMerchantId} 하위가맹점이 등록되지 않았습니다.`);
+    assertStoredSubmerchantReady(snapshot.data(), cartPayList[index].subMerchantId, merchantId);
   });
 
   return {

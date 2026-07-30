@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:payup-cart-api": "node --test test/payup-cart-api-v12.test.cjs",
     "lint": "echo \"functions lint not configured\""
   },
   "dependencies": {

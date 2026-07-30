@@ -11,6 +11,7 @@ import {
   text,
 } from "../access/policy";
 import { assertFeatureFlags, writeIntegrationLog } from "./runtimeV2";
+import { assertStoredSubmerchantReady } from "./cartApiV12";
 
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 30 };
@@ -203,10 +204,8 @@ export const payupQrCreate = onRequest(options, async (request, response) => {
     const uniqueSubMerchantIds = [...subMerchantIds];
     const subSnapshots = await db.getAll(...uniqueSubMerchantIds.map((id) => db.doc(`payup_submerchants/${safeDocumentId(id)}`)));
     subSnapshots.forEach((snapshot, index) => {
-      const status = text(snapshot.data()?.status, 30).toUpperCase();
-      if (!snapshot.exists || !["ACTIVE", "APPROVED"].includes(status)) {
-        throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${uniqueSubMerchantIds[index]} 하위사업자가 활성 상태가 아닙니다.`);
-      }
+      if (!snapshot.exists) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${uniqueSubMerchantIds[index]} 하위가맹점이 등록되지 않았습니다.`);
+      assertStoredSubmerchantReady(snapshot.data(), uniqueSubMerchantIds[index], text(process.env.PAYUP_MERCHANT_ID, 100));
     });
 
     const shortCode = await uniqueShortCode();

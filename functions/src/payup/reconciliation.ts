@@ -14,6 +14,15 @@ import {
 } from "./runtimeV2";
 import { repairPayupApprovalLedger } from "./paymentLedger";
 import { repairPayupCancelledTransaction } from "./cancellationLedger";
+import {
+  buildSettlementQueryPayload,
+  buildTransactionListPayload,
+  payupCartPath,
+  projectListResponse,
+  projectSettlementDetail,
+  projectSettlementSummary,
+  projectTransaction,
+} from "./cartApiV12";
 
 const REGION = "asia-northeast3";
 const secrets = [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY];
@@ -24,7 +33,14 @@ function enabled(name: string) {
 }
 
 function dateToken(date: Date) {
-  return date.toISOString().slice(0, 10).replaceAll("-", "");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: "year" | "month" | "day") => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}${value("month")}${value("day")}`;
 }
 
 function numberValue(value: unknown) {
@@ -39,6 +55,17 @@ function rows(value: unknown): JsonRecord[] {
 function requireSuccess(result: JsonRecord, operation: string) {
   const code = text(result.responseCode, 100);
   if (code !== "0000") throw new AccessHttpError(502, "PAYUP_RECON_API_FAILED", `${operation} 실패: ${code || "unknown"} ${text(result.responseMsg, 500)}`);
+}
+
+async function commitMergeOperations(operations: Array<{ path: string; data: JsonRecord }>) {
+  const db = getAdminDb();
+  for (let offset = 0; offset < operations.length; offset += 400) {
+    const batch = db.batch();
+    operations.slice(offset, offset + 400).forEach((operation) => {
+      batch.set(db.doc(operation.path), operation.data, { merge: true });
+    });
+    await batch.commit();
+  }
 }
 
 async function openManualAction(input: { type: string; transactionId?: string; orderNumber?: string; message: string }) {
@@ -107,9 +134,17 @@ export const payupReconcileTransactionsScheduled = onSchedule(
     const queue = await db.collection("payup_reconciliation_queue").where("status", "==", "PENDING").limit(100).get();
     if (queue.empty) return;
     const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const result = await postPayup({ config, operation: "TRANSACTION_RECON_SCHEDULED", pathOrUrl: `/cartpay/api/auth/${encodeURIComponent(config.merchantId)}/list`, payload: { apiKey: config.apiKey, searchFromDate: dateToken(fromDate), searchToDate: dateToken(new Date()) } });
+    const result = await postPayup({
+      config,
+      operation: "TRANSACTION_RECON_SCHEDULED",
+      pathOrUrl: payupCartPath(config.merchantId, "auth-list"),
+      payload: buildTransactionListPayload(config.apiKey, {
+        searchFromDate: dateToken(fromDate),
+        searchToDate: dateToken(new Date()),
+      }),
+    });
     requireSuccess(result, "거래내역 조회");
-    const transactionRows = rows(result.list);
+    const transactionRows = projectListResponse(result, projectTransaction).list;
     const byTransaction = new Map(transactionRows.map((row) => [text(row.transactionId, 100), row]));
     const byOrder = new Map(transactionRows.map((row) => [text(row.orderNumber, 40), row]));
 
@@ -171,18 +206,34 @@ export const payupReconcileSettlementsScheduled = onSchedule(
     const from = dateToken(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
     const to = dateToken(new Date());
     const [summary, detail] = await Promise.all([
-      postPayup({ config, operation: "SETTLEMENT_LIST_SCHEDULED", pathOrUrl: `/cartpay/api/closing/${encodeURIComponent(config.merchantId)}/list`, payload: { apiKey: config.apiKey, searchFromDate: from, searchToDate: to, dateType: "1" } }),
-      postPayup({ config, operation: "SETTLEMENT_DETAIL_SCHEDULED", pathOrUrl: `/cartpay/api/closing/${encodeURIComponent(config.merchantId)}/detail`, payload: { apiKey: config.apiKey, searchFromDate: from, searchToDate: to, dateType: "1" } }),
+      postPayup({
+        config,
+        operation: "SETTLEMENT_LIST_SCHEDULED",
+        pathOrUrl: payupCartPath(config.merchantId, "closing-list"),
+        payload: buildSettlementQueryPayload(config.apiKey, { searchFromDate: from, searchToDate: to, dateType: "1" }),
+      }),
+      postPayup({
+        config,
+        operation: "SETTLEMENT_DETAIL_SCHEDULED",
+        pathOrUrl: payupCartPath(config.merchantId, "closing-detail"),
+        payload: buildSettlementQueryPayload(config.apiKey, { searchFromDate: from, searchToDate: to, dateType: "1" }),
+      }),
     ]);
     requireSuccess(summary, "정산내역 조회");
     requireSuccess(detail, "정산상세 조회");
-    const summaryRows = rows(summary.list);
-    const detailRows = rows(detail.list);
+    const summaryRows = projectListResponse(summary, projectSettlementSummary).list;
+    const detailRows = projectListResponse(detail, projectSettlementDetail).list;
     const summaryBySub = new Map(summaryRows.map((row) => [text(row.subMerchantId, 20), row]));
-    const batch = db.batch();
-    summaryRows.forEach((row, index) => batch.set(db.doc(`payup_settlement_snapshots/${safeDocumentId(`${text(row.subMerchantId, 20)}-${text(row.closeDate, 20)}-${text(row.supplyDate, 20)}-${index}`)}`), { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() }, { merge: true }));
-    detailRows.forEach((row, index) => batch.set(db.doc(`payup_settlement_detail_snapshots/${safeDocumentId(`${text(row.subTransactionId, 100)}-${index}`)}`), { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() }, { merge: true }));
-    await batch.commit();
+    const operations: Array<{ path: string; data: JsonRecord }> = [];
+    summaryRows.forEach((row, index) => operations.push({
+      path: `payup_settlement_snapshots/${safeDocumentId(`${text(row.subMerchantId, 20)}-${text(row.closeDate, 20)}-${text(row.supplyDate, 20)}-${index}`)}`,
+      data: { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() },
+    }));
+    detailRows.forEach((row, index) => operations.push({
+      path: `payup_settlement_detail_snapshots/${safeDocumentId(`${text(row.subTransactionId, 100)}-${index}`)}`,
+      data: { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() },
+    }));
+    await commitMergeOperations(operations);
 
     for (const row of detailRows.slice(0, 500)) {
       const subTransactionId = text(row.subTransactionId, 100);

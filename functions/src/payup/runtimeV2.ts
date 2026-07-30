@@ -67,7 +67,7 @@ export function runtimeBlockers(
 ): string[] {
   const blockers: string[] = [];
   if (!config.merchantId) blockers.push("PAYUP_MERCHANT_ID 미등록");
-  if (!config.apiKey) blockers.push("PAYUP_API_KEY Secret 미등록");
+  if (config.apiKey.length !== 32) blockers.push("PAYUP_API_KEY Secret 미등록 또는 32자 형식 오류");
   if (options.requireApiCertKey && !config.apiCertKey) blockers.push("PAYUP_API_CERT_KEY Secret 미등록");
   if (options.requirePiiKey && (!config.orderPiiEncryptionKey || config.orderPiiEncryptionKey.length < 32)) blockers.push("A5_ORDER_PII_ENCRYPTION_KEY Secret 미등록 또는 32자 미만");
   if (config.environment === "production") {

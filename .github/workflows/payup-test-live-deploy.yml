@@ -44,6 +44,7 @@ jobs:
           npm run build
           npm ci --prefix functions
           npm --prefix functions run build
+          npm --prefix functions run test:payup-cart-api
 
   deploy:
     needs: verify

@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const contract = require("../lib/payup/cartApiV12.js");
+const runtime = require("../lib/payup/runtimeV2.js");
 
 const API_KEY = "k".repeat(32);
 
@@ -189,4 +190,32 @@ test("stored readiness requires active, matched and current MID", () => {
     }, "wc2158159188", "qsc0921"),
     "PAYUP_SUBMERCHANT_NOT_SYNCED",
   );
+});
+
+test("fixed egress and IP registration block production but not the PayUp test server", () => {
+  const base = {
+    mode: "test",
+    baseUrl: "https://api.testpayup.co.kr",
+    merchantId: "test-mid",
+    apiKey: API_KEY,
+    apiCertKey: "",
+    liveCallsEnabled: true,
+    fixedIpRegistered: false,
+    vpcConnector: "",
+    fixedEgressIp: "",
+    authReturnUrl: "",
+    successReturnUrl: "",
+    failureReturnUrl: "",
+    orderPiiEncryptionKey: "",
+  };
+  assert.deepEqual(runtime.runtimeBlockers({ ...base, environment: "test" }), []);
+  const productionBlockers = runtime.runtimeBlockers({
+    ...base,
+    environment: "production",
+    mode: "production",
+    baseUrl: "https://api.payup.co.kr",
+  });
+  assert.equal(productionBlockers.some((item) => item.includes("PAYUP_VPC_CONNECTOR")), true);
+  assert.equal(productionBlockers.some((item) => item.includes("PAYUP_FIXED_EGRESS_IP")), true);
+  assert.equal(productionBlockers.some((item) => item.includes("공인 IP")), true);
 });

@@ -53,6 +53,7 @@ expect("functions/src/payup/cartApiV12.ts", "PAYUP_SUBMERCHANT_NOT_SYNCED", "내
 expect("functions/src/payup/cartApiV12.ts", "apiKey.length !== 32", "장바구니 API KEY 32자 계약");
 expect("functions/src/payup/cartApiV12.ts", "PAYUP_RESPONSE_CONTRACT_INVALID", "성공 목록 JSON 배열 계약");
 expect("functions/src/payup/cartApiV12.ts", "accountNumberMasked", "정산 계좌번호 마스킹");
+expect("functions/src/payup/runtimeV2.ts", 'config.environment === "production"', "고정 IP 조건을 운영 환경에만 적용");
 expect("functions/src/payup/adminSecure.ts", 'payup_sync_status: "NOT_FOUND"', "운영 목록 누락 하위가맹점 차단");
 expect("functions/src/payup/paymentOrder.ts", "buildSubmerchantListPayload", "결제 전 하위가맹점 조회 v1.2 계약 공통화");
 expect("functions/src/payup/reconciliation.ts", "buildTransactionListPayload", "예약 거래대사 v1.2 계약 공통화");

@@ -58,6 +58,10 @@ HTTPS REST, UTF-8 JSON, 모든 요청값 String을 사용하며 운영 주소는
 | 정산목록 조회 `/closing/{MID}/list` | 완료 | 완료 | 미완료 |
 | 정산상세 조회 `/closing/{MID}/detail` | 완료 | 완료 | 미완료 |
 
+2026-07-30 테스트 MID로 위 조회 API 4종을 실제 호출한 결과, HTTP·JSON 통신은 성공했지만
+모두 PayUp 응답 `7001(인증키 확인 필요)`로 거절됐다. 전달된 테스트 인증키가 장바구니 API의
+`apiKey`로 활성화됐는지와 해당 테스트 MID에 매핑됐는지 PayUp 확인이 필요하다.
+
 ### 업로드 규격서 범위 밖: 승인·취소
 
 아래 항목은 현재 코드에 별도 연동 회로가 있지만 업로드된 v1.2.0 문서에는 요청·응답 규격이 없다.
@@ -331,10 +335,13 @@ CANCELLED 처리 금지
 운영 또는 테스트 merchantId
 API KEY Secret
 API Cert Key Secret
-허용 공인 IP
+운영 환경의 허용 공인 IP
 PayUp 계약
 기능 플래그 승인
 ```
+
+PayUp 개발팀 확인에 따라 `api.testpayup.co.kr` 테스트 서버는 공인 IP 등록 없이 호출할 수 있다.
+고정 NAT·VPC 연결과 IP 등록 확인은 운영 환경에서만 필수로 적용한다.
 
 ## 13. 배포 순서
 
@@ -344,20 +351,20 @@ PayUp 계약
 3. Functions TypeScript 빌드
 4. 샌드박스 프리뷰 확인
 5. PayUp 테스트 Secret 등록
-6. 테스트 공인 IP 등록
-7. Functions 배포
-8. payupAdminHealth 실제 probe
-9. 하위사업자 샘플 등록·조회
-10. 거래·정산 조회 검증
-11. 전체취소 dry-run
-12. 테스트 거래 전체취소
+6. Functions 테스트 환경 배포
+7. payupAdminHealth 실제 probe
+8. 하위사업자 샘플 등록·조회
+9. 거래·정산 조회 검증
+10. 전체취소 dry-run
+11. 테스트 거래 전체취소
+12. 운영 고정 IP 등록
 13. 운영 토글 순차 ON
 ```
 
 ## 14. 운영 전 필수 미완료 항목
 
 - PayUp 테스트/운영 Secret 실제 등록
-- 고정 NAT 공인 IP 등록
+- 운영 고정 NAT 공인 IP 등록
 - 공급사·파트너 실사업자 KYC 완료
 - 상품별 분배정책 데이터 이관
 - 고객 PC·모바일 인증결제창 최종 실증

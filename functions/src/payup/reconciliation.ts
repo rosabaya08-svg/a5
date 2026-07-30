@@ -1,4 +1,4 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getAdminDb } from "../firebaseAdmin";
 import { AccessHttpError, asRecord, safeDocumentId, text } from "../access/policy";
@@ -14,6 +14,15 @@ import {
 } from "./runtimeV2";
 import { repairPayupApprovalLedger } from "./paymentLedger";
 import { repairPayupCancelledTransaction } from "./cancellationLedger";
+import {
+  buildSettlementQueryPayload,
+  buildTransactionListPayload,
+  payupCartPath,
+  projectListResponse,
+  projectSettlementDetail,
+  projectSettlementSummary,
+  projectTransaction,
+} from "./cartApiV12";
 
 const REGION = "asia-northeast3";
 const secrets = [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY];
@@ -24,7 +33,14 @@ function enabled(name: string) {
 }
 
 function dateToken(date: Date) {
-  return date.toISOString().slice(0, 10).replaceAll("-", "");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: "year" | "month" | "day") => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}${value("month")}${value("day")}`;
 }
 
 function numberValue(value: unknown) {
@@ -36,9 +52,37 @@ function rows(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value.map(asRecord) : [];
 }
 
+function chunks<T>(values: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
+function settlementGroupKey(row: JsonRecord) {
+  return [
+    text(row.subMerchantId, 20),
+    text(row.closeDate, 20),
+    text(row.targetDate, 20),
+    text(row.supplyDate, 20),
+  ].join("|");
+}
+
 function requireSuccess(result: JsonRecord, operation: string) {
   const code = text(result.responseCode, 100);
   if (code !== "0000") throw new AccessHttpError(502, "PAYUP_RECON_API_FAILED", `${operation} 실패: ${code || "unknown"} ${text(result.responseMsg, 500)}`);
+}
+
+async function commitMergeOperations(operations: Array<{ path: string; data: JsonRecord }>) {
+  const db = getAdminDb();
+  for (let offset = 0; offset < operations.length; offset += 400) {
+    const batch = db.batch();
+    operations.slice(offset, offset + 400).forEach((operation) => {
+      batch.set(db.doc(operation.path), operation.data, { merge: true });
+    });
+    await batch.commit();
+  }
 }
 
 async function openManualAction(input: { type: string; transactionId?: string; orderNumber?: string; message: string }) {
@@ -107,9 +151,17 @@ export const payupReconcileTransactionsScheduled = onSchedule(
     const queue = await db.collection("payup_reconciliation_queue").where("status", "==", "PENDING").limit(100).get();
     if (queue.empty) return;
     const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const result = await postPayup({ config, operation: "TRANSACTION_RECON_SCHEDULED", pathOrUrl: `/cartpay/api/auth/${encodeURIComponent(config.merchantId)}/list`, payload: { apiKey: config.apiKey, searchFromDate: dateToken(fromDate), searchToDate: dateToken(new Date()) } });
+    const result = await postPayup({
+      config,
+      operation: "TRANSACTION_RECON_SCHEDULED",
+      pathOrUrl: payupCartPath(config.merchantId, "auth-list"),
+      payload: buildTransactionListPayload(config.apiKey, {
+        searchFromDate: dateToken(fromDate),
+        searchToDate: dateToken(new Date()),
+      }),
+    });
     requireSuccess(result, "거래내역 조회");
-    const transactionRows = rows(result.list);
+    const transactionRows = projectListResponse(result, projectTransaction, config.merchantId).list;
     const byTransaction = new Map(transactionRows.map((row) => [text(row.transactionId, 100), row]));
     const byOrder = new Map(transactionRows.map((row) => [text(row.orderNumber, 40), row]));
 
@@ -171,32 +223,86 @@ export const payupReconcileSettlementsScheduled = onSchedule(
     const from = dateToken(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
     const to = dateToken(new Date());
     const [summary, detail] = await Promise.all([
-      postPayup({ config, operation: "SETTLEMENT_LIST_SCHEDULED", pathOrUrl: `/cartpay/api/closing/${encodeURIComponent(config.merchantId)}/list`, payload: { apiKey: config.apiKey, searchFromDate: from, searchToDate: to, dateType: "1" } }),
-      postPayup({ config, operation: "SETTLEMENT_DETAIL_SCHEDULED", pathOrUrl: `/cartpay/api/closing/${encodeURIComponent(config.merchantId)}/detail`, payload: { apiKey: config.apiKey, searchFromDate: from, searchToDate: to, dateType: "1" } }),
+      postPayup({
+        config,
+        operation: "SETTLEMENT_LIST_SCHEDULED",
+        pathOrUrl: payupCartPath(config.merchantId, "closing-list"),
+        payload: buildSettlementQueryPayload(config.apiKey, { searchFromDate: from, searchToDate: to, dateType: "1" }),
+      }),
+      postPayup({
+        config,
+        operation: "SETTLEMENT_DETAIL_SCHEDULED",
+        pathOrUrl: payupCartPath(config.merchantId, "closing-detail"),
+        payload: buildSettlementQueryPayload(config.apiKey, { searchFromDate: from, searchToDate: to, dateType: "1" }),
+      }),
     ]);
     requireSuccess(summary, "정산내역 조회");
     requireSuccess(detail, "정산상세 조회");
-    const summaryRows = rows(summary.list);
-    const detailRows = rows(detail.list);
-    const summaryBySub = new Map(summaryRows.map((row) => [text(row.subMerchantId, 20), row]));
-    const batch = db.batch();
-    summaryRows.forEach((row, index) => batch.set(db.doc(`payup_settlement_snapshots/${safeDocumentId(`${text(row.subMerchantId, 20)}-${text(row.closeDate, 20)}-${text(row.supplyDate, 20)}-${index}`)}`), { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() }, { merge: true }));
-    detailRows.forEach((row, index) => batch.set(db.doc(`payup_settlement_detail_snapshots/${safeDocumentId(`${text(row.subTransactionId, 100)}-${index}`)}`), { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() }, { merge: true }));
-    await batch.commit();
+    const summaryRows = projectListResponse(summary, projectSettlementSummary, config.merchantId).list;
+    const detailRows = projectListResponse(detail, projectSettlementDetail, config.merchantId).list;
+    const summaryByGroup = new Map(summaryRows.map((row) => [settlementGroupKey(row), row]));
+    const operations: Array<{ path: string; data: JsonRecord }> = [];
+    summaryRows.forEach((row) => operations.push({
+      path: `payup_settlement_snapshots/${safeDocumentId(`${text(row.subMerchantId, 20)}-${text(row.closeDate, 20)}-${text(row.targetDate, 20)}-${text(row.supplyDate, 20)}`)}`,
+      data: { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() },
+    }));
+    detailRows.forEach((row) => operations.push({
+      path: `payup_settlement_detail_snapshots/${safeDocumentId(`${text(row.transactionId, 100)}-${text(row.subTransactionId, 100)}-${text(row.closeDate, 20)}`)}`,
+      data: { ...row, provider: "payup", reconciliation_status: "SYNCED", reconciled_at: FieldValue.serverTimestamp(), reconciled_at_iso: new Date().toISOString() },
+    }));
+    await commitMergeOperations(operations);
 
-    for (const row of detailRows.slice(0, 500)) {
+    const subTransactionIds = Array.from(new Set(
+      detailRows.map((row) => text(row.subTransactionId, 100)).filter(Boolean),
+    ));
+    const distributionBySubTransaction = new Map<string, QueryDocumentSnapshot[]>();
+    const activityBySubTransaction = new Map<string, QueryDocumentSnapshot[]>();
+    for (const group of chunks(subTransactionIds, 30)) {
+      const [distribution, activities] = await Promise.all([
+        db.collection("payment_distribution_lines").where("sub_transaction_id", "in", group).get(),
+        db.collection("payup_partner_activity").where("sub_transaction_id", "in", group).get(),
+      ]);
+      distribution.docs.forEach((document) => {
+        const id = text(document.data().sub_transaction_id, 100);
+        distributionBySubTransaction.set(id, [...(distributionBySubTransaction.get(id) ?? []), document]);
+      });
+      activities.docs.forEach((document) => {
+        const id = text(document.data().sub_transaction_id, 100);
+        activityBySubTransaction.set(id, [...(activityBySubTransaction.get(id) ?? []), document]);
+      });
+    }
+
+    for (const row of detailRows) {
       const subTransactionId = text(row.subTransactionId, 100);
       if (!subTransactionId) continue;
-      const [distribution, activities] = await Promise.all([
-        db.collection("payment_distribution_lines").where("sub_transaction_id", "==", subTransactionId).limit(100).get(),
-        db.collection("payup_partner_activity").where("sub_transaction_id", "==", subTransactionId).limit(100).get(),
-      ]);
-      const summaryRow = summaryBySub.get(text(row.subMerchantId, 20)) ?? {};
+      const distribution = distributionBySubTransaction.get(subTransactionId) ?? [];
+      const activities = activityBySubTransaction.get(subTransactionId) ?? [];
+      const summaryRow = summaryByGroup.get(settlementGroupKey(row)) ?? {};
       const settlementStatus = text(summaryRow.supplyType ?? summaryRow.statusCode, 20) || "UNKNOWN";
+      const expectedSubMerchantId = text(row.subMerchantId, 20);
+      const expectedAmount = numberValue(row.amount);
+      const internalAmount = distribution.reduce((sum, document) =>
+        sum + numberValue(document.data().amount), 0);
+      const internalSubMerchantIds = new Set(
+        distribution.map((document) =>
+          text(document.data().sub_merchant_id ?? document.data().subMerchantId, 20)),
+      );
+      const matched = distribution.length > 0
+        && internalAmount === expectedAmount
+        && internalSubMerchantIds.size === 1
+        && internalSubMerchantIds.has(expectedSubMerchantId)
+        && Boolean(summaryRow.supplyType);
       const updates = db.batch();
-      distribution.docs.forEach((document) => updates.set(document.ref, { settlement_status: settlementStatus, settlement_amount: numberValue(row.amount), settlement_fee: numberValue(row.agentFee), settlement_vat: numberValue(row.agentVat), settlement_reconciliation_status: "MATCHED", settlement_reconciled_at: FieldValue.serverTimestamp(), updated_at: FieldValue.serverTimestamp() }, { merge: true }));
-      activities.docs.forEach((document) => updates.set(document.ref, { settlement_status: settlementStatus, settlement_amount: numberValue(row.amount), settlement_fee: numberValue(row.agentFee), settlement_vat: numberValue(row.agentVat), settlement_reconciliation_status: "MATCHED", settlement_reconciled_at: FieldValue.serverTimestamp() }, { merge: true }));
+      distribution.forEach((document) => updates.set(document.ref, { settlement_status: settlementStatus, settlement_amount: expectedAmount, settlement_fee: numberValue(row.agentFee), settlement_vat: numberValue(row.agentVat), settlement_reconciliation_status: matched ? "MATCHED" : "MISMATCH", payout_hold: !matched, payout_hold_reason: matched ? FieldValue.delete() : "SETTLEMENT_DETAIL_RECON_MISMATCH", settlement_reconciled_at: FieldValue.serverTimestamp(), updated_at: FieldValue.serverTimestamp() }, { merge: true }));
+      activities.forEach((document) => updates.set(document.ref, { settlement_status: settlementStatus, settlement_amount: expectedAmount, settlement_fee: numberValue(row.agentFee), settlement_vat: numberValue(row.agentVat), settlement_reconciliation_status: matched ? "MATCHED" : "MISMATCH", payout_hold: !matched, settlement_reconciled_at: FieldValue.serverTimestamp() }, { merge: true }));
       await updates.commit();
+      if (!matched) {
+        await openManualAction({
+          type: "SETTLEMENT_DETAIL_RECON_MISMATCH",
+          transactionId: text(row.transactionId, 100),
+          message: `subTransactionId=${subTransactionId}, internalAmount=${internalAmount}, providerAmount=${expectedAmount}`,
+        });
+      }
     }
     await writeIntegrationLog({ operation: "SETTLEMENT_RECON_SCHEDULED", path: "internal/reconciliation", responseCode: "0000", responseMsg: `정산 ${summaryRows.length}건, 상세 ${detailRows.length}건 동기화`, status: "success", merchantId: config.merchantId });
   },

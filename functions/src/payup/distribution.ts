@@ -12,6 +12,7 @@ import {
   text,
   writeAccessAudit,
 } from "../access/policy";
+import { assertStoredSubmerchantReady } from "./cartApiV12";
 
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 10 };
@@ -51,11 +52,18 @@ function normalizeLines(value: unknown): PolicyLine[] {
     if (!lineTypes.has(lineType)) throw new AccessHttpError(400, "DISTRIBUTION_LINE_TYPE_INVALID", `${index + 1}행 분배유형이 올바르지 않습니다.`);
     const subMerchantId = text(line.subMerchantId ?? line.sub_merchant_id, 20);
     if (!/^[A-Za-z0-9_-]{1,20}$/.test(subMerchantId)) throw new AccessHttpError(400, "DISTRIBUTION_SUBMERCHANT_INVALID", `${index + 1}행 subMerchantId가 올바르지 않습니다.`);
+    if (!/^[A-Za-z0-9]{1,20}$/.test(subMerchantId)) {
+      throw new AccessHttpError(400, "DISTRIBUTION_SUBMERCHANT_INVALID", `${index + 1} distribution line has an invalid subMerchantId.`);
+    }
+    const businessNumber = text(line.businessNumber ?? line.business_number, 20).replace(/[^0-9]/g, "");
+    if (!/^\d{10}$/.test(businessNumber)) {
+      throw new AccessHttpError(400, "DISTRIBUTION_BUSINESS_NUMBER_INVALID", `${index + 1} distribution line requires a 10-digit businessNumber.`);
+    }
     return {
       lineType,
       subMerchantId,
       organizationId: text(line.organizationId ?? line.organization_id, 160),
-      businessNumber: text(line.businessNumber ?? line.business_number, 20).replace(/[^0-9]/g, ""),
+      businessNumber,
       amountPerUnit: integer(line.amountPerUnit ?? line.amount_per_unit, `${index + 1}행 금액`, 1),
     };
   });
@@ -75,10 +83,8 @@ async function validatePolicy(productId: string, lines: PolicyLine[]) {
   const uniqueSubMerchantIds = [...new Set(lines.map((line) => line.subMerchantId))];
   const subSnapshots = await db.getAll(...uniqueSubMerchantIds.map((id) => db.doc(`payup_submerchants/${safeDocumentId(id)}`)));
   subSnapshots.forEach((snapshot, index) => {
-    const status = text(snapshot.data()?.status, 30).toUpperCase();
-    if (!snapshot.exists || !["ACTIVE", "APPROVED"].includes(status)) {
-      throw new AccessHttpError(409, "DISTRIBUTION_SUBMERCHANT_NOT_READY", `${uniqueSubMerchantIds[index]} 하위사업자가 활성 상태가 아닙니다.`);
-    }
+    if (!snapshot.exists) throw new AccessHttpError(409, "DISTRIBUTION_SUBMERCHANT_NOT_READY", `${uniqueSubMerchantIds[index]} 하위가맹점이 등록되지 않았습니다.`);
+    assertStoredSubmerchantReady(snapshot.data(), uniqueSubMerchantIds[index], text(process.env.PAYUP_MERCHANT_ID, 100));
   });
   return { productRef, product, salePrice, total, uniqueSubMerchantIds };
 }

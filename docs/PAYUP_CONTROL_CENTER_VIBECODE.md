@@ -13,14 +13,19 @@ A5S 기업관리자 왼쪽 메뉴에서 PayUp 기능을 업무별로 분리하�
 
 - 연결 상태는 카드와 차단 사유로 표시한다.
 - 다량 데이터는 엑셀과 같은 행·열 표로 표시한다.
-- 하위사업자 등록은 입력 폼과 자동 `subMerchantId` 생성으로 단순화한다.
+- 하위사업자 ID는 PayUp이 발급·확인한 값을 입력하며 사업자번호로 임의 생성하지 않는다.
 - 결제·대사·취소 회로는 실제 토글 스위치로 ON/OFF한다.
 - 부분취소와 브라우저 `paid` fallback은 잠금 상태로 고정한다.
 - 공급사·파트너는 자기 사업자 판매·정산 로그만 조회한다.
 - A5S 최고관리자는 모든 사업자와 모든 채널을 조회한다.
 - API Key, API Cert Key, Signature, AuthToken, 계좌번호 원문은 화면과 로그에 노출하지 않는다.
 
-## 2. PayUp 공식 규격 기준
+## 2. 업로드 규격서 v1.2.0 구현 기준
+
+`PU-DM-10-1001 [페이업]장바구니결제_API규격서`, 2026-07, v1.2.0의 범위는 아래 5개 API다.
+HTTPS REST, UTF-8 JSON, 모든 요청값 String을 사용하며 운영 주소는 `https://api.payup.co.kr`이다.
+클라이언트는 PayUp이 추후 추가하는 응답 필드나 코드 때문에 실패하지 않도록 알 수 없는 값을 허용하되,
+내부 원장과 관리자 응답에는 문서에 정의된 필드만 보관한다.
 
 ### 하위업체
 
@@ -29,6 +34,11 @@ A5S 기업관리자 왼쪽 메뉴에서 PayUp 기능을 업무별로 분리하�
 - 모든 요청값은 String
 - `subMerchantId`는 최대 20자
 - 사업자번호·계좌번호는 하이픈 없이 전송
+- API KEY는 32자
+- 등록(`gubun=1`)은 문서상 필수 필드를 모두 전송
+- 수정(`gubun=2`)은 비어 있지 않은 변경 필드만 전송
+- 등록·수정 성공만으로 내부 활성화하지 않고 `/list` 재조회 일치 후 `MATCHED` 처리
+- 운영 목록에서 사라진 내부 하위가맹점은 `NOT_FOUND`·`BLOCKED` 처리
 
 ### 거래·정산
 
@@ -36,16 +46,77 @@ A5S 기업관리자 왼쪽 메뉴에서 PayUp 기능을 업무별로 분리하�
 - 정산목록: `POST /cartpay/api/closing/{merchantId}/list`
 - 정산상세: `POST /cartpay/api/closing/{merchantId}/detail`
 - 조회기간은 시작일부터 31일 이내
-- 정산 지급상태 `0001`부터 `0009`까지 원문을 보존
+- 존재하지 않는 달력 날짜와 잘못된 `dateType`은 호출 전에 차단
+- 정산 지급상태 `0001`부터 `0009`까지 원문을 보존하고 미래 코드도 허용
+- 하위가맹점 연락처와 정산 계좌번호는 마스킹하여 저장·응답
 
-### 승인·취소
+| v1.2.0 API | 로컬 구현 | 계약 자동검증 | 실제 PayUp 운영 검증 |
+|---|---|---|---|
+| 하위가맹점 등록·수정 `/sub/{MID}/update` | 완료 | 완료 | 미완료 |
+| 하위가맹점 조회 `/sub/{MID}/list` | 완료 | 완료 | 미완료 |
+| 거래내역 조회 `/auth/{MID}/list` | 완료 | 완료 | 미완료 |
+| 정산목록 조회 `/closing/{MID}/list` | 완료 | 완료 | 미완료 |
+| 정산상세 조회 `/closing/{MID}/detail` | 완료 | 완료 | 미완료 |
+
+2026-07-30 테스트 MID로 위 조회 API 4종을 실제 호출한 결과, HTTP·JSON 통신은 성공했지만
+모두 PayUp 응답 `7001(인증키 확인 필요)`로 거절됐다. 전달된 테스트 인증키가 장바구니 API의
+`apiKey`로 활성화됐는지와 해당 테스트 MID에 매핑됐는지 PayUp 확인이 필요하다.
+
+### 현재 인증 실패와 오래된 검증 상태 처리
+
+- `/sub/{MID}/list`가 `7001`을 반환하면 `system_status/payup_cart_api`를 `AUTH_BLOCKED`로 기록한다.
+- HTTP 오류·타임아웃은 `UNAVAILABLE`, 그 밖의 비정상 응답코드는 `API_BLOCKED`로 기록한다.
+- 현재 MID에 연결된 중앙 `payup_submerchants`는 즉시 `BLOCKED` 처리한다.
+- 과거 `verified`·`granted` 값만으로 결제를 열지 않는다.
+- 결제 생성 직전에 대상 하위가맹점을 PayUp `/list`로 다시 조회한다.
+- 응답 `0000`, 하위가맹점 ID 일치, 사업자번호 일치를 모두 통과한 업체만 `ACTIVE/MATCHED`로 복구한다.
+
+### A5S 파트너 원본 연동
+
+중앙 PayUp 프로젝트는 `a5s-mall`의 다음 비공개 원본을 읽어 하위가맹점 등록자료를 준비한다.
+
+```text
+a5ws_partners/{사업자번호}
+a5ws_partner_finance_private/{사업자번호}
+```
+
+- `prepare_a5s`: 외부 호출 없이 중앙 등록부를 `PENDING_VERIFICATION/PREPARED`로 준비
+- `upsert_a5s`: PayUp 사전조회 → 등록·수정 → 목록 재조회 검증까지 수행
+- 계좌번호와 연락처 원문은 중앙 Firestore에 저장하지 않는다.
+- 중앙에는 마스킹 값과 원본 문서 경로만 저장한다.
+- 중앙 Functions 서비스 계정에는 `a5s-mall` Firestore 읽기 권한만 부여하며 쓰기 권한은 부여하지 않는다.
+
+### 테스트 분배 시나리오
+
+테스트 상품은 자동 배포하지 않는다. 테스트 환경에서 운영자가 명시적으로 아래 조건을 지정한 경우에만 준비한다.
+
+```text
+PAYUP_ENVIRONMENT=test
+CONFIRM_PAYUP_TEST_FIXTURES=true
+npm --prefix functions run prepare:payup-test-fixtures
+```
+
+준비되는 시나리오는 다음과 같다.
+
+- 위드커머스 단독 1,004원
+- `(주)해성청과` 단독 1,004원
+- 두 업체 장바구니 2,008원
+- 상품금액 1,800원 + 배송비 4,704원 = 6,504원
+- 현재 A5S 가격계약: 공급금액 1,004원 + 플랫폼 사용료 1,004원 + A5S 시스템 수수료 30원 = 2,038원
+
+기존 A5S 테스트 상품의 실제 판매가는 2,038원이므로, 단순 두 업체 2,008원 시나리오와 실제 A5S 수수료 포함 시나리오를 분리해 검증한다.
+
+### 업로드 규격서 범위 밖: 승인·취소
+
+아래 항목은 현재 코드에 별도 연동 회로가 있지만 업로드된 v1.2.0 문서에는 요청·응답 규격이 없다.
+따라서 PayUp의 별도 공식 규격과 운영 응답으로 재검증하기 전에는 “문서 구현 완료”에 포함하지 않는다.
 
 - 주문요청: `POST /ap/api/payment/{merchantId}/order`
 - 최종승인: 주문요청 응답의 `payUrl`
 - 최종승인 시 `cartPayFlag=Y`, `cartPayList[]` 전달
 - `SUM(cartPayList.amount) == 승인금액` 강제
 - 전체취소: `POST /v2/api/payment/{merchantId}/cancel2`
-- 부분취소: 공식 미지원
+- 부분취소: 현재 코드에서 영구 차단
 
 ## 3. 기존 코드와 충돌 제거
 
@@ -158,12 +229,11 @@ PayUp 장바구니 PG
 예금주
 ```
 
-자동 ID 규칙:
+운영 ID 규칙:
 
 ```text
-공급사: WCS + 사업자번호
-판매 파트너: WCP + 사업자번호
-위드커머스 본사: WCHQ + 사업자번호
+subMerchantId는 역할이나 사업자번호로 임의 생성하지 않는다.
+PayUp 운영 MID의 `/cartpay/api/sub/{merchantId}/list`에서 확인되거나 PayUp이 발급한 값을 대소문자까지 그대로 사용한다.
 ```
 
 등록 과정:
@@ -228,6 +298,7 @@ PAYUP_API_CERT_KEY
 ```text
 PAYUP_MERCHANT_ID
 PAYUP_ENVIRONMENT=test|production
+A5S_SOURCE_PROJECT_ID=a5s-mall
 PAYUP_FIXED_IP_REGISTERED=true|false
 PAYUP_LIVE_CALLS_ENABLED=true|false
 ```
@@ -309,10 +380,13 @@ CANCELLED 처리 금지
 운영 또는 테스트 merchantId
 API KEY Secret
 API Cert Key Secret
-허용 공인 IP
+운영 환경의 허용 공인 IP
 PayUp 계약
 기능 플래그 승인
 ```
+
+PayUp 개발팀 확인에 따라 `api.testpayup.co.kr` 테스트 서버는 공인 IP 등록 없이 호출할 수 있다.
+고정 NAT·VPC 연결과 IP 등록 확인은 운영 환경에서만 필수로 적용한다.
 
 ## 13. 배포 순서
 
@@ -322,20 +396,20 @@ PayUp 계약
 3. Functions TypeScript 빌드
 4. 샌드박스 프리뷰 확인
 5. PayUp 테스트 Secret 등록
-6. 테스트 공인 IP 등록
-7. Functions 배포
-8. payupAdminHealth 실제 probe
-9. 하위사업자 샘플 등록·조회
-10. 거래·정산 조회 검증
-11. 전체취소 dry-run
-12. 테스트 거래 전체취소
+6. Functions 테스트 환경 배포
+7. payupAdminHealth 실제 probe
+8. 하위사업자 샘플 등록·조회
+9. 거래·정산 조회 검증
+10. 전체취소 dry-run
+11. 테스트 거래 전체취소
+12. 운영 고정 IP 등록
 13. 운영 토글 순차 ON
 ```
 
 ## 14. 운영 전 필수 미완료 항목
 
 - PayUp 테스트/운영 Secret 실제 등록
-- 고정 NAT 공인 IP 등록
+- 운영 고정 NAT 공인 IP 등록
 - 공급사·파트너 실사업자 KYC 완료
 - 상품별 분배정책 데이터 이관
 - 고객 PC·모바일 인증결제창 최종 실증

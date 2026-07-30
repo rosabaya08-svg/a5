@@ -101,6 +101,7 @@ export const payupAdminFeatureFlagsV2 = onRequest(options, async (request, respo
       }
       if (runtimeRequiredFlags.has(key)) {
         assertRuntimeReady(getPayupRuntime(), {
+          requireApiCertKey: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL", "FULL_CANCEL"].includes(key),
           requireAuthReturn: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key),
           requirePiiKey: ["NEW_ORDER", "PAYMENT_WINDOW", "FINAL_APPROVAL"].includes(key),
         });

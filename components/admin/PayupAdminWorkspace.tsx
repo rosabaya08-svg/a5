@@ -340,12 +340,15 @@ function SwitchboardPage() {
   const [message, setMessage] = useState("샌드박스 설정을 불러왔습니다.");
 
   useEffect(() => {
+    let storedFlags = defaultPayupFeatureFlags;
     try {
       const stored = window.localStorage.getItem(featureStorageKey);
-      if (stored) setFlags(JSON.parse(stored) as PayupFeatureFlag[]);
+      if (stored) storedFlags = JSON.parse(stored) as PayupFeatureFlag[];
     } catch {
-      setFlags(defaultPayupFeatureFlags);
+      storedFlags = defaultPayupFeatureFlags;
     }
+    const timer = window.setTimeout(() => setFlags(storedFlags), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function toggle(flag: PayupFeatureFlag) {
@@ -418,7 +421,7 @@ function SwitchboardPage() {
 
 function SubmerchantPage() {
   const [rows, setRows] = useState(payupSubmerchantRows);
-  const [message, setMessage] = useState("사업자 정보를 입력하면 subMerchantId를 자동 생성합니다.");
+  const [message, setMessage] = useState("PayUp 운영 /list에서 확인했거나 PayUp이 발급한 subMerchantId를 그대로 입력하세요.");
   const [busy, setBusy] = useState(false);
 
   async function register(event: FormEvent<HTMLFormElement>) {
@@ -427,11 +430,10 @@ function SubmerchantPage() {
     const businessNumber = String(form.get("businessNumber") ?? "").replace(/[^0-9]/g, "");
     const companyName = String(form.get("companyName") ?? "").trim();
     const role = String(form.get("role") ?? "상품 공급사");
-    const prefix = role.includes("파트너") ? "WCP" : role.includes("본사") ? "WCHQ" : "WCS";
-    const subMerchantId = `${prefix}${businessNumber}`.slice(0, 20);
+    const subMerchantId = String(form.get("subMerchantId") ?? "").trim();
 
-    if (businessNumber.length !== 10 || !companyName) {
-      setMessage("사업자번호 10자리와 상호를 확인해 주세요.");
+    if (businessNumber.length !== 10 || !companyName || !/^[A-Za-z0-9_-]{1,20}$/.test(subMerchantId)) {
+      setMessage("사업자번호 10자리, 상호, PayUp이 확인한 subMerchantId(20자 이내)를 확인해 주세요.");
       return;
     }
 
@@ -496,7 +498,7 @@ function SubmerchantPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-black text-slate-950">하위사업자 간편 등록</h2>
-            <p className="mt-2 text-sm font-semibold text-slate-600">직접 ID를 계산하지 않고 사업자번호와 역할로 20자 이내 ID를 자동 생성합니다.</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">ID를 임의 생성하지 않습니다. 운영 MID에 등록된 값과 대소문자까지 정확히 일치해야 합니다.</p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={syncAll} disabled={busy} className="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-50">PayUp 전체 동기화</button>
@@ -510,6 +512,7 @@ function SubmerchantPage() {
         </div>
         <form onSubmit={register} className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1 text-xs font-black text-slate-600">역할<select name="role" className="h-11 rounded-md border border-slate-300 px-3 text-sm font-bold"><option>상품 공급사</option><option>A5WS 판매 파트너</option><option>위드커머스 본사</option><option>A5LS 운영사</option></select></label>
+          <label className="grid gap-1 text-xs font-black text-slate-600">PayUp subMerchantId<input name="subMerchantId" required maxLength={20} placeholder="예: wc2158159188" className="h-11 rounded-md border border-slate-300 px-3 text-sm font-bold" /></label>
           <label className="grid gap-1 text-xs font-black text-slate-600">사업자번호<input name="businessNumber" required placeholder="하이픈 없이 10자리" className="h-11 rounded-md border border-slate-300 px-3 text-sm font-bold" /></label>
           <label className="grid gap-1 text-xs font-black text-slate-600">상호<input name="companyName" required className="h-11 rounded-md border border-slate-300 px-3 text-sm font-bold" /></label>
           <label className="grid gap-1 text-xs font-black text-slate-600">대표자<input name="representative" required className="h-11 rounded-md border border-slate-300 px-3 text-sm font-bold" /></label>

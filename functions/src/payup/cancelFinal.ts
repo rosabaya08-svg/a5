@@ -29,6 +29,10 @@ const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 10, secrets: [PAYUP_API_KEY, PAYUP_API_CERT_KEY] };
 const CANCEL_LOCK_MS = 2 * 60 * 1000;
 
+function directPayupCancellationEnabled() {
+  return String(process.env.PAYUP_DIRECT_CANCEL_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
 export const payupAdminCancelFinal = onRequest(options, async (request, response) => {
   try {
     const body = asRecord(request.body);
@@ -67,12 +71,81 @@ export const payupAdminCancelFinal = onRequest(options, async (request, response
     }
 
     await consumeApprovedChange({ approvalRequestId: text(body.approvalRequestId, 200), actionType: "FULL_CANCEL", payload: approvalPayload, actor });
+    const cancellationRef = db.doc(`payup_cancellation_snapshots/${safeDocumentId(transactionId)}`);
+    if (!directPayupCancellationEnabled()) {
+      const distribution = await db.collection("payment_distribution_lines")
+        .where("transaction_id", "==", transactionId)
+        .limit(300)
+        .get();
+      const nowIso = new Date().toISOString();
+      await db.runTransaction(async (transaction) => {
+        const existing = await transaction.get(cancellationRef);
+        if (text(existing.data()?.status, 50) === "CANCELLED") {
+          throw new AccessHttpError(409, "CANCEL_ALREADY_COMPLETED", "The transaction is already cancelled.");
+        }
+        transaction.set(cancellationRef, {
+          provider: "payup",
+          transaction_id: transactionId,
+          order_number: orderNumber,
+          amount: internalAmount,
+          reason,
+          status: "VENDOR_ACTION_REQUIRED",
+          cancellation_policy: "vendor_direct",
+          payout_hold: true,
+          requested_by_uid: actor.uid,
+          requested_by_email: actor.email,
+          requested_at: FieldValue.serverTimestamp(),
+          requested_at_iso: nowIso,
+          updated_at: FieldValue.serverTimestamp(),
+          updated_at_iso: nowIso,
+        }, { merge: true });
+        transaction.set(db.doc(
+          `manual_action_queue/${safeDocumentId(`payup-vendor-cancel-${transactionId}`)}`,
+        ), {
+          provider: "payup",
+          type: "VENDOR_DIRECT_CANCEL",
+          transaction_id: transactionId,
+          order_number: orderNumber,
+          amount: internalAmount,
+          reason,
+          status: "OPEN",
+          assigned_team: "FINANCE",
+          source_cancellation_snapshot: cancellationRef.path,
+          created_at: FieldValue.serverTimestamp(),
+          created_at_iso: nowIso,
+          updated_at: FieldValue.serverTimestamp(),
+          updated_at_iso: nowIso,
+        }, { merge: true });
+        distribution.docs.forEach((document) => transaction.set(document.ref, {
+          payout_hold: true,
+          payout_hold_reason: "VENDOR_DIRECT_CANCEL_PENDING",
+          cancel_status: "VENDOR_ACTION_REQUIRED",
+          updated_at: FieldValue.serverTimestamp(),
+        }, { merge: true }));
+      });
+      await writeAccessAudit({
+        actor,
+        action: "PAYUP.VENDOR_CANCEL.REQUESTED",
+        targetType: "payment_transaction",
+        targetId: transactionId,
+        after: { status: "VENDOR_ACTION_REQUIRED", directProviderCall: false },
+        reason,
+      });
+      response.status(202).json({
+        ok: true,
+        status: "VENDOR_ACTION_REQUIRED",
+        transactionId: maskIdentifier(transactionId),
+        orderNumber,
+        amount: internalAmount,
+        directProviderCall: false,
+      });
+      return;
+    }
     const config = getPayupRuntime();
-    assertRuntimeReady(config);
+    assertRuntimeReady(config, { requireApiCertKey: true });
     await assertFeatureFlags(["PAYUP_MASTER", "FULL_CANCEL", "PAYOUT_HOLD"]);
     if (text(payment.status, 30) !== "approved" && text(transactionData.status_code, 20) !== "2001") throw new AccessHttpError(409, "CANCEL_TRANSACTION_NOT_APPROVED", "승인 완료된 PayUp 거래만 전체취소할 수 있습니다.");
 
-    const cancellationRef = db.doc(`payup_cancellation_snapshots/${safeDocumentId(transactionId)}`);
     const distribution = await db.collection("payment_distribution_lines").where("transaction_id", "==", transactionId).limit(300).get();
     const callId = randomUUID();
     await db.runTransaction(async (transaction) => {
@@ -114,6 +187,7 @@ export const payupAdminCancelFinal = onRequest(options, async (request, response
         payload: { transactionId, signature: sha256([config.merchantId, transactionId, config.apiCertKey]) },
         transactionId,
         orderNumber,
+        requireApiCertKey: true,
       });
     } catch (error) {
       await Promise.all([

@@ -28,6 +28,7 @@ on:
       - "functions/src/firebaseAdmin.ts"
       - "functions/src/index.ts"
       - "functions/.env.example"
+      - "functions/test/**"
       - "infra/payup-static-egress/**"
       - "firestore.rules"
       - "firebase.json"
@@ -99,6 +100,9 @@ jobs:
 
       - name: Build Firebase Functions
         run: npm --prefix functions run build
+
+      - name: Test PayUp cart API v1.2 contract
+        run: npm --prefix functions run test:payup-cart-api
 
       - name: Write verification report
         if: always()

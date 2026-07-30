@@ -9,6 +9,7 @@ import {
   text,
 } from "../access/policy";
 import { sha256 } from "./runtimeV2";
+import { assertStoredSubmerchantReady } from "./cartApiV12";
 
 export const PAYMENT_SESSION_TTL_MS = 15 * 60 * 1000;
 export type JsonRecord = Record<string, unknown>;
@@ -188,11 +189,18 @@ function normalizeDistributionTemplates(value: unknown, productId: string): Dist
     const line = asRecord(raw);
     const subMerchantId = text(line.sub_merchant_id ?? line.subMerchantId, 20);
     if (!subMerchantId) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_REQUIRED", `${productId} 상품 분배행 ${index + 1}의 subMerchantId가 없습니다.`);
+    if (!/^[A-Za-z0-9]{1,20}$/.test(subMerchantId)) {
+      throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_INVALID", `${productId} distribution row ${index + 1} has an invalid subMerchantId.`);
+    }
+    const businessNumber = text(line.business_number ?? line.businessNumber, 20).replace(/[^0-9]/g, "");
+    if (!/^\d{10}$/.test(businessNumber)) {
+      throw new AccessHttpError(409, "PAYUP_BUSINESS_NUMBER_REQUIRED", `${productId} distribution row ${index + 1} requires a 10-digit businessNumber.`);
+    }
     return {
       lineType: text(line.line_type ?? line.lineType, 80).toUpperCase() || "PRODUCT_AMOUNT",
       subMerchantId,
       organizationId: text(line.organization_id ?? line.organizationId, 160),
-      businessNumber: text(line.business_number ?? line.businessNumber, 20).replace(/[^0-9]/g, ""),
+      businessNumber,
       amountPerUnit: integer(line.amount_per_unit ?? line.amountPerUnit, `${productId}.distribution[${index}].amountPerUnit`, 1),
     };
   });
@@ -261,7 +269,7 @@ export async function findQrSession(input: { qrSessionId?: string; shortCode?: s
   return { id: snapshot.docs[0].id, data: snapshot.docs[0].data() };
 }
 
-export async function calculateDistributionPlan(qrSessionId: string, qrData: DocumentData, orderNumber: string): Promise<PreparedPlan> {
+export async function calculateDistributionPlan(qrSessionId: string, qrData: DocumentData, orderNumber: string, merchantId: string): Promise<PreparedPlan> {
   const db = getAdminDb();
   const status = text(qrData.status, 30).toLowerCase();
   if (status !== "active") throw new AccessHttpError(409, "PAYUP_QR_NOT_ACTIVE", `결제 가능한 QR 상태가 아닙니다: ${status || "unknown"}`);
@@ -300,8 +308,8 @@ export async function calculateDistributionPlan(qrSessionId: string, qrData: Doc
 
   const subMerchantSnapshots = await db.getAll(...cartPayList.map((line) => db.doc(`payup_submerchants/${safeDocumentId(line.subMerchantId)}`)));
   subMerchantSnapshots.forEach((snapshot, index) => {
-    const data = snapshot.data() ?? {};
-    if (!snapshot.exists || !["ACTIVE", "APPROVED"].includes(text(data.status, 30).toUpperCase())) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${cartPayList[index].subMerchantId} 하위사업자가 활성 상태가 아닙니다.`);
+    if (!snapshot.exists) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_READY", `${cartPayList[index].subMerchantId} 하위가맹점이 등록되지 않았습니다.`);
+    assertStoredSubmerchantReady(snapshot.data(), cartPayList[index].subMerchantId, merchantId);
   });
 
   return {
@@ -397,7 +405,12 @@ export async function lockPlanAndReserve(input: {
   });
 }
 
-export async function releaseReservation(paymentSessionIdValue: unknown, nextStatus: string, reason: string) {
+export async function releaseReservation(
+  paymentSessionIdValue: unknown,
+  nextStatus: string,
+  reason: string,
+  provider?: { providerResponseCode?: string; providerResponseMsg?: string },
+) {
   const paymentSessionId = firestoreDocumentId(paymentSessionIdValue, "paymentSessionId");
   const db = getAdminDb();
   const sessionRef = db.doc(`payup_payment_sessions/${paymentSessionId}`);
@@ -420,7 +433,14 @@ export async function releaseReservation(paymentSessionIdValue: unknown, nextSta
     const qrSessionId = text(session.qr_session_id, 1500);
     const planId = text(session.distribution_plan_id, 180);
     transaction.set(reservationRef, { status: "RELEASED", released_reason: reason, released_at: FieldValue.serverTimestamp(), released_at_iso: new Date().toISOString() }, { merge: true });
-    transaction.set(sessionRef, { status: nextStatus, last_error: reason.slice(0, 500), updated_at: FieldValue.serverTimestamp(), updated_at_iso: new Date().toISOString() }, { merge: true });
+    transaction.set(sessionRef, {
+      status: nextStatus,
+      last_error: reason.slice(0, 500),
+      ...(provider?.providerResponseCode ? { provider_response_code: provider.providerResponseCode } : {}),
+      ...(provider?.providerResponseMsg ? { provider_response_msg: provider.providerResponseMsg.slice(0, 500) } : {}),
+      updated_at: FieldValue.serverTimestamp(),
+      updated_at_iso: new Date().toISOString(),
+    }, { merge: true });
     if (planId) transaction.set(db.doc(`payment_distribution_plans/${safeDocumentId(planId)}`), { status: "ABORTED", abort_reason: reason.slice(0, 500), updated_at: FieldValue.serverTimestamp() }, { merge: true });
     if (qrSessionId) transaction.set(db.doc(`qr_payment_sessions/${firestoreDocumentId(qrSessionId, "qrSessionId")}`), { active_payment_session_id: FieldValue.delete(), payment_state: nextStatus, updated_at: FieldValue.serverTimestamp() }, { merge: true });
   });

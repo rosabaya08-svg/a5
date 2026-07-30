@@ -11,7 +11,26 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$root = Split-Path -Parent $PSScriptRoot
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    throw "이 자동화는 PowerShell 7 이상(pwsh)이 필요합니다. Windows PowerShell이 아니라 pwsh에서 실행하세요."
+}
+foreach ($command in @("gcloud", "gh")) {
+    if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+        throw "필수 명령어 '$command'가 설치되지 않았습니다. Google Cloud CLI와 GitHub CLI를 설치하세요."
+    }
+}
+
+$activeGcloudAccount = (& gcloud auth list --filter=status:ACTIVE --format="value(account)").Trim()
+if (-not $activeGcloudAccount) {
+    & gcloud auth login
+    if ($LASTEXITCODE -ne 0) { throw "Google Cloud 로그인을 완료하지 못했습니다." }
+}
+& gh auth status *> $null
+if ($LASTEXITCODE -ne 0) {
+    & gh auth login --hostname github.com --git-protocol https --web
+    if ($LASTEXITCODE -ne 0) { throw "GitHub 로그인을 완료하지 못했습니다." }
+}
+
 $bootstrap = Join-Path $PSScriptRoot "bootstrap-payup-cloud-access.ps1"
 if (-not (Test-Path $bootstrap)) {
     throw "bootstrap-payup-cloud-access.ps1 파일을 찾지 못했습니다. 최신 main 브랜치를 pull 하세요."
@@ -28,7 +47,7 @@ if ($PayupApiCertKey) { $bootstrapArgs.PayupApiCertKey = $PayupApiCertKey }
 
 Write-Host "`n=== Google Cloud WIF·GitHub Environment·내부 Secret 구성 ===" -ForegroundColor Cyan
 & $bootstrap @bootstrapArgs
-if ($LASTEXITCODE -ne 0) { throw "Cloud access bootstrap failed." }
+if (-not $?) { throw "Cloud access bootstrap failed." }
 
 $credentialsReady = $PayupMerchantId -and $PayupApiKey -and $PayupApiCertKey
 if (-not $credentialsReady) {

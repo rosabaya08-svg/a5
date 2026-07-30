@@ -12,7 +12,7 @@ on:
         description: "Deploy Firestore Rules and Firebase Functions"
         type: boolean
         required: true
-        default: true
+        default: false
       fixed_ip_registered_with_payup:
         description: "PayUp confirmed that the Terraform output IP is registered"
         type: boolean
@@ -102,20 +102,26 @@ jobs:
           missing=()
           [[ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]] || missing+=(GCP_WORKLOAD_IDENTITY_PROVIDER)
           [[ -n "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]] || missing+=(GCP_SERVICE_ACCOUNT)
-          [[ -n "$PAYUP_API_KEY_VALUE" ]] || missing+=(PAYUP_API_KEY_REISSUED)
-          [[ -n "$PAYUP_API_CERT_KEY_VALUE" ]] || missing+=(PAYUP_API_CERT_KEY_REISSUED)
-          [[ ${#ORDER_PII_KEY_VALUE} -ge 32 ]] || missing+=(A5_ORDER_PII_ENCRYPTION_KEY)
-          [[ ${#A5LS_HMAC_KEY_VALUE} -ge 32 ]] || missing+=(A5LS_GATEWAY_HMAC_SECRET)
-          [[ -n "$PAYUP_MERCHANT_ID" ]] || missing+=(PAYUP_TEST_MERCHANT_ID_variable)
-          [[ -n "$PUBLIC_WEB_ORIGIN" ]] || missing+=(A5_PUBLIC_WEB_ORIGIN_variable)
+
+          if [[ "${{ inputs.deploy_application }}" == "true" ]]; then
+            [[ -n "$PAYUP_API_KEY_VALUE" ]] || missing+=(PAYUP_API_KEY_REISSUED)
+            [[ -n "$PAYUP_API_CERT_KEY_VALUE" ]] || missing+=(PAYUP_API_CERT_KEY_REISSUED)
+            [[ ${#ORDER_PII_KEY_VALUE} -ge 32 ]] || missing+=(A5_ORDER_PII_ENCRYPTION_KEY)
+            [[ ${#A5LS_HMAC_KEY_VALUE} -ge 32 ]] || missing+=(A5LS_GATEWAY_HMAC_SECRET)
+            [[ -n "$PAYUP_MERCHANT_ID" ]] || missing+=(PAYUP_TEST_MERCHANT_ID_variable)
+            [[ -n "$PUBLIC_WEB_ORIGIN" ]] || missing+=(A5_PUBLIC_WEB_ORIGIN_variable)
+          fi
+
           if [[ "${{ inputs.apply_infrastructure }}" != "true" ]]; then
             [[ -n "$EXISTING_VPC_CONNECTOR" ]] || missing+=(PAYUP_VPC_CONNECTOR_variable)
             [[ -n "$EXISTING_FIXED_EGRESS_IP" ]] || missing+=(PAYUP_FIXED_EGRESS_IP_variable)
           fi
-          if [[ "${{ inputs.enable_payup_live_test_calls }}" == "true" && "${{ inputs.fixed_ip_registered_with_payup }}" != "true" ]]; then
-            echo "Actual PayUp test calls cannot be enabled until PayUp confirms the fixed IP registration." >&2
-            exit 1
+
+          if [[ "${{ inputs.enable_payup_live_test_calls }}" == "true" ]]; then
+            [[ "${{ inputs.deploy_application }}" == "true" ]] || { echo "Live PayUp calls require deploy_application=true." >&2; exit 1; }
+            [[ "${{ inputs.fixed_ip_registered_with_payup }}" == "true" ]] || { echo "Actual PayUp test calls cannot be enabled until PayUp confirms fixed IP registration." >&2; exit 1; }
           fi
+
           if (( ${#missing[@]} > 0 )); then
             printf 'Missing GitHub Environment configuration: %s\n' "${missing[*]}" >&2
             exit 1
@@ -168,9 +174,19 @@ jobs:
           [[ -n "$CONNECTOR" ]] || { echo "Terraform did not return a VPC connector." >&2; exit 1; }
           echo "PAYUP_FIXED_EGRESS_IP=${FIXED_IP}" >> "$GITHUB_ENV"
           echo "PAYUP_VPC_CONNECTOR=${CONNECTOR}" >> "$GITHUB_ENV"
+          printf '{"projectId":"%s","region":"%s","fixedEgressIp":"%s","vpcConnector":"%s","createdAt":"%s"}\n' "$PROJECT_ID" "$REGION" "$FIXED_IP" "$CONNECTOR" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$GITHUB_WORKSPACE/payup-fixed-ip-result.json"
           echo "### PayUp fixed egress" >> "$GITHUB_STEP_SUMMARY"
           echo "- Public IP to register with PayUp: \`${FIXED_IP}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- VPC connector: \`${CONNECTOR}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload fixed-IP result
+        if: ${{ inputs.apply_infrastructure }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: payup-fixed-ip-result-${{ github.run_id }}
+          path: payup-fixed-ip-result.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Load existing fixed-egress settings
         if: ${{ !inputs.apply_infrastructure }}

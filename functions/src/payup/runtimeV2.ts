@@ -70,9 +70,11 @@ export function runtimeBlockers(
   if (!config.apiKey) blockers.push("PAYUP_API_KEY Secret 미등록");
   if (!config.apiCertKey) blockers.push("PAYUP_API_CERT_KEY Secret 미등록");
   if (options.requirePiiKey && (!config.orderPiiEncryptionKey || config.orderPiiEncryptionKey.length < 32)) blockers.push("A5_ORDER_PII_ENCRYPTION_KEY Secret 미등록 또는 32자 미만");
-  if (!config.vpcConnector) blockers.push("PAYUP_VPC_CONNECTOR 미등록");
-  if (!config.fixedEgressIp || !validIpv4(config.fixedEgressIp)) blockers.push("PAYUP_FIXED_EGRESS_IP 미등록 또는 IPv4 형식 오류");
-  if (!config.fixedIpRegistered) blockers.push("PayUp 허용 공인 IP 미확인");
+  if (config.environment === "production") {
+    if (!config.vpcConnector) blockers.push("PAYUP_VPC_CONNECTOR 미등록");
+    if (!config.fixedEgressIp || !validIpv4(config.fixedEgressIp)) blockers.push("PAYUP_FIXED_EGRESS_IP 미등록 또는 IPv4 형식 오류");
+    if (!config.fixedIpRegistered) blockers.push("PayUp 운영 허용 공인 IP 미확인");
+  }
   if (!config.liveCallsEnabled) blockers.push("PAYUP_LIVE_CALLS_ENABLED=false");
   if (options.requireAuthReturn && !config.authReturnUrl) blockers.push("PAYUP_AUTH_RETURN_URL 미등록");
   return blockers;

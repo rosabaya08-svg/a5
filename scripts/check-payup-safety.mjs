@@ -55,6 +55,12 @@ expect("functions/src/payup/cartApiV12.ts", "PAYUP_RESPONSE_CONTRACT_INVALID", "
 expect("functions/src/payup/cartApiV12.ts", "accountNumberMasked", "정산 계좌번호 마스킹");
 expect("functions/src/payup/runtimeV2.ts", 'config.environment === "production"', "고정 IP 조건을 운영 환경에만 적용");
 expect("functions/src/payup/adminSecure.ts", 'payup_sync_status: "NOT_FOUND"', "운영 목록 누락 하위가맹점 차단");
+expect("functions/src/payup/providerHealth.ts", 'responseCode === "7001"', "7001 인증 실패 전역 차단");
+expect("functions/src/payup/providerHealth.ts", 'payup_sync_status: status', "인증 실패 시 기존 하위가맹점 차단");
+expect("functions/src/payup/adminSecure.ts", 'blockers.length === 0 && providerReady', "7001 상태에서 관리자 연결 정상표시 차단");
+expect("functions/src/payup/a5sSubmerchantSync.ts", "source_values_persisted: false", "A5S 계좌·연락처 원문 중앙 미저장");
+expect("functions/src/payup/adminSecure.ts", 'action === "prepare_a5s" || action === "upsert_a5s"', "A5S 하위가맹점 준비·검증 경로");
+expect("functions/scripts/preparePayupTestFixtures.mjs", "CONFIRM_PAYUP_TEST_FIXTURES=true is required", "테스트 상품 명시적 확인 후 준비");
 expect("functions/src/payup/paymentOrder.ts", "buildSubmerchantListPayload", "결제 전 하위가맹점 조회 v1.2 계약 공통화");
 expect("functions/src/payup/reconciliation.ts", "buildTransactionListPayload", "예약 거래대사 v1.2 계약 공통화");
 expect("functions/src/payup/reconciliation.ts", "projectSettlementSummary", "예약 정산대사 안전 응답 공통화");

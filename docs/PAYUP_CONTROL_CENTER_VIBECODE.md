@@ -62,6 +62,50 @@ HTTPS REST, UTF-8 JSON, 모든 요청값 String을 사용하며 운영 주소는
 모두 PayUp 응답 `7001(인증키 확인 필요)`로 거절됐다. 전달된 테스트 인증키가 장바구니 API의
 `apiKey`로 활성화됐는지와 해당 테스트 MID에 매핑됐는지 PayUp 확인이 필요하다.
 
+### 현재 인증 실패와 오래된 검증 상태 처리
+
+- `/sub/{MID}/list`가 `7001`을 반환하면 `system_status/payup_cart_api`를 `AUTH_BLOCKED`로 기록한다.
+- HTTP 오류·타임아웃은 `UNAVAILABLE`, 그 밖의 비정상 응답코드는 `API_BLOCKED`로 기록한다.
+- 현재 MID에 연결된 중앙 `payup_submerchants`는 즉시 `BLOCKED` 처리한다.
+- 과거 `verified`·`granted` 값만으로 결제를 열지 않는다.
+- 결제 생성 직전에 대상 하위가맹점을 PayUp `/list`로 다시 조회한다.
+- 응답 `0000`, 하위가맹점 ID 일치, 사업자번호 일치를 모두 통과한 업체만 `ACTIVE/MATCHED`로 복구한다.
+
+### A5S 파트너 원본 연동
+
+중앙 PayUp 프로젝트는 `a5s-mall`의 다음 비공개 원본을 읽어 하위가맹점 등록자료를 준비한다.
+
+```text
+a5ws_partners/{사업자번호}
+a5ws_partner_finance_private/{사업자번호}
+```
+
+- `prepare_a5s`: 외부 호출 없이 중앙 등록부를 `PENDING_VERIFICATION/PREPARED`로 준비
+- `upsert_a5s`: PayUp 사전조회 → 등록·수정 → 목록 재조회 검증까지 수행
+- 계좌번호와 연락처 원문은 중앙 Firestore에 저장하지 않는다.
+- 중앙에는 마스킹 값과 원본 문서 경로만 저장한다.
+- 중앙 Functions 서비스 계정에는 `a5s-mall` Firestore 읽기 권한만 부여하며 쓰기 권한은 부여하지 않는다.
+
+### 테스트 분배 시나리오
+
+테스트 상품은 자동 배포하지 않는다. 테스트 환경에서 운영자가 명시적으로 아래 조건을 지정한 경우에만 준비한다.
+
+```text
+PAYUP_ENVIRONMENT=test
+CONFIRM_PAYUP_TEST_FIXTURES=true
+npm --prefix functions run prepare:payup-test-fixtures
+```
+
+준비되는 시나리오는 다음과 같다.
+
+- 위드커머스 단독 1,004원
+- `(주)해성청과` 단독 1,004원
+- 두 업체 장바구니 2,008원
+- 상품금액 1,800원 + 배송비 4,704원 = 6,504원
+- 현재 A5S 가격계약: 공급금액 1,004원 + 플랫폼 사용료 1,004원 + A5S 시스템 수수료 30원 = 2,038원
+
+기존 A5S 테스트 상품의 실제 판매가는 2,038원이므로, 단순 두 업체 2,008원 시나리오와 실제 A5S 수수료 포함 시나리오를 분리해 검증한다.
+
 ### 업로드 규격서 범위 밖: 승인·취소
 
 아래 항목은 현재 코드에 별도 연동 회로가 있지만 업로드된 v1.2.0 문서에는 요청·응답 규격이 없다.
@@ -254,6 +298,7 @@ PAYUP_API_CERT_KEY
 ```text
 PAYUP_MERCHANT_ID
 PAYUP_ENVIRONMENT=test|production
+A5S_SOURCE_PROJECT_ID=a5s-mall
 PAYUP_FIXED_IP_REGISTERED=true|false
 PAYUP_LIVE_CALLS_ENABLED=true|false
 ```

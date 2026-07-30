@@ -11,6 +11,7 @@ import {
   sendAccessError,
   text,
   writeAccessAudit,
+  type AccessActor,
 } from "../access/policy";
 import {
   ORDER_PII_ENCRYPTION_KEY,
@@ -37,6 +38,15 @@ import {
   projectSubmerchant,
   projectTransaction,
 } from "./cartApiV12";
+import {
+  recordPayupCartProviderHealth,
+  recordPayupCartProviderHealthBestEffort,
+} from "./providerHealth";
+import {
+  loadA5sSubmerchantMaterial,
+  preparedCentralSubmerchant,
+  type A5sSubmerchantMaterial,
+} from "./a5sSubmerchantSync";
 
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 10, secrets: [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY] };
@@ -67,6 +77,213 @@ async function commitMergeOperations(operations: Array<{ path: string; data: Jso
   }
 }
 
+async function payupResultOrRecordTransportFailure(input: {
+  config: ReturnType<typeof getPayupRuntime>;
+  actor: AccessActor;
+  operation: string;
+  pathOrUrl: string;
+  payload: JsonRecord;
+  subMerchantId: string;
+}) {
+  try {
+    return await postPayup(input);
+  } catch (error) {
+    await recordPayupCartProviderHealthBestEffort(input.config, {
+      responseCode: "TRANSPORT_ERROR",
+      responseMsg: error instanceof Error ? error.message : `${input.operation} failed`,
+      subMerchantId: input.subMerchantId,
+    });
+    throw error;
+  }
+}
+
+async function setPreparedSubmerchant(input: {
+  material: A5sSubmerchantMaterial;
+  config: ReturnType<typeof getPayupRuntime>;
+  actor: AccessActor;
+}) {
+  const ref = getAdminDb().doc(`payup_submerchants/${safeDocumentId(input.material.subMerchantId)}`);
+  const beforeSnapshot = await ref.get();
+  const prepared = preparedCentralSubmerchant(input.material, {
+    merchantId: input.config.merchantId,
+    actorUid: input.actor.uid,
+  });
+  await ref.set(prepared, { merge: true });
+  return { ref, before: beforeSnapshot.data() ?? null, prepared };
+}
+
+async function handleA5sSubmerchantAction(input: {
+  action: "prepare_a5s" | "upsert_a5s";
+  body: JsonRecord;
+  actor: AccessActor;
+  config: ReturnType<typeof getPayupRuntime>;
+}) {
+  const material = await loadA5sSubmerchantMaterial({
+    businessNumber: input.body.businessNumber ?? input.body.business_number,
+    environment: input.config.environment,
+  });
+  const stored = await setPreparedSubmerchant({
+    material,
+    config: input.config,
+    actor: input.actor,
+  });
+
+  if (input.action === "prepare_a5s") {
+    const correlationId = await writeAccessAudit({
+      actor: input.actor,
+      action: "PAYUP.SUBMERCHANT.A5S_PREPARED",
+      targetType: "payup_submerchant",
+      targetId: material.subMerchantId,
+      before: stored.before,
+      after: { ...stored.prepared, updated_at: "serverTimestamp" },
+    });
+    return {
+      ok: true,
+      responseCode: "PREPARED",
+      responseMsg: "A5S 원본자료를 중앙 PayUp 등록 대기 상태로 준비했습니다.",
+      subMerchantId: material.subMerchantId,
+      businessNumber: material.businessNumber,
+      status: "PENDING_VERIFICATION",
+      correlationId,
+    };
+  }
+
+  assertRuntimeReady(input.config);
+  const listPayload = buildSubmerchantListPayload(input.config.apiKey, {
+    subMerchantId: material.subMerchantId,
+  });
+  const existingResult = await payupResultOrRecordTransportFailure({
+    config: input.config,
+    actor: input.actor,
+    operation: "SUBMERCHANT_A5S_PREFLIGHT",
+    pathOrUrl: payupCartPath(input.config.merchantId, "sub-list"),
+    payload: listPayload,
+    subMerchantId: material.subMerchantId,
+  });
+  const existing = projectListResponse(existingResult, projectSubmerchant);
+  const existingMatch = existing.list.find((item) =>
+    text(item.subMerchantId, 20) === material.subMerchantId
+  );
+  const providerBusinessNumber = text(existingMatch?.subBusinessNumber, 20).replace(/\D/g, "");
+  const existingBusinessMatches = !existingMatch
+    || !providerBusinessNumber
+    || providerBusinessNumber === material.businessNumber;
+  await recordPayupCartProviderHealth(input.config, {
+    responseCode: existing.responseCode,
+    responseMsg: existing.responseMsg,
+    subMerchantId: material.subMerchantId,
+    matched: Boolean(existingMatch) && existingBusinessMatches,
+  });
+  if (existing.responseCode !== "0000") {
+    throw new AccessHttpError(
+      409,
+      "PAYUP_SUBMERCHANT_LOOKUP_FAILED",
+      `PayUp 하위가맹점 사전조회가 실패했습니다: ${existing.responseCode}`,
+    );
+  }
+  if (existingMatch) {
+    if (!existingBusinessMatches) {
+      throw new AccessHttpError(
+        409,
+        "PAYUP_SUBMERCHANT_BUSINESS_MISMATCH",
+        "동일 하위가맹점 ID가 다른 사업자번호에 연결돼 있습니다.",
+      );
+    }
+  }
+
+  const gubun = existingMatch ? "2" : "1";
+  await assertFeatureFlags([gubun === "2" ? "SUBMERCHANT_UPDATE" : "SUBMERCHANT_CREATE"]);
+  const updatePayload = buildSubmerchantUpdatePayload(input.config.apiKey, {
+    gubun,
+    subMerchantId: material.subMerchantId,
+    subMerchantName: material.subMerchantName,
+    ownerName: material.ownerName,
+    phoneNumber: material.phoneNumber,
+    subBusinessNumber: material.businessNumber,
+    accountBank: material.accountBank,
+    accountNumber: material.accountNumber,
+    accountOwner: material.accountOwner,
+  });
+  const updateResult = await payupResultOrRecordTransportFailure({
+    config: input.config,
+    actor: input.actor,
+    operation: gubun === "2" ? "SUBMERCHANT_A5S_UPDATE" : "SUBMERCHANT_A5S_CREATE",
+    pathOrUrl: payupCartPath(input.config.merchantId, "sub-update"),
+    payload: updatePayload,
+    subMerchantId: material.subMerchantId,
+  });
+  const updateCode = text(updateResult.responseCode, 100);
+  if (updateCode !== "0000") {
+    await recordPayupCartProviderHealth(input.config, {
+      responseCode: updateCode,
+      responseMsg: updateResult.responseMsg,
+      subMerchantId: material.subMerchantId,
+    });
+    throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_UPDATE_FAILED", `PayUp 하위가맹점 등록·수정이 실패했습니다: ${updateCode || "응답코드 없음"}`);
+  }
+
+  const verificationResult = await payupResultOrRecordTransportFailure({
+    config: input.config,
+    actor: input.actor,
+    operation: "SUBMERCHANT_A5S_VERIFY",
+    pathOrUrl: payupCartPath(input.config.merchantId, "sub-list"),
+    payload: listPayload,
+    subMerchantId: material.subMerchantId,
+  });
+  const verification = projectListResponse(verificationResult, projectSubmerchant);
+  const verifiedMatch = verification.list.find((item) =>
+    text(item.subMerchantId, 20) === material.subMerchantId
+    && text(item.subBusinessNumber, 20).replace(/\D/g, "") === material.businessNumber
+  );
+  await recordPayupCartProviderHealth(input.config, {
+    responseCode: verification.responseCode,
+    responseMsg: verification.responseMsg,
+    subMerchantId: material.subMerchantId,
+    matched: Boolean(verifiedMatch),
+  });
+  if (verification.responseCode !== "0000" || !verifiedMatch) {
+    throw new AccessHttpError(
+      409,
+      "PAYUP_SUBMERCHANT_VERIFICATION_FAILED",
+      "PayUp 등록 요청 후 목록 재조회 검증을 통과하지 못했습니다.",
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const verifiedPatch = {
+    status: "ACTIVE",
+    payup_sync_status: "MATCHED",
+    checkout_blocked: false,
+    checkout_blocked_reason: "",
+    last_response_code: verification.responseCode,
+    last_response_msg: verification.responseMsg,
+    last_synced_at: FieldValue.serverTimestamp(),
+    last_synced_at_iso: nowIso,
+    updated_by_uid: input.actor.uid,
+    updated_at: FieldValue.serverTimestamp(),
+    updated_at_iso: nowIso,
+  };
+  await stored.ref.set(verifiedPatch, { merge: true });
+  const correlationId = await writeAccessAudit({
+    actor: input.actor,
+    action: gubun === "2" ? "PAYUP.SUBMERCHANT.A5S_UPDATED" : "PAYUP.SUBMERCHANT.A5S_REGISTERED",
+    targetType: "payup_submerchant",
+    targetId: material.subMerchantId,
+    before: stored.before,
+    after: { ...stored.prepared, ...verifiedPatch, updated_at: "serverTimestamp", last_synced_at: "serverTimestamp" },
+  });
+  return {
+    ok: true,
+    responseCode: verification.responseCode,
+    responseMsg: verification.responseMsg,
+    operation: gubun === "2" ? "update" : "create",
+    subMerchantId: material.subMerchantId,
+    businessNumber: material.businessNumber,
+    status: "ACTIVE",
+    correlationId,
+  };
+}
+
 export const payupAdminHealthSecure = onRequest(options, async (request, response) => {
   try {
     const actor = await requireAccess(request, "PAYUP_HEALTH_PROBE");
@@ -77,18 +294,31 @@ export const payupAdminHealthSecure = onRequest(options, async (request, respons
     let payupResponseCode = "";
     let payupResponseMsg = "";
     if (body.probe === true && cartApiBlockers.length === 0) {
-      const result = await postPayup({
-        config,
-        actor,
-        operation: "SUBMERCHANT_LIST_PROBE",
-        pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
-        payload: buildSubmerchantListPayload(config.apiKey, {}),
-      });
-      payupResponseCode = text(result.responseCode, 100);
-      payupResponseMsg = text(result.responseMsg, 500);
+      try {
+        const result = await postPayup({
+          config,
+          actor,
+          operation: "SUBMERCHANT_LIST_PROBE",
+          pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
+          payload: buildSubmerchantListPayload(config.apiKey, {}),
+        });
+        payupResponseCode = text(result.responseCode, 100);
+        payupResponseMsg = text(result.responseMsg, 500);
+        await recordPayupCartProviderHealth(config, {
+          responseCode: payupResponseCode,
+          responseMsg: payupResponseMsg,
+        });
+      } catch (error) {
+        await recordPayupCartProviderHealthBestEffort(config, {
+          responseCode: "TRANSPORT_ERROR",
+          responseMsg: error instanceof Error ? error.message : "PayUp probe failed",
+        });
+        throw error;
+      }
     }
+    const providerReady = body.probe !== true || payupResponseCode === "0000";
     response.status(200).json({
-      ok: blockers.length === 0,
+      ok: blockers.length === 0 && providerReady,
       mode: config.mode,
       liveCallsEnabled: config.liveCallsEnabled,
       baseUrl: config.baseUrl,
@@ -107,6 +337,7 @@ export const payupAdminHealthSecure = onRequest(options, async (request, respons
       lastProbeAt: new Date().toISOString(),
       payupResponseCode: payupResponseCode || undefined,
       payupResponseMsg: payupResponseMsg || undefined,
+      providerReady,
     });
   } catch (error) {
     sendAccessError(response, error);
@@ -157,19 +388,43 @@ export const payupAdminSubmerchantsSecure = onRequest(options, async (request, r
     const action = text(body.action, 30) || "list";
     const actor = await requireAccess(request, action === "list" ? "PAYUP_SUBMERCHANT_READ" : "PAYUP_SUBMERCHANT_WRITE");
     const config = getPayupRuntime();
+    if (action === "prepare_a5s" || action === "upsert_a5s") {
+      const result = await handleA5sSubmerchantAction({ action, body, actor, config });
+      response.status(200).json(result);
+      return;
+    }
     if (action === "list") {
       if (runtimeBlockers(config).length === 0 && await featureFlagEnabled("SUBMERCHANT_SYNC")) {
         const payload = buildSubmerchantListPayload(config.apiKey, body);
         const subMerchantId = text(payload.subMerchantId, 20);
-        const result = await postPayup({
-          config,
-          actor,
-          operation: "SUBMERCHANT_LIST",
-          pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
-          payload,
-          subMerchantId,
-        });
+        let result: JsonRecord;
+        try {
+          result = await postPayup({
+            config,
+            actor,
+            operation: "SUBMERCHANT_LIST",
+            pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
+            payload,
+            subMerchantId,
+          });
+        } catch (error) {
+          await recordPayupCartProviderHealthBestEffort(config, {
+            responseCode: "TRANSPORT_ERROR",
+            responseMsg: error instanceof Error ? error.message : "PayUp submerchant list failed",
+            subMerchantId,
+          });
+          throw error;
+        }
         const projected = projectListResponse(result, projectSubmerchant);
+        const matched = subMerchantId
+          ? projected.list.some((item) => text(item.subMerchantId, 20) === subMerchantId)
+          : undefined;
+        await recordPayupCartProviderHealth(config, {
+          responseCode: projected.responseCode,
+          responseMsg: projected.responseMsg,
+          subMerchantId,
+          matched,
+        });
         if (projected.responseCode === "0000") {
           const nowIso = new Date().toISOString();
           const returnedIds = new Set(projected.list.map((item) => text(item.subMerchantId, 20)).filter(Boolean));

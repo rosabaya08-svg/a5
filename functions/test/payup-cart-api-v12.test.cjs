@@ -2,6 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const contract = require("../lib/payup/cartApiV12.js");
 const runtime = require("../lib/payup/runtimeV2.js");
+const providerHealth = require("../lib/payup/providerHealth.js");
+const a5sSync = require("../lib/payup/a5sSubmerchantSync.js");
+const testFixtures = require("../lib/payup/testFixtures.js");
 
 const API_KEY = "k".repeat(32);
 
@@ -218,4 +221,96 @@ test("fixed egress and IP registration block production but not the PayUp test s
   assert.equal(productionBlockers.some((item) => item.includes("PAYUP_VPC_CONNECTOR")), true);
   assert.equal(productionBlockers.some((item) => item.includes("PAYUP_FIXED_EGRESS_IP")), true);
   assert.equal(productionBlockers.some((item) => item.includes("공인 IP")), true);
+});
+
+test("provider health blocks stale verified state on authentication and transport failures", () => {
+  assert.equal(providerHealth.payupCartProviderStatus("0000"), "READY");
+  assert.equal(providerHealth.payupCartProviderStatus("7001"), "AUTH_BLOCKED");
+  assert.equal(providerHealth.payupCartProviderStatus("HTTP_502"), "UNAVAILABLE");
+  assert.equal(providerHealth.payupCartProviderStatus("9108"), "API_BLOCKED");
+  assert.deepEqual(
+    providerHealth.payupCartProviderPatch({
+      responseCode: "7001",
+      responseMsg: "인증키를 확인해주세요.",
+    }),
+    {
+      status: "AUTH_BLOCKED",
+      checkoutBlocked: true,
+      responseCode: "7001",
+      responseMsg: "인증키를 확인해주세요.",
+      subMerchantId: "",
+      matched: false,
+    },
+  );
+});
+
+test("A5S source material is registration-ready but central storage remains masked", () => {
+  const material = a5sSync.normalizeA5sSubmerchantMaterial({
+    sourceProjectId: "a5s-mall",
+    businessNumber: "2158159188",
+    environment: "test",
+    partner: {
+      status: "active",
+      applicationStatus: "approved",
+      businessName: "(주)해성청과",
+      ownerName: "대표자",
+      phone: "01012345678",
+      businessScale: "일반",
+      payupTestSubMerchantId: "wc2158159188",
+      partnerId: "partner-2158159188",
+    },
+    finance: {
+      bankName: "국민은행",
+      accountNo: "123-456-789012",
+      accountHolder: "(주)해성청과",
+    },
+  });
+  assert.equal(material.subMerchantId, "wc2158159188");
+  assert.equal(material.accountNumber, "123456789012");
+  const prepared = a5sSync.preparedCentralSubmerchant(material, {
+    merchantId: "withcommerce_test",
+    actorUid: "test-operator",
+  });
+  assert.equal(prepared.status, "PENDING_VERIFICATION");
+  assert.equal(prepared.payup_sync_status, "PREPARED");
+  assert.equal(prepared.registration_payload_ready, true);
+  assert.equal(prepared.source_values_persisted, false);
+  assert.equal(prepared.account_number, undefined);
+  assert.equal(prepared.phone_number, undefined);
+  assert.equal(prepared.account_number_masked, "123-****-012");
+  assert.equal(prepared.phone_number_masked, "010****5678");
+});
+
+test("A5S sync rejects inactive or incomplete partner data", () => {
+  expectCode(
+    () => a5sSync.normalizeA5sSubmerchantMaterial({
+      sourceProjectId: "a5s-mall",
+      businessNumber: "2871103274",
+      environment: "test",
+      partner: {
+        status: "pending",
+        applicationStatus: "approved",
+      },
+      finance: {},
+    }),
+    "A5S_PARTNER_NOT_APPROVED",
+  );
+});
+
+test("PayUp test fixtures cover 1004, 2008, 6504 and the current A5S 2038 price contract", () => {
+  assert.deepEqual(testFixtures.assertPayupTestFixtureContracts(), {
+    productCount: 4,
+    scenarioCount: 5,
+  });
+  const scenarios = new Map(testFixtures.payupTestScenarios.map((scenario) => [scenario.id, scenario]));
+  assert.equal(scenarios.get("two_company_cart_2008").expectedTotal, 2008);
+  assert.equal(scenarios.get("shipping_split_6504").expectedTotal, 6504);
+  assert.equal(scenarios.get("a5s_pricing_contract_2038").expectedTotal, 2038);
+  assert.deepEqual(
+    scenarios.get("shipping_split_6504").expectedCartPayList,
+    [
+      { subMerchantId: "wc2158159188", amount: 1800 },
+      { subMerchantId: "wc2871103274", amount: 4704 },
+    ],
+  );
 });

@@ -128,6 +128,7 @@ jobs:
           cat > "functions/.env.${PROJECT_ID}" <<EOF
           PAYUP_MERCHANT_ID=${PAYUP_MERCHANT_ID}
           PAYUP_ENVIRONMENT=test
+          A5S_SOURCE_PROJECT_ID=a5s-mall
           PAYUP_VPC_CONNECTOR=
           PAYUP_FIXED_EGRESS_IP=
           PAYUP_FIXED_IP_REGISTERED=false

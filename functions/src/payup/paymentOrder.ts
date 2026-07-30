@@ -38,6 +38,10 @@ import {
   projectListResponse,
   projectSubmerchant,
 } from "./cartApiV12";
+import {
+  recordPayupCartProviderHealth,
+  recordPayupCartProviderHealthBestEffort,
+} from "./providerHealth";
 
 const REGION = "asia-northeast3";
 const options = { region: REGION, cors: true, maxInstances: 30, secrets: [PAYUP_API_KEY, PAYUP_API_CERT_KEY, ORDER_PII_ENCRYPTION_KEY] };
@@ -48,27 +52,44 @@ async function assertExternalSubmerchantsReady(config: ReturnType<typeof getPayu
     if (line.businessNumber) businessNumberById.set(line.subMerchantId, line.businessNumber);
   }
   const subMerchantIds = [...new Set(plan.cartPayList.map((line) => line.subMerchantId))];
-  await Promise.all(subMerchantIds.map(async (subMerchantId) => {
-    const result = await postPayup({
-      config,
-      operation: "SUBMERCHANT_CHECKOUT_PREFLIGHT",
-      pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
-      payload: buildSubmerchantListPayload(config.apiKey, { subMerchantId }),
-      subMerchantId,
-    });
+  for (const subMerchantId of subMerchantIds) {
+    let result: JsonRecord;
+    try {
+      result = await postPayup({
+        config,
+        operation: "SUBMERCHANT_CHECKOUT_PREFLIGHT",
+        pathOrUrl: payupCartPath(config.merchantId, "sub-list"),
+        payload: buildSubmerchantListPayload(config.apiKey, { subMerchantId }),
+        subMerchantId,
+      });
+    } catch (error) {
+      await recordPayupCartProviderHealthBestEffort(config, {
+        responseCode: "TRANSPORT_ERROR",
+        responseMsg: error instanceof Error ? error.message : "PayUp checkout preflight failed",
+        subMerchantId,
+      });
+      throw error;
+    }
     const projected = projectListResponse(result, projectSubmerchant);
     const responseCode = projected.responseCode;
+    const match = projected.list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
+    const expectedBusinessNumber = businessNumberById.get(subMerchantId);
+    const actualBusinessNumber = text(match?.subBusinessNumber, 20).replace(/[^0-9]/g, "");
+    const businessNumberMatches = !expectedBusinessNumber || actualBusinessNumber === expectedBusinessNumber;
+    await recordPayupCartProviderHealth(config, {
+      responseCode,
+      responseMsg: projected.responseMsg,
+      subMerchantId,
+      matched: Boolean(match) && businessNumberMatches,
+    });
     if (responseCode !== "0000") {
       throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_LOOKUP_FAILED", `${subMerchantId} 운영 등록 조회가 실패했습니다: ${responseCode || "응답코드 없음"}`);
     }
-    const match = projected.list.find((item) => text(item.subMerchantId, 20) === subMerchantId);
     if (!match) throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_NOT_REGISTERED", `${subMerchantId}이 현재 운영 MID의 PayUp 하위가맹점 목록에 없습니다.`);
-    const expectedBusinessNumber = businessNumberById.get(subMerchantId);
-    const actualBusinessNumber = text(match.subBusinessNumber, 20).replace(/[^0-9]/g, "");
-    if (expectedBusinessNumber && actualBusinessNumber !== expectedBusinessNumber) {
+    if (!businessNumberMatches) {
       throw new AccessHttpError(409, "PAYUP_SUBMERCHANT_BUSINESS_MISMATCH", `${subMerchantId}의 PayUp 사업자번호 매핑이 내부 분배정책과 일치하지 않습니다.`);
     }
-  }));
+  }
 }
 
 export const payupPaymentOrder = onRequest(options, async (request, response) => {
